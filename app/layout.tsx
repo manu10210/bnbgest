@@ -21,6 +21,26 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "BNBGest - Gestion Airbnb Professionnelle",
   description: "Plateforme complete de gestion pour proprietaires Airbnb",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "BNBGest",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    siteName: "BNBGest",
+    title: "BNBGest - Gestion Locative Professionnelle",
+    description: "Solution complète pour gérer vos locations Airbnb",
+  },
+  twitter: {
+    card: "summary",
+    title: "BNBGest",
+    description: "Gestion locative professionnelle",
+  },
 };
 
 export default function RootLayout({
@@ -32,6 +52,13 @@ export default function RootLayout({
     <html lang="fr" className="dark" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+        <meta name="theme-color" content="#FF385C" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="BNBGest" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/favicon.ico" />
         <script dangerouslySetInnerHTML={{
           __html: `
             try {

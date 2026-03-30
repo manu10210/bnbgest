@@ -1,52 +1,190 @@
-# Application de Gestion de Maintenance Airbnb
+# 🏠 BNBGest - Gestion Locative Professionnelle
 
-Une application web complète pour gérer les propriétés Airbnb, les réservations, les tâches de maintenance et les finances.
+[![Déploiement](https://img.shields.io/badge/deploy-vercel-black)](https://bnbgest.vercel.app)
+[![Next.js](https://img.shields.io/badge/Next.js-15.5-black)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org)
+[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
-## Fonctionnalités
+> Application web complète et moderne pour gérer vos propriétés Airbnb de manière professionnelle.
 
-- **Tableau de bord** : Vue d'ensemble des revenus, dépenses et profits
-- **Gestion des propriétés** : Ajout, liste avec équipements et prix
-- **Réservations** : Gestion des réservations avec dates et revenus
-- **Tâches de maintenance** : Assignation, suivi des statuts et coûts
-- **Employés** : Liste des employés pour assignation des tâches
-- **Gestion des clients** : Profils clients avec historique des réservations et notes
-- **Inventaire** : Suivi des stocks, alertes de réapprovisionnement et fournisseurs
-- **Avis clients** : Système de notation et commentaires pour les propriétés
-- **Calendrier** : Vue calendrier des tâches et événements
-- **Niveaux d'accès** : Client, Employé, Administrateur
-- **Upload mobile** : QR code pour uploader des photos depuis mobile
-- Interface moderne avec Next.js et Tailwind CSS
+🌐 **URL Production** : [https://bnbgest.vercel.app](https://bnbgest.vercel.app)
 
-## Démarrage
+---
 
-Installez les dépendances :
+## ✨ Fonctionnalités Principales
+
+### 📊 Tableau de Bord
+- Vue d'ensemble des revenus, dépenses et profits
+- Graphiques interactifs (Recharts)
+- Prévisions de revenus
+- Statistiques en temps réel
+
+### 🏡 Gestion des Propriétés
+- Création et gestion de propriétés multiples
+- Configuration détaillée (équipements, prix, disponibilité)
+- Photos et galeries
+- Personnalisation complète
+
+### 📅 Réservations & Calendrier
+- Système de réservation complet
+- Calendrier interactif (FullCalendar)
+- Gestion des dates et tarifs
+- Historique des réservations
+
+### 🧹 Maintenance & Ménage
+- Checklists de nettoyage personnalisables
+- Galerie photo avant/après
+- Assignation aux employés
+- Suivi des tâches en temps réel
+
+### 👥 Gestion Clients & Invités
+- Profils clients détaillés
+- Historique des séjours
+- Système de notation et avis
+- Communication centralisée
+
+### 📦 Inventaire
+- Suivi des stocks et équipements
+- Alertes de réapprovisionnement
+- Gestion des fournisseurs
+- Historique des achats
+
+### 📱 Guides Vidéo Équipements (QR Codes)
+- Création de guides vidéo pour chaque équipement
+- Génération automatique de QR codes
+- Accessible depuis mobile
+- Upload vidéo depuis smartphone
+- Streaming optimisé
+
+### 📄 Génération de Contrats
+- Modèles de contrats personnalisables
+- Génération automatique PDF
+- Variables dynamiques
+- Signature électronique
+
+### 🎨 Personnalisation
+- Thème clair/sombre
+- Customisation des couleurs
+- Multi-langue (FR/EN/ES)
+- Interface adaptative
+
+### 📱 Progressive Web App (PWA)
+- Installation comme app native
+- Raccourcis rapides
+- Icône sur écran d'accueil
+- Mode standalone
+
+---
+
+## 🚀 Démarrage Rapide
+
+### Prérequis
+
+- Node.js 18+ installé
+- npm ou yarn
+- Git (pour déploiement automatique)
+
+### Installation Locale
 
 ```bash
+# Cloner le repository
+git clone https://github.com/manu10210/bnbgest.git
+
+# Installer les dépendances
+cd bnbgest
 npm install
-```
 
-Lancez le serveur de développement :
-
-```bash
+# Lancer en développement
 npm run dev
 ```
 
-Ouvrez [http://localhost:3001](http://localhost:3001) dans votre navigateur.
+Ouvrez [http://localhost:3000](http://localhost:3000) dans votre navigateur.
 
-## Pages
+### Build Production
 
-- `/` : Page d'accueil avec navigation
-- `/calendar` : Calendrier des tâches
-- `/admin` : Espace administrateur (gestion complète)
-- `/client` : Espace client (vision limitée)
-- `/employee` : Espace employé (tâches assignées)
+```bash
+# Build de l'application
+npm run build
 
-## Technologies Utilisées
+# Lancer en production
+npm start
+```
 
-- Next.js 16
-- TypeScript
-- Tailwind CSS
-- FullCalendar
+---
+
+## 📱 Installation PWA
+
+### Sur Mobile (Android)
+1. Ouvrez https://bnbgest.vercel.app sur Chrome
+2. Menu (3 points) → "Ajouter à l'écran d'accueil"
+3. Confirmez l'installation
+
+### Sur iPhone/iPad
+1. Ouvrez https://bnbgest.vercel.app sur Safari
+2. Bouton Partager → "Sur l'écran d'accueil"
+3. Installez
+
+### Sur Desktop
+1. Ouvrez https://bnbgest.vercel.app
+2. Cliquez sur ⊕ dans la barre d'adresse
+3. "Installer BNBGest"
+
+---
+
+## 🎯 Navigation
+
+### Pages Principales
+
+| Route | Description | Accès |
+|-------|-------------|-------|
+| `/` | Page d'accueil | Public |
+| `/login` | Connexion | Public |
+| `/admin` | Tableau de bord admin | Admin |
+| `/calendar` | Calendrier interactif | Admin/Employé |
+| `/client` | Espace client | Client |
+| `/employee` | Espace employé | Employé |
+| `/photos` | Galerie photos | Admin |
+| `/upload` | Upload photos (QR) | Public |
+| `/upload-video` | Upload vidéos (QR) | Public |
+| `/guide/[id]` | Guide vidéo équipement | Public |
+
+### API Routes
+
+- `/api/guides` - Gestion guides vidéo
+- `/api/photos` - Upload photos
+- `/api/upload-video` - Upload vidéos
+- `/api/video/[filename]` - Streaming vidéo
+- `/api/network-ip` - Détection IP réseau
+
+---
+
+## 🛠️ Technologies Utilisées
+
+### Frontend
+- **Next.js 15.5** - Framework React
+- **React 19.2** - Library UI
+- **TypeScript 5** - Typage statique
+- **Tailwind CSS 4** - Styling
+- **Framer Motion** - Animations
+- **Lucide React** - Icons
+
+### Composants & UI
+- **FullCalendar** - Calendrier interactif
+- **Recharts** - Graphiques
+- **QRCode.react** - Génération QR codes
+- **jsPDF** - Export PDF
+- **React Hook Form** - Formulaires
+- **Zod** - Validation
+
+### Backend & Déploiement
+- **Vercel** - Hébergement & CI/CD
+- **Next.js API Routes** - Backend serverless
+- **GitHub** - Version control
+- **Cloudinary** - Stockage médias (recommandé)
+
+---
+
+## 📂 Structure du Projet
 
 ## Upload de Photos depuis Mobile
 
