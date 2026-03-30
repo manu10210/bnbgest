@@ -30,6 +30,20 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# app logs
+*.log
+crash.log
+
+# temp fix scripts
+fix-*.js
+fix-*.mjs
+_fix_*.js
+_write_*.js
+
+# backup/corrupted files
+*.backup
+*.corrupted
+
 # env files (can opt-in for committing if needed)
 .env*
 
@@ -39,3 +53,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel

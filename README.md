@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Application de Gestion de Maintenance Airbnb
 
-## Getting Started
+Une application web complète pour gérer les propriétés Airbnb, les réservations, les tâches de maintenance et les finances.
 
-First, run the development server:
+## Fonctionnalités
+
+- **Tableau de bord** : Vue d'ensemble des revenus, dépenses et profits
+- **Gestion des propriétés** : Ajout, liste avec équipements et prix
+- **Réservations** : Gestion des réservations avec dates et revenus
+- **Tâches de maintenance** : Assignation, suivi des statuts et coûts
+- **Employés** : Liste des employés pour assignation des tâches
+- **Gestion des clients** : Profils clients avec historique des réservations et notes
+- **Inventaire** : Suivi des stocks, alertes de réapprovisionnement et fournisseurs
+- **Avis clients** : Système de notation et commentaires pour les propriétés
+- **Calendrier** : Vue calendrier des tâches et événements
+- **Niveaux d'accès** : Client, Employé, Administrateur
+- **Upload mobile** : QR code pour uploader des photos depuis mobile
+- Interface moderne avec Next.js et Tailwind CSS
+
+## Démarrage
+
+Installez les dépendances :
+
+```bash
+npm install
+```
+
+Lancez le serveur de développement :
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrez [http://localhost:3001](http://localhost:3001) dans votre navigateur.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Pages
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/` : Page d'accueil avec navigation
+- `/calendar` : Calendrier des tâches
+- `/admin` : Espace administrateur (gestion complète)
+- `/client` : Espace client (vision limitée)
+- `/employee` : Espace employé (tâches assignées)
 
-## Learn More
+## Technologies Utilisées
 
-To learn more about Next.js, take a look at the following resources:
+- Next.js 16
+- TypeScript
+- Tailwind CSS
+- FullCalendar
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Upload de Photos depuis Mobile
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+L'application inclut une fonctionnalité innovante d'upload de photos depuis mobile via QR code :
 
-## Deploy on Vercel
+### Comment ça marche :
+1. Dans le configurateur de propriété (étape 4 - Photos), cliquez sur "Afficher QR"
+2. Scannez le QR code avec votre téléphone
+3. Sur votre mobile, vous pouvez prendre des photos ou sélectionner depuis la galerie
+4. Les photos sont automatiquement ajoutées à votre propriété sur l'ordinateur
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Avantages :
+- Photos de meilleure qualité depuis l'appareil photo du téléphone
+- Plus pratique que de transférer manuellement les fichiers
+- Synchronisation automatique en temps réel
+- Interface mobile optimisée
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### API Endpoints :
+- `POST /api/upload` : Upload d'images depuis mobile
+- `GET /api/upload?session=xxx` : Récupération des images uploadées pour une session
