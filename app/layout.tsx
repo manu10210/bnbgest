@@ -8,6 +8,7 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { LanguageProvider } from "../contexts/LanguageContext";
 import ThemeWrapper from "../components/ThemeWrapper";
 import AuthSessionProvider from "../components/AuthSessionProvider";
+import AnalyticsWrapper from "../components/AnalyticsWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -125,7 +126,9 @@ export default function RootLayout({
                 <CustomizationProvider>
                   <BNBProvider>
                     <ThemeWrapper>
-                      {children}
+                      <AnalyticsWrapper>
+                        {children}
+                      </AnalyticsWrapper>
                     </ThemeWrapper>
                   </BNBProvider>
                 </CustomizationProvider>
