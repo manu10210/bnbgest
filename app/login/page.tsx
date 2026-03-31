@@ -3,18 +3,23 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
-import { ArrowLeft, LogIn, Eye, EyeOff, Mail, Lock, Home, Sparkles, Shield, Zap } from 'lucide-react';
+import { ArrowLeft, LogIn, Eye, EyeOff, Mail, Lock, Home, Sparkles, Shield, Zap, User, UserPlus } from 'lucide-react';
 import ThemeToggle from '../../components/ThemeToggle';
 import { useTheme } from '../../contexts/ThemeContext';
 import { signIn } from 'next-auth/react';
 import Image from 'next/image';
 
 export default function LoginPage() {
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const { login, isLoading } = useAuth();
@@ -22,6 +27,50 @@ export default function LoginPage() {
   const { isDark } = useTheme();
 
   useEffect(() => { setMounted(true); }, []);
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    // Validation
+    if (!name.trim()) {
+      setError('Le nom est requis');
+      return;
+    }
+    if (!email.trim() || !email.includes('@')) {
+      setError('Email invalide');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Le mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Les mots de passe ne correspondent pas');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Simulation d'inscription (en production, appeler votre API)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      setSuccess('✅ Inscription réussie ! Redirection...');
+      setTimeout(() => {
+        setIsSignUp(false);
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+        setName('');
+        setSuccess('');
+      }, 2000);
+    } catch (_err) {
+      setError('Une erreur est survenue lors de l\'inscription');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,20 +154,83 @@ export default function LoginPage() {
             <span className="text-white font-black text-2xl">BG</span>
           </div>
           <h2 className={`text-3xl font-black mb-2 ${isDark ? 'text-white' : 'text-[#222222]'}`}>
-            Bon retour <span className="gradient-text">!</span>
+            {isSignUp ? (
+              <>Créer un compte <span className="gradient-text">!</span></>
+            ) : (
+              <>Bon retour <span className="gradient-text">!</span></>
+            )}
           </h2>
-          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>Accédez à votre espace administrateur</p>
+          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>
+            {isSignUp ? 'Rejoignez BNBGest dès maintenant' : 'Accédez à votre espace administrateur'}
+          </p>
+        </div>
+
+        {/* Toggle Connexion/Inscription */}
+        <div className={`flex gap-2 p-1.5 rounded-xl animate-fadeInUp ${isDark ? 'bg-white/[0.04]' : 'bg-gray-100'}`} style={{ animationDelay: '150ms' }}>
+          <button
+            type="button"
+            onClick={() => { setIsSignUp(false); setError(''); setSuccess(''); }}
+            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
+              !isSignUp 
+                ? 'bg-gradient-to-r from-[#FF385C] to-[#E31C5F] text-white shadow-lg shadow-[#FF385C]/25' 
+                : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <LogIn size={16} />
+              Connexion
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setIsSignUp(true); setError(''); setSuccess(''); }}
+            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
+              isSignUp 
+                ? 'bg-gradient-to-r from-[#FF385C] to-[#E31C5F] text-white shadow-lg shadow-[#FF385C]/25' 
+                : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <UserPlus size={16} />
+              Inscription
+            </div>
+          </button>
         </div>
 
         {/* Form Card */}
         <div className={`glass-pro rounded-2xl p-8 animate-fadeInUp border-gradient ${isDark ? '' : 'bg-white/80'}`} style={{ animationDelay: '200ms' }}>
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={isSignUp ? handleSignUp : handleSubmit} className="space-y-5">
             {error && (
               <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm animate-scaleIn flex items-center gap-2">
                 <div className="w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
                   <span className="text-xs">!</span>
                 </div>
                 {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-xl text-sm animate-scaleIn flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs">✓</span>
+                </div>
+                {success}
+              </div>
+            )}
+
+            {/* Champ Nom (uniquement pour inscription) */}
+            {isSignUp && (
+              <div className="space-y-1.5 animate-fadeInUp">
+                <label htmlFor="name" className={`block text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Nom complet</label>
+                <div className={`relative group rounded-xl transition-all duration-300 ${focused === 'name' ? 'ring-2 ring-[#FF385C]/30' : ''}`}>
+                  <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${focused === 'name' ? 'bg-[#FF385C]/10' : isDark ? 'bg-white/[0.04]' : 'bg-gray-100'}`}>
+                    <User size={15} className={`transition-colors ${focused === 'name' ? 'text-[#FF385C]' : isDark ? 'text-gray-500' : 'text-[#b0b0b0]'}`} />
+                  </div>
+                  <input id="name" type="text" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)}
+                    onFocus={() => setFocused('name')} onBlur={() => setFocused(null)}
+                    className={`w-full pl-14 pr-4 py-3.5 border rounded-xl transition-all text-sm ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder-gray-600 focus:border-[#FF385C]/50' : 'bg-white border-[#dddddd] text-[#222222] placeholder-[#b0b0b0] focus:border-[#FF385C]/50'}`}
+                    placeholder="Votre nom complet" disabled={isSubmitting} />
+                </div>
               </div>
             )}
 
@@ -141,27 +253,46 @@ export default function LoginPage() {
                 <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${focused === 'password' ? 'bg-[#FF385C]/10' : isDark ? 'bg-white/[0.04]' : 'bg-gray-100'}`}>
                   <Lock size={15} className={`transition-colors ${focused === 'password' ? 'text-[#FF385C]' : isDark ? 'text-gray-500' : 'text-[#b0b0b0]'}`} />
                 </div>
-                <input id="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)}
+                <input id="password" type={showPassword ? 'text' : 'password'} autoComplete={isSignUp ? 'new-password' : 'current-password'} required value={password} onChange={(e) => setPassword(e.target.value)}
                   onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
                   className={`w-full pl-14 pr-12 py-3.5 border rounded-xl transition-all text-sm ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder-gray-600 focus:border-[#FF385C]/50' : 'bg-white border-[#dddddd] text-[#222222] placeholder-[#b0b0b0] focus:border-[#FF385C]/50'}`}
-                  placeholder="Votre mot de passe" disabled={isSubmitting} />
+                  placeholder={isSignUp ? 'Minimum 6 caractères' : 'Votre mot de passe'} disabled={isSubmitting} />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className={`absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:scale-110 ${isDark ? 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.06]' : 'text-[#b0b0b0] hover:text-[#717171] hover:bg-gray-100'}`}>
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
 
+            {/* Champ Confirmer mot de passe (uniquement pour inscription) */}
+            {isSignUp && (
+              <div className="space-y-1.5 animate-fadeInUp">
+                <label htmlFor="confirmPassword" className={`block text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Confirmer le mot de passe</label>
+                <div className={`relative group rounded-xl transition-all duration-300 ${focused === 'confirmPassword' ? 'ring-2 ring-[#FF385C]/30' : ''}`}>
+                  <div className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${focused === 'confirmPassword' ? 'bg-[#FF385C]/10' : isDark ? 'bg-white/[0.04]' : 'bg-gray-100'}`}>
+                    <Lock size={15} className={`transition-colors ${focused === 'confirmPassword' ? 'text-[#FF385C]' : isDark ? 'text-gray-500' : 'text-[#b0b0b0]'}`} />
+                  </div>
+                  <input id="confirmPassword" type={showConfirmPassword ? 'text' : 'password'} autoComplete="new-password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                    onFocus={() => setFocused('confirmPassword')} onBlur={() => setFocused(null)}
+                    className={`w-full pl-14 pr-12 py-3.5 border rounded-xl transition-all text-sm ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder-gray-600 focus:border-[#FF385C]/50' : 'bg-white border-[#dddddd] text-[#222222] placeholder-[#b0b0b0] focus:border-[#FF385C]/50'}`}
+                    placeholder="Confirmez votre mot de passe" disabled={isSubmitting} />
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className={`absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:scale-110 ${isDark ? 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.06]' : 'text-[#b0b0b0] hover:text-[#717171] hover:bg-gray-100'}`}>
+                    {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button type="submit" disabled={isSubmitting}
               className="w-full flex justify-center items-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-[#FF385C] to-[#E31C5F] hover:shadow-xl hover:shadow-[#FF385C]/25 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
               {isSubmitting ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                  Connexion...
+                  {isSignUp ? 'Inscription...' : 'Connexion...'}
                 </>
               ) : (
                 <>
-                  <LogIn size={16} />
-                  Se connecter
+                  {isSignUp ? <UserPlus size={16} /> : <LogIn size={16} />}
+                  {isSignUp ? 'S\'inscrire' : 'Se connecter'}
                 </>
               )}
             </button>
@@ -193,27 +324,29 @@ export default function LoginPage() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              {isSubmitting ? 'Connexion...' : 'Continuer avec Google'}
+              {isSubmitting ? (isSignUp ? 'Inscription...' : 'Connexion...') : (isSignUp ? 'S\'inscrire avec Google' : 'Continuer avec Google')}
             </button>
           </form>
 
-          {/* Test accounts */}
-          <div className={`mt-6 p-4 rounded-xl card-shine ${isDark ? 'bg-[#FF385C]/[0.06] border border-[#FF385C]/15' : 'bg-rose-50 border border-rose-100'}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles size={12} className="text-[#FF385C]" />
-              <h4 className={`text-xs font-bold ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Comptes de test</h4>
-            </div>
-            <div className={`text-xs space-y-1.5 ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>
-              <div className="flex items-center gap-2">
-                <div className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold ${isDark ? 'bg-[#FF385C]/20 text-[#FF385C]' : 'bg-[#FF385C]/10 text-[#FF385C]'}`}>A</div>
-                <span><strong className={`${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>claustre.emmanuel@gmail.com</strong> / admin123</span>
+          {/* Test accounts - Uniquement en mode connexion */}
+          {!isSignUp && (
+            <div className={`mt-6 p-4 rounded-xl card-shine ${isDark ? 'bg-[#FF385C]/[0.06] border border-[#FF385C]/15' : 'bg-rose-50 border border-rose-100'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles size={12} className="text-[#FF385C]" />
+                <h4 className={`text-xs font-bold ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Comptes de test</h4>
+              </div>
+              <div className={`text-xs space-y-1.5 ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>
+                <div className="flex items-center gap-2">
+                  <div className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold ${isDark ? 'bg-[#FF385C]/20 text-[#FF385C]' : 'bg-[#FF385C]/10 text-[#FF385C]'}`}>A</div>
+                  <span><strong className={`${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>claustre.emmanuel@gmail.com</strong> / admin123</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold ${isDark ? 'bg-violet-500/20 text-violet-400' : 'bg-violet-100 text-violet-600'}`}>E</div>
                 <span><strong className={`${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>employee@bnbgest.com</strong> / emp123</span>
               </div>
             </div>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Trust indicators */}
