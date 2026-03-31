@@ -20,27 +20,67 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BNBGest - Gestion Airbnb Professionnelle",
-  description: "Plateforme complete de gestion pour proprietaires Airbnb",
+  metadataBase: new URL('https://bnbgest.vercel.app'),
+  title: {
+    default: "BNBGest - Gestion Location Courte Durée Airbnb & Booking",
+    template: "%s | BNBGest"
+  },
+  description: "Plateforme complète de gestion pour locations courte durée : Airbnb, Booking.com. Calendrier, réservations, nettoyage, contrats, inventaire et plus.",
+  keywords: ["airbnb", "booking", "gestion location", "location courte durée", "calendrier réservation", "gestion propriété", "nettoyage", "contrats location"],
+  authors: [{ name: "BNBGest Team" }],
+  creator: "BNBGest",
+  publisher: "BNBGest",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'fr_FR',
+    url: 'https://bnbgest.vercel.app',
+    siteName: 'BNBGest',
+    title: 'BNBGest - Gestion Location Courte Durée',
+    description: 'Plateforme complète de gestion pour locations Airbnb et Booking.com',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'BNBGest Dashboard',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'BNBGest - Gestion Location Courte Durée',
+    description: 'Plateforme complète de gestion pour locations Airbnb et Booking.com',
+    images: ['/og-image.png'],
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "BNBGest",
   },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+  },
+  verification: {
+    // À ajouter plus tard si besoin
+    // google: 'votre-code-verification-google',
+    // yandex: 'votre-code-verification-yandex',
+  },
   formatDetection: {
     telephone: false,
-  },
-  openGraph: {
-    type: "website",
-    siteName: "BNBGest",
-    title: "BNBGest - Gestion Locative Professionnelle",
-    description: "Solution complète pour gérer vos locations Airbnb",
-  },
-  twitter: {
-    card: "summary",
-    title: "BNBGest",
-    description: "Gestion locative professionnelle",
   },
 };
 

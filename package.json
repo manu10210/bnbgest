@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "analyze": "node scripts/analyze-performance.js",
+    "check:seo": "echo 'Vérification SEO...' && curl -I https://bnbgest.vercel.app",
+    "check:health": "curl https://bnbgest.vercel.app/api/health"
   },
   "dependencies": {
     "@fullcalendar/daygrid": "^6.1.20",
