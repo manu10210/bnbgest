@@ -68,7 +68,15 @@
 - Multi-langue (FR/EN/ES)
 - Interface adaptative
 
-### 📱 Progressive Web App (PWA)
+### � Authentification Sécurisée
+- **Email/Password classique**
+- **🆕 Google OAuth (1-clic)**
+- JWT strategy (NextAuth.js v5)
+- Whitelist d'emails autorisés
+- Sessions sécurisées (30 jours)
+- Gestion des rôles (Admin/Employé/Client)
+
+### �📱 Progressive Web App (PWA)
 - Installation comme app native
 - Raccourcis rapides
 - Icône sur écran d'accueil
@@ -128,6 +136,52 @@ npm start
 1. Ouvrez https://bnbgest.vercel.app
 2. Cliquez sur ⊕ dans la barre d'adresse
 3. "Installer BNBGest"
+
+## 🔐 Authentification
+
+### Connexion Email/Password (Par défaut)
+
+Comptes de test inclus :
+
+| Email | Mot de passe | Rôle |
+|-------|--------------|------|
+| `claustre.emmanuel@gmail.com` | `admin123` | Admin |
+| `employee@bnbgest.com` | `emp123` | Employé |
+
+### 🆕 Connexion Google OAuth
+
+**Configuration Google Cloud Console requise** - Voir [GOOGLE_AUTH_SETUP.md](./GOOGLE_AUTH_SETUP.md)
+
+1. **Créer un projet Google Cloud**
+2. **Configurer OAuth Consent Screen**
+3. **Créer OAuth Client ID**
+4. **Configurer les variables d'environnement**
+
+**Variables requises (.env.local)** :
+```bash
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-generated-secret
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+```
+
+**Générer un secret sécurisé** :
+```bash
+# Windows PowerShell
+.\generate-nextauth-secret.ps1
+
+# Ou batch
+.\generate-secret.bat
+
+# Ou manuellement
+openssl rand -base64 32
+```
+
+**Emails autorisés** (configuré dans `auth.config.ts`) :
+- `claustre.emmanuel@gmail.com` ✅
+- `employee@bnbgest.com` ✅
+
+📘 **Documentation complète** : [GOOGLE_AUTH_DOCUMENTATION.md](./GOOGLE_AUTH_DOCUMENTATION.md)
 
 ---
 
