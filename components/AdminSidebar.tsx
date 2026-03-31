@@ -133,6 +133,30 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 
+                // Si c'est "settings", créer un lien vers /settings
+                if (item.id === 'settings') {
+                  return (
+                    <a
+                      key={item.id}
+                      href="/settings"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                        isDark 
+                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]' 
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 shrink-0 relative z-10 ${
+                        isDark ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-gray-900'
+                      }`} />
+                      {!isCollapsed && (
+                        <span className="text-sm font-medium relative z-10">
+                          {item.label}
+                        </span>
+                      )}
+                    </a>
+                  );
+                }
+                
                 return (
                   <button
                     key={item.id}
