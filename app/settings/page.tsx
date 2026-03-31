@@ -99,7 +99,7 @@ export default function SettingsPage() {
       icon: Bell,
       path: '/settings/notifications',
       color: 'from-blue-500 to-cyan-500',
-      available: false
+      available: true
     },
     {
       id: 'profile',
@@ -108,7 +108,7 @@ export default function SettingsPage() {
       icon: User,
       path: '/settings/profile',
       color: 'from-green-500 to-emerald-500',
-      available: false
+      available: true
     },
     {
       id: 'security',
@@ -117,7 +117,7 @@ export default function SettingsPage() {
       icon: Shield,
       path: '/settings/security',
       color: 'from-red-500 to-orange-500',
-      available: false
+      available: true
     },
     {
       id: 'language',
@@ -126,7 +126,7 @@ export default function SettingsPage() {
       icon: Globe,
       path: '/settings/language',
       color: 'from-indigo-500 to-purple-500',
-      available: false
+      available: true
     },
     {
       id: 'database',
@@ -135,7 +135,7 @@ export default function SettingsPage() {
       icon: Database,
       path: '/settings/database',
       color: 'from-yellow-500 to-orange-500',
-      available: false
+      available: true
     },
     {
       id: 'analytics',
