@@ -25,7 +25,8 @@ import {
   Clock,
   BarChart3,
   Wifi,
-  WifiOff
+  WifiOff,
+  LineChart
 } from 'lucide-react';
 
 interface SettingCard {
@@ -143,6 +144,24 @@ export default function SettingsPage() {
       icon: BarChart3,
       path: '/settings/analytics',
       color: 'from-cyan-500 to-blue-500',
+      available: true
+    },
+    {
+      id: 'metrics',
+      title: 'Métriques Historiques',
+      description: 'Graphiques et évolution des performances',
+      icon: LineChart,
+      path: '/settings/metrics',
+      color: 'from-purple-500 to-pink-500',
+      available: true
+    },
+    {
+      id: 'alerts',
+      title: 'Alertes Personnalisées',
+      description: 'Configuration des alertes et notifications',
+      icon: Bell,
+      path: '/settings/alerts',
+      color: 'from-orange-500 to-red-500',
       available: true
     }
   ];
