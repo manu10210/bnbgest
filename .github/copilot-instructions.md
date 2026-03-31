@@ -26,6 +26,8 @@
 
 - [x] Add Dedicated Monitoring Pages (Phase 2)
 
+- [x] Add Historical Metrics Graphs and Custom Alerts (Phase 3)
+
 - Work through each checklist item systematically.
 - Keep communication concise and focused.
 - Follow development best practices.
