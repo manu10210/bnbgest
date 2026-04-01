@@ -3,11 +3,50 @@
 [![Déploiement](https://img.shields.io/badge/deploy-vercel-black)](https://bnbgest.vercel.app)
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-black)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org)
+[![Prisma](https://img.shields.io/badge/Prisma-7.6-2D3748)](https://www.prisma.io)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791)](https://www.postgresql.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 > Application web complète et moderne pour gérer vos propriétés Airbnb de manière professionnelle.
 
 🌐 **URL Production** : [https://bnbgest.vercel.app](https://bnbgest.vercel.app)
+
+---
+
+## 🚀 Déploiement Vercel
+
+### Prérequis
+- Compte [Vercel](https://vercel.com)
+- Compte [GitHub](https://github.com)
+
+### Déploiement Rapide
+
+1. **Fork/Clone ce repository**
+   ```bash
+   git clone https://github.com/manu10210/bnbgest.git
+   cd bnbgest
+   ```
+
+2. **Déployer sur Vercel**
+   - Connectez votre repo GitHub à Vercel
+   - Vercel détecte automatiquement Next.js
+   - Cliquez sur "Deploy"
+
+3. **Créer la Base de Données Postgres**
+   - Dans Vercel Dashboard → Storage → Create Database
+   - Choisir "Postgres"
+   - Les variables d'environnement sont auto-configurées ✅
+
+4. **Ajouter les Variables NextAuth**
+   - Settings → Environment Variables
+   - `NEXTAUTH_URL` = votre URL Vercel
+   - `NEXTAUTH_SECRET` = générer avec `openssl rand -base64 32`
+
+5. **Redéployer**
+   - Vercel va exécuter les migrations automatiquement
+   - L'application est prête ! 🎉
+
+📖 **[Guide Complet de Déploiement →](./VERCEL_DEPLOYMENT_GUIDE.md)**
 
 ---
 
