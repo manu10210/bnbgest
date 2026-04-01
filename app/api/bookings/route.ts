@@ -36,7 +36,7 @@ export async function GET(request: Request) {
           },
         },
         payments: true,
-        review: true,
+        reviews: true,
       },
       orderBy: {
         checkIn: 'desc',
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
             id: true,
             name: true,
             address: true,
-            pricePerNight: true,
+            price: true,
           },
         },
       },

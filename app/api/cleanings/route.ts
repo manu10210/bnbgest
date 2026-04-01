@@ -21,16 +21,12 @@ export async function GET(request: NextRequest) {
       where.propertyId = parseInt(propertyId);
     }
 
-    if (bookingId) {
-      where.bookingId = parseInt(bookingId);
-    }
-
     if (status) {
       where.status = status as any;
     }
 
     if (assignedTo) {
-      where.assignedTo = parseInt(assignedTo);
+      where.assignedTo = assignedTo;
     }
 
     if (startDate || endDate) {
@@ -54,20 +50,6 @@ export async function GET(request: NextRequest) {
             address: true,
             city: true
           }
-        },
-        booking: {
-          select: {
-            id: true,
-            guestName: true,
-            checkOut: true
-          }
-        },
-        assignedToUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
         }
       },
       orderBy: [
@@ -84,15 +66,6 @@ export async function GET(request: NextRequest) {
       inProgress: cleanings.filter(c => c.status === 'IN_PROGRESS').length,
       completed: cleanings.filter(c => c.status === 'COMPLETED').length,
       cancelled: cleanings.filter(c => c.status === 'CANCELLED').length,
-      totalCost: cleanings
-        .filter(c => c.cost)
-        .reduce((sum, c) => sum + (c.cost || 0), 0),
-      averageDuration: cleanings.filter(c => c.duration).length > 0
-        ? cleanings
-            .filter(c => c.duration)
-            .reduce((sum, c) => sum + (c.duration || 0), 0) / 
-          cleanings.filter(c => c.duration).length
-        : 0,
       upcoming: cleanings.filter(c => 
         c.status === 'SCHEDULED' && 
         new Date(c.scheduledDate) > new Date()
@@ -211,12 +184,9 @@ export async function POST(request: NextRequest) {
     const cleaning = await prisma.cleaning.create({
       data: {
         propertyId: parseInt(propertyId),
-        bookingId: body.bookingId ? parseInt(body.bookingId) : null,
         scheduledDate: new Date(scheduledDate),
-        assignedTo: body.assignedTo ? parseInt(body.assignedTo) : null,
+        assignedTo: body.assignedTo || null,
         status: body.status || 'SCHEDULED',
-        cost: body.cost ? parseFloat(body.cost) : null,
-        duration: body.duration ? parseInt(body.duration) : null,
         notes: body.notes
       },
       include: {
@@ -226,20 +196,6 @@ export async function POST(request: NextRequest) {
             name: true,
             address: true,
             city: true
-          }
-        },
-        booking: {
-          select: {
-            id: true,
-            guestName: true,
-            checkOut: true
-          }
-        },
-        assignedToUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true
           }
         }
       }

@@ -4,10 +4,11 @@ import { prisma } from '@/lib/prisma';
 // GET /api/reviews/[id] - Récupérer un avis spécifique
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const reviewId = parseInt(params.id);
+    const { id } = await params;
+    const reviewId = parseInt(id);
 
     if (isNaN(reviewId)) {
       return NextResponse.json(
@@ -66,10 +67,11 @@ export async function GET(
 // PATCH /api/reviews/[id] - Répondre à un avis (propriétaire)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const reviewId = parseInt(params.id);
+    const { id } = await params;
+    const reviewId = parseInt(id);
 
     if (isNaN(reviewId)) {
       return NextResponse.json(
@@ -152,10 +154,11 @@ export async function PATCH(
 // DELETE /api/reviews/[id] - Supprimer un avis (soft delete possible si besoin)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const reviewId = parseInt(params.id);
+    const { id } = await params;
+    const reviewId = parseInt(id);
 
     if (isNaN(reviewId)) {
       return NextResponse.json(

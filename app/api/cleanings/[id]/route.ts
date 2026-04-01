@@ -4,10 +4,11 @@ import { prisma } from '@/lib/prisma';
 // GET /api/cleanings/[id] - Récupérer un nettoyage spécifique
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cleaningId = parseInt(params.id);
+    const { id } = await params;
+    const cleaningId = parseInt(id);
 
     if (isNaN(cleaningId)) {
       return NextResponse.json(
@@ -28,22 +29,6 @@ export async function GET(
             name: true,
             address: true,
             city: true
-          }
-        },
-        booking: {
-          select: {
-            id: true,
-            guestName: true,
-            guestEmail: true,
-            checkIn: true,
-            checkOut: true
-          }
-        },
-        assignedToUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true
           }
         }
       }
@@ -78,10 +63,11 @@ export async function GET(
 // PATCH /api/cleanings/[id] - Mettre à jour un nettoyage
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cleaningId = parseInt(params.id);
+    const { id } = await params;
+    const cleaningId = parseInt(id);
 
     if (isNaN(cleaningId)) {
       return NextResponse.json(
@@ -131,12 +117,12 @@ export async function PATCH(
       updateData.status = body.status;
 
       // Si le nettoyage est complété, enregistrer la date
-      if (body.status === 'COMPLETED' && !existingCleaning.completedAt) {
-        updateData.completedAt = new Date();
+      if (body.status === 'COMPLETED' && !existingCleaning.completedDate) {
+        updateData.completedDate = new Date();
       }
 
       // Si en cours et pas encore commencé, enregistrer l'heure de début
-      if (body.status === 'IN_PROGRESS' && !existingCleaning.completedAt) {
+      if (body.status === 'IN_PROGRESS' && !existingCleaning.completedDate) {
         // On pourrait ajouter un champ startedAt dans le schema
       }
     }
@@ -173,20 +159,6 @@ export async function PATCH(
             address: true,
             city: true
           }
-        },
-        booking: {
-          select: {
-            id: true,
-            guestName: true,
-            checkOut: true
-          }
-        },
-        assignedToUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
         }
       }
     });
@@ -211,10 +183,11 @@ export async function PATCH(
 // DELETE /api/cleanings/[id] - Supprimer un nettoyage
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cleaningId = parseInt(params.id);
+    const { id } = await params;
+    const cleaningId = parseInt(id);
 
     if (isNaN(cleaningId)) {
       return NextResponse.json(

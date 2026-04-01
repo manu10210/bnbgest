@@ -4,10 +4,11 @@ import { prisma } from '@/lib/prisma';
 // GET /api/maintenance/[id] - Récupérer une tâche de maintenance spécifique
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const taskId = parseInt(params.id);
+    const { id } = await params;
+    const taskId = parseInt(id);
 
     if (isNaN(taskId)) {
       return NextResponse.json(
@@ -70,10 +71,11 @@ export async function GET(
 // PATCH /api/maintenance/[id] - Mettre à jour une tâche de maintenance
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const taskId = parseInt(params.id);
+    const { id } = await params;
+    const taskId = parseInt(id);
 
     if (isNaN(taskId)) {
       return NextResponse.json(
@@ -195,10 +197,11 @@ export async function PATCH(
 // DELETE /api/maintenance/[id] - Supprimer une tâche de maintenance
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const taskId = parseInt(params.id);
+    const { id } = await params;
+    const taskId = parseInt(id);
 
     if (isNaN(taskId)) {
       return NextResponse.json(
