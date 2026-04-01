@@ -41,34 +41,46 @@ export async function GET() {
             const property = await prisma.property.findFirst();
             
             if (property) {
-              await prisma.booking.upsert({
-                where: {
-                  externalId: reservation.id || `airbnb-${reservation.guestName}-${reservation.checkIn}`
-                },
-                update: {
-                  guestName: reservation.guestName,
-                  guestEmail: 'unknown@airbnb.com',
-                  checkIn: new Date(reservation.checkIn),
-                  checkOut: new Date(reservation.checkOut),
-                  guests: reservation.guests || 1,
-                  totalPrice: reservation.price || 0,
-                  status: reservation.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
-                  source: 'AIRBNB',
-                  updatedAt: new Date()
-                },
-                create: {
-                  propertyId: property.id,
-                  guestName: reservation.guestName,
-                  guestEmail: 'unknown@airbnb.com',
-                  checkIn: new Date(reservation.checkIn),
-                  checkOut: new Date(reservation.checkOut),
-                  guests: reservation.guests || 1,
-                  totalPrice: reservation.price || 0,
-                  status: reservation.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
-                  source: 'AIRBNB',
-                  externalId: reservation.id || `airbnb-${reservation.guestName}-${reservation.checkIn}`
-                }
+              const extId = reservation.id || `airbnb-${reservation.guestName}-${reservation.checkIn}`;
+              
+              // Chercher la réservation existante
+              const existingBooking = await prisma.booking.findFirst({
+                where: { externalId: extId }
               });
+
+              if (existingBooking) {
+                // Mettre à jour
+                await prisma.booking.update({
+                  where: { id: existingBooking.id },
+                  data: {
+                    guestName: reservation.guestName,
+                    guestEmail: 'unknown@airbnb.com',
+                    checkIn: new Date(reservation.checkIn),
+                    checkOut: new Date(reservation.checkOut),
+                    guests: reservation.guests || 1,
+                    totalPrice: reservation.price || 0,
+                    status: reservation.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
+                    source: 'AIRBNB',
+                    updatedAt: new Date()
+                  }
+                });
+              } else {
+                // Créer
+                await prisma.booking.create({
+                  data: {
+                    propertyId: property.id,
+                    guestName: reservation.guestName,
+                    guestEmail: 'unknown@airbnb.com',
+                    checkIn: new Date(reservation.checkIn),
+                    checkOut: new Date(reservation.checkOut),
+                    guests: reservation.guests || 1,
+                    totalPrice: reservation.price || 0,
+                    status: reservation.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
+                    source: 'AIRBNB',
+                    externalId: extId
+                  }
+                });
+              }
               savedCount++;
             }
           } catch (err) {
@@ -128,34 +140,43 @@ export async function GET() {
             const property = await prisma.property.findFirst();
             
             if (property) {
-              await prisma.booking.upsert({
-                where: {
-                  externalId: reservation.id || `booking-${reservation.guestName}-${reservation.checkIn}`
-                },
-                update: {
-                  guestName: reservation.guestName,
-                  guestEmail: 'unknown@booking.com',
-                  checkIn: new Date(reservation.checkIn),
-                  checkOut: new Date(reservation.checkOut),
-                  guests: reservation.guests || 1,
-                  totalPrice: reservation.price || 0,
-                  status: reservation.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
-                  source: 'BOOKING_COM',
-                  updatedAt: new Date()
-                },
-                create: {
-                  propertyId: property.id,
-                  guestName: reservation.guestName,
-                  guestEmail: 'unknown@booking.com',
-                  checkIn: new Date(reservation.checkIn),
-                  checkOut: new Date(reservation.checkOut),
-                  guests: reservation.guests || 1,
-                  totalPrice: reservation.price || 0,
-                  status: reservation.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
-                  source: 'BOOKING_COM',
-                  externalId: reservation.id || `booking-${reservation.guestName}-${reservation.checkIn}`
-                }
+              const extId = reservation.id || `booking-${reservation.guestName}-${reservation.checkIn}`;
+              
+              const existingBooking = await prisma.booking.findFirst({
+                where: { externalId: extId }
               });
+
+              if (existingBooking) {
+                await prisma.booking.update({
+                  where: { id: existingBooking.id },
+                  data: {
+                    guestName: reservation.guestName,
+                    guestEmail: 'unknown@booking.com',
+                    checkIn: new Date(reservation.checkIn),
+                    checkOut: new Date(reservation.checkOut),
+                    guests: reservation.guests || 1,
+                    totalPrice: reservation.price || 0,
+                    status: reservation.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
+                    source: 'BOOKING_COM',
+                    updatedAt: new Date()
+                  }
+                });
+              } else {
+                await prisma.booking.create({
+                  data: {
+                    propertyId: property.id,
+                    guestName: reservation.guestName,
+                    guestEmail: 'unknown@booking.com',
+                    checkIn: new Date(reservation.checkIn),
+                    checkOut: new Date(reservation.checkOut),
+                    guests: reservation.guests || 1,
+                    totalPrice: reservation.price || 0,
+                    status: reservation.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
+                    source: 'BOOKING_COM',
+                    externalId: extId
+                  }
+                });
+              }
               savedCount++;
             }
           } catch (err) {
