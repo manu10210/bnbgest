@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (assignedTo) {
-      where.assignedTo = parseInt(assignedTo);
+      where.assignedTo = assignedTo;
     }
 
     // Récupération des tâches
@@ -41,13 +41,6 @@ export async function GET(request: NextRequest) {
             name: true,
             address: true,
             city: true
-          }
-        },
-        assignedToUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true
           }
         }
       },
@@ -73,8 +66,8 @@ export async function GET(request: NextRequest) {
         urgent: tasks.filter(t => t.priority === 'URGENT').length
       },
       totalCost: tasks
-        .filter(t => t.estimatedCost)
-        .reduce((sum, t) => sum + (t.estimatedCost || 0), 0),
+        .filter(t => t.cost)
+        .reduce((sum, t) => sum + (t.cost || 0), 0),
       overdue: tasks.filter(t => 
         t.status !== 'COMPLETED' && 
         t.dueDate && 
@@ -153,10 +146,9 @@ export async function POST(request: NextRequest) {
         description: body.description,
         priority,
         status: body.status || 'PENDING',
-        assignedTo: body.assignedTo ? parseInt(body.assignedTo) : null,
+        assignedTo: body.assignedTo || null,
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
-        estimatedCost: body.estimatedCost ? parseFloat(body.estimatedCost) : null,
-        actualCost: body.actualCost ? parseFloat(body.actualCost) : null,
+        cost: body.cost ? parseFloat(body.cost) : null,
         notes: body.notes
       },
       include: {
@@ -166,13 +158,6 @@ export async function POST(request: NextRequest) {
             name: true,
             address: true,
             city: true
-          }
-        },
-        assignedToUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true
           }
         }
       }

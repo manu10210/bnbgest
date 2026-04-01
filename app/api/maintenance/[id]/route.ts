@@ -29,14 +29,7 @@ export async function GET(
             name: true,
             address: true,
             city: true,
-            ownerId: true
-          }
-        },
-        assignedToUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true
+            userId: true
           }
         }
       }
@@ -165,13 +158,6 @@ export async function PATCH(
             name: true,
             address: true,
             city: true
-          }
-        },
-        assignedToUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true
           }
         }
       }

@@ -23,7 +23,7 @@ export async function GET(
     const property = await prisma.property.findUnique({
       where: { id },
       include: {
-        owner: {
+        user: {
           select: {
             id: true,
             name: true,
@@ -33,7 +33,7 @@ export async function GET(
         bookings: {
           include: {
             payments: true,
-            review: true,
+            reviews: true,
           },
           orderBy: {
             checkIn: 'desc',
@@ -61,19 +61,19 @@ export async function GET(
           },
           take: 10,
         },
-        maintenanceTasks: {
+        maintenance: {
           orderBy: {
             createdAt: 'desc',
           },
           take: 10,
         },
-        inventoryItems: true,
+        inventory: true,
         _count: {
           select: {
             bookings: true,
             reviews: true,
             cleanings: true,
-            maintenanceTasks: true,
+            maintenance: true,
             photos: true,
             videos: true,
           },
@@ -104,7 +104,7 @@ export async function GET(
         totalRevenue,
         averageRating: Math.round(averageRating * 10) / 10,
         reviewCount: property.reviews.length,
-        maintenanceCount: property.maintenanceTasks.length,
+        maintenanceCount: property.maintenance.length,
         cleaningCount: property.cleanings.length,
       },
     });
@@ -159,7 +159,7 @@ export async function PATCH(
         ...(body.houseRules !== undefined && { houseRules: body.houseRules }),
       },
       include: {
-        owner: {
+        user: {
           select: {
             id: true,
             name: true,
