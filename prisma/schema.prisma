@@ -133,32 +133,42 @@ enum Role {
 // ==========================================
 
 model Property {
-  id          Int      @id @default(autoincrement())
-  name        String
-  address     String
-  city        String
-  country     String
-  description String?
-  capacity    Int
-  bedrooms    Int
-  bathrooms   Int
-  price       Float
-  currency    String   @default("EUR")
-  status      PropertyStatus @default(ACTIVE)
-  userId      String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              Int            @id @default(autoincrement())
+  name            String
+  address         String
+  city            String
+  country         String
+  zipCode         String?
+  description     String?
+  capacity        Int
+  bedrooms        Int
+  bathrooms       Int
+  price           Float
+  pricePerNight   Float?
+  cleaningFee     Float          @default(0)
+  currency        String         @default("EUR")
+  status          PropertyStatus @default(ACTIVE)
+  type            String?        // villa, apartment, house, etc.
+  maxGuests       Int?
+  amenities       String[]       @default([])
+  images          String[]       @default([])
+  externalId      String?        // Airbnb/Booking ID
+  externalSource  String?        // airbnb, booking
+  metadata        Json?          // Additional data
+  userId          String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   // Relations
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bookings    Booking[]
-  photos      Photo[]
-  videos      Video[]
-  reviews     Review[]
-  cleanings   Cleaning[]
-  maintenance MaintenanceTask[]
-  inventory   InventoryItem[]
-  contracts   Contract[]
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings        Booking[]
+  photos          Photo[]
+  videos          Video[]
+  reviews         Review[]
+  cleanings       Cleaning[]
+  maintenance     MaintenanceTask[]
+  inventory       InventoryItem[]
+  contracts       Contract[]
 
   @@map("properties")
 }
@@ -174,24 +184,27 @@ enum PropertyStatus {
 // ==========================================
 
 model Booking {
-  id              Int           @id @default(autoincrement())
-  propertyId      Int
-  userId          String?
-  guestName       String
-  guestEmail      String
-  guestPhone      String?
-  checkIn         DateTime
-  checkOut        DateTime
-  guests          Int
-  totalPrice      Float
-  status          BookingStatus @default(PENDING)
-  source          BookingSource @default(DIRECT)
-  externalId      String?       // ID Airbnb/Booking.com
-  notes           String?
-  specialRequests String?
-  cancellationReason String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                  Int           @id @default(autoincrement())
+  propertyId          Int
+  userId              String?
+  guestName           String
+  guestEmail          String
+  guestPhone          String?
+  checkIn             DateTime
+  checkOut            DateTime
+  guests              Int
+  totalPrice          Float
+  status              BookingStatus @default(PENDING)
+  source              BookingSource @default(DIRECT)
+  externalId          String?       // ID Airbnb/Booking.com
+  externalSource      String?       // airbnb, booking
+  confirmationCode    String?       // Confirmation code
+  specialRequests     String?       // Special requests
+  cancellationReason  String?       // Cancellation reason
+  metadata            Json?         // Additional data
+  notes               String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
   // Relations
   property Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -460,18 +473,21 @@ enum ContractStatus {
 // ==========================================
 
 model IntegrationSetting {
-  id          String   @id @default(cuid())
-  platform    String   @unique // airbnb, booking_com
-  enabled     Boolean  @default(false)
-  apiKey      String?
-  apiSecret   String?
-  icalUrl     String?
-  hotelId     String?
-  lastSyncAt  DateTime?
-  syncStatus  String?  // success, error
-  config      Json?    // Additional platform-specific config
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String    @id @default(cuid())
+  platform        String    @unique // airbnb, booking_com
+  enabled         Boolean   @default(false)
+  apiKey          String?
+  apiSecret       String?
+  accessToken     String?   // OAuth access token
+  refreshToken    String?   // OAuth refresh token
+  tokenExpiresAt  DateTime? // Token expiration date
+  icalUrl         String?
+  hotelId         String?
+  lastSyncAt      DateTime?
+  syncStatus      String?   // success, error
+  config          Json?     // Additional platform-specific config
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@map("integration_settings")
 }
