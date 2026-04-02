@@ -9,6 +9,8 @@ import { LanguageProvider } from "../contexts/LanguageContext";
 import ThemeWrapper from "../components/ThemeWrapper";
 import AuthSessionProvider from "../components/AuthSessionProvider";
 import AnalyticsWrapper from "../components/AnalyticsWrapper";
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -128,6 +130,8 @@ export default function RootLayout({
                     <ThemeWrapper>
                       <AnalyticsWrapper>
                         {children}
+                        <Analytics />
+                        <SpeedInsights />
                       </AnalyticsWrapper>
                     </ThemeWrapper>
                   </BNBProvider>

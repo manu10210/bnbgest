@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -10,6 +11,7 @@ interface HealthStatus {
   version: string;
   services: {
     database: boolean;
+    databaseLatency?: number;
     api: boolean;
     auth: boolean;
   };
@@ -17,15 +19,30 @@ interface HealthStatus {
     used: number;
     total: number;
   };
+  responseTime: number;
 }
 
 export async function GET() {
   const startTime = Date.now();
   
   try {
+    // Vérification base de données avec latence
+    let databaseHealthy = false;
+    let dbLatency = 0;
+    
+    try {
+      const dbStart = Date.now();
+      await prisma.$queryRaw`SELECT 1`;
+      dbLatency = Date.now() - dbStart;
+      databaseHealthy = true;
+    } catch (error) {
+      console.error('[Health Check] Database error:', error);
+    }
+
     // Vérification basique des services
     const services = {
-      database: true, // À remplacer par une vraie vérification de DB
+      database: databaseHealthy,
+      databaseLatency: dbLatency,
       api: true,
       auth: true,
     };
@@ -40,16 +57,17 @@ export async function GET() {
       };
     }
 
+    const responseTime = Date.now() - startTime;
+
     const health: HealthStatus = {
-      status: Object.values(services).every(Boolean) ? 'healthy' : 'degraded',
+      status: Object.values(services).every(v => typeof v === 'boolean' ? v : true) ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       uptime: process.uptime ? Math.round(process.uptime()) : 0,
-      version: '1.0.0',
+      version: '1.0.1',
       services,
       memory,
+      responseTime,
     };
-
-    const responseTime = Date.now() - startTime;
 
     return NextResponse.json({
       ...health,
