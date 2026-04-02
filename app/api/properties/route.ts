@@ -14,10 +14,10 @@ export async function GET(request: Request) {
     const properties = await prisma.property.findMany({
       where: {
         ...(status && { status: status as any }),
-        ...(ownerId && { ownerId: parseInt(ownerId) }),
+        ...(ownerId && { userId: ownerId }),
       },
       include: {
-        owner: {
+        user: {
           select: {
             id: true,
             name: true,
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
             bookings: true,
             reviews: true,
             cleanings: true,
-            maintenanceTasks: true,
+            maintenance: true,
           },
         },
       },
@@ -85,9 +85,9 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     // Validation basique
-    if (!body.name || !body.ownerId) {
+    if (!body.name || !body.userId) {
       return NextResponse.json(
-        { success: false, error: 'Name and ownerId are required' },
+        { success: false, error: 'Name and userId are required' },
         { status: 400 }
       );
     }
@@ -99,18 +99,16 @@ export async function POST(request: Request) {
         address: body.address || '',
         city: body.city || '',
         country: body.country || '',
-        zipCode: body.zipCode || '',
         bedrooms: body.bedrooms || 1,
         bathrooms: body.bathrooms || 1,
-        maxGuests: body.maxGuests || 2,
-        pricePerNight: body.pricePerNight || 0,
-        ownerId: body.ownerId,
+        capacity: body.capacity || body.maxGuests || 2,
+        price: body.price || body.pricePerNight || 0,
+        currency: body.currency || 'EUR',
+        userId: body.userId,
         status: body.status || 'ACTIVE',
-        amenities: body.amenities || '',
-        houseRules: body.houseRules || '',
       },
       include: {
-        owner: {
+        user: {
           select: {
             id: true,
             name: true,

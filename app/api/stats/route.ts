@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            pricePerNight: true
+            price: true
           }
         }
       }
@@ -127,11 +127,7 @@ export async function GET(request: NextRequest) {
         3: reviews.filter(r => r.rating === 3).length,
         2: reviews.filter(r => r.rating === 2).length,
         1: reviews.filter(r => r.rating === 1).length
-      },
-      withResponse: reviews.filter(r => r.response).length,
-      responseRate: reviews.length > 0
-        ? (reviews.filter(r => r.response).length / reviews.length) * 100
-        : 0
+      }
     };
 
     // === MAINTENANCE ANALYTICS ===
@@ -149,8 +145,8 @@ export async function GET(request: NextRequest) {
       completed: maintenance.filter(m => m.status === 'COMPLETED').length,
       cancelled: maintenance.filter(m => m.status === 'CANCELLED').length,
       totalCost: maintenance
-        .filter(m => m.actualCost || m.estimatedCost)
-        .reduce((sum, m) => sum + (m.actualCost || m.estimatedCost || 0), 0),
+        .filter(m => m.cost)
+        .reduce((sum, m) => sum + (m.cost || 0), 0),
       byPriority: {
         urgent: maintenance.filter(m => m.priority === 'URGENT').length,
         high: maintenance.filter(m => m.priority === 'HIGH').length,
@@ -176,14 +172,11 @@ export async function GET(request: NextRequest) {
       inProgress: cleanings.filter(c => c.status === 'IN_PROGRESS').length,
       completed: cleanings.filter(c => c.status === 'COMPLETED').length,
       cancelled: cleanings.filter(c => c.status === 'CANCELLED').length,
-      totalCost: cleanings
-        .filter(c => c.cost)
-        .reduce((sum, c) => sum + (c.cost || 0), 0),
-      averageDuration: cleanings.filter(c => c.duration).length > 0
+      averageDuration: cleanings.filter(c => c.actualTime).length > 0
         ? cleanings
-            .filter(c => c.duration)
-            .reduce((sum, c) => sum + (c.duration || 0), 0) /
-          cleanings.filter(c => c.duration).length
+            .filter(c => c.actualTime)
+            .reduce((sum, c) => sum + (c.actualTime || 0), 0) /
+          cleanings.filter(c => c.actualTime).length
         : 0
     };
 

@@ -65,8 +65,7 @@ export async function GET(request: NextRequest) {
         3: reviews.filter(r => r.rating === 3).length,
         2: reviews.filter(r => r.rating === 2).length,
         1: reviews.filter(r => r.rating === 1).length
-      },
-      withResponse: reviews.filter(r => r.response).length
+      }
     };
 
     return NextResponse.json({
@@ -149,7 +148,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Vérifier qu'un avis n'existe pas déjà pour cette réservation
-    const existingReview = await prisma.review.findUnique({
+    const existingReview = await prisma.review.findFirst({
       where: { bookingId: parseInt(bookingId) }
     });
 
@@ -166,6 +165,7 @@ export async function POST(request: NextRequest) {
     // Créer l'avis
     const review = await prisma.review.create({
       data: {
+        propertyId: booking.propertyId,
         bookingId: parseInt(bookingId),
         rating: parseInt(rating),
         comment,
