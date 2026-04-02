@@ -1,15 +1,34 @@
 # 🏠 BNBGest - Gestion Locative Professionnelle
 
 [![Déploiement](https://img.shields.io/badge/deploy-vercel-black)](https://bnbgest.vercel.app)
+[![Production](https://img.shields.io/badge/status-PRODUCTION-success)](https://bnbgest.vercel.app)
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-black)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org)
-[![Prisma](https://img.shields.io/badge/Prisma-7.6-2D3748)](https://www.prisma.io)
+[![Prisma](https://img.shields.io/badge/Prisma-5.22-2D3748)](https://www.prisma.io)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791)](https://www.postgresql.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 > Application web complète et moderne pour gérer vos propriétés Airbnb de manière professionnelle.
 
-🌐 **URL Production** : [https://bnbgest.vercel.app](https://bnbgest.vercel.app)
+🌐 **URL Production** : [https://bnbgest.vercel.app](https://bnbgest.vercel.app)  
+🟢 **Statut** : EN PRODUCTION - DONNÉES RÉELLES UNIQUEMENT
+
+---
+
+## ⚠️ ENVIRONNEMENT PRODUCTION
+
+Cette application est **EN PRODUCTION**. Toutes les données sont **RÉELLES**.
+
+- ✅ Base de données nettoyée (données de test supprimées)
+- ✅ Seed automatique bloqué en production
+- ✅ Un seul compte admin actif
+- 📖 **Guide Production** : Voir [PRODUCTION_GUIDE.md](./PRODUCTION_GUIDE.md)
+
+**Compte Admin** :
+```
+Email: claustre.emmanuel@gmail.com
+Password: admin123 (⚠️ À CHANGER IMMÉDIATEMENT)
+```
 
 ---
 

@@ -4,9 +4,16 @@ import { hash } from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting seed...');
+  // ⚠️ PROTECTION PRODUCTION: Ne jamais seed en production
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+    console.log('❌ SEED BLOCKED: Cannot run seed in production environment!');
+    console.log('   Use prisma/cleanup-production.ts to manage production data.');
+    process.exit(1);
+  }
 
-  // Nettoyer la base (optionnel - commentez en production)
+  console.log('🌱 Starting seed (development only)...');
+
+  // Nettoyer la base (développement uniquement)
   await prisma.auditLog.deleteMany();
   await prisma.analyticsEvent.deleteMany();
   await prisma.backup.deleteMany();
