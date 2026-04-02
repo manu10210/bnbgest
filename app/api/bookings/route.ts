@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { sendBookingConfirmationEmail } from '@/lib/email-notifications';
 
 /**
  * GET /api/bookings
@@ -138,11 +139,36 @@ export async function POST(request: Request) {
             id: true,
             name: true,
             address: true,
+            city: true,
             price: true,
           },
         },
       },
     });
+
+    // Envoyer email de confirmation si status CONFIRMED
+    if (booking.status === 'CONFIRMED') {
+      try {
+        await sendBookingConfirmationEmail({
+          id: booking.id,
+          guestName: booking.guestName,
+          guestEmail: booking.guestEmail,
+          checkIn: booking.checkIn,
+          checkOut: booking.checkOut,
+          guests: booking.guests,
+          totalPrice: booking.totalPrice,
+          property: {
+            name: booking.property.name,
+            address: booking.property.address,
+            city: booking.property.city,
+          },
+        });
+        console.log('✅ Email de confirmation envoyé');
+      } catch (emailError) {
+        console.error('⚠️ Erreur envoi email (non bloquant):', emailError);
+        // Ne pas bloquer la création si l'email échoue
+      }
+    }
 
     return NextResponse.json(
       {
