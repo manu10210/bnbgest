@@ -11,6 +11,7 @@ import AuthSessionProvider from "../components/AuthSessionProvider";
 import AnalyticsWrapper from "../components/AnalyticsWrapper";
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Toaster } from 'sonner';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -132,6 +133,12 @@ export default function RootLayout({
                         {children}
                         <Analytics />
                         <SpeedInsights />
+                        <Toaster 
+                          position="top-right"
+                          richColors
+                          closeButton
+                          duration={4000}
+                        />
                       </AnalyticsWrapper>
                     </ThemeWrapper>
                   </BNBProvider>
