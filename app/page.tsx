@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { Users, Wrench, Calendar, Camera, LayoutDashboard, ArrowRight, LogOut, Home, Star, Search, Globe, Sparkles, TrendingUp, Euro, Package, Shield, Zap, BarChart3, Clock, Heart, MapPin, CheckCircle, Play, ChevronRight, Award, Rocket, Target, Coffee } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
+import { fadeInUp, gridContainer, gridItem, buttonHover, buttonTap } from '@/lib/animations';
 
 /* ===== Animated counter hook ===== */
 function useAnimatedCounter(end: number, duration = 1200) {
@@ -264,18 +266,33 @@ function AuthenticatedDashboard({ isDark, userName, properties, confirmedBooking
         </div>
 
         {/* Stats with animated counters */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12 stagger-children">
+        <motion.div 
+          variants={gridContainer}
+          initial="initial"
+          animate="animate"
+          className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12"
+        >
           {[
             { label: 'Propriétés', counter: propCounter, suffix: '', icon: Home, color: '#FF385C', bg: isDark ? 'rgba(255,56,92,0.12)' : '#fff0f3' },
             { label: 'Réservations', counter: bookCounter, suffix: '', icon: Calendar, color: '#14b8a6', bg: isDark ? 'rgba(20,184,166,0.12)' : '#f0fdfa' },
             { label: 'Revenus', counter: revCounter, suffix: '€', icon: Euro, color: '#10b981', bg: isDark ? 'rgba(16,185,129,0.12)' : '#ecfdf5' },
             { label: 'Note moyenne', counter: ratingCounter, suffix: '/50', icon: Star, color: '#f59e0b', bg: isDark ? 'rgba(245,158,11,0.12)' : '#fffbeb' },
           ].map(({ label, counter, suffix, icon: Icon, color, bg }, i) => (
-            <div ref={counter.ref} key={label} className="animate-fadeInUp glass-card rounded-2xl p-5 hover-lift card-shine cursor-default border-gradient">
+            <motion.div 
+              ref={counter.ref} 
+              key={label} 
+              variants={gridItem}
+              whileHover={{ scale: 1.05, y: -8 }}
+              className="glass-card rounded-2xl p-5 hover-lift card-shine cursor-default border-gradient"
+            >
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform hover:scale-110" style={{ background: bg }}>
+                <motion.div 
+                  whileHover={{ scale: 1.1, rotate: 10 }}
+                  className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform" 
+                  style={{ background: bg }}
+                >
                   <Icon className="w-5.5 h-5.5" style={{ color }} />
-                </div>
+                </motion.div>
                 <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
                   <TrendingUp className="w-3 h-3" />
                   <span>+12%</span>
@@ -285,25 +302,46 @@ function AuthenticatedDashboard({ isDark, userName, properties, confirmedBooking
                 {label === 'Revenus' ? counter.count.toLocaleString('fr-FR') : counter.count}{suffix}
               </p>
               <p className={`text-sm mt-2 font-medium ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>{label}</p>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Quick Access */}
-        <div className="mb-12 animate-fadeInUp" style={{ animationDelay: '200ms' }}>
+        <motion.div 
+          initial="initial"
+          animate="animate"
+          variants={fadeInUp}
+          transition={{ delay: 0.2 }}
+          className="mb-12"
+        >
           <div className="flex items-center gap-2 mb-5">
             <div className="w-8 h-8 rounded-lg bg-[#FF385C]/10 flex items-center justify-center">
               <Zap className="w-4.5 h-4.5 text-[#FF385C]" />
             </div>
             <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-[#222222]'}`}>Accès rapide</h3>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
+          <motion.div 
+            variants={gridContainer}
+            initial="initial"
+            animate="animate"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+          >
             {NAV_ITEMS.map(({ path, Icon, label, desc, gradient, emoji, stat }) => (
-              <button key={path} onClick={() => handleNavigation(path)} className="animate-fadeInUp group text-left rounded-2xl p-6 transition-all duration-300 tilt-card card-shine glass-card">
+              <motion.button 
+                key={path} 
+                variants={gridItem}
+                whileHover={{ scale: 1.02, y: -4 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleNavigation(path)} 
+                className="group text-left rounded-2xl p-6 transition-all duration-300 tilt-card card-shine glass-card"
+              >
                 <div className="flex items-start justify-between mb-4">
-                  <div className={`w-14 h-14 bg-gradient-to-br ${gradient} rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-110`}>
+                  <motion.div 
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    className={`w-14 h-14 bg-gradient-to-br ${gradient} rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all`}
+                  >
                     <Icon size={24} className="text-white" />
-                  </div>
+                  </motion.div>
                   <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${isDark ? 'bg-white/[0.06] text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
                     <span>{stat}</span>
                   </div>
@@ -313,13 +351,17 @@ function AuthenticatedDashboard({ isDark, userName, properties, confirmedBooking
                 <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#FF385C] transition-all group-hover:gap-3">
                   Explorer <ArrowRight size={14} className="transition-transform group-hover:translate-x-2" />
                 </div>
-              </button>
+              </motion.button>
             ))}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Admin CTA - Glass + Aurora */}
-        <div className="animate-fadeInUp" style={{ animationDelay: '350ms' }}>
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35, duration: 0.5 }}
+        >
           <div className={`rounded-3xl overflow-hidden relative spotlight ${isDark ? 'bg-gradient-to-r from-[#FF385C]/10 to-[#7B61FF]/10 border border-[#FF385C]/20' : 'bg-gradient-to-r from-rose-50 via-pink-50 to-violet-50 border border-rose-200/50'}`}>
             <div className="absolute inset-0 overflow-hidden">
               <div className="absolute -top-20 -right-20 w-64 h-64 morph-blob bg-[#FF385C]/10 blur-3xl" />
@@ -333,14 +375,19 @@ function AuthenticatedDashboard({ isDark, userName, properties, confirmedBooking
                 <h3 className={`font-black text-xl mb-1 ${isDark ? 'text-white' : 'text-[#222222]'}`}>Tableau de bord complet</h3>
                 <p className={`text-sm max-w-md ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>Réservations, tarifs, maintenance, inventaire, finances, contrats, QR codes et bien plus</p>
               </div>
-              <button onClick={() => handleNavigation('/admin')} className="group relative inline-flex items-center gap-2 bg-gradient-to-r from-[#FF385C] to-[#E31C5F] text-white px-8 py-4 rounded-xl hover:shadow-2xl hover:shadow-[#FF385C]/30 transition-all font-bold text-sm whitespace-nowrap hover:-translate-y-1 hover:scale-105">
+              <motion.button 
+                onClick={() => handleNavigation('/admin')} 
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="group relative inline-flex items-center gap-2 bg-gradient-to-r from-[#FF385C] to-[#E31C5F] text-white px-8 py-4 rounded-xl hover:shadow-2xl hover:shadow-[#FF385C]/30 transition-all font-bold text-sm whitespace-nowrap"
+              >
                 <LayoutDashboard size={16} />
                 Ouvrir l&apos;admin
                 <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-              </button>
+              </motion.button>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Reviews preview */}
         {reviews.length > 0 && (
