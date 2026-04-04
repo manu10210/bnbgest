@@ -15,7 +15,8 @@ import { useState } from 'react';
 import { useApi, useMutation, usePagination } from '@/hooks/useApi';
 import { LoadingSpinner, LoadingTable, LoadingCard } from '@/components/LoadingSpinner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { Home, Plus, Edit, Trash2, Eye, MapPin, Users } from 'lucide-react';
+import { Home, Plus, Edit, Trash2, Eye, MapPin, Users, Download, Camera } from 'lucide-react';
+import AirbnbCsvImporter from './AirbnbCsvImporter';
 
 interface Property {
   id: number;
@@ -30,6 +31,7 @@ interface Property {
   maxGuests: number;
   pricePerNight: number;
   status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
+  images?: string[];
   _count: {
     bookings: number;
     reviews: number;
@@ -51,8 +53,9 @@ interface ApiResponse {
 export default function PropertiesManager() {
   const [filter, setFilter] = useState<'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'ALL'>('ACTIVE');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showImporter, setShowImporter] = useState(false);
 
-  // Fetch des propriétés avec filtres
+  // Fetch des proprietes avec filtres
   const url = filter === 'ALL' 
     ? '/api/properties' 
     : `/api/properties?status=${filter}`;
@@ -80,20 +83,30 @@ export default function PropertiesManager() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <Home className="w-8 h-8" />
-                Gestion des Propriétés
+                Gestion des Proprietes
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                {data?.count || 0} propriété(s) trouvée(s)
+                {data?.count || 0} propriete(s) trouvee(s)
               </p>
             </div>
 
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Nouvelle Propriété
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowImporter(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+              >
+                <Download className="w-5 h-5" />
+                Importer depuis Airbnb (CSV)
+              </button>
+
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                <Plus className="w-5 h-5" />
+                Nouvelle Propriete
+              </button>
+            </div>
           </div>
 
           {/* Filtres */}
@@ -185,7 +198,7 @@ export default function PropertiesManager() {
 
           {/* Create Form Modal */}
           {showCreateForm && (
-            <CreatePropertyModal 
+            <CreatePropertyModal
               onClose={() => setShowCreateForm(false)}
               onSuccess={() => {
                 setShowCreateForm(false);
@@ -193,6 +206,12 @@ export default function PropertiesManager() {
               }}
             />
           )}
+
+          {/* Importer Modal */}
+          {showImporter && (
+            <AirbnbCsvImporter onClose={() => { setShowImporter(false); refetch(); }} />
+          )}
+
         </div>
       </div>
     </ErrorBoundary>
@@ -226,25 +245,32 @@ function PropertyCard({ property, onUpdate }: { property: Property; onUpdate: ()
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-      {/* Image placeholder */}
-      <div className="h-48 bg-gradient-to-br from-blue-400 to-purple-500 relative">
+      {/* Image Banner */}
+      <div 
+        className="h-48 relative bg-gray-200 dark:bg-gray-700 bg-cover bg-center"
+        style={{ 
+          backgroundImage: `url(${property.images && property.images.length > 0 ? property.images[0] : 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=1000'})` 
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
         <div className="absolute top-4 right-4">
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[property.status]}`}>
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${statusColors[property.status]}`}>
             {property.status}
           </span>
+        </div>
+        <div className="absolute bottom-4 left-4 text-white">
+          <div className="flex items-center gap-1 text-sm font-medium">
+            <MapPin className="w-4 h-4" />
+            {property.city}, {property.country}
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="p-6">
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
           {property.name}
         </h3>
-
-        <div className="flex items-center text-gray-600 dark:text-gray-400 text-sm mb-4">
-          <MapPin className="w-4 h-4 mr-1" />
-          {property.city}, {property.country}
-        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-4">
@@ -285,7 +311,15 @@ function PropertyCard({ property, onUpdate }: { property: Property; onUpdate: ()
             <Eye className="w-4 h-4" />
             Détails
           </button>
-          
+
+          <a
+            href={`/photos/view/${property.id}`}
+            className="flex items-center justify-center px-4 py-2 bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/40 transition-colors"
+            title="Gerer les photos"
+          >
+            <Camera className="w-4 h-4" />
+          </a>
+
           <button
             onClick={handleDelete}
             disabled={deleting}
@@ -317,7 +351,20 @@ function PropertyCard({ property, onUpdate }: { property: Property; onUpdate: ()
 // Component: CreatePropertyModal
 function CreatePropertyModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const { mutate, loading, error } = useMutation('/api/properties', 'POST');
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    address: string;
+    city: string;
+    country: string;
+    zipCode: string;
+    bedrooms: number;
+    bathrooms: number;
+    maxGuests: number;
+    pricePerNight: number;
+    ownerId: number;
+    status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
+  }>({
     name: '',
     description: '',
     address: '',
@@ -329,10 +376,8 @@ function CreatePropertyModal({ onClose, onSuccess }: { onClose: () => void; onSu
     maxGuests: 2,
     pricePerNight: 100,
     ownerId: 1, // TODO: Get from session
-    status: 'ACTIVE' as const
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
+    status: 'ACTIVE'
+  });  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {

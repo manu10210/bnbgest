@@ -22,6 +22,7 @@ const ClientShareLink = dynamic(() => import('./ClientShareLink'), { ssr: false 
 const RevenueForecasting = dynamic(() => import('./RevenueForecasting'), { ssr: false });
 const EquipmentVideoQR = dynamic(() => import('./EquipmentVideoQR'), { ssr: false });
 const ReviewsManager = dynamic(() => import('./ReviewsManager'), { ssr: false });
+const InvoiceEditor = dynamic(() => import('./InvoiceEditor'), { ssr: false });
 const GlobalSearch = dynamic(() => import('./GlobalSearch'), { ssr: false });
 const DataExportImportAdvanced = dynamic(() => import('./DataExportImportAdvanced'), { ssr: false });
 const AdminSidebar = dynamic(() => import('./AdminSidebar'), { ssr: false });
@@ -78,7 +79,7 @@ import {
 import ThemeToggle from './ThemeToggle';
 import { useTheme } from '../contexts/ThemeContext';
 
-export type TabType = 'overview' | 'bookings' | 'maintenance' | 'inventory' | 'financial' | 'guests' | 'reviews' | 'welcome' | 'properties' | 'settings' | 'qrcheckin' | 'contract' | 'cleaning' | 'pricing' | 'notifications' | 'cleaningGallery' | 'shareLinks' | 'forecasting' | 'videoguides' | 'reviewsmanager';
+export type TabType = 'overview' | 'bookings' | 'maintenance' | 'inventory' | 'financial' | 'guests' | 'reviews' | 'welcome' | 'properties' | 'settings' | 'qrcheckin' | 'contract' | 'cleaning' | 'pricing' | 'notifications' | 'cleaningGallery' | 'shareLinks' | 'forecasting' | 'videoguides' | 'reviewsmanager' | 'invoice';
 
 export default function AdminDashboard() {
   const {
@@ -322,16 +323,29 @@ export default function AdminDashboard() {
         <header className={`sticky top-0 z-30 px-6 py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e]/90 border-white/5' : 'bg-white/90 border-gray-200'}`}>
           <div className="flex items-center gap-4">
              <h1 className={`text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
-               {activeTab === 'overview' ? 'Tableau de bord' : 
-                activeTab === 'bookings' ? 'Réservations' :
-                activeTab === 'properties' ? 'Mes Propriétés' :
-                activeTab === 'guests' ? 'Voyageurs' :
-                activeTab === 'financial' ? 'Finance' : 
-                activeTab === 'maintenance' ? 'Maintenance' :
-                activeTab === 'contract' ? 'Générateur de Contrats' :
-                activeTab === 'cleaning' ? 'Check-lists Ménage' :
-                activeTab === 'inventory' ? 'Inventaire' :
-                activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+               {({
+                 overview:       'Tableau de bord',
+                 bookings:       'R\u00e9servations',
+                 properties:     'Mes Propri\u00e9t\u00e9s',
+                 guests:         'Voyageurs',
+                 financial:      'Rapports Financiers',
+                 maintenance:    'Maintenance',
+                 contract:       'G\u00e9n\u00e9rateur de Contrats',
+                 cleaning:       'Check-lists M\u00e9nage',
+                 cleaningGallery:'Galerie M\u00e9nage',
+                 inventory:      'Inventaire',
+                 qrcheckin:      'QR Check-in',
+                 videoguides:    'Guides Vid\u00e9o',
+                 reviews:        'Avis & Notes',
+                 reviewsmanager: 'Gestion des Avis',
+                 invoice:        'Éditeur de Factures',
+                 welcome:        "Livret d'accueil",
+                 shareLinks:     'Liens de Partage',
+                 forecasting:    'Pr\u00e9visionnel',
+                 pricing:        'Moteur de Prix',
+                 notifications:  'Notifications',
+                 settings:       'Param\u00e8tres',
+               } as Record<string, string>)[activeTab] ?? activeTab}
              </h1>
           </div>
           
@@ -365,13 +379,34 @@ export default function AdminDashboard() {
               <FileText className="w-4 h-4" />
               <span className="hidden lg:inline">Export/Import</span>
             </button>
+
+            {/* Notification Bell with live badge */}
+            <button
+              onClick={() => setActiveTab('notifications')}
+              className={`relative flex items-center justify-center w-9 h-9 rounded-xl transition-all border ${
+                activeTab === 'notifications'
+                  ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500'
+                  : isDark
+                    ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                    : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'
+              }`}
+              title="Notifications"
+            >
+              <Bell className="w-4 h-4" />
+              {(bookings.filter(b => b.status === 'pending').length + maintenanceTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length) > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+                  {Math.min(bookings.filter(b => b.status === 'pending').length + maintenanceTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length, 9)}
+                  {(bookings.filter(b => b.status === 'pending').length + maintenanceTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length) > 9 && '+'}
+                </span>
+              )}
+            </button>
             
             <select
               value={selectedPropertyId ?? ''}
               onChange={(e) => setSelectedPropertyId(e.target.value ? Number(e.target.value) : undefined)}
               className={`border rounded-xl px-3 py-2 text-sm transition-all outline-none focus:ring-2 focus:ring-indigo-500/20 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-white border-gray-200 text-gray-900'}`}
             >
-              <option value="">Toutes les propriétés</option>
+              <option value="">Toutes les propri\u00e9t\u00e9s</option>
               {properties.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
@@ -388,7 +423,7 @@ export default function AdminDashboard() {
         <div className="p-6 pb-32 space-y-6 max-w-[1600px] mx-auto">
            {/* Overview Tab */}
            {activeTab === 'overview' && (
-             <DashboardOverview />
+             <DashboardOverview onNavigate={(tab) => setActiveTab(tab)} />
            )}
 
            {/* Content Area */}
@@ -749,6 +784,7 @@ export default function AdminDashboard() {
 
             {/* Reviews Manager Tab */}
             {activeTab === 'reviewsmanager' && <ReviewsManager />}
+            {activeTab === 'invoice' && <InvoiceEditor />}
           </div>
 
           </div>

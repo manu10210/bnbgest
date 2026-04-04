@@ -1,13 +1,24 @@
 /**
  * 💬 Airbnb Messages
  * Gérer les messages avec les invités
+ * ✅ Protected: Auth required, Rate limited (relaxed: 100/10s for GET, strict: 10/10s for POST)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAirbnbClient } from '@/lib/airbnb-api';
 import prisma from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
+  // 1. Rate limiting (relaxed for read operations)
+  const rateLimitResult = await rateLimit(request, 'relaxed');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const threadId = searchParams.get('threadId');
@@ -71,6 +82,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // 1. Rate limiting (strict for write operations)
+  const rateLimitResult = await rateLimit(request, 'strict');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const body = await request.json();
     const { threadId, content, messageId, action } = body;

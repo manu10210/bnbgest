@@ -2,8 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
+import { requireAuth } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
 
+// POST /api/upload-video - Upload de vidéos
+// ✅ Protected: Auth required, Rate limited (upload: 5/60s)
 export async function POST(request: NextRequest) {
+  // 1. Rate limiting (strict pour uploads)
+  const rateLimitResult = await rateLimit(request, 'upload');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const formData = await request.formData();
     const video = formData.get('video') as File;

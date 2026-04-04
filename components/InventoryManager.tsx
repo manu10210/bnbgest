@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useBNB, InventoryItem } from '../contexts/BNBContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -51,6 +52,7 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
     getLowStockItems,
     properties
   } = useBNB();
+  const { isDark } = useTheme();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -315,10 +317,10 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'in_stock': return 'bg-green-100 text-green-800';
-      case 'low_stock': return 'bg-yellow-100 text-yellow-800';
-      case 'out_of_stock': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'in_stock':    return isDark ? 'bg-green-500/15 text-green-400'  : 'bg-green-100 text-green-800';
+      case 'low_stock':   return isDark ? 'bg-yellow-500/15 text-yellow-400': 'bg-yellow-100 text-yellow-800';
+      case 'out_of_stock':return isDark ? 'bg-red-500/15 text-red-400'      : 'bg-red-100 text-red-800';
+      default:            return isDark ? 'bg-white/10 text-gray-400'        : 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -334,9 +336,9 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
   const lowStockItems = getLowStockItems();
 
   return (
-    <div className='max-w-7xl mx-auto p-6'>
+    <div className={`max-w-7xl mx-auto p-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
       <div className='flex justify-between items-center mb-6'>
-        <h1 className='text-3xl font-bold text-gray-800'>Gestion de l&apos;inventaire</h1>
+        <h1 className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>Gestion de l&apos;inventaire</h1>
         <div className="flex space-x-3">
           <Button
             onClick={() => setShowStatsModal(true)}

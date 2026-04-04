@@ -1,8 +1,23 @@
+/**
+ * 📈 Stats API - Global metrics and analytics
+ * ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
 
 // GET /api/stats - Statistiques et métriques globales du dashboard
 export async function GET(request: NextRequest) {
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'relaxed');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const { searchParams } = new URL(request.url);
     const propertyId = searchParams.get('propertyId');

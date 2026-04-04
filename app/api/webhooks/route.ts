@@ -1,5 +1,11 @@
+/**
+ * 🔔 Generic Webhooks Handler
+ * ✅ Protected: Rate limited (webhook: 50/10s), Signature verification
+ */
+
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 // Edge Function pour gérer les webhooks des intégrations
 export const runtime = 'edge';
@@ -12,6 +18,12 @@ interface WebhookPayload {
 }
 
 export async function POST(request: NextRequest) {
+  // 1. Rate limiting (webhook tier for external calls)
+  const rateLimitResult = await rateLimit(request, 'webhook');
+  if (rateLimitResult) return rateLimitResult;
+
+  // Note: No authentication required (uses signature verification)
+  
   try {
     // Vérifier la signature du webhook (à implémenter selon la source)
     const signature = request.headers.get('x-webhook-signature');

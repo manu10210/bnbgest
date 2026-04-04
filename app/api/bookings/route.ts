@@ -1,12 +1,24 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { sendBookingConfirmationEmail } from '@/lib/email-notifications';
+import { requireAuth } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
+import { BookingSchema, validateRequest } from '@/lib/validations';
 
 /**
  * GET /api/bookings
  * Récupère toutes les réservations avec filtres
+ * ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)
  */
 export async function GET(request: Request) {
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'relaxed');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const { searchParams } = new URL(request.url);
     const propertyId = searchParams.get('propertyId');
@@ -78,33 +90,35 @@ export async function GET(request: Request) {
 /**
  * POST /api/bookings
  * Crée une nouvelle réservation
+ * ✅ Protected: Auth required, Rate limited (strict: 10/10s), Validated
  */
 export async function POST(request: Request) {
-  try {
-    const body = await request.json();
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'strict');
+  if (rateLimitResult) return rateLimitResult;
 
-    // Validation
-    if (!body.propertyId || !body.checkIn || !body.checkOut || !body.guestName || !body.guestEmail) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  try {
+    // 3. Validation with Zod
+    const validatedData = await validateRequest(BookingSchema, request);
 
     // Vérifier disponibilité
     const overlappingBookings = await prisma.booking.findMany({
       where: {
-        propertyId: body.propertyId,
+        propertyId: validatedData.propertyId,
         status: {
           in: ['CONFIRMED', 'CHECKED_IN', 'PENDING'],
         },
         OR: [
           {
             checkIn: {
-              lte: new Date(body.checkOut),
+              lte: new Date(validatedData.checkOut),
             },
             checkOut: {
-              gte: new Date(body.checkIn),
+              gte: new Date(validatedData.checkIn),
             },
           },
         ],
@@ -120,18 +134,17 @@ export async function POST(request: Request) {
 
     const booking = await prisma.booking.create({
       data: {
-        propertyId: body.propertyId,
-        guestName: body.guestName,
-        guestEmail: body.guestEmail,
-        guestPhone: body.guestPhone || null,
-        checkIn: new Date(body.checkIn),
-        checkOut: new Date(body.checkOut),
-        guests: body.guests || 1,
-        totalPrice: body.totalPrice || 0,
-        status: body.status || 'PENDING',
-        source: body.source || 'DIRECT',
-        externalId: body.externalId || null,
-        notes: body.notes || null,
+        propertyId: validatedData.propertyId,
+        guestName: validatedData.guestName,
+        guestEmail: validatedData.guestEmail,
+        guestPhone: validatedData.guestPhone,
+        checkIn: new Date(validatedData.checkIn),
+        checkOut: new Date(validatedData.checkOut),
+        guests: validatedData.guests,
+        totalPrice: validatedData.totalPrice,
+        notes: validatedData.notes,
+        status: 'PENDING',
+        source: 'DIRECT',
       },
       include: {
         property: {

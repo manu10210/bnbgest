@@ -1,13 +1,21 @@
 /**
  * 🔔 Airbnb Webhooks Handler
  * Recevoir et traiter les événements Airbnb en temps réel
+ * ✅ Protected: Rate limited (webhook: 50/10s) - NO AUTH (external webhooks)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAirbnbClient, convertAirbnbReservationToBNBGest } from '@/lib/airbnb-api';
 import prisma from '@/lib/prisma';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
+  // 1. Rate limiting (webhook tier for external calls)
+  const rateLimitResult = await rateLimit(request, 'webhook');
+  if (rateLimitResult) return rateLimitResult;
+
+  // Note: No authentication required for webhooks (verified by signature)
+
   try {
     const body = await request.text();
     const signature = request.headers.get('X-Airbnb-Signature') || '';

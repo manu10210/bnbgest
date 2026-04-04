@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { requireAuth } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
+import { ReviewSchema, validateRequest } from '@/lib/validations';
 
 // GET /api/reviews - Liste des avis avec filtres
+// ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)
 export async function GET(request: NextRequest) {
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'relaxed');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const { searchParams } = new URL(request.url);
     const propertyId = searchParams.get('propertyId');
@@ -87,36 +99,24 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/reviews - Créer un nouvel avis
+// POST /api/reviews - Créer un nouvel avis
+// ✅ Protected: Auth required, Rate limited (strict: 10/10s), Validated
 export async function POST(request: NextRequest) {
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'strict');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
-    const body = await request.json();
-
-    // Validation des champs requis
-    const { bookingId, rating, comment } = body;
-
-    if (!bookingId || !rating) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'bookingId and rating are required'
-        },
-        { status: 400 }
-      );
-    }
-
-    if (rating < 1 || rating > 5) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'rating must be between 1 and 5'
-        },
-        { status: 400 }
-      );
-    }
+    // 3. Validation
+    const validatedData = await validateRequest(ReviewSchema, request);
 
     // Vérifier que la réservation existe et est terminée
     const booking = await prisma.booking.findUnique({
-      where: { id: parseInt(bookingId) },
+      where: { id: validatedData.bookingId },
       include: {
         property: {
           select: {
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
 
     // Vérifier qu'un avis n'existe pas déjà pour cette réservation
     const existingReview = await prisma.review.findFirst({
-      where: { bookingId: parseInt(bookingId) }
+      where: { bookingId: validatedData.bookingId }
     });
 
     if (existingReview) {
@@ -166,10 +166,10 @@ export async function POST(request: NextRequest) {
     const review = await prisma.review.create({
       data: {
         propertyId: booking.propertyId,
-        bookingId: parseInt(bookingId),
-        rating: parseInt(rating),
-        comment,
-        guestName: booking.guestName
+        bookingId: validatedData.bookingId,
+        rating: validatedData.rating,
+        comment: validatedData.comment,
+        guestName: booking.guestName,
       },
       include: {
         booking: {

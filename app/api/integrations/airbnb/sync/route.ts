@@ -1,16 +1,27 @@
 /**
  * 🔄 Airbnb Auto Sync Cron Job
  * Synchronisation automatique toutes les heures
+ * ✅ Protected: Auth required (OWNER), Rate limited (strict: 10/10s)
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { createAirbnbClient, convertAirbnbReservationToBNBGest } from '@/lib/airbnb-api';
+import { requireRole } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes max
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'strict');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authorization (OWNER only)
+  const authResult = await requireRole(request, 'OWNER');
+  if (authResult instanceof NextResponse) return authResult;
+
   console.log('🔄 Starting Airbnb auto-sync...');
   
   try {

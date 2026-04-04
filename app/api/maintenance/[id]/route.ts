@@ -1,24 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, requireOwnership } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
+import { MaintenanceUpdateSchema, validateRequest } from '@/lib/validations';
 
 // GET /api/maintenance/[id] - Récupérer une tâche de maintenance spécifique
+// ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params;
-    const taskId = parseInt(id);
+  const { id } = await params;
+  const taskId = parseInt(id);
 
-    if (isNaN(taskId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid task ID'
-        },
-        { status: 400 }
-      );
-    }
+  if (isNaN(taskId)) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid task ID' },
+      { status: 400 }
+    );
+  }
+
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'relaxed');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  try {
 
     const task = await prisma.maintenanceTask.findUnique({
       where: { id: taskId },
@@ -62,23 +72,32 @@ export async function GET(
 }
 
 // PATCH /api/maintenance/[id] - Mettre à jour une tâche de maintenance
+// ✅ Protected: Ownership required, Rate limited (strict: 10/10s), Validated
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params;
-    const taskId = parseInt(id);
+  const { id } = await params;
+  const taskId = parseInt(id);
 
-    if (isNaN(taskId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid task ID'
-        },
-        { status: 400 }
-      );
-    }
+  if (isNaN(taskId)) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid task ID' },
+      { status: 400 }
+    );
+  }
+
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'strict');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Ownership check
+  const authResult = await requireOwnership(request, taskId, 'maintenance');
+  if (authResult instanceof NextResponse) return authResult;
+
+  try {
+    // 3. Validation
+    const validatedData = await validateRequest(MaintenanceUpdateSchema, request);
 
     const body = await request.json();
 

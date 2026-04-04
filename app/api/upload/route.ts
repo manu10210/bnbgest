@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { requireAuth } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
 
 // Stockage temporaire des sessions d'upload
 const uploadSessions = new Map<string, { propertyId: string; images: string[] }>();
 
+// POST /api/upload - Upload d'images
+// ✅ Protected: Auth required, Rate limited (upload: 5/60s)
 export async function POST(request: NextRequest) {
+  // 1. Rate limiting (strict pour uploads)
+  const rateLimitResult = await rateLimit(request, 'upload');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('session');

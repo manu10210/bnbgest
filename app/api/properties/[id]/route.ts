@@ -1,14 +1,25 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { requireAuth, requireOwnership } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
 
 /**
  * GET /api/properties/[id]
  * Récupère une propriété spécifique avec toutes ses relations
+ * ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)
  */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'relaxed');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const { id: paramId } = await params;
     const id = parseInt(paramId);
@@ -123,21 +134,31 @@ export async function GET(
 /**
  * PATCH /api/properties/[id]
  * Met à jour une propriété
+ * ✅ Protected: Ownership required, Rate limited (strict: 10/10s)
  */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id: paramId } = await params;
-    const id = parseInt(paramId);
+  const { id: paramId } = await params;
+  const id = parseInt(paramId);
 
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid property ID' },
-        { status: 400 }
-      );
-    }
+  if (isNaN(id)) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid property ID' },
+      { status: 400 }
+    );
+  }
+
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'strict');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Ownership check (user must own the property OR be ADMIN)
+  const authResult = await requireOwnership(request, id, 'property');
+  if (authResult instanceof NextResponse) return authResult;
+
+  try {
 
     const body = await request.json();
 
@@ -188,21 +209,31 @@ export async function PATCH(
 /**
  * DELETE /api/properties/[id]
  * Supprime une propriété (soft delete en changeant le status)
+ * ✅ Protected: Ownership required, Rate limited (strict: 10/10s)
  */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id: paramId } = await params;
-    const id = parseInt(paramId);
+  const { id: paramId } = await params;
+  const id = parseInt(paramId);
 
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid property ID' },
-        { status: 400 }
-      );
-    }
+  if (isNaN(id)) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid property ID' },
+      { status: 400 }
+    );
+  }
+
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'strict');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Ownership check (user must own the property OR be ADMIN)
+  const authResult = await requireOwnership(request, id, 'property');
+  if (authResult instanceof NextResponse) return authResult;
+
+  try {
 
     // Soft delete : change status to INACTIVE
     const property = await prisma.property.update({

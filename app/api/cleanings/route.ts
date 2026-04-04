@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { requireAuth } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
+import { CleaningSchema, validateRequest } from '@/lib/validations';
 
 // GET /api/cleanings - Liste des nettoyages avec filtres
+// ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)
 export async function GET(request: NextRequest) {
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'relaxed');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const { searchParams } = new URL(request.url);
     const propertyId = searchParams.get('propertyId');
@@ -95,26 +107,23 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/cleanings - Créer un nouveau nettoyage
+// ✅ Protected: Auth required, Rate limited (strict: 10/10s), Validated
 export async function POST(request: NextRequest) {
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'strict');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
-    const body = await request.json();
-
-    // Validation des champs requis
-    const { propertyId, scheduledDate } = body;
-
-    if (!propertyId || !scheduledDate) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'propertyId and scheduledDate are required'
-        },
-        { status: 400 }
-      );
-    }
+    // 3. Validation with Zod
+    const validatedData = await validateRequest(CleaningSchema, request);
 
     // Vérifier que la propriété existe
     const property = await prisma.property.findUnique({
-      where: { id: parseInt(propertyId) }
+      where: { id: validatedData.propertyId }
     });
 
     if (!property) {
@@ -127,38 +136,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Si bookingId est fourni, vérifier qu'il existe
-    if (body.bookingId) {
-      const booking = await prisma.booking.findUnique({
-        where: { id: parseInt(body.bookingId) }
-      });
-
-      if (!booking) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Booking not found'
-          },
-          { status: 404 }
-        );
-      }
-
-      if (booking.propertyId !== parseInt(propertyId)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Booking does not belong to this property'
-          },
-          { status: 400 }
-        );
-      }
-    }
-
     // Vérifier les conflits de planning (même propriété, même date, même heure)
-    const scheduledDateTime = new Date(scheduledDate);
+    const scheduledDateTime = new Date(validatedData.scheduledDate);
     const conflictCheck = await prisma.cleaning.findFirst({
       where: {
-        propertyId: parseInt(propertyId),
+        propertyId: validatedData.propertyId,
         status: {
           in: ['SCHEDULED', 'IN_PROGRESS']
         },
@@ -183,11 +165,11 @@ export async function POST(request: NextRequest) {
     // Créer le nettoyage
     const cleaning = await prisma.cleaning.create({
       data: {
-        propertyId: parseInt(propertyId),
-        scheduledDate: new Date(scheduledDate),
-        assignedTo: body.assignedTo || null,
-        status: body.status || 'SCHEDULED',
-        notes: body.notes
+        propertyId: validatedData.propertyId,
+        scheduledDate: new Date(validatedData.scheduledDate),
+        assignedTo: validatedData.assignedTo,
+        status: 'SCHEDULED',
+        notes: validatedData.notes,
       },
       include: {
         property: {

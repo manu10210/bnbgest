@@ -7,13 +7,13 @@ import { useBNB } from '../contexts/BNBContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Video, Plus, Trash2, Download, Eye, Copy, Check, Search, Globe,
-  Tv, Coffee, Thermometer, Wifi, WashingMachine, Microwave, Play,
+  Tv, Coffee, WashingMachine, Play,
   AirVent, Lock, Flame, Droplets, Refrigerator, Printer, Upload,
-  QrCode, ExternalLink, Edit, Save, X, Star, Clock, BarChart,
-  FileText, Smartphone, Share2, Mail, Zap, Layers, Tag, Grid,
-  List, Filter, TrendingUp, Award, BookOpen, AlertCircle, Info,
-  Settings, History, Calendar, Users, Home, Package, Shield, Sun,
-  Moon, Lamp, Fan, Radio, Speaker, Camera, Maximize2, PlayCircle, CheckCircle
+  QrCode, ExternalLink, Edit, Save, X, Star, Clock,
+  Smartphone, Share2, Mail, Grid,
+  List, TrendingUp, BookOpen, AlertCircle, Info,
+  Settings, Home, Package, Sun, Lightbulb,
+  Speaker, Camera, PlayCircle, CheckCircle
 } from 'lucide-react';
 
 interface EquipmentGuide {
@@ -47,7 +47,21 @@ type EquipmentCategory =
   | 'securite' | 'salle_de_bain' | 'cuisine' | 'buanderie'
   | 'exterieur' | 'eclairage' | 'audio' | 'autre';
 
-const CATEGORY_CONFIG: Record<EquipmentCategory, { label: string; icon: any; color: string; bgColor: string }> = {
+interface UploadedVideo {
+  id: string;
+  title: string;
+  originalName: string;
+  filePath: string;
+  category: string;
+  size: number;
+  timestamp: string;
+  uploadedFrom?: string;
+  propertyId?: number;
+  duration?: number;
+  [key: string]: unknown;
+}
+
+const CATEGORY_CONFIG: Record<EquipmentCategory, { label: string; icon: React.ElementType; color: string; bgColor: string }> = {
   chauffage: { label: 'Chauffage', icon: Flame, color: 'text-orange-500', bgColor: 'bg-orange-500/10' },
   climatisation: { label: 'Climatisation', icon: AirVent, color: 'text-blue-400', bgColor: 'bg-blue-400/10' },
   electromenager: { label: 'Electromenager', icon: Refrigerator, color: 'text-gray-400', bgColor: 'bg-gray-400/10' },
@@ -57,7 +71,7 @@ const CATEGORY_CONFIG: Record<EquipmentCategory, { label: string; icon: any; col
   cuisine: { label: 'Cuisine', icon: Coffee, color: 'text-amber-400', bgColor: 'bg-amber-400/10' },
   buanderie: { label: 'Buanderie', icon: WashingMachine, color: 'text-indigo-400', bgColor: 'bg-indigo-400/10' },
   exterieur: { label: 'Exterieur', icon: Sun, color: 'text-green-400', bgColor: 'bg-green-400/10' },
-  eclairage: { label: 'Eclairage', icon: Lamp, color: 'text-yellow-400', bgColor: 'bg-yellow-400/10' },
+  eclairage: { label: 'Eclairage', icon: Lightbulb, color: 'text-yellow-400', bgColor: 'bg-yellow-400/10' },
   audio: { label: 'Audio / Enceintes', icon: Speaker, color: 'text-pink-400', bgColor: 'bg-pink-400/10' },
   autre: { label: 'Autre', icon: Package, color: 'text-gray-400', bgColor: 'bg-gray-400/10' },
 };
@@ -157,11 +171,10 @@ export default function EquipmentVideoQR() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showUploadQR, setShowUploadQR] = useState(false);
   const [networkUrl, setNetworkUrl] = useState('');
-  const [uploadedVideos, setUploadedVideos] = useState<any[]>([]);
+  const [uploadedVideos, setUploadedVideos] = useState<UploadedVideo[]>([]);
   const [showUploadedVideos, setShowUploadedVideos] = useState(false);
-  const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<UploadedVideo | null>(null);
   const [loadingVideos, setLoadingVideos] = useState(false);
-  const qrPrintRef = useRef<HTMLDivElement>(null);
 
   const [form, setForm] = useState({
     propertyId: properties[0]?.id || 0,
@@ -302,12 +315,12 @@ export default function EquipmentVideoQR() {
     }
   };
 
-  // Créer un guide à partir d'une vidéo uploadée
-  const createGuideFromVideo = (video: any) => {
+  // Créer un guide à partir d'une vidéo uploadée  
+  const createGuideFromVideo = (video: UploadedVideo) => {   
     setForm({
       ...form,
       equipmentName: video.title || '',
-      category: video.category || 'autre',
+      category: (video.category as EquipmentCategory) || 'autre',
       videoUrl: video.filePath || '',
       description: `Vidéo uploadée le ${new Date(video.timestamp).toLocaleDateString()}`,
     });
@@ -497,8 +510,8 @@ export default function EquipmentVideoQR() {
     }
   }, [newTag, selectedTags, toggleTag]);
 
-  const filteredAndSorted = useMemo(() => {
-    let result = guides.filter(g => {
+  const filteredAndSorted = useMemo(() => {        
+    const result = guides.filter(g => {
       if (selectedProperty !== 'all' && g.propertyId !== selectedProperty) return false;
       if (selectedCategory !== 'all' && g.category !== selectedCategory) return false;
       if (selectedDifficulty !== 'all' && g.difficulty !== selectedDifficulty) return false;
@@ -838,11 +851,11 @@ export default function EquipmentVideoQR() {
             <option value="">Toutes proprietes</option>
             {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value as any)} className={`border rounded-xl px-4 py-2.5 text-sm ${inputCls}`}>
+          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value as typeof selectedCategory)} className={`border rounded-xl px-4 py-2.5 text-sm ${inputCls}`}>
             <option value="all">Toutes categories</option>
             {Object.entries(CATEGORY_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select value={selectedDifficulty} onChange={(e) => setSelectedDifficulty(e.target.value as any)} className={`border rounded-xl px-4 py-2.5 text-sm ${inputCls}`}>
+          <select value={selectedDifficulty} onChange={(e) => setSelectedDifficulty(e.target.value as typeof selectedDifficulty)} className={`border rounded-xl px-4 py-2.5 text-sm ${inputCls}`}>
             <option value="all">Toutes difficultes</option>
             <option value="facile">Facile</option>
             <option value="moyen">Moyen</option>
@@ -903,7 +916,7 @@ export default function EquipmentVideoQR() {
                   <input type="text" value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="5:30" className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`} />
                 </div>
                 <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Difficulte</label>
-                  <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value as any })} className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`}>
+                  <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value as typeof form.difficulty })} className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`}>
                     <option value="facile">Facile</option>
                     <option value="moyen">Moyen</option>
                     <option value="difficile">Difficile</option>
@@ -1078,8 +1091,21 @@ export default function EquipmentVideoQR() {
               </div>
               <div className="p-6 space-y-5">
                 <div className="flex gap-6">
-                  <div className={`flex flex-col items-center p-5 rounded-2xl ${isDark ? 'bg-white/[0.03]' : 'bg-gray-100'}`}>
-                    <QRCodeSVG value={getPublicUrl(previewGuide.id)} size={240} level="H" includeMargin={true} bgColor="#ffffff" fgColor="#000000" />
+                  <div className={`flex flex-col items-center p-5 rounded-2xl ${isDark ? 'bg-white/[0.05]' : 'bg-gradient-to-br from-purple-50 to-indigo-50'} border-2 border-dashed ${isDark ? 'border-white/[0.1]' : 'border-purple-300'}`}>
+                    <QRCodeSVG
+                      value={getPublicUrl(previewGuide.id)}
+                      size={240}
+                      level="H"
+                      includeMargin={true}
+                      bgColor="#ffffff"
+                      fgColor="#000000"
+                      imageSettings={{
+                        src: '/favicon.ico',
+                        height: 40,
+                        width: 40,
+                        excavate: true,
+                      }}
+                    />
                     <p className={`text-sm mt-3 font-medium ${txtCls}`}>Scannez pour voir le tutoriel</p>
                   </div>
                   <div className="flex-1 space-y-3">
@@ -1129,155 +1155,6 @@ export default function EquipmentVideoQR() {
                 </button>
                 <button onClick={() => downloadQR(previewGuide.id, previewGuide.equipmentName)} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#FF385C] to-[#E31C5F] text-white py-3 rounded-xl text-sm font-semibold hover:from-[#E31C5F] hover:to-[#C8184F] transition-all shadow-lg">
                   <Download className="w-4 h-4" />Telecharger QR
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-
-        {/* Upload Mobile QR Modal */}
-        {showUploadQR && (
-          <motion.div
-            key="upload-qr-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowUploadQR(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className={`w-full max-w-2xl border rounded-2xl overflow-hidden ${cardCls} shadow-2xl`}
-            >
-              <div className={`px-6 py-4 border-b flex items-center justify-between ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500">
-                    <Smartphone className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className={`font-bold ${txtCls}`}>Upload vidéo depuis mobile</h3>
-                    <p className={`text-xs ${subCls}`}>Scannez ce QR code avec votre téléphone</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowUploadQR(false)}
-                  className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/[0.06] text-gray-400' : 'hover:bg-gray-200 text-gray-500'}`}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              
-              <div className="p-8">
-                <div className="grid md:grid-cols-2 gap-8">
-                  {/* QR Code */}
-                  <div className="flex flex-col items-center">
-                    <div className={`p-6 rounded-2xl ${isDark ? 'bg-white/[0.05]' : 'bg-gradient-to-br from-purple-50 to-indigo-50'} border-2 border-dashed ${isDark ? 'border-white/[0.1]' : 'border-purple-300'}`}>
-                      <QRCodeSVG
-                        value={networkUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/upload-video`}
-                        size={220}
-                        level="H"
-                        includeMargin={true}
-                        bgColor="#ffffff"
-                        fgColor="#000000"
-                        imageSettings={{
-                          src: '/favicon.ico',
-                          height: 40,
-                          width: 40,
-                          excavate: true,
-                        }}
-                      />
-                    </div>
-                    <p className={`text-sm font-medium mt-4 text-center ${txtCls}`}>
-                      Scannez pour uploader
-                    </p>
-                    <p className={`text-xs mt-1 text-center ${subCls}`}>
-                      Utilisez l'appareil photo de votre téléphone
-                    </p>
-                    {networkUrl && (
-                      <p className={`text-xs mt-2 text-center font-mono ${subCls}`}>
-                        {networkUrl}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Instructions */}
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className={`font-semibold mb-3 flex items-center gap-2 ${txtCls}`}>
-                        <Info className="w-5 h-5 text-purple-500" />
-                        Comment ça marche ?
-                      </h4>
-                      <div className="space-y-3">
-                        {[
-                          { step: '1', icon: Camera, text: 'Ouvrez l\'appareil photo de votre téléphone' },
-                          { step: '2', icon: QrCode, text: 'Scannez le QR code ci-contre' },
-                          { step: '3', icon: Video, text: 'Sélectionnez ou filmez votre vidéo' },
-                          { step: '4', icon: Upload, text: 'Téléchargez directement depuis le téléphone' },
-                        ].map((item) => (
-                          <div key={item.step} className="flex items-start gap-3">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white text-sm font-bold">
-                              {item.step}
-                            </div>
-                            <div className="flex-1">
-                              <div className={`flex items-center gap-2 ${txtCls}`}>
-                                <item.icon className="w-4 h-4 text-purple-500" />
-                                <p className="text-sm">{item.text}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className={`p-4 rounded-xl ${isDark ? 'bg-purple-500/10 border border-purple-500/20' : 'bg-purple-50 border border-purple-200'}`}>
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className={`text-xs font-medium mb-1 ${txtCls}`}>Conseils pour de meilleures vidéos :</p>
-                          <ul className={`text-xs space-y-1 ${subCls}`}>
-                            <li>• Filmez en mode paysage (horizontal)</li>
-                            <li>• Assurez-vous d'avoir un bon éclairage</li>
-                            <li>• Taille maximale : 100MB</li>
-                            <li>• Formats acceptés : MP4, MOV, AVI</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-sm">
-                      <Globe className={`w-4 h-4 ${subCls}`} />
-                      <span className={subCls}>
-                        URL: <span className={`font-mono text-xs ${txtCls}`}>{networkUrl || '/upload-video'}</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className={`px-6 py-4 border-t flex gap-3 ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
-                <button
-                  onClick={() => {
-                    const url = networkUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/upload-video`;
-                    navigator.clipboard.writeText(url);
-                    alert('URL copiée dans le presse-papier !');
-                  }}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium border transition-all ${isDark ? 'border-white/[0.08] text-gray-300 hover:bg-white/[0.04]' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
-                >
-                  <Copy className="w-4 h-4" />
-                  Copier le lien
-                </button>
-                <button
-                  onClick={() => {
-                    const url = networkUrl || `${typeof window !== 'undefined' ? window.location.origin : ''}/upload-video`;
-                    window.open(url, '_blank');
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white py-3 rounded-xl text-sm font-semibold hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Ouvrir dans un nouvel onglet
                 </button>
               </div>
             </motion.div>

@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { requireAuth } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
+import { MaintenanceSchema, validateRequest } from '@/lib/validations';
 
 // GET /api/maintenance - Liste des tâches de maintenance avec filtres
+// ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)
 export async function GET(request: NextRequest) {
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'relaxed');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const { searchParams } = new URL(request.url);
     const propertyId = searchParams.get('propertyId');
@@ -94,26 +106,23 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/maintenance - Créer une nouvelle tâche de maintenance
+// ✅ Protected: Auth required, Rate limited (strict: 10/10s), Validated
 export async function POST(request: NextRequest) {
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'strict');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
-    const body = await request.json();
-
-    // Validation des champs requis
-    const { propertyId, title, priority } = body;
-
-    if (!propertyId || !title || !priority) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'propertyId, title, and priority are required'
-        },
-        { status: 400 }
-      );
-    }
+    // 3. Validation
+    const validatedData = await validateRequest(MaintenanceSchema, request);
 
     // Vérifier que la propriété existe
     const property = await prisma.property.findUnique({
-      where: { id: parseInt(propertyId) }
+      where: { id: validatedData.propertyId }
     });
 
     if (!property) {
@@ -126,30 +135,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validation de la priorité
-    const validPriorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
-    if (!validPriorities.includes(priority)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `priority must be one of: ${validPriorities.join(', ')}`
-        },
-        { status: 400 }
-      );
-    }
-
     // Créer la tâche
     const task = await prisma.maintenanceTask.create({
       data: {
-        propertyId: parseInt(propertyId),
-        title,
-        description: body.description,
-        priority,
-        status: body.status || 'PENDING',
-        assignedTo: body.assignedTo || null,
-        dueDate: body.dueDate ? new Date(body.dueDate) : null,
-        cost: body.cost ? parseFloat(body.cost) : null,
-        notes: body.notes
+        propertyId: validatedData.propertyId,
+        title: validatedData.title,
+        description: validatedData.description,
+        priority: validatedData.priority,
+        status: 'PENDING',
+        category: validatedData.category,
+        assignedTo: validatedData.assignedTo,
+        dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null,
+        cost: validatedData.cost,
+        notes: validatedData.notes,
       },
       include: {
         property: {

@@ -1,13 +1,24 @@
 /**
  * 🔐 Airbnb OAuth Callback
  * Route pour recevoir le code d'autorisation OAuth2
+ * ✅ Protected: Auth required, Rate limited (normal: 30/10s)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAirbnbClient } from '@/lib/airbnb-api';
 import prisma from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
+  // 1. Rate limiting (normal for OAuth callbacks)
+  const rateLimitResult = await rateLimit(request, 'normal');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');

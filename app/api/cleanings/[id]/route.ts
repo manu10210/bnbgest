@@ -1,24 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, requireOwnership } from '@/lib/auth-middleware';
+import { rateLimit } from '@/lib/rate-limit';
+import { CleaningUpdateSchema, validateRequest } from '@/lib/validations';
 
 // GET /api/cleanings/[id] - Récupérer un nettoyage spécifique
+// ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params;
-    const cleaningId = parseInt(id);
+  const { id } = await params;
+  const cleaningId = parseInt(id);
 
-    if (isNaN(cleaningId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid cleaning ID'
-        },
-        { status: 400 }
-      );
-    }
+  if (isNaN(cleaningId)) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid cleaning ID' },
+      { status: 400 }
+    );
+  }
+
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'relaxed');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  try {
 
     const cleaning = await prisma.cleaning.findUnique({
       where: { id: cleaningId },
@@ -61,25 +71,32 @@ export async function GET(
 }
 
 // PATCH /api/cleanings/[id] - Mettre à jour un nettoyage
+// ✅ Protected: Ownership required, Rate limited (strict: 10/10s), Validated
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const cleaningId = parseInt(id);
+
+  if (isNaN(cleaningId)) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid cleaning ID' },
+      { status: 400 }
+    );
+  }
+
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'strict');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Ownership check
+  const authResult = await requireOwnership(request, cleaningId, 'cleaning');
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
-    const { id } = await params;
-    const cleaningId = parseInt(id);
-
-    if (isNaN(cleaningId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid cleaning ID'
-        },
-        { status: 400 }
-      );
-    }
-
-    const body = await request.json();
+    // 3. Validation
+    const validatedData = await validateRequest(CleaningUpdateSchema, request);
 
     // Vérifier que le nettoyage existe
     const existingCleaning = await prisma.cleaning.findUnique({
@@ -99,52 +116,33 @@ export async function PATCH(
     // Construction de l'objet de mise à jour
     const updateData: any = {};
 
-    if (body.scheduledDate !== undefined) {
-      updateData.scheduledDate = new Date(body.scheduledDate);
+    if (validatedData.scheduledDate !== undefined) {
+      updateData.scheduledDate = new Date(validatedData.scheduledDate);
     }
 
-    if (body.status !== undefined) {
-      const validStatuses = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
-      if (!validStatuses.includes(body.status)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `status must be one of: ${validStatuses.join(', ')}`
-          },
-          { status: 400 }
-        );
-      }
-      updateData.status = body.status;
+    if (validatedData.status !== undefined) {
+      updateData.status = validatedData.status;
 
       // Si le nettoyage est complété, enregistrer la date
-      if (body.status === 'COMPLETED' && !existingCleaning.completedDate) {
+      if (validatedData.status === 'COMPLETED' && !existingCleaning.completedDate) {
         updateData.completedDate = new Date();
       }
-
-      // Si en cours et pas encore commencé, enregistrer l'heure de début
-      if (body.status === 'IN_PROGRESS' && !existingCleaning.completedDate) {
-        // On pourrait ajouter un champ startedAt dans le schema
-      }
     }
 
-    if (body.assignedTo !== undefined) {
-      updateData.assignedTo = body.assignedTo ? parseInt(body.assignedTo) : null;
+    if (validatedData.assignedTo !== undefined) {
+      updateData.assignedTo = validatedData.assignedTo;
     }
 
-    if (body.cost !== undefined) {
-      updateData.cost = body.cost ? parseFloat(body.cost) : null;
+    if (validatedData.actualTime !== undefined) {
+      updateData.actualTime = validatedData.actualTime;
     }
 
-    if (body.duration !== undefined) {
-      updateData.duration = body.duration ? parseInt(body.duration) : null;
+    if (validatedData.notes !== undefined) {
+      updateData.notes = validatedData.notes;
     }
 
-    if (body.notes !== undefined) {
-      updateData.notes = body.notes;
-    }
-
-    if (body.checklistCompleted !== undefined) {
-      updateData.checklistCompleted = body.checklistCompleted;
+    if (validatedData.completedDate !== undefined) {
+      updateData.completedDate = new Date(validatedData.completedDate);
     }
 
     // Mettre à jour le nettoyage
@@ -181,23 +179,30 @@ export async function PATCH(
 }
 
 // DELETE /api/cleanings/[id] - Supprimer un nettoyage
+// ✅ Protected: Ownership required, Rate limited (strict: 10/10s)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params;
-    const cleaningId = parseInt(id);
+  const { id } = await params;
+  const cleaningId = parseInt(id);
 
-    if (isNaN(cleaningId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid cleaning ID'
-        },
-        { status: 400 }
-      );
-    }
+  if (isNaN(cleaningId)) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid cleaning ID' },
+      { status: 400 }
+    );
+  }
+
+  // 1. Rate limiting
+  const rateLimitResult = await rateLimit(request, 'strict');
+  if (rateLimitResult) return rateLimitResult;
+
+  // 2. Ownership check
+  const authResult = await requireOwnership(request, cleaningId, 'cleaning');
+  if (authResult instanceof NextResponse) return authResult;
+
+  try {
 
     // Vérifier que le nettoyage existe
     const existingCleaning = await prisma.cleaning.findUnique({
