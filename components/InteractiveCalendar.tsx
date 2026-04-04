@@ -1,35 +1,20 @@
-'use client';
+﻿'use client';
 
-import { useState, useMemo } from 'react';
-import Calendar from 'react-calendar';
-import { format, isSameDay, isWithinInterval, addDays, parseISO } from 'date-fns';
+import { useState, useMemo, useCallback, useRef } from 'react';
+import { format, isSameDay, isWithinInterval, parseISO, startOfMonth, endOfMonth,
+  startOfWeek, endOfWeek, addDays, addMonths, subMonths, differenceInDays,
+  isBefore, isAfter, isToday } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBNB, Booking, MaintenanceTask } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Card } from './ui/Card';
-import { Button } from './ui/Button';
 import {
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  Users,
-  Wrench,
-  Lock,
-  Unlock,
-  Plus,
-  X,
-  CheckCircle,
-  AlertTriangle,
-  Clock,
-  Home,
-  Eye,
-  Trash2,
-  Edit
+  Calendar as CalendarIcon, ChevronLeft, ChevronRight, Users, Wrench, Lock,
+  X, CheckCircle, Clock, Home, Euro, Moon,
+  Bell, Layers, BarChart2, Download
 } from 'lucide-react';
-import 'react-calendar/dist/Calendar.css';
 
-type ViewMode = 'month' | 'year';
+type ViewMode = 'month' | 'week';
 type EventType = 'booking' | 'maintenance' | 'blocked';
 
 interface CalendarEvent {
@@ -39,587 +24,581 @@ interface CalendarEvent {
   endDate: Date;
   title: string;
   color: string;
-  data: Booking | MaintenanceTask | any;
+  data: Booking | MaintenanceTask | Record<string, unknown>;
+}
+
+const PROPERTY_COLORS = [
+  '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6',
+  '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#84cc16',
+];
+
+function fmt(n: number) {
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function generateICS(events: CalendarEvent[], monthLabel: string): void {
+  const lines: string[] = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//BNBGest//Calendar//FR',
+    `X-WR-CALNAME:BNBGest - ${monthLabel}`, 'CALSCALE:GREGORIAN',
+  ];
+  events.forEach(ev => {
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${ev.id}@bnbgest`);
+    lines.push(`DTSTART:${format(ev.startDate, "yyyyMMdd'T'HHmmss")}`);
+    lines.push(`DTEND:${format(ev.endDate, "yyyyMMdd'T'HHmmss")}`);
+    lines.push(`SUMMARY:${ev.title}`);
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `bnbgest-${monthLabel}.ics`; a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function InteractiveCalendar() {
   const { properties, bookings, maintenanceTasks, updateProperty } = useBNB();
   const { isDark } = useTheme();
 
-  const [selectedPropertyId, setSelectedPropertyId] = useState<number>(
+  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [filterProperty, setFilterProperty] = useState<number | 'all'>('all');
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockStart, setBlockStart] = useState('');
+  const [blockEnd, setBlockEnd] = useState('');
+  const [blockReason, setBlockReason] = useState('');
+  const [blockPropertyId, setBlockPropertyId] = useState<number>(
     properties.length > 0 ? properties[0].id : 0
   );
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
-  const [showEventDetails, setShowEventDetails] = useState(false);
-  const [selectedEvents, setSelectedEvents] = useState<CalendarEvent[]>([]);
-  const [showBlockModal, setShowBlockModal] = useState(false);
-  const [blockStartDate, setBlockStartDate] = useState('');
-  const [blockEndDate, setBlockEndDate] = useState('');
-  const [blockReason, setBlockReason] = useState('');
-  const [selectedRange, setSelectedRange] = useState<Date[] | null>(null);
+  const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
+  const [dragStart, setDragStart] = useState<Date | null>(null);
+  const [dragEnd, setDragEnd] = useState<Date | null>(null);
+  const isDragging = useRef(false);
 
-  const selectedProperty = properties.find(p => p.id === selectedPropertyId);
+  const propColors = useMemo(() => {
+    const map: Record<number, string> = {};
+    properties.forEach((p, i) => { map[p.id] = PROPERTY_COLORS[i % PROPERTY_COLORS.length]; });
+    return map;
+  }, [properties]);
 
-  // Construire tous les événements du calendrier
   const events = useMemo(() => {
-    const allEvents: CalendarEvent[] = [];
-
-    // 1. Réservations
+    const all: CalendarEvent[] = [];
     bookings
-      .filter(b => b.propertyId === selectedPropertyId && b.status !== 'cancelled')
-      .forEach(booking => {
-        allEvents.push({
-          id: booking.id,
-          type: 'booking',
-          startDate: parseISO(booking.checkIn),
-          endDate: parseISO(booking.checkOut),
-          title: booking.guestInfo.name,
-          color: booking.status === 'confirmed' ? '#3b82f6' : booking.status === 'completed' ? '#10b981' : '#f59e0b',
-          data: booking
-        });
+      .filter(b => b.status !== 'cancelled' && (filterProperty === 'all' || b.propertyId === filterProperty))
+      .forEach(b => {
+        const color = b.status === 'confirmed' ? (propColors[b.propertyId] ?? '#6366f1')
+          : b.status === 'completed' ? '#10b981' : '#f59e0b';
+        all.push({ id: b.id, type: 'booking', startDate: parseISO(b.checkIn), endDate: parseISO(b.checkOut), title: b.guestInfo.name, color, data: b });
       });
-
-    // 2. Tâches de maintenance
     maintenanceTasks
-      .filter(t => t.propertyId === selectedPropertyId)
-      .forEach(task => {
-        allEvents.push({
-          id: task.id,
-          type: 'maintenance',
-          startDate: parseISO(task.scheduledDate),
-          endDate: parseISO(task.scheduledDate),
-          title: task.title,
-          color: task.priority === 'urgent' ? '#ef4444' : task.status === 'completed' ? '#10b981' : '#8b5cf6',
-          data: task
-        });
+      .filter(t => filterProperty === 'all' || t.propertyId === filterProperty)
+      .forEach(t => {
+        all.push({ id: t.id, type: 'maintenance', startDate: parseISO(t.scheduledDate), endDate: parseISO(t.scheduledDate), title: t.title, color: t.priority === 'urgent' ? '#ef4444' : t.status === 'completed' ? '#10b981' : '#8b5cf6', data: t });
       });
-
-    // 3. Dates bloquées
-    if (selectedProperty?.availabilityCalendar) {
-      selectedProperty.availabilityCalendar
-        .filter(slot => slot.status === 'blocked')
-        .forEach((slot, index) => {
-          allEvents.push({
-            id: `blocked-${index}`,
-            type: 'blocked',
-            startDate: parseISO(slot.startDate),
-            endDate: parseISO(slot.endDate),
-            title: 'Bloqué',
-            color: '#ef4444',
-            data: slot
-          });
-        });
-    }
-
-    return allEvents;
-  }, [bookings, maintenanceTasks, selectedPropertyId, selectedProperty]);
-
-  // Obtenir les événements pour une date donnée
-  const getEventsForDate = (date: Date): CalendarEvent[] => {
-    return events.filter(event => {
-      if (isSameDay(event.startDate, date) || isSameDay(event.endDate, date)) {
-        return true;
-      }
-      return isWithinInterval(date, { start: event.startDate, end: event.endDate });
+    properties.filter(p => filterProperty === 'all' || p.id === filterProperty).forEach(p => {
+      (p.availabilityCalendar ?? []).filter(slot => slot.status === 'blocked').forEach((slot, idx) => {
+        all.push({ id: `blocked-${p.id}-${idx}`, type: 'blocked', startDate: parseISO(slot.startDate), endDate: parseISO(slot.endDate), title: slot.notes ? `${slot.notes}` : 'Bloque', color: '#ef4444', data: { ...slot } as Record<string, unknown> });
+      });
     });
-  };
+    return all;
+  }, [bookings, maintenanceTasks, properties, filterProperty, propColors]);
 
-  // Personnaliser l'affichage des tuiles du calendrier
-  const tileContent = ({ date, view }: { date: Date; view: string }) => {
-    if (view !== 'month') return null;
-
-    const dayEvents = getEventsForDate(date);
-    if (dayEvents.length === 0) return null;
-
-    return (
-      <div className="flex flex-col gap-0.5 mt-1">
-        {dayEvents.slice(0, 3).map((event, index) => (
-          <div
-            key={`${event.id}-${index}`}
-            className="w-full h-1 rounded-full"
-            style={{ backgroundColor: event.color }}
-          />
-        ))}
-        {dayEvents.length > 3 && (
-          <div className="text-[10px] text-center font-bold" style={{ color: isDark ? '#fff' : '#000' }}>
-            +{dayEvents.length - 3}
-          </div>
-        )}
-      </div>
+  const getEventsForDate = useCallback((date: Date) => {
+    return events.filter(ev =>
+      isSameDay(ev.startDate, date) || isSameDay(ev.endDate, date) ||
+      isWithinInterval(date, { start: ev.startDate, end: ev.endDate })
     );
-  };
+  }, [events]);
 
-  // Personnaliser les classes CSS des tuiles
-  const tileClassName = ({ date, view }: { date: Date; view: string }) => {
-    if (view !== 'month') return '';
+  const monthDays = useMemo(() => {
+    const start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 });
+    const end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 });
+    const days: Date[] = [];
+    let d = start;
+    while (!isAfter(d, end)) { days.push(d); d = addDays(d, 1); }
+    return days;
+  }, [currentDate]);
 
-    const dayEvents = getEventsForDate(date);
-    const classes = ['calendar-tile'];
+  const weekDays = useMemo(() => {
+    const start = startOfWeek(currentDate, { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  }, [currentDate]);
 
-    if (dayEvents.some(e => e.type === 'booking')) {
-      classes.push('has-booking');
-    }
-    if (dayEvents.some(e => e.type === 'maintenance')) {
-      classes.push('has-maintenance');
-    }
-    if (dayEvents.some(e => e.type === 'blocked')) {
-      classes.push('is-blocked');
-    }
-
-    return classes.join(' ');
-  };
-
-  // Gérer le clic sur une date
-  const handleDateClick = (date: Date) => {
-    setSelectedDate(date);
-    const dayEvents = getEventsForDate(date);
-    setSelectedEvents(dayEvents);
-    if (dayEvents.length > 0) {
-      setShowEventDetails(true);
-    }
-  };
-
-  // Bloquer des dates
-  const handleBlockDates = () => {
-    if (!blockStartDate || !blockEndDate || !selectedProperty) return;
-
-    const updatedCalendar = [...(selectedProperty.availabilityCalendar || [])];
-    updatedCalendar.push({
-      id: Date.now(),
-      propertyId: selectedPropertyId,
-      startDate: blockStartDate,
-      endDate: blockEndDate,
-      status: 'blocked',
-      notes: blockReason
-    });
-
-    updateProperty(selectedPropertyId, {
-      ...selectedProperty,
-      availabilityCalendar: updatedCalendar
-    });
-
-    setShowBlockModal(false);
-    setBlockStartDate('');
-    setBlockEndDate('');
-    setBlockReason('');
-  };
-
-  // Statistiques du mois
-  const monthStats = useMemo(() => {
-    const currentMonth = selectedDate.getMonth();
-    const currentYear = selectedDate.getFullYear();
-
+  const stats = useMemo(() => {
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    const daysInMonth = differenceInDays(monthEnd, monthStart) + 1;
     const monthBookings = bookings.filter(b => {
-      const checkIn = parseISO(b.checkIn);
-      return (
-        b.propertyId === selectedPropertyId &&
-        checkIn.getMonth() === currentMonth &&
-        checkIn.getFullYear() === currentYear &&
-        b.status !== 'cancelled'
-      );
+      const ci = parseISO(b.checkIn);
+      return b.status !== 'cancelled' && (filterProperty === 'all' || b.propertyId === filterProperty) && ci >= monthStart && ci <= monthEnd;
     });
-
-    const monthTasks = maintenanceTasks.filter(t => {
-      const scheduled = parseISO(t.scheduledDate);
-      return (
-        t.propertyId === selectedPropertyId &&
-        scheduled.getMonth() === currentMonth &&
-        scheduled.getFullYear() === currentYear
-      );
+    const occupiedDays = new Set<string>();
+    bookings.filter(b => b.status !== 'cancelled' && (filterProperty === 'all' || b.propertyId === filterProperty)).forEach(b => {
+      let d = parseISO(b.checkIn); const end = parseISO(b.checkOut);
+      while (d < end) { if (d >= monthStart && d <= monthEnd) occupiedDays.add(format(d, 'yyyy-MM-dd')); d = addDays(d, 1); }
     });
+    const occupancyRate = Math.round((occupiedDays.size / daysInMonth) * 100);
+    const now = new Date();
+    const nextCheckIn = bookings.filter(b => b.status !== 'cancelled' && (filterProperty === 'all' || b.propertyId === filterProperty)).map(b => parseISO(b.checkIn)).filter(d => d > now).sort((a, z) => a.getTime() - z.getTime())[0];
+    return { bookingCount: monthBookings.length, revenue: monthBookings.reduce((s, b) => s + b.totalPrice, 0), occupancyRate, daysInMonth, occupiedDays: occupiedDays.size, nextCheckIn, daysUntilNext: nextCheckIn ? differenceInDays(nextCheckIn, now) : null };
+  }, [currentDate, bookings, filterProperty]);
 
-    return {
-      bookings: monthBookings.length,
-      tasks: monthTasks.length,
-      revenue: monthBookings.reduce((sum, b) => sum + b.totalPrice, 0),
-      pendingTasks: monthTasks.filter(t => t.status === 'pending').length
-    };
-  }, [selectedDate, bookings, maintenanceTasks, selectedPropertyId]);
+  const handleBlockDates = () => {
+    if (!blockStart || !blockEnd) return;
+    const prop = properties.find(p => p.id === blockPropertyId);
+    if (!prop) return;
+    const updated = [...(prop.availabilityCalendar ?? []), { id: Date.now(), propertyId: blockPropertyId, startDate: blockStart, endDate: blockEnd, status: 'blocked' as const, notes: blockReason }];
+    updateProperty(blockPropertyId, { ...prop, availabilityCalendar: updated });
+    setShowBlockModal(false); setBlockStart(''); setBlockEnd(''); setBlockReason('');
+  };
+
+  const handleMouseDown = (date: Date) => { isDragging.current = true; setDragStart(date); setDragEnd(date); };
+  const handleMouseEnter = (date: Date) => { if (isDragging.current) setDragEnd(date); };
+  const handleMouseUp = () => {
+    isDragging.current = false;
+    if (dragStart && dragEnd) {
+      const s = isBefore(dragStart, dragEnd) ? dragStart : dragEnd;
+      const e = isBefore(dragStart, dragEnd) ? dragEnd : dragStart;
+      setBlockStart(format(s, 'yyyy-MM-dd')); setBlockEnd(format(e, 'yyyy-MM-dd'));
+      setShowBlockModal(true);
+    }
+    setDragStart(null); setDragEnd(null);
+  };
+
+  const isDragSelected = (date: Date) => {
+    if (!dragStart || !dragEnd) return false;
+    const s = isBefore(dragStart, dragEnd) ? dragStart : dragEnd;
+    const e = isBefore(dragStart, dragEnd) ? dragEnd : dragStart;
+    try { return isWithinInterval(date, { start: s, end: e }); } catch { return false; }
+  };
+
+  const card = `rounded-2xl border ${isDark ? 'bg-white/[0.03] border-white/[0.07]' : 'bg-white border-gray-100 shadow-sm'}`;
+  const text = isDark ? 'text-white' : 'text-gray-900';
+  const sub = isDark ? 'text-gray-400' : 'text-gray-500';
+  const inputCls = `w-full px-3 py-2 rounded-xl border outline-none text-sm transition-colors ${isDark ? 'bg-white/[0.05] border-white/10 text-white placeholder-gray-600 focus:border-indigo-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-indigo-400'}`;
+  const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
   return (
-    <div className={`min-h-screen transition-colors ${isDark ? 'bg-[#1a1a2e]' : 'bg-gray-50'}`}>
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <div className={`min-h-screen ${isDark ? 'bg-[#0f0f1a]' : 'bg-gray-50'}`} onMouseUp={handleMouseUp} style={{ userSelect: 'none' }}>
+      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
+
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              📅 Calendrier Interactif
-            </h1>
-            <p className={`mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Gérez vos réservations, maintenances et disponibilités
-            </p>
+            <h1 className={`text-2xl font-black tracking-tight ${text}`}>Calendrier</h1>
+            <p className={`text-sm mt-0.5 ${sub}`}>{format(currentDate, 'MMMM yyyy', { locale: fr })} &bull; {events.length} evenement{events.length !== 1 ? 's' : ''}</p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <select
-              value={selectedPropertyId}
-              onChange={(e) => setSelectedPropertyId(Number(e.target.value))}
-              className={`px-4 py-2 rounded-xl border transition-all ${
-                isDark
-                  ? 'bg-white/5 border-white/10 text-white'
-                  : 'bg-white border-gray-200 text-gray-900'
-              }`}
-            >
-              {properties.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={filterProperty} onChange={e => setFilterProperty(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              className={`text-sm px-3 py-2 rounded-xl border outline-none ${isDark ? 'bg-white/[0.05] border-white/10 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
+              <option value="all">Tous les biens</option>
+              {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
-
-            <Button
-              variant="primary"
-              icon={Lock}
-              onClick={() => setShowBlockModal(true)}
-            >
-              Bloquer des dates
-            </Button>
+            <div className={`flex rounded-xl overflow-hidden border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+              {(['month', 'week'] as ViewMode[]).map(v => (
+                <button key={v} onClick={() => setViewMode(v)} className={`px-3 py-2 text-xs font-bold transition-colors ${viewMode === v ? 'bg-indigo-500 text-white' : isDark ? 'bg-white/[0.03] text-gray-400 hover:bg-white/[0.07]' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
+                  {v === 'month' ? 'Mois' : 'Semaine'}
+                </button>
+              ))}
+            </div>
+            <div className={`flex items-center rounded-xl overflow-hidden border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+              <button onClick={() => setCurrentDate(viewMode === 'month' ? subMonths(currentDate, 1) : addDays(currentDate, -7))}
+                className={`p-2 transition-colors ${isDark ? 'bg-white/[0.03] text-gray-300 hover:bg-white/[0.07]' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button onClick={() => setCurrentDate(new Date())}
+                className={`px-3 py-2 text-xs font-bold transition-colors ${isDark ? 'bg-white/[0.03] text-gray-300 hover:bg-white/[0.07]' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                Aujourd&apos;hui
+              </button>
+              <button onClick={() => setCurrentDate(viewMode === 'month' ? addMonths(currentDate, 1) : addDays(currentDate, 7))}
+                className={`p-2 transition-colors ${isDark ? 'bg-white/[0.03] text-gray-300 hover:bg-white/[0.07]' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            <button onClick={() => setShowBlockModal(true)} className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition-colors">
+              <Lock className="w-3.5 h-3.5" /> Bloquer
+            </button>
+            <button onClick={() => generateICS(events, format(currentDate, 'MMMM-yyyy', { locale: fr }))} title="Exporter ICS"
+              className={`p-2 rounded-xl transition-colors ${isDark ? 'bg-white/[0.05] text-gray-400 hover:bg-white/[0.09]' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+              <Download className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {/* Statistiques du mois */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className={`p-4 ${isDark ? 'bg-white/5' : 'bg-white'}`}>
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-blue-500/10">
-                <Users className="w-6 h-6 text-blue-500" />
-              </div>
-              <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Réservations</p>
-                <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {monthStats.bookings}
-                </p>
-              </div>
+        {/* KPI */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Reservations', value: stats.bookingCount, icon: Users, color: 'text-blue-400', bg: isDark ? 'bg-blue-500/10' : 'bg-blue-50' },
+            { label: 'Revenus', value: `${fmt(stats.revenue)} EUR`, icon: Euro, color: 'text-emerald-400', bg: isDark ? 'bg-emerald-500/10' : 'bg-emerald-50' },
+            { label: "Taux d'occ.", value: `${stats.occupancyRate}%`, icon: BarChart2, color: 'text-violet-400', bg: isDark ? 'bg-violet-500/10' : 'bg-violet-50' },
+            { label: stats.nextCheckIn ? `Check-in dans ${stats.daysUntilNext}j` : 'Prochain', value: stats.nextCheckIn ? format(stats.nextCheckIn, 'dd MMM', { locale: fr }) : '-', icon: Bell, color: 'text-amber-400', bg: isDark ? 'bg-amber-500/10' : 'bg-amber-50' },
+          ].map(({ label, value, icon: Icon, color, bg }) => (
+            <div key={label} className={`${card} p-4 flex items-center gap-3`}>
+              <div className={`p-2.5 rounded-xl ${bg}`}><Icon className={`w-5 h-5 ${color}`} /></div>
+              <div><p className={`text-xs ${sub}`}>{label}</p><p className={`text-xl font-black ${text}`}>{value}</p></div>
             </div>
-          </Card>
-
-          <Card className={`p-4 ${isDark ? 'bg-white/5' : 'bg-white'}`}>
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-green-500/10">
-                <CheckCircle className="w-6 h-6 text-green-500" />
-              </div>
-              <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Revenus</p>
-                <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {monthStats.revenue}€
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className={`p-4 ${isDark ? 'bg-white/5' : 'bg-white'}`}>
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-purple-500/10">
-                <Wrench className="w-6 h-6 text-purple-500" />
-              </div>
-              <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Maintenances</p>
-                <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {monthStats.tasks}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className={`p-4 ${isDark ? 'bg-white/5' : 'bg-white'}`}>
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-orange-500/10">
-                <Clock className="w-6 h-6 text-orange-500" />
-              </div>
-              <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>En attente</p>
-                <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {monthStats.pendingTasks}
-                </p>
-              </div>
-            </div>
-          </Card>
+          ))}
         </div>
 
-        {/* Calendrier principal */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Card className={`p-6 ${isDark ? 'bg-white/5' : 'bg-white'}`}>
-              <style jsx global>{`
-                .react-calendar {
-                  width: 100%;
-                  border: none;
-                  font-family: inherit;
-                  background: transparent;
-                }
-                .react-calendar__navigation {
-                  display: flex;
-                  height: 44px;
-                  margin-bottom: 1em;
-                }
-                .react-calendar__navigation button {
-                  min-width: 44px;
-                  background: ${isDark ? 'rgba(255,255,255,0.05)' : '#f9fafb'};
-                  border: 1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'};
-                  color: ${isDark ? '#fff' : '#1f2937'};
-                  border-radius: 0.75rem;
-                  font-size: 16px;
-                  font-weight: 600;
-                  transition: all 0.2s;
-                }
-                .react-calendar__navigation button:enabled:hover {
-                  background: ${isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'};
-                }
-                .react-calendar__navigation button:disabled {
-                  opacity: 0.4;
-                }
-                .react-calendar__month-view__weekdays {
-                  text-align: center;
-                  text-transform: uppercase;
-                  font-weight: 600;
-                  font-size: 0.75rem;
-                  color: ${isDark ? 'rgba(255,255,255,0.5)' : '#6b7280'};
-                  padding-bottom: 1rem;
-                }
-                .react-calendar__month-view__weekdays__weekday {
-                  padding: 0.5em;
-                }
-                .react-calendar__month-view__days__day {
-                  padding: 1rem 0.5rem;
-                  border-radius: 0.75rem;
-                  transition: all 0.2s;
-                  color: ${isDark ? '#fff' : '#1f2937'};
-                  position: relative;
-                  min-height: 80px;
-                  display: flex;
-                  flex-direction: column;
-                  align-items: center;
-                }
-                .react-calendar__month-view__days__day:hover {
-                  background: ${isDark ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.05)'};
-                  cursor: pointer;
-                }
-                .react-calendar__tile--active {
-                  background: ${isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)'};
-                  border: 2px solid #6366f1;
-                }
-                .react-calendar__tile--now {
-                  background: ${isDark ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)'};
-                }
-                .react-calendar__month-view__days__day--neighboringMonth {
-                  color: ${isDark ? 'rgba(255,255,255,0.3)' : '#9ca3af'};
-                }
-                .react-calendar__tile.has-booking {
-                  border-left: 3px solid #3b82f6;
-                }
-                .react-calendar__tile.has-maintenance {
-                  border-right: 3px solid #8b5cf6;
-                }
-                .react-calendar__tile.is-blocked {
-                  background: ${isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)'};
-                }
-              `}</style>
+        {/* Occupation bar */}
+        <div className={`${card} px-5 py-3 flex items-center gap-4`}>
+          <span className={`text-xs font-bold ${sub} whitespace-nowrap`}>Occupation ce mois</span>
+          <div className={`flex-1 h-2.5 rounded-full overflow-hidden ${isDark ? 'bg-white/[0.06]' : 'bg-gray-100'}`}>
+            <motion.div className={`h-full rounded-full ${stats.occupancyRate >= 80 ? 'bg-emerald-500' : stats.occupancyRate >= 40 ? 'bg-amber-500' : 'bg-rose-400'}`}
+              initial={{ width: 0 }} animate={{ width: `${stats.occupancyRate}%` }} transition={{ duration: 0.7, ease: 'easeOut' }} />
+          </div>
+          <span className={`text-sm font-black ${stats.occupancyRate >= 80 ? 'text-emerald-400' : stats.occupancyRate >= 40 ? 'text-amber-400' : 'text-rose-400'}`}>{stats.occupancyRate}%</span>
+          <span className={`text-xs ${sub}`}>{stats.occupiedDays}/{stats.daysInMonth} j</span>
+        </div>
 
-              <Calendar
-                onChange={(value) => handleDateClick(value as Date)}
-                value={selectedDate}
-                locale="fr-FR"
-                tileContent={tileContent}
-                tileClassName={tileClassName}
-                next2Label={null}
-                prev2Label={null}
-                navigationLabel={({ date }) => format(date, 'MMMM yyyy', { locale: fr })}
-              />
+        {/* Main grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-5">
 
-              {/* Légende */}
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-white/10">
-                <p className={`text-sm font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  Légende
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-blue-500" />
-                    <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Réservation
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-purple-500" />
-                    <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Maintenance
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-red-500" />
-                    <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Bloqué
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-green-500" />
-                    <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Terminé
-                    </span>
-                  </div>
+          {/* Calendar */}
+          <div className={`xl:col-span-3 ${card} p-4 md:p-5`}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className={`text-lg font-black capitalize ${text}`}>
+                {format(currentDate, viewMode === 'month' ? 'MMMM yyyy' : 'MMMM yyyy', { locale: fr })}
+              </h2>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {properties.slice(0, 4).map((p, i) => (
+                  <span key={p.id} className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: PROPERTY_COLORS[i % PROPERTY_COLORS.length] }}>
+                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: PROPERTY_COLORS[i % PROPERTY_COLORS.length] }} />
+                    {p.name.split(' ')[0]}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-7 mb-1">
+              {WEEKDAYS.map(d => (
+                <div key={d} className={`text-center text-[11px] font-bold uppercase tracking-wider py-2 ${sub}`}>{d}</div>
+              ))}
+            </div>
+
+            {/* Month view */}
+            {viewMode === 'month' && (
+              <div className="grid grid-cols-7 gap-px rounded-xl overflow-hidden" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : '#e5e7eb' }}>
+                {monthDays.map((day, idx) => {
+                  const dayEvents = getEventsForDate(day);
+                  const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                  const isTodayDate = isToday(day);
+                  const isSelected = selectedDate && isSameDay(day, selectedDate);
+                  const isDragSel = isDragSelected(day);
+                  return (
+                    <div key={idx}
+                      className={`min-h-[80px] md:min-h-[90px] p-1.5 cursor-pointer transition-all select-none ${isDark ? 'bg-[#0f0f1a]' : 'bg-white'} ${!isCurrentMonth ? 'opacity-40' : ''} ${isTodayDate ? isDark ? '!bg-indigo-950/80' : '!bg-indigo-50/60' : ''} ${isSelected ? isDark ? '!bg-indigo-900/40' : '!bg-indigo-50' : ''} ${isDragSel ? isDark ? '!bg-rose-900/30' : '!bg-rose-50' : ''}`}
+                      onClick={() => setSelectedDate(day)}
+                      onMouseDown={() => handleMouseDown(day)}
+                      onMouseEnter={() => handleMouseEnter(day)}>
+                      <div className={`text-xs font-bold mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isTodayDate ? 'bg-indigo-500 text-white' : isSelected ? 'text-indigo-400' : sub}`}>
+                        {format(day, 'd')}
+                      </div>
+                      <div className="space-y-0.5">
+                        {dayEvents.slice(0, 3).map((ev, i) => (
+                          <div key={`${ev.id}-${i}`} onClick={e => { e.stopPropagation(); setDetailEvent(ev); }}
+                            className="w-full truncate text-[10px] font-semibold px-1 py-0.5 rounded cursor-pointer hover:opacity-80"
+                            style={{ background: `${ev.color}25`, color: ev.color, borderLeft: `2px solid ${ev.color}` }}>
+                            {ev.title}
+                          </div>
+                        ))}
+                        {dayEvents.length > 3 && <div className={`text-[10px] font-bold text-center ${sub}`}>+{dayEvents.length - 3}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Week view */}
+            {viewMode === 'week' && (
+              <div className="grid grid-cols-7 gap-1">
+                {weekDays.map((day, idx) => {
+                  const dayEvents = getEventsForDate(day);
+                  const isTodayDate = isToday(day);
+                  const isSelected = selectedDate && isSameDay(day, selectedDate);
+                  return (
+                    <div key={idx} onClick={() => setSelectedDate(day)}
+                      className={`min-h-[260px] rounded-xl p-2 cursor-pointer transition-colors border ${isTodayDate ? isDark ? 'border-indigo-500/50 bg-indigo-950/40' : 'border-indigo-300 bg-indigo-50/50' : isDark ? 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05]' : 'border-gray-100 bg-white hover:bg-gray-50'} ${isSelected && !isTodayDate ? isDark ? '!border-indigo-400/60' : '!border-indigo-400' : ''}`}>
+                      <div className={`text-xs font-bold mb-2 w-7 h-7 flex items-center justify-center rounded-full ${isTodayDate ? 'bg-indigo-500 text-white' : sub}`}>
+                        {format(day, 'd')}
+                      </div>
+                      <div className="space-y-1">
+                        {dayEvents.map((ev, i) => (
+                          <div key={`${ev.id}-${i}`} onClick={e => { e.stopPropagation(); setDetailEvent(ev); }}
+                            className="w-full rounded-lg px-1.5 py-1 text-[11px] font-semibold cursor-pointer truncate hover:opacity-80"
+                            style={{ background: `${ev.color}20`, color: ev.color, borderLeft: `3px solid ${ev.color}` }}>
+                            {ev.title}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Legend */}
+            <div className={`mt-5 pt-4 border-t ${isDark ? 'border-white/[0.06]' : 'border-gray-100'} flex flex-wrap gap-4 items-center`}>
+              <span className={`text-xs font-bold ${sub}`}>Legende :</span>
+              {[
+                { color: '#6366f1', label: 'Reservation confirmee' },
+                { color: '#10b981', label: 'Terminee' },
+                { color: '#f59e0b', label: 'En attente' },
+                { color: '#8b5cf6', label: 'Maintenance' },
+                { color: '#ef4444', label: 'Bloque' },
+              ].map(({ color, label }) => (
+                <div key={label} className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full" style={{ background: color }} />
+                  <span className={`text-xs ${sub}`}>{label}</span>
                 </div>
-              </div>
-            </Card>
+              ))}
+              <span className={`ml-auto text-xs italic ${sub} hidden md:block`}>Cliquer-glisser pour bloquer</span>
+            </div>
           </div>
 
-          {/* Panneau latéral - Événements du jour sélectionné */}
+          {/* Sidebar */}
           <div className="space-y-4">
-            <Card className={`p-6 ${isDark ? 'bg-white/5' : 'bg-white'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {format(selectedDate, 'd MMMM yyyy', { locale: fr })}
-                </h3>
-                <CalendarIcon className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
-              </div>
 
-              {selectedEvents.length === 0 ? (
-                <div className="text-center py-8">
-                  <CalendarIcon className={`w-12 h-12 mx-auto mb-3 ${isDark ? 'text-gray-600' : 'text-gray-300'}`} />
-                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Aucun événement ce jour
-                  </p>
+            {/* Day events */}
+            <div className={`${card} p-4`}>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className={`font-black text-sm ${text}`}>
+                  {selectedDate ? format(selectedDate, 'EEE d MMM', { locale: fr }) : format(new Date(), 'EEE d MMM', { locale: fr })}
+                </h3>
+                <CalendarIcon className={`w-4 h-4 ${sub}`} />
+              </div>
+              {(() => {
+                const dayEvs = getEventsForDate(selectedDate ?? new Date());
+                if (dayEvs.length === 0) return (
+                  <div className="text-center py-6">
+                    <CalendarIcon className={`w-10 h-10 mx-auto mb-2 opacity-20 ${isDark ? 'text-white' : 'text-gray-400'}`} />
+                    <p className={`text-xs ${sub}`}>Aucun evenement</p>
+                  </div>
+                );
+                return (
+                  <div className="space-y-2">
+                    {dayEvs.map((ev, i) => (
+                      <motion.div key={`${ev.id}-${i}`} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
+                        onClick={() => setDetailEvent(ev)}
+                        className={`p-3 rounded-xl cursor-pointer transition-all hover:scale-[1.01] ${isDark ? 'bg-white/[0.04] hover:bg-white/[0.07]' : 'bg-gray-50 hover:bg-gray-100'}`}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: ev.color }} />
+                          <p className={`text-xs font-bold truncate ${text}`}>{ev.title}</p>
+                        </div>
+                        <div className="flex items-center gap-1 mt-1 ml-4">
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: `${ev.color}20`, color: ev.color }}>
+                            {ev.type === 'booking' ? 'Reservation' : ev.type === 'maintenance' ? 'Maintenance' : 'Bloque'}
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Next check-in */}
+            {stats.nextCheckIn && (
+              <div className={`${card} p-4`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Bell className="w-4 h-4 text-amber-400" />
+                  <span className={`text-xs font-bold ${text}`}>Prochain check-in</span>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {selectedEvents.map((event, index) => (
-                    <motion.div
-                      key={`${event.id}-${index}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className={`p-4 rounded-xl border ${
-                        isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className="w-3 h-3 rounded-full mt-1 flex-shrink-0"
-                          style={{ backgroundColor: event.color }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                            {event.title}
-                          </p>
-                          <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {event.type === 'booking' && '👤 Réservation'}
-                            {event.type === 'maintenance' && '🔧 Maintenance'}
-                            {event.type === 'blocked' && '🔒 Bloqué'}
-                          </p>
-                          {event.type === 'booking' && (
-                            <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                              {format(event.startDate, 'dd/MM')} → {format(event.endDate, 'dd/MM')}
-                            </p>
-                          )}
+                <p className="text-2xl font-black text-amber-400">
+                  {stats.daysUntilNext === 0 ? "Auj.!" : stats.daysUntilNext === 1 ? 'Demain' : `Dans ${stats.daysUntilNext}j`}
+                </p>
+                <p className={`text-xs mt-1 ${sub}`}>{format(stats.nextCheckIn, 'EEE d MMM yyyy', { locale: fr })}</p>
+              </div>
+            )}
+
+            {/* Per property */}
+            <div className={`${card} p-4`}>
+              <div className="flex items-center gap-2 mb-3">
+                <Layers className="w-4 h-4 text-indigo-400" />
+                <span className={`text-xs font-bold ${text}`}>Activite par bien</span>
+              </div>
+              <div className="space-y-2.5">
+                {properties.map((p, i) => {
+                  const mBks = bookings.filter(b => b.propertyId === p.id && b.status !== 'cancelled' && parseISO(b.checkIn).getMonth() === currentDate.getMonth() && parseISO(b.checkIn).getFullYear() === currentDate.getFullYear());
+                  const color = PROPERTY_COLORS[i % PROPERTY_COLORS.length];
+                  return (
+                    <div key={p.id}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                          <span className={`text-xs font-semibold truncate max-w-[110px] ${text}`}>{p.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] ${sub}`}>{mBks.length} res.</span>
+                          <span className="text-[10px] font-bold text-emerald-400">{fmt(mBks.reduce((s, b) => s + b.totalPrice, 0))} EUR</span>
                         </div>
                       </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </Card>
+                      <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/[0.05]' : 'bg-gray-100'}`}>
+                        <motion.div className="h-full rounded-full" style={{ background: color }}
+                          initial={{ width: 0 }} animate={{ width: mBks.length > 0 ? `${Math.min(100, mBks.length * 20)}%` : '4%' }} transition={{ duration: 0.5 }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button onClick={() => setShowBlockModal(true)}
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed text-sm font-bold transition-colors ${isDark ? 'border-white/10 text-gray-500 hover:border-indigo-500/40 hover:text-indigo-400' : 'border-gray-200 text-gray-400 hover:border-indigo-300 hover:text-indigo-500'}`}>
+              <Lock className="w-4 h-4" /> Bloquer des dates
+            </button>
           </div>
         </div>
 
-        {/* Modal de blocage de dates */}
+        {/* Detail modal */}
         <AnimatePresence>
-          {showBlockModal && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-              onClick={() => setShowBlockModal(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                onClick={(e) => e.stopPropagation()}
-                className={`${
-                  isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-                } rounded-2xl shadow-2xl w-full max-w-md`}
-              >
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-bold">Bloquer des dates</h3>
-                    <button
-                      onClick={() => setShowBlockModal(false)}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                    >
+          {detailEvent && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              onClick={() => setDetailEvent(null)}>
+              <motion.div initial={{ scale: 0.92, opacity: 0, y: 16 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 16 }}
+                onClick={e => e.stopPropagation()}
+                className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${isDark ? 'bg-[#1a1a2e] border border-white/10' : 'bg-white'}`}>
+                <div className="h-1.5" style={{ background: detailEvent.color }} />
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: `${detailEvent.color}25`, color: detailEvent.color }}>
+                        {detailEvent.type === 'booking' ? 'Reservation' : detailEvent.type === 'maintenance' ? 'Maintenance' : 'Bloque'}
+                      </span>
+                      <h3 className={`text-xl font-black mt-2 ${text}`}>{detailEvent.title}</h3>
+                    </div>
+                    <button onClick={() => setDetailEvent(null)} className={`p-2 rounded-xl transition-colors ${isDark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}>
                       <X className="w-5 h-5" />
                     </button>
                   </div>
-                </div>
 
-                <div className="p-6 space-y-4">
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Date de début
-                    </label>
-                    <input
-                      type="date"
-                      value={blockStartDate}
-                      onChange={(e) => setBlockStartDate(e.target.value)}
-                      className={`w-full px-4 py-2 rounded-lg border ${
-                        isDark
-                          ? 'bg-gray-700 border-gray-600 text-white'
-                          : 'bg-white border-gray-300 text-gray-900'
-                      }`}
-                    />
-                  </div>
+                  {detailEvent.type === 'booking' && (() => {
+                    const b = detailEvent.data as Booking;
+                    const nights = differenceInDays(parseISO(b.checkOut), parseISO(b.checkIn));
+                    const prop = properties.find(p => p.id === b.propertyId);
+                    return (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className={`p-3 rounded-xl ${isDark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider ${sub}`}>Check-in</p>
+                            <p className={`text-sm font-bold mt-0.5 ${text}`}>{format(parseISO(b.checkIn), 'dd MMM yyyy', { locale: fr })}</p>
+                          </div>
+                          <div className={`p-3 rounded-xl ${isDark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider ${sub}`}>Check-out</p>
+                            <p className={`text-sm font-bold mt-0.5 ${text}`}>{format(parseISO(b.checkOut), 'dd MMM yyyy', { locale: fr })}</p>
+                          </div>
+                        </div>
+                        <div className={`flex items-center justify-between p-3 rounded-xl ${isDark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>
+                          <div className="flex items-center gap-2"><Moon className="w-4 h-4 text-indigo-400" /><span className={`text-sm ${sub}`}>{nights} nuit{nights > 1 ? 's' : ''}</span></div>
+                          <div className="flex items-center gap-2"><Users className="w-4 h-4 text-blue-400" /><span className={`text-sm ${sub}`}>{(b.guestInfo as { guests?: number }).guests ?? 1} voy.</span></div>
+                          <div className="flex items-center gap-2"><Euro className="w-4 h-4 text-emerald-400" /><span className="text-sm font-bold text-emerald-400">{fmt(b.totalPrice)} EUR</span></div>
+                        </div>
+                        {b.guestInfo.email && (
+                          <div className={`p-3 rounded-xl ${isDark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${sub}`}>Contact</p>
+                            <p className={`text-sm ${text}`}>{b.guestInfo.email}</p>
+                            {b.guestInfo.phone && <p className={`text-xs mt-0.5 ${sub}`}>{b.guestInfo.phone}</p>}
+                          </div>
+                        )}
+                        {prop && (
+                          <div className={`flex items-center gap-2 p-3 rounded-xl ${isDark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>
+                            <Home className="w-4 h-4 text-gray-400" /><span className={`text-sm ${sub}`}>{prop.name}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Date de fin
-                    </label>
-                    <input
-                      type="date"
-                      value={blockEndDate}
-                      onChange={(e) => setBlockEndDate(e.target.value)}
-                      className={`w-full px-4 py-2 rounded-lg border ${
-                        isDark
-                          ? 'bg-gray-700 border-gray-600 text-white'
-                          : 'bg-white border-gray-300 text-gray-900'
-                      }`}
-                    />
-                  </div>
+                  {detailEvent.type === 'maintenance' && (() => {
+                    const t = detailEvent.data as MaintenanceTask;
+                    return (
+                      <div className="space-y-3">
+                        <div className={`p-3 rounded-xl ${isDark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>
+                          <p className={`text-[10px] font-bold uppercase tracking-wider ${sub}`}>Date</p>
+                          <p className={`text-sm font-bold mt-0.5 ${text}`}>{format(parseISO(t.scheduledDate), 'EEEE d MMMM yyyy', { locale: fr })}</p>
+                        </div>
+                        {t.description && <p className={`text-sm ${sub}`}>{t.description}</p>}
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${t.priority === 'urgent' ? 'bg-red-500/20 text-red-400' : 'bg-violet-500/20 text-violet-400'}`}>{t.priority === 'urgent' ? 'Urgent' : 'Normal'}</span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${t.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>{t.status === 'completed' ? 'Termine' : 'En cours'}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Raison (optionnel)
-                    </label>
-                    <textarea
-                      value={blockReason}
-                      onChange={(e) => setBlockReason(e.target.value)}
-                      rows={3}
-                      className={`w-full px-4 py-2 rounded-lg border ${
-                        isDark
-                          ? 'bg-gray-700 border-gray-600 text-white'
-                          : 'bg-white border-gray-300 text-gray-900'
-                      }`}
-                      placeholder="Ex: Travaux de rénovation"
-                    />
-                  </div>
-                </div>
-
-                <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowBlockModal(false)}
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={handleBlockDates}
-                    icon={Lock}
-                    disabled={!blockStartDate || !blockEndDate}
-                  >
-                    Bloquer
-                  </Button>
+                  {detailEvent.type === 'blocked' && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className={`p-3 rounded-xl ${isDark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${sub}`}>Du</p>
+                        <p className={`text-sm font-bold mt-0.5 ${text}`}>{format(detailEvent.startDate, 'dd MMM yyyy', { locale: fr })}</p>
+                      </div>
+                      <div className={`p-3 rounded-xl ${isDark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${sub}`}>Au</p>
+                        <p className={`text-sm font-bold mt-0.5 ${text}`}>{format(detailEvent.endDate, 'dd MMM yyyy', { locale: fr })}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Block modal */}
+        <AnimatePresence>
+          {showBlockModal && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              onClick={() => setShowBlockModal(false)}>
+              <motion.div initial={{ scale: 0.92, opacity: 0, y: 16 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0 }}
+                onClick={e => e.stopPropagation()}
+                className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${isDark ? 'bg-[#1a1a2e] border border-white/10' : 'bg-white'}`}>
+                <div className="p-5 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.07)' : '#e5e7eb' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-xl bg-rose-500/10"><Lock className="w-4 h-4 text-rose-400" /></div>
+                      <h3 className={`font-black ${text}`}>Bloquer des dates</h3>
+                    </div>
+                    <button onClick={() => setShowBlockModal(false)} className={`p-2 rounded-xl transition-colors ${isDark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><X className="w-5 h-5" /></button>
+                  </div>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div>
+                    <label className={`block text-xs font-bold mb-1.5 ${sub}`}>Bien concerne</label>
+                    <select value={blockPropertyId} onChange={e => setBlockPropertyId(Number(e.target.value))} className={inputCls}>
+                      {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={`block text-xs font-bold mb-1.5 ${sub}`}>Du</label>
+                      <input type="date" value={blockStart} onChange={e => setBlockStart(e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={`block text-xs font-bold mb-1.5 ${sub}`}>Au</label>
+                      <input type="date" value={blockEnd} onChange={e => setBlockEnd(e.target.value)} className={inputCls} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={`block text-xs font-bold mb-1.5 ${sub}`}>Raison (optionnel)</label>
+                    <textarea value={blockReason} onChange={e => setBlockReason(e.target.value)} rows={2} placeholder="Ex: Travaux, sejour personnel..." className={`${inputCls} resize-none`} />
+                  </div>
+                </div>
+                <div className="p-5 pt-0 flex justify-end gap-3">
+                  <button onClick={() => setShowBlockModal(false)} className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${isDark ? 'bg-white/[0.05] text-gray-300 hover:bg-white/[0.09]' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Annuler</button>
+                  <button onClick={handleBlockDates} disabled={!blockStart || !blockEnd} className="px-4 py-2 rounded-xl text-sm font-bold bg-rose-500 text-white hover:bg-rose-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2">
+                    <Lock className="w-3.5 h-3.5" /> Bloquer
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
       </div>
     </div>
   );
