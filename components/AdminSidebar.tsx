@@ -27,7 +27,8 @@ import {
   Home,
   Receipt,
   Brain,
-  Zap
+  Zap,
+  TrendingDown
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
@@ -115,6 +116,7 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
         { id: 'forecasting', label: 'Prévisionnel', icon: TrendingUp, badge: 0 },
         { id: 'pricing', label: 'Moteur de prix', icon: Tags, badge: 0 },
         { id: 'invoice', label: 'Factures', icon: Receipt, badge: 0 },
+        { id: 'expenses', label: 'Dépenses', icon: TrendingDown, badge: 0 },
         { id: 'intelligence', label: '🧠 IA Propriétés', icon: Brain, badge: 0 },
         { id: 'assistant', label: '💬 Assistant IA', icon: MessageSquare, badge: 0 },
         { id: 'autopilot', label: '🤖 Autopilot', icon: Zap, badge: 0 },
@@ -236,6 +238,26 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
                         <span className="text-sm font-medium relative z-10">
                           {item.label}
                         </span>
+                      )}
+                    </a>
+                  );
+                }
+
+                // Si c'est "expenses", créer un lien vers /expenses
+                if (item.id === 'expenses') {
+                  return (
+                    <a
+                      key={item.id}
+                      href="/expenses"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                        isDark
+                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-red-400 group-hover:text-red-300`} />
+                      {!isCollapsed && (
+                        <span className="text-sm font-medium relative z-10">{item.label}</span>
                       )}
                     </a>
                   );

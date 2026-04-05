@@ -192,6 +192,7 @@ model Property {
   maintenance     MaintenanceTask[]
   inventory       InventoryItem[]
   contracts       Contract[]
+  expenses        Expense[]
 
   @@map("properties")
 }
@@ -609,4 +610,51 @@ model AuditLog {
   @@index([resource])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ==========================================
+// EXPENSES (Suivi des dépenses)
+// ==========================================
+
+model Expense {
+  id          Int             @id @default(autoincrement())
+  propertyId  Int?
+  title       String
+  description String?
+  amount      Float
+  currency    String          @default("EUR")
+  category    ExpenseCategory
+  date        DateTime
+  vendor      String?         // Fournisseur / prestataire
+  receiptUrl  String?         // URL justificatif (Cloudinary)
+  paymentMethod String?       // espèces, carte, virement
+  isRecurring Boolean         @default(false)
+  recurrence  String?         // monthly, yearly, etc.
+  notes       String?
+  createdBy   String?         // email de l'utilisateur
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  property    Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId])
+  @@index([category])
+  @@index([date])
+  @@map("expenses")
+}
+
+enum ExpenseCategory {
+  CLEANING         // Ménage
+  MAINTENANCE      // Maintenance / réparations
+  UTILITIES        // Électricité, eau, gaz
+  INSURANCE        // Assurance
+  TAX              // Taxes / impôts
+  MORTGAGE         // Crédit immobilier
+  FURNITURE        // Mobilier / équipements
+  SUPPLIES         // Fournitures (linge, produits...)
+  MARKETING        // Publicité / marketing
+  MANAGEMENT       // Frais de gestion
+  RENOVATION       // Travaux
+  SUBSCRIPTION     // Abonnements (Airbnb, logiciels...)
+  OTHER            // Autres
 }
