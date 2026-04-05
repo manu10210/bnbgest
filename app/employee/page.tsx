@@ -1,1026 +1,531 @@
+﻿// REWRITTEN: Employee dashboard now uses real DB data via session + API calls
+// Original static data replaced with live cleanings + maintenance APIs
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useTheme } from '../../contexts/ThemeContext';
 import ThemeToggle from '../../components/ThemeToggle';
 import {
-  User, Home, Navigation, ClipboardList, Clock,
-  BarChart3, Search, Plus, CheckCircle, Euro,
-  Star, Wrench, Calendar, AlertTriangle, Play,
-  Square, Eye, XCircle, Building2, ChevronRight,
-  Filter, TrendingUp, Award, Timer, Zap, Bell,
-  MapPin, Flame, Target, Activity
+  User, Home, ClipboardList, Clock, CheckCircle,
+  Wrench, Calendar, AlertTriangle, Play,
+  XCircle, Bell, MapPin, Flame,
+  Star, RefreshCw, Search, LogOut
 } from 'lucide-react';
+import { toast } from 'sonner';
 
-type EmployeeTab = 'tasks' | 'time' | 'reports';
+type Tab = 'today' | 'cleanings' | 'maintenance';
 
-interface Task {
+interface Cleaning {
   id: number;
   propertyId: number;
-  property: string;
-  description: string;
-  date: string;
-  status: string;
-  assignedTo: string;
-  priority: string;
-  cost: number;
-  notes: string;
-  timeSpent?: number;
-  startedAt?: string;
-  completedAt?: string;
+  propertyName?: string;
+  scheduledDate: string;
+  completedDate?: string | null;
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  assignedTo?: string | null;
+  notes?: string | null;
+  estimatedTime?: number | null;
+  actualTime?: number | null;
 }
 
-interface TimeEntry {
+interface Maintenance {
   id: number;
-  taskId: number;
-  date: string;
-  hours: number;
-  description: string;
+  propertyId: number;
+  propertyName?: string;
+  title: string;
+  description?: string | null;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  category?: string | null;
+  assignedTo?: string | null;
+  dueDate?: string | null;
+  completedAt?: string | null;
+  cost?: number | null;
+  notes?: string | null;
 }
 
-function euroFmt(n: number) {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
-}
+const priorityLabel: Record<string, { label: string; color: string }> = {
+  LOW:    { label: 'Basse',   color: 'bg-blue-500/20 text-blue-400' },
+  MEDIUM: { label: 'Normale', color: 'bg-gray-500/20 text-gray-400' },
+  HIGH:   { label: 'Haute',   color: 'bg-orange-500/20 text-orange-400' },
+  URGENT: { label: 'Urgente', color: 'bg-red-500/20 text-red-400' },
+};
 
-function formatTime(minutes: number) {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h}h${m.toString().padStart(2, '0')}`;
-}
+const statusLabel: Record<string, { label: string; color: string }> = {
+  SCHEDULED:   { label: 'PlanifiÃ©',   color: 'bg-blue-500/20 text-blue-400' },
+  IN_PROGRESS: { label: 'En cours',   color: 'bg-amber-500/20 text-amber-400' },
+  COMPLETED:   { label: 'TerminÃ©',    color: 'bg-green-500/20 text-green-400' },
+  CANCELLED:   { label: 'AnnulÃ©',     color: 'bg-gray-500/20 text-gray-400' },
+  PENDING:     { label: 'En attente', color: 'bg-blue-500/20 text-blue-400' },
+};
 
-export default function EmployeePage() {
+export default function EmployeeDashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const { isDark } = useTheme();
-  const employeeName = 'Employee1';
 
-  const [activeTab, setActiveTab] = useState<EmployeeTab>('tasks');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [tab, setTab] = useState<Tab>('today');
+  const [cleanings, setCleanings] = useState<Cleaning[]>([]);
+  const [maintenance, setMaintenance] = useState<Maintenance[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterPriority, setFilterPriority] = useState('all');
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [showTimeModal, setShowTimeModal] = useState(false);
-  const [currentTimeEntry, setCurrentTimeEntry] = useState({ taskId: 0, hours: 0, description: '' });
   const [now, setNow] = useState(new Date());
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'warning' } | null>(null);
 
-  // Live clock — updates every second for precise elapsed timers
+  // Live clock
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
+    const t = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(t);
   }, []);
 
-  // Auto-dismiss toast
+  // Auth guard
   useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3500);
-    return () => clearTimeout(t);
-  }, [toast]);
+    if (status === 'unauthenticated') router.push('/login');
+  }, [status, router]);
 
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([
-    { id: 1, taskId: 1, date: '2026-03-20', hours: 2.5, description: 'Nettoyage complet appartement' },
-    { id: 2, taskId: 3, date: '2026-03-25', hours: 1.5, description: 'Changement literie' },
-    { id: 3, taskId: 2, date: '2026-03-22', hours: 3.0, description: 'Réparation fuite salle de bain' },
-  ]);
+  const employeeName = session?.user?.name || session?.user?.email || 'EmployÃ©';
+  const isAdmin = (session?.user as { role?: string })?.role === 'admin';
+  const today = new Date().toISOString().split('T')[0];
 
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: 1, propertyId: 1, property: 'Appartement Paris', description: 'Nettoyage complet après départ', date: '2026-04-05', status: 'Planifiée', assignedTo: 'Employee1', priority: 'normal', cost: 50, notes: 'Utiliser produits écologiques', timeSpent: 150 },
-    { id: 2, propertyId: 2, property: 'Maison Lyon', description: 'Réparation fuite salle de bain', date: '2026-04-05', status: 'En cours', assignedTo: 'Employee1', priority: 'urgent', cost: 120, notes: 'Fuite importante sous le lavabo', startedAt: new Date(Date.now() - 2 * 3600 * 1000 - 14 * 60 * 1000).toISOString() },
-    { id: 3, propertyId: 1, property: 'Appartement Paris', description: 'Changement complet de la literie', date: '2026-04-03', status: 'Terminée', assignedTo: 'Employee1', priority: 'normal', cost: 30, notes: 'Draps neufs, oreillers changés', timeSpent: 90, completedAt: '2026-04-03T11:30' },
-    { id: 4, propertyId: 3, property: 'Studio Marseille', description: 'Révision climatisation', date: '2026-04-07', status: 'Planifiée', assignedTo: 'Employee1', priority: 'low', cost: 80, notes: 'Vérifier filtres et niveau gaz' },
-  ]);
-
-  const myTasks = tasks.filter(t => t.assignedTo === employeeName);
-
-  const filteredTasks = useMemo(() => {
-    return myTasks.filter(task => {
-      const q = searchTerm.toLowerCase();
-      const matchesSearch = !searchTerm || task.description.toLowerCase().includes(q) || task.property.toLowerCase().includes(q);
-      const matchesStatus = filterStatus === 'all' || task.status === filterStatus;
-      const matchesPriority = filterPriority === 'all' || task.priority === filterPriority;
-      return matchesSearch && matchesStatus && matchesPriority;
-    });
-  }, [myTasks, searchTerm, filterStatus, filterPriority]);
-
-  const stats = {
-    totalTasks: myTasks.length,
-    completedTasks: myTasks.filter(t => t.status === 'Terminée').length,
-    inProgressTasks: myTasks.filter(t => t.status === 'En cours').length,
-    pendingTasks: myTasks.filter(t => t.status === 'Planifiée').length,
-    totalHours: timeEntries.reduce((s, e) => s + e.hours, 0),
-    avgTaskTime: (() => {
-      const timed = myTasks.filter(t => t.timeSpent);
-      return timed.length ? timed.reduce((s, t) => s + (t.timeSpent || 0), 0) / timed.length / 60 : 0;
-    })(),
-    monthlyEarnings: myTasks.filter(t => t.status === 'Terminée').reduce((s, t) => s + t.cost, 0),
-    totalPotential: myTasks.reduce((s, t) => s + t.cost, 0),
-    rating: 4.8,
-    completionRate: myTasks.length ? Math.round((myTasks.filter(t => t.status === 'Terminée').length / myTasks.length) * 100) : 0,
-  };
-
-  // Elapsed time for a task currently in progress
-  function getElapsed(startedAt: string): string {
-    const totalSecs = Math.max(0, Math.floor((now.getTime() - new Date(startedAt).getTime()) / 1000));
-    const h = Math.floor(totalSecs / 3600);
-    const m = Math.floor((totalSecs % 3600) / 60);
-    const s = totalSecs % 60;
-    if (h > 0) return `${h}h${m.toString().padStart(2, '0')}m${s.toString().padStart(2, '0')}s`;
-    if (m > 0) return `${m}m${s.toString().padStart(2, '0')}s`;
-    return `${s}s`;
-  }
-
-  function getElapsedColor(startedAt: string): string {
-    const mins = Math.floor((now.getTime() - new Date(startedAt).getTime()) / 60000);
-    if (mins > 120) return isDark ? 'text-red-400' : 'text-red-600';
-    if (mins > 60) return isDark ? 'text-orange-400' : 'text-orange-600';
-    return isDark ? 'text-amber-400' : 'text-amber-700';
-  }
-
-  const updateTaskStatus = (id: number, status: string) => {
-    const now = new Date().toISOString();
-    setTasks(prev => prev.map(task => {
-      if (task.id !== id) return task;
-      const updated = { ...task, status };
-      if (status === 'En cours' && !task.startedAt) updated.startedAt = now;
-      if (status === 'Terminée' && !task.completedAt) {
-        updated.completedAt = now;
-        if (task.startedAt) {
-          updated.timeSpent = Math.round((new Date(now).getTime() - new Date(task.startedAt).getTime()) / 60000);
-        }
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [cRes, mRes] = await Promise.all([
+        fetch('/api/cleanings?limit=100'),
+        fetch('/api/maintenance?limit=100'),
+      ]);
+      if (cRes.ok) {
+        const cData = await cRes.json();
+        setCleanings(cData.cleanings || cData || []);
       }
-      return updated;
-    }));
-    if (status === 'En cours') setToast({ msg: 'Tâche démarrée — minuterie en cours ⏱', type: 'warning' });
-    if (status === 'Terminée') setToast({ msg: 'Tâche marquée comme terminée ✓', type: 'success' });
-  };
+      if (mRes.ok) {
+        const mData = await mRes.json();
+        setMaintenance(mData.tasks || mData || []);
+      }
+    } catch {
+      toast.error('Erreur lors du chargement des tÃ¢ches');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const addTimeEntry = () => {
-    if (currentTimeEntry.taskId && currentTimeEntry.hours > 0) {
-      setTimeEntries(prev => [...prev, {
-        id: prev.length + 1,
-        taskId: currentTimeEntry.taskId,
-        date: new Date().toISOString().split('T')[0],
-        hours: currentTimeEntry.hours,
-        description: currentTimeEntry.description,
-      }]);
-      setCurrentTimeEntry({ taskId: 0, hours: 0, description: '' });
-      setShowTimeModal(false);
-      setToast({ msg: `${currentTimeEntry.hours}h ajoutées avec succès`, type: 'success' });
+  useEffect(() => {
+    if (status === 'authenticated') fetchData();
+  }, [status, fetchData]);
+
+  const updateCleaningStatus = async (id: number, newStatus: string) => {
+    try {
+      const res = await fetch(`/api/cleanings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, ...(newStatus === 'COMPLETED' ? { completedDate: new Date().toISOString() } : {}) }),
+      });
+      if (res.ok) {
+        setCleanings(prev => prev.map(c => c.id === id ? { ...c, status: newStatus as Cleaning['status'] } : c));
+        toast.success(newStatus === 'COMPLETED' ? 'âœ… MÃ©nage terminÃ© !' : 'â–¶ï¸ MÃ©nage dÃ©marrÃ©');
+      } else {
+        toast.error('Erreur lors de la mise Ã  jour');
+      }
+    } catch {
+      toast.error('Erreur rÃ©seau');
     }
   };
 
-  const priorityConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-    low:    { label: 'Basse',   bg: isDark ? 'bg-blue-500/15'   : 'bg-blue-50',   text: isDark ? 'text-blue-400'   : 'text-blue-700',   dot: 'bg-blue-400'   },
-    normal: { label: 'Normale', bg: isDark ? 'bg-white/[0.06]'  : 'bg-gray-100',  text: isDark ? 'text-white/50'   : 'text-gray-600',   dot: 'bg-gray-400'   },
-    high:   { label: 'Haute',   bg: isDark ? 'bg-orange-500/15' : 'bg-orange-50', text: isDark ? 'text-orange-400' : 'text-orange-700', dot: 'bg-orange-400' },
-    urgent: { label: 'Urgente', bg: isDark ? 'bg-red-500/15'    : 'bg-red-50',    text: isDark ? 'text-red-400'    : 'text-red-700',    dot: 'bg-red-400'    },
+  const updateMaintenanceStatus = async (id: number, newStatus: string) => {
+    try {
+      const res = await fetch(`/api/maintenance/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, ...(newStatus === 'COMPLETED' ? { completedAt: new Date().toISOString() } : {}) }),
+      });
+      if (res.ok) {
+        setMaintenance(prev => prev.map(m => m.id === id ? { ...m, status: newStatus as Maintenance['status'] } : m));
+        toast.success(newStatus === 'COMPLETED' ? 'âœ… TÃ¢che terminÃ©e !' : 'â–¶ï¸ TÃ¢che dÃ©marrÃ©e');
+      } else {
+        toast.error('Erreur lors de la mise Ã  jour');
+      }
+    } catch {
+      toast.error('Erreur rÃ©seau');
+    }
   };
 
-  const statusConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-    'Planifiée': { label: 'Planifiée', bg: isDark ? 'bg-blue-500/15'    : 'bg-blue-50',    text: isDark ? 'text-blue-400'    : 'text-blue-700',    dot: 'bg-blue-400'    },
-    'En cours':        { label: 'En cours',       bg: isDark ? 'bg-amber-500/15'   : 'bg-amber-50',   text: isDark ? 'text-amber-400'   : 'text-amber-700',   dot: 'bg-amber-400'   },
-    'Terminée':   { label: 'Terminée',  bg: isDark ? 'bg-emerald-500/15' : 'bg-emerald-50', text: isDark ? 'text-emerald-400' : 'text-emerald-700', dot: 'bg-emerald-400' },
-    'Annulée':    { label: 'Annulée',   bg: isDark ? 'bg-red-500/15'     : 'bg-red-50',     text: isDark ? 'text-red-400'     : 'text-red-700',     dot: 'bg-red-400'     },
-  };
+  // Derived data
+  const todayCleanings = cleanings.filter(c => c.scheduledDate?.startsWith(today) && c.status !== 'CANCELLED');
+  const todayMaintenance = maintenance.filter(m => m.dueDate?.startsWith(today) && m.status !== 'CANCELLED');
+  const urgentItems = maintenance.filter(m => m.priority === 'URGENT' && m.status !== 'COMPLETED' && m.status !== 'CANCELLED');
 
-  function PriorityBadge({ p }: { p: string }) {
-    const cfg = priorityConfig[p] || priorityConfig.normal;
+  const filteredCleanings = cleanings.filter(c => {
+    const q = search.toLowerCase();
+    const matchQ = !search || c.propertyName?.toLowerCase().includes(q) || c.notes?.toLowerCase().includes(q);
+    const matchS = filterStatus === 'all' || c.status === filterStatus;
+    return matchQ && matchS;
+  });
+
+  const filteredMaintenance = maintenance.filter(m => {
+    const q = search.toLowerCase();
+    const matchQ = !search || m.title.toLowerCase().includes(q) || m.propertyName?.toLowerCase().includes(q) || m.description?.toLowerCase().includes(q);
+    const matchS = filterStatus === 'all' || m.status === filterStatus;
+    return matchQ && matchS;
+  });
+
+  const completedToday = [
+    ...todayCleanings.filter(c => c.status === 'COMPLETED'),
+    ...todayMaintenance.filter(m => m.status === 'COMPLETED'),
+  ].length;
+  const totalToday = todayCleanings.length + todayMaintenance.length;
+
+  if (status === 'loading' || loading) {
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>
-        {p === 'urgent' && <AlertTriangle className="w-3 h-3" />}
-        <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-        {cfg.label}
-      </span>
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gray-950' : 'bg-gray-50'}`}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[#FF385C] border-t-transparent rounded-full animate-spin" />
+          <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>Chargement...</p>
+        </div>
+      </div>
     );
   }
 
-  function StatusBadge({ s }: { s: string }) {
-    const cfg = statusConfig[s] || statusConfig['Planifiée'];
-    return (
-      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>
-        <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-        {cfg.label}
-      </span>
-    );
-  }
-
-  // Style shortcuts
-  const C   = isDark ? 'bg-[#1a1a2e] border border-white/[0.08] rounded-2xl' : 'bg-white border border-gray-100 rounded-2xl shadow-sm';
-  const SC  = isDark ? 'bg-white/[0.04] border border-white/[0.06] rounded-xl' : 'bg-gray-50 border border-gray-100 rounded-xl';
-  const T   = isDark ? 'text-white' : 'text-gray-900';
-  const M   = isDark ? 'text-white/40' : 'text-gray-400';
-  const S   = isDark ? 'text-white/60' : 'text-gray-500';
-  const INP = isDark
-    ? 'bg-white/[0.04] border border-white/[0.1] text-white placeholder-white/30 rounded-xl focus:ring-2 focus:ring-violet-500/40 focus:outline-none'
-    : 'bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 rounded-xl focus:ring-2 focus:ring-violet-500/40 focus:outline-none';
-
-  const urgentCount = myTasks.filter(t => t.priority === 'urgent' && t.status !== 'Terminée').length;
+  const bg = isDark ? 'bg-gray-950' : 'bg-gray-50';
+  const card = isDark ? 'bg-white/5 border border-white/10' : 'bg-white border border-gray-200';
+  const text = isDark ? 'text-white' : 'text-gray-900';
+  const muted = isDark ? 'text-gray-400' : 'text-gray-500';
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#0d0d1a]' : 'bg-gray-50'}`}>
-
-      {/* HEADER */}
-      <motion.header
-        initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}
-        className={`sticky top-0 z-40 backdrop-blur-xl border-b ${isDark ? 'bg-[#0d0d1a]/90 border-white/[0.06]' : 'bg-white/90 border-gray-100'}`}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+    <div className={`min-h-screen ${bg}`}>
+      {/* Header */}
+      <header className={`sticky top-0 z-40 ${isDark ? 'bg-gray-950/90 border-b border-white/10' : 'bg-white/90 border-b border-gray-200'} backdrop-blur-md`}>
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center">
-              <Wrench className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF385C] to-[#E31C5F] flex items-center justify-center">
+              <User size={20} className="text-white" />
             </div>
-            <div className="hidden sm:block">
-              <p className={`font-bold text-sm leading-none ${T}`}>BNBGest</p>
-              <p className={`text-[11px] ${M}`}>Espace Employé</p>
+            <div>
+              <h1 className={`font-bold text-lg ${text}`}>Bonjour, {employeeName.split(' ')[0]} ðŸ‘‹</h1>
+              <p className={`text-xs ${muted}`}>{now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
             </div>
           </div>
-          <nav className="hidden md:flex items-center gap-1">
-            {([
-              { href: '/', label: 'Accueil', icon: Home },
-              { href: '/admin', label: 'Admin', icon: Navigation },
-              { href: '/calendar', label: 'Calendrier', icon: Calendar },
-              { href: '/client', label: 'Client', icon: User },
-            ] as const).map(n => (
-              <Link key={n.href} href={n.href}
-                className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors ${isDark ? 'text-white/50 hover:text-white hover:bg-white/[0.06]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
-                <n.icon className="w-3.5 h-3.5" />{n.label}
-              </Link>
-            ))}
-          </nav>
           <div className="flex items-center gap-2">
-            {urgentCount > 0 && (
+            {urgentItems.length > 0 && (
               <div className="relative">
-                <Bell className={`w-5 h-5 ${isDark ? 'text-white/40' : 'text-gray-400'}`} />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center">{urgentCount}</span>
+                <Bell size={20} className="text-red-400" />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] flex items-center justify-center font-bold">
+                  {urgentItems.length}
+                </span>
               </div>
             )}
-            <ThemeToggle size="sm" />
-            <div className="flex items-center gap-2 pl-2 border-l border-white/10">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
-              </div>
-              <span className={`hidden sm:block text-sm font-medium ${T}`}>{employeeName}</span>
-            </div>
+            <ThemeToggle />
+            {isAdmin && (
+              <button
+                onClick={() => router.push('/admin')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} transition`}
+              >
+                Admin
+              </button>
+            )}
+            <button onClick={() => signOut({ callbackUrl: '/login' })} className="p-2 rounded-lg text-gray-400 hover:text-red-400 transition">
+              <LogOut size={18} />
+            </button>
           </div>
         </div>
-      </motion.header>
+      </header>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
 
-        {/* WELCOME BANNER */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className={`${C} p-6 overflow-hidden relative`}>
-          <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 via-indigo-500/10 to-transparent pointer-events-none" />
-          <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <p className={`text-xs font-medium px-2 py-0.5 rounded-full ${isDark ? 'bg-violet-500/15 text-violet-400' : 'bg-violet-100 text-violet-700'}`}>
-                  {now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                </p>
-              </div>
-              <h1 className={`text-2xl font-bold ${T}`}>Bonjour, {employeeName} &#128075;</h1>
-              <p className={`${S} text-sm mt-1`}>Vous avez <span className="font-semibold text-violet-400">{stats.pendingTasks} tâche(s) planifiée(s)</span> et <span className="font-semibold text-amber-400">{stats.inProgressTasks} en cours</span>.</p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
-              {stats.inProgressTasks > 0 && (
-                <div className={`${isDark ? 'bg-amber-500/15 border border-amber-500/30' : 'bg-amber-50 border border-amber-200'} rounded-xl px-4 py-3 flex items-center gap-3`}>
-                  <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  <div>
-                    <p className={`text-xs font-bold ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>{stats.inProgressTasks} en cours</p>
-                    <p className={`text-xs ${isDark ? 'text-amber-400/70' : 'text-amber-600'}`}>Minuterie active</p>
-                  </div>
-                </div>
-              )}
-              {urgentCount > 0 && (
-                <div className={`${isDark ? 'bg-red-500/15 border border-red-500/30' : 'bg-red-50 border border-red-200'} rounded-xl px-4 py-3 flex items-center gap-3`}>
-                  <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                  <div>
-                    <p className={`text-xs font-bold ${isDark ? 'text-red-400' : 'text-red-700'}`}>{urgentCount} urgent(s)</p>
-                    <p className={`text-xs ${isDark ? 'text-red-400/70' : 'text-red-600'}`}>Action requise</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* KPI STRIP */}
+        {/* Stats rapides */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Tâches',     value: `${stats.completedTasks}/${stats.totalTasks}`, sub: `${stats.completionRate}% terminées`,                   icon: <Target className="w-5 h-5" />,      color: '#8b5cf6', pct: stats.completionRate },
-            { label: 'Actives',         value: String(stats.inProgressTasks),                 sub: `${stats.pendingTasks} planifiée(s)`,                 icon: <Activity className="w-5 h-5" />,    color: '#f59e0b', pct: stats.totalTasks ? Math.round((stats.inProgressTasks / stats.totalTasks) * 100) : 0 },
-            { label: 'Heures trav.',    value: `${stats.totalHours.toFixed(1)}h`,             sub: `moy. ${stats.avgTaskTime.toFixed(1)}h/tâche`,         icon: <Clock className="w-5 h-5" />,       color: '#3b82f6', pct: null },
-            { label: 'Revenus',         value: euroFmt(stats.monthlyEarnings),                sub: `sur ${euroFmt(stats.totalPotential)} potentiel`,           icon: <Euro className="w-5 h-5" />,        color: '#10b981', pct: stats.totalPotential ? Math.round((stats.monthlyEarnings / stats.totalPotential) * 100) : 0 },
-          ].map((k, i) => (
-            <motion.div key={i} whileHover={{ scale: 1.02 }} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-              className={`${C} p-4 flex flex-col gap-2`}>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${k.color}18`, color: k.color }}>
-                  {k.icon}
-                </div>
-                <p className={`${M} text-xs`}>{k.label}</p>
-              </div>
-              <div>
-                <p className="font-bold text-lg leading-tight" style={{ color: k.color }}>{k.value}</p>
-                <p className={`${M} text-[11px]`}>{k.sub}</p>
-              </div>
-              {k.pct !== null && (
-                <div className={`w-full h-1 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}>
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${k.pct}%` }} transition={{ duration: 0.8, delay: i * 0.1 }}
-                    className="h-full rounded-full" style={{ backgroundColor: k.color }} />
-                </div>
-              )}
-            </motion.div>
+            { icon: <Calendar size={18} />, label: "Aujourd'hui", value: totalToday, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+            { icon: <CheckCircle size={18} />, label: 'TerminÃ©es', value: completedToday, color: 'text-green-400', bg: 'bg-green-500/10' },
+            { icon: <Flame size={18} />, label: 'Urgentes', value: urgentItems.length, color: 'text-red-400', bg: 'bg-red-500/10' },
+            { icon: <Star size={18} />, label: 'Progression', value: `${totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0}%`, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+          ].map((s, i) => (
+            <div key={i} className={`${card} rounded-2xl p-4`}>
+              <div className={`w-9 h-9 rounded-xl ${s.bg} flex items-center justify-center ${s.color} mb-2`}>{s.icon}</div>
+              <p className={`text-2xl font-bold ${text}`}>{s.value}</p>
+              <p className={`text-xs ${muted} mt-0.5`}>{s.label}</p>
+            </div>
           ))}
         </div>
 
-        {/* PERFORMANCE BADGE */}
-        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-          className={`flex items-center justify-between gap-4 px-5 py-4 rounded-2xl ${isDark ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-amber-50 border border-amber-200'}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-amber-500 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Award className="w-4 h-4 text-white" />
-            </div>
+        {/* Alerte urgente */}
+        {urgentItems.length > 0 && (
+          <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/20">
+            <AlertTriangle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className={`font-semibold text-sm ${isDark ? 'text-amber-300' : 'text-amber-800'}`}>Performance ce mois</p>
-              <p className={`text-xs ${isDark ? 'text-amber-400/70' : 'text-amber-700'}`}>Note: {stats.rating}/5 &mdash; Taux de complétion: {stats.completionRate}%</p>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-0.5">
-              {Array.from({ length: 5 }, (_, i) => (
-                <span key={i} className={i < Math.round(stats.rating) ? 'text-amber-400' : isDark ? 'text-white/15' : 'text-gray-200'}>&#9733;</span>
-              ))}
-            </div>
-            <p className={`text-xs font-bold ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>{stats.completionRate}% fait</p>
-          </div>
-        </motion.div>
-
-        {/* TODAY'S AGENDA — quick strip of in-progress + today tasks */}
-        {myTasks.filter(t => t.status === 'En cours' || (t.status === 'Planifiée' && t.date === now.toISOString().split('T')[0])).length > 0 && (
-          <div className={`${C} p-4`}>
-            <h3 className={`text-xs font-semibold uppercase tracking-wide mb-3 flex items-center gap-2 ${M}`}>
-              <Activity className="w-3.5 h-3.5" />Agenda du jour
-            </h3>
-            <div className="flex flex-col gap-2">
-              {myTasks.filter(t => t.status === 'En cours' || (t.status === 'Planifiée' && t.date === now.toISOString().split('T')[0])).map(task => (
-                <div key={task.id} className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl ${task.status === 'En cours' ? isDark ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-amber-50 border border-amber-100' : isDark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>
-                  <div className="flex items-center gap-2 min-w-0">
-                    {task.status === 'En cours'
-                      ? <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
-                      : <div className="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0" />}
-                    <span className={`text-sm font-medium truncate ${T}`}>{task.description}</span>
-                    <span className={`text-xs hidden sm:inline ${M}`}>&bull; {task.property}</span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {task.status === 'En cours' && task.startedAt && (
-                      <span className={`text-xs font-mono font-semibold ${getElapsedColor(task.startedAt)}`}>{getElapsed(task.startedAt)}</span>
-                    )}
-                    {task.status === 'Planifiée' && (
-                      <button onClick={() => updateTaskStatus(task.id, 'En cours')}
-                        className="text-xs px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-medium transition-colors flex items-center gap-1">
-                        <Play className="w-2.5 h-2.5" />Démarrer
-                      </button>
-                    )}
-                    {task.status === 'En cours' && (
-                      <button onClick={() => updateTaskStatus(task.id, 'Terminée')}
-                        className="text-xs px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-medium transition-colors flex items-center gap-1">
-                        <CheckCircle className="w-2.5 h-2.5" />Terminer
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+              <p className="text-red-400 font-semibold text-sm">
+                {urgentItems.length} tÃ¢che{urgentItems.length > 1 ? 's urgentes' : ' urgente'} en attente
+              </p>
+              <p className="text-red-400/70 text-xs mt-0.5">{urgentItems.map(u => u.title).join(' Â· ')}</p>
             </div>
           </div>
         )}
 
-        {/* TABS */}
-        <div className={`${C} p-1.5 flex gap-1`}>
+        {/* Tabs */}
+        <div className={`flex gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
           {([
-            { id: 'tasks'   as EmployeeTab, label: 'Mes tâches',   icon: ClipboardList, badge: filteredTasks.length },
-            { id: 'time'    as EmployeeTab, label: 'Suivi temps',        icon: Clock,         badge: timeEntries.length },
-            { id: 'reports' as EmployeeTab, label: 'Rapports',           icon: BarChart3,     badge: null },
-          ]).map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
-                activeTab === t.id
-                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md'
-                  : isDark ? 'text-white/50 hover:text-white hover:bg-white/[0.06]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-              }`}>
-              <t.icon className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">{t.label}</span>
-              {t.badge !== null && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${
-                  activeTab === t.id ? 'bg-white/20 text-white' : isDark ? 'bg-white/10 text-white/50' : 'bg-gray-200 text-gray-500'
-                }`}>{t.badge}</span>
-              )}
+            { id: 'today', label: "Aujourd'hui", icon: <Calendar size={15} /> },
+            { id: 'cleanings', label: 'MÃ©nages', icon: <Home size={15} /> },
+            { id: 'maintenance', label: 'Maintenance', icon: <Wrench size={15} /> },
+          ] as { id: Tab; label: string; icon: React.ReactNode }[]).map(t => (
+            <button
+              key={t.id}
+              onClick={() => { setTab(t.id); setSearch(''); setFilterStatus('all'); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                tab === t.id
+                  ? 'bg-[#FF385C] text-white shadow'
+                  : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {t.icon}{t.label}
             </button>
           ))}
         </div>
 
-        <AnimatePresence mode="wait">
+        {/* Refresh + count */}
+        <div className="flex items-center justify-between">
+          <p className={`text-sm ${muted}`}>
+            {tab === 'today' ? `${totalToday} tÃ¢che${totalToday !== 1 ? 's' : ''} aujourd'hui` :
+             tab === 'cleanings' ? `${filteredCleanings.length} mÃ©nage${filteredCleanings.length !== 1 ? 's' : ''}` :
+             `${filteredMaintenance.length} tÃ¢che${filteredMaintenance.length !== 1 ? 's' : ''}`}
+          </p>
+          <button onClick={fetchData} className={`flex items-center gap-1.5 text-xs ${muted} hover:text-[#FF385C] transition`}>
+            <RefreshCw size={13} />Actualiser
+          </button>
+        </div>
 
-          {/* TASKS TAB */}
-          {activeTab === 'tasks' && (
-            <motion.div key="tasks" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
-              {/* Toolbar */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1 relative">
-                  <Search className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${M}`} />
-                  <input type="text" placeholder="Rechercher une tâche..." value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)} className={`w-full pl-9 pr-4 py-2.5 text-sm ${INP}`} />
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <div className="relative">
-                    <Filter className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${M}`} />
-                    <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                      className={`pl-9 pr-8 py-2.5 text-sm appearance-none ${INP}`}>
-                      <option value="all">Tous statuts</option>
-                      <option value="Planifiée">Planifiée</option>
-                      <option value="En cours">En cours</option>
-                      <option value="Terminée">Terminée</option>
-                    </select>
-                  </div>
-                  <div className="relative">
-                    <AlertTriangle className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 ${M}`} />
-                    <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}
-                      className={`pl-9 pr-8 py-2.5 text-sm appearance-none ${INP}`}>
-                      <option value="all">Toutes priorités</option>
-                      <option value="low">Basse</option>
-                      <option value="normal">Normale</option>
-                      <option value="high">Haute</option>
-                      <option value="urgent">Urgente</option>
-                    </select>
-                  </div>
-                  <button onClick={() => setShowTimeModal(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl hover:opacity-90 transition-opacity">
-                    <Plus className="w-4 h-4" /><span className="hidden sm:inline">Ajouter temps</span>
-                  </button>
-                </div>
-              </div>
-
-              {filteredTasks.length === 0 ? (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className={`${C} p-12 flex flex-col items-center gap-4 text-center`}>
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? 'bg-white/[0.04]' : 'bg-gray-100'}`}>
-                    <ClipboardList className={`w-8 h-8 ${M} opacity-50`} />
-                  </div>
-                  <div>
-                    <p className={`font-bold text-base ${T}`}>Aucune tâche trouvée</p>
-                    <p className={`text-sm mt-1 ${M}`}>
-                      {searchTerm || filterStatus !== 'all' || filterPriority !== 'all'
-                        ? 'Modifiez vos filtres pour afficher plus de résultats.'
-                        : 'Vous n\'avez pas encore de tâches assignées.'}
-                    </p>
-                  </div>
-                  {(searchTerm || filterStatus !== 'all' || filterPriority !== 'all') && (
-                    <button onClick={() => { setSearchTerm(''); setFilterStatus('all'); setFilterPriority('all'); }}
-                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:opacity-90 transition-opacity">
-                      <XCircle className="w-4 h-4" />Réinitialiser les filtres
-                    </button>
-                  )}
-                </motion.div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredTasks.map((task, i) => {
-                    const isUrgent   = task.priority === 'urgent';
-                    const isInProgress = task.status === 'En cours';
-                    const isDone     = task.status === 'Terminée';
-                    return (
-                      <motion.div key={task.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                        className={`${C} overflow-hidden group cursor-pointer hover:shadow-lg transition-all ${isUrgent && !isDone ? isDark ? 'ring-1 ring-red-500/40' : 'ring-1 ring-red-200' : ''}`}
-                        onClick={() => setSelectedTask(task)}>
-                        {/* Top accent bar */}
-                        <div className={`h-0.5 ${isDone ? 'bg-emerald-500' : isInProgress ? 'bg-amber-400' : isUrgent ? 'bg-red-500' : 'bg-violet-500/40'}`} />
-
-                        <div className="p-5">
-                          {/* Row 1 — icon + title + badges */}
-                          <div className="flex items-start gap-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isDone ? 'bg-emerald-500/15' : isInProgress ? 'bg-amber-500/15' : isDark ? 'bg-violet-500/15' : 'bg-violet-50'}`}>
-                              {isDone       ? <CheckCircle className="w-5 h-5 text-emerald-500" />  :
-                               isInProgress ? <Zap className="w-5 h-5 text-amber-500" />            :
-                               isUrgent     ? <Flame className="w-5 h-5 text-red-500" />            :
-                                              <Wrench className="w-5 h-5 text-violet-500" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <p className={`font-semibold text-sm leading-snug ${isDone ? isDark ? 'text-white/50 line-through' : 'text-gray-400 line-through' : T}`}>{task.description}</p>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <PriorityBadge p={task.priority} />
-                                </div>
-                              </div>
-                              <div className={`flex items-center gap-2 mt-1 text-xs ${M} flex-wrap`}>
-                                <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{task.property}</span>
-                                <span className="opacity-40">&bull;</span>
-                                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(task.date).toLocaleDateString('fr-FR')}</span>
-                              </div>
-                              {task.notes && <p className={`text-xs italic mt-1.5 ${S}`}>{task.notes}</p>}
-                            </div>
-                          </div>
-
-                          {/* Live elapsed timer for in-progress tasks */}
-                          {isInProgress && task.startedAt && (
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                              className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-xl ${isDark ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-amber-50 border border-amber-100'}`}>
-                              <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                              <span className={`text-xs font-semibold font-mono ${getElapsedColor(task.startedAt)}`}>
-                                {getElapsed(task.startedAt)}
-                              </span>
-                              <span className={`text-xs ${isDark ? 'text-amber-400/60' : 'text-amber-600'}`}>
-                                &mdash; démarrée à {new Date(task.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </motion.div>
-                          )}
-
-                          {/* Row 2 — cost, time, status badge, action */}
-                          <div className={`flex items-center justify-between mt-4 pt-3 border-t gap-3 flex-wrap ${isDark ? 'border-white/[0.06]' : 'border-gray-100'}`}>
-                            <div className="flex items-center gap-3">
-                              <span className="font-bold text-sm text-emerald-500">{euroFmt(task.cost)}</span>
-                              {task.timeSpent && (
-                                <span className={`text-xs flex items-center gap-1 ${S}`}><Clock className="w-3 h-3" />{formatTime(task.timeSpent)}</span>
-                              )}
-                              <StatusBadge s={task.status} />
-                            </div>
-                            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                              {task.status === 'Planifiée' && (
-                                <button onClick={() => updateTaskStatus(task.id, 'En cours')}
-                                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-medium transition-colors">
-                                  <Play className="w-3 h-3" />Commencer
-                                </button>
-                              )}
-                              {task.status === 'En cours' && (
-                                <button onClick={() => updateTaskStatus(task.id, 'Terminée')}
-                                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-medium transition-colors">
-                                  <CheckCircle className="w-3 h-3" />Terminer
-                                </button>
-                              )}
-                              {isDone && (
-                                <span className={`text-xs flex items-center gap-1 ${isDark ? 'text-emerald-400' : 'text-emerald-600'} font-medium`}>
-                                  <CheckCircle className="w-3.5 h-3.5" />Terminée
-                                </span>
-                              )}
-                              <ChevronRight className={`w-4 h-4 ${M} group-hover:text-violet-400 group-hover:translate-x-0.5 transition-all`} />
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
+        {/* Search + Filter (cleanings/maintenance tabs only) */}
+        {tab !== 'today' && (
+          <div className="flex gap-2">
+            <div className={`flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl ${card}`}>
+              <Search size={15} className={muted} />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher..."
+                className={`flex-1 bg-transparent text-sm outline-none ${text}`}
+              />
+              {search && (
+                <button onClick={() => setSearch('')}><XCircle size={14} className="text-gray-400" /></button>
               )}
-            </motion.div>
-          )}
+            </div>
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              className={`px-3 py-2.5 rounded-xl text-sm ${card} ${text} outline-none`}
+            >
+              <option value="all">Tous</option>
+              {tab === 'cleanings'
+                ? ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map(s => (
+                    <option key={s} value={s}>{statusLabel[s]?.label}</option>
+                  ))
+                : ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map(s => (
+                    <option key={s} value={s}>{statusLabel[s]?.label}</option>
+                  ))
+              }
+            </select>
+          </div>
+        )}
 
-          {/* TIME TAB */}
-          {activeTab === 'time' && (
-            <motion.div key="time" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {[
-                  { label: 'Temps moyen/tâche', value: `${stats.avgTaskTime.toFixed(1)}h`, icon: <Timer className="w-5 h-5" />, color: '#8b5cf6' },
-                  { label: 'Heures ce mois',          value: `${stats.totalHours.toFixed(1)}h`, icon: <Clock className="w-5 h-5" />,  color: '#3b82f6' },
-                  { label: 'Tâches terminées', value: String(stats.completedTasks),  icon: <CheckCircle className="w-5 h-5" />, color: '#10b981' },
-                ].map((k, i) => (
-                  <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-                    className={`${C} p-4 flex items-center gap-3`}>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${k.color}18`, color: k.color }}>
-                      {k.icon}
-                    </div>
-                    <div>
-                      <p className={`text-xs ${M}`}>{k.label}</p>
-                      <p className="font-bold text-lg" style={{ color: k.color }}>{k.value}</p>
-                    </div>
-                  </motion.div>
-                ))}
+        {/* TODAY TAB */}
+        {tab === 'today' && (
+          <div className="space-y-4">
+            {todayCleanings.length > 0 && (
+              <section>
+                <h2 className={`font-semibold ${text} mb-3 flex items-center gap-2`}>
+                  <Home size={16} className="text-blue-400" />MÃ©nages du jour
+                </h2>
+                <div className="space-y-3">
+                  {todayCleanings.map(c => (
+                    <CleaningCard key={c.id} cleaning={c} isDark={isDark} onUpdate={updateCleaningStatus} />
+                  ))}
+                </div>
+              </section>
+            )}
+            {todayMaintenance.length > 0 && (
+              <section>
+                <h2 className={`font-semibold ${text} mb-3 flex items-center gap-2`}>
+                  <Wrench size={16} className="text-orange-400" />Maintenance du jour
+                </h2>
+                <div className="space-y-3">
+                  {todayMaintenance.map(m => (
+                    <MaintenanceCard key={m.id} task={m} isDark={isDark} onUpdate={updateMaintenanceStatus} />
+                  ))}
+                </div>
+              </section>
+            )}
+            {totalToday === 0 && (
+              <div className={`${card} rounded-2xl p-10 text-center`}>
+                <CheckCircle size={40} className="text-green-400 mx-auto mb-3" />
+                <p className={`font-semibold ${text}`}>Rien Ã  faire aujourd'hui !</p>
+                <p className={`text-sm ${muted} mt-1`}>Toutes les tÃ¢ches du jour sont terminÃ©es.</p>
               </div>
+            )}
+          </div>
+        )}
 
-              <div className={`${C} p-5`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className={`font-semibold flex items-center gap-2 ${T}`}>
-                    <Clock className="w-4 h-4 text-violet-500" />Historique des entrées
-                  </h3>
-                  <button onClick={() => setShowTimeModal(true)}
-                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-medium transition-opacity hover:opacity-90">
-                    <Plus className="w-3.5 h-3.5" />Ajouter
-                  </button>
-                </div>
-                {timeEntries.length === 0 ? (
-                  <p className={`text-center py-8 ${M}`}>Aucune entrée de temps</p>
-                ) : (
-                  <div className="space-y-2">
-                    {timeEntries.map((entry, i) => {
-                      const task = tasks.find(t => t.id === entry.taskId);
-                      return (
-                        <motion.div key={entry.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-                          className={`${SC} px-4 py-3 flex items-center justify-between gap-3 flex-wrap`}>
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center flex-shrink-0">
-                              <Clock className="w-4 h-4 text-violet-400" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className={`text-sm font-medium truncate ${T}`}>{task?.description || 'Tâche inconnue'}</p>
-                              <p className={`text-xs ${M}`}>{new Date(entry.date).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })} &middot; {entry.description || 'Sans description'}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-sm font-bold text-violet-400 bg-violet-500/10 px-2.5 py-1 rounded-lg">{entry.hours}h</span>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                )}
-                <div className={`flex justify-between items-center pt-4 mt-4 border-t ${isDark ? 'border-white/[0.06]' : 'border-gray-100'}`}>
-                  <span className={`text-sm font-semibold ${T}`}>Total</span>
-                  <span className="text-lg font-black text-violet-400">{stats.totalHours.toFixed(1)}h</span>
-                </div>
-              </div>
+        {/* CLEANINGS TAB */}
+        {tab === 'cleanings' && (
+          <div className="space-y-3">
+            {filteredCleanings.length === 0
+              ? <EmptyState text="Aucun mÃ©nage trouvÃ©" isDark={isDark} />
+              : filteredCleanings.map(c => (
+                  <CleaningCard key={c.id} cleaning={c} isDark={isDark} onUpdate={updateCleaningStatus} />
+                ))
+            }
+          </div>
+        )}
 
-              {/* Weekly chart — hours per entry visualised as bars */}
-              {timeEntries.length > 0 && (() => {
-                const maxH = Math.max(...timeEntries.map(e => e.hours), 1);
-                const barColors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-                return (
-                  <div className={`${C} p-5`}>
-                    <h4 className={`font-semibold mb-4 flex items-center gap-2 ${T}`}>
-                      <BarChart3 className="w-4 h-4 text-violet-500" />Répartition des heures
-                    </h4>
-                    <div className="flex items-end gap-3 h-24">
-                      {timeEntries.map((entry, i) => {
-                        const task = tasks.find(t => t.id === entry.taskId);
-                        const pct = (entry.hours / maxH) * 100;
-                        const color = barColors[i % barColors.length];
-                        return (
-                          <div key={entry.id} className="flex-1 flex flex-col items-center gap-1.5 min-w-0 group">
-                            <span className="text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color }}>{entry.hours}h</span>
-                            <motion.div
-                              initial={{ height: 0 }} animate={{ height: `${pct}%` }} transition={{ duration: 0.7, delay: i * 0.08 }}
-                              className="w-full rounded-t-lg min-h-[4px]" style={{ backgroundColor: color, maxHeight: '80px' }} />
-                            <span className={`text-[9px] font-medium truncate w-full text-center ${M}`}>
-                              {task?.property?.split(' ')[0] || '?'}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className={`text-xs text-center mt-2 ${M}`}>Heures enregistrées par entrée</div>
-                  </div>
-                );
-              })()}
-            </motion.div>
-          )}
+        {/* MAINTENANCE TAB */}
+        {tab === 'maintenance' && (
+          <div className="space-y-3">
+            {filteredMaintenance.length === 0
+              ? <EmptyState text="Aucune tÃ¢che trouvÃ©e" isDark={isDark} />
+              : filteredMaintenance.map(m => (
+                  <MaintenanceCard key={m.id} task={m} isDark={isDark} onUpdate={updateMaintenanceStatus} />
+                ))
+            }
+          </div>
+        )}
 
-          {/* REPORTS TAB */}
-          {activeTab === 'reports' && (
-            <motion.div key="reports" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* General stats */}
-                <div className={`${C} p-5`}>
-                  <h4 className={`font-semibold mb-4 flex items-center gap-2 ${T}`}>
-                    <ClipboardList className="w-4 h-4 text-violet-500" />Statistiques générales
-                  </h4>
-                  <div className="space-y-3">
-                    {[
-                      { label: 'Total des tâches',  value: String(stats.totalTasks),                   color: T },
-                      { label: 'Tâches terminées', value: String(stats.completedTasks),            color: 'text-emerald-400' },
-                      { label: 'Tâches en cours',   value: String(stats.inProgressTasks),               color: 'text-amber-400' },
-                      { label: 'Tâches planifiées', value: String(stats.pendingTasks),             color: 'text-blue-400' },
-                      { label: 'Taux de complétion', value: `${stats.completionRate}%`,                 color: 'text-violet-400' },
-                    ].map((r, i) => (
-                      <div key={i} className={`flex justify-between items-center py-2 border-b last:border-0 ${isDark ? 'border-white/[0.06]' : 'border-gray-100'}`}>
-                        <span className={`text-sm ${S}`}>{r.label}</span>
-                        <span className={`font-bold text-sm ${r.color}`}>{r.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {/* Performance metrics */}
-                <div className={`${C} p-5`}>
-                  <h4 className={`font-semibold mb-4 flex items-center gap-2 ${T}`}>
-                    <TrendingUp className="w-4 h-4 text-violet-500" />Métriques de performance
-                  </h4>
-                  <div className="space-y-3">
-                    {[
-                      { label: 'Heures travaillées', value: `${stats.totalHours.toFixed(1)}h`, color: 'text-blue-400' },
-                      { label: 'Temps moyen/tâche',  value: `${stats.avgTaskTime.toFixed(1)}h`, color: 'text-violet-400' },
-                      { label: 'Revenus générés', value: euroFmt(stats.monthlyEarnings), color: 'text-emerald-400' },
-                      { label: 'Note de performance', value: `${stats.rating}/5`, color: 'text-amber-400' },
-                    ].map((r, i) => (
-                      <div key={i} className={`flex justify-between items-center py-2 border-b last:border-0 ${isDark ? 'border-white/[0.06]' : 'border-gray-100'}`}>
-                        <span className={`text-sm ${S}`}>{r.label}</span>
-                        <span className={`font-bold text-sm ${r.color}`}>{r.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className={`text-xs ${M}`}>Note globale</span>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: 5 }, (_, i) => (
-                        <span key={i} className={i < Math.round(stats.rating) ? 'text-amber-400' : isDark ? 'text-white/15' : 'text-gray-200'}>&#9733;</span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Priority breakdown */}
-              <div className={`${C} p-5`}>
-                <h4 className={`font-semibold mb-4 flex items-center gap-2 ${T}`}>
-                  <AlertTriangle className="w-4 h-4 text-violet-500" />Répartition par priorité
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { key: 'low',    label: 'Basse',   color: '#3b82f6' },
-                    { key: 'normal', label: 'Normale', color: '#6b7280' },
-                    { key: 'high',   label: 'Haute',   color: '#f97316' },
-                    { key: 'urgent', label: 'Urgente', color: '#ef4444' },
-                  ].map((p, i) => {
-                    const count = myTasks.filter(t => t.priority === p.key).length;
-                    const pct = myTasks.length ? Math.round((count / myTasks.length) * 100) : 0;
-                    return (
-                      <motion.div key={p.key} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.06 }}
-                        className={`${SC} p-4 flex flex-col items-center gap-2`}>
-                        <p className="text-2xl font-black" style={{ color: p.color }}>{count}</p>
-                        <p className={`text-xs font-medium ${S}`}>{p.label}</p>
-                        <div className={`w-full h-1.5 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, delay: i * 0.1 }}
-                            className="h-full rounded-full" style={{ backgroundColor: p.color }} />
-                        </div>
-                        <span className={`text-[11px] ${M}`}>{pct}%</span>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Completion progress */}
-              <div className={`${C} p-5`}>
-                <h4 className={`font-semibold mb-4 flex items-center gap-2 ${T}`}>
-                  <BarChart3 className="w-4 h-4 text-violet-500" />Progression globale
-                </h4>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <div className={`w-full h-3 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}>
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${stats.completionRate}%` }} transition={{ duration: 0.8 }}
-                        className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500" />
-                    </div>
-                    <div className={`flex justify-between text-xs mt-1.5 ${M}`}>
-                      <span>0%</span><span>100%</span>
-                    </div>
-                  </div>
-                  <p className="text-2xl font-black text-violet-400 flex-shrink-0">{stats.completionRate}%</p>
-                </div>
-              </div>
-
-              {/* Revenue by property */}
-              {(() => {
-                const props = Array.from(new Set(myTasks.map(t => t.property)));
-                const maxRevenue = Math.max(...props.map(p => myTasks.filter(t => t.property === p && t.status === 'Terminée').reduce((s, t) => s + t.cost, 0)), 1);
-                const propColors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-                return (
-                  <div className={`${C} p-5`}>
-                    <h4 className={`font-semibold mb-4 flex items-center gap-2 ${T}`}>
-                      <Euro className="w-4 h-4 text-violet-500" />Revenus par propriété
-                    </h4>
-                    <div className="space-y-3">
-                      {props.map((prop, i) => {
-                        const earned = myTasks.filter(t => t.property === prop && t.status === 'Terminée').reduce((s, t) => s + t.cost, 0);
-                        const potential = myTasks.filter(t => t.property === prop).reduce((s, t) => s + t.cost, 0);
-                        const pct = potential ? Math.round((earned / potential) * 100) : 0;
-                        const color = propColors[i % propColors.length];
-                        return (
-                          <div key={prop}>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                                <span className={`text-sm font-medium truncate ${T}`}>{prop}</span>
-                              </div>
-                              <div className="flex items-center gap-3 flex-shrink-0">
-                                <span className="text-xs font-bold" style={{ color }}>{euroFmt(earned)}</span>
-                                <span className={`text-xs ${M}`}>/ {euroFmt(potential)}</span>
-                              </div>
-                            </div>
-                            <div className={`w-full h-2 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}>
-                              <motion.div
-                                initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, delay: i * 0.1 }}
-                                className="h-full rounded-full" style={{ backgroundColor: color }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Hours breakdown by task */}
-              {(() => {
-                const timed = myTasks.filter(t => t.timeSpent);
-                if (timed.length === 0) return null;
-                const maxTime = Math.max(...timed.map(t => t.timeSpent || 0), 1);
-                return (
-                  <div className={`${C} p-5`}>
-                    <h4 className={`font-semibold mb-4 flex items-center gap-2 ${T}`}>
-                      <Timer className="w-4 h-4 text-violet-500" />Temps par tâche
-                    </h4>
-                    <div className="space-y-3">
-                      {timed.map((task, i) => {
-                        const pct = Math.round(((task.timeSpent || 0) / maxTime) * 100);
-                        const isDone = task.status === 'Terminée';
-                        const color = isDone ? '#10b981' : '#f59e0b';
-                        return (
-                          <div key={task.id}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className={`text-sm truncate max-w-[60%] ${T}`}>{task.description}</span>
-                              <span className="text-xs font-bold flex-shrink-0" style={{ color }}>{formatTime(task.timeSpent || 0)}</span>
-                            </div>
-                            <div className={`w-full h-2 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}>
-                              <motion.div
-                                initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, delay: i * 0.1 }}
-                                className="h-full rounded-full" style={{ backgroundColor: color }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-            </motion.div>
-          )}
-
-        </AnimatePresence>
       </div>
+    </div>
+  );
+}
 
-      {/* TASK DETAIL MODAL */}
-      <AnimatePresence>
-        {selectedTask && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setSelectedTask(null)}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-              onClick={e => e.stopPropagation()}
-              className={`w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${isDark ? 'bg-[#1a1a2e] border border-white/[0.1]' : 'bg-white'}`}>
-              <div className="h-1.5 bg-gradient-to-r from-violet-500 to-indigo-500 rounded-t-2xl" />
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-violet-500/15 rounded-xl flex items-center justify-center">
-                      <Wrench className="w-5 h-5 text-violet-500" />
-                    </div>
-                    <div>
-                      <h3 className={`font-bold ${T}`}>{selectedTask.description}</h3>
-                      <p className={`text-xs flex items-center gap-1 ${M}`}><Building2 className="w-3 h-3" />{selectedTask.property}</p>
-                    </div>
-                  </div>
-                  <button onClick={() => setSelectedTask(null)}
-                    className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/[0.06] text-white/40' : 'hover:bg-gray-100 text-gray-400'}`}>
-                    <XCircle className="w-5 h-5" />
-                  </button>
-                </div>
+// â”€â”€ Cleaning Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-                <div className="flex gap-2 flex-wrap mb-4">
-                  <StatusBadge s={selectedTask.status} />
-                  <PriorityBadge p={selectedTask.priority} />
-                </div>
+function CleaningCard({ cleaning: c, isDark, onUpdate }: {
+  cleaning: Cleaning;
+  isDark: boolean;
+  onUpdate: (id: number, status: string) => void;
+}) {
+  const card = isDark ? 'bg-white/5 border border-white/10' : 'bg-white border border-gray-200';
+  const text = isDark ? 'text-white' : 'text-gray-900';
+  const muted = isDark ? 'text-gray-400' : 'text-gray-500';
+  const date = new Date(c.scheduledDate);
+  const isToday = c.scheduledDate?.startsWith(new Date().toISOString().split('T')[0]);
 
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className={`${SC} p-3`}>
-                    <p className={`text-xs ${M} mb-1`}>&#128197; Date</p>
-                    <p className={`font-bold text-sm ${T}`}>{new Date(selectedTask.date).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })}</p>
-                  </div>
-                  <div className={`${SC} p-3`}>
-                    <p className={`text-xs ${M} mb-1`}>&#128181; Coût</p>
-                    <p className="font-bold text-sm text-emerald-500">{euroFmt(selectedTask.cost)}</p>
-                  </div>
-                  {selectedTask.startedAt && (
-                    <div className={`${SC} p-3`}>
-                      <p className={`text-xs ${M} mb-1`}><Play className="w-3 h-3 inline mr-1" />Début</p>
-                      <p className={`font-medium text-sm ${T}`}>{new Date(selectedTask.startedAt).toLocaleString('fr-FR')}</p>
-                    </div>
-                  )}
-                  {selectedTask.completedAt && (
-                    <div className={`${SC} p-3`}>
-                      <p className={`text-xs ${M} mb-1`}><Square className="w-3 h-3 inline mr-1" />Fin</p>
-                      <p className={`font-medium text-sm ${T}`}>{new Date(selectedTask.completedAt).toLocaleString('fr-FR')}</p>
-                    </div>
-                  )}
-                  {selectedTask.timeSpent && (
-                    <div className={`${SC} p-3 col-span-2`}>
-                      <p className={`text-xs ${M} mb-1`}><Clock className="w-3 h-3 inline mr-1" />Temps passé</p>
-                      <p className="font-bold text-sm text-violet-400">{formatTime(selectedTask.timeSpent)}</p>
-                    </div>
-                  )}
-                </div>
-
-                {selectedTask.notes && (
-                  <div className={`${SC} p-4 mb-4`}>
-                    <p className={`text-xs font-semibold ${M} mb-1`}>Notes</p>
-                    <p className={`text-sm ${S}`}>{selectedTask.notes}</p>
-                  </div>
-                )}
-
-                <div className="flex gap-3">
-                  {selectedTask.status === 'Planifiée' && (
-                    <button onClick={() => { updateTaskStatus(selectedTask.id, 'En cours'); setSelectedTask(null); }}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-400 text-white transition-colors">
-                      <Play className="w-4 h-4" />Commencer
-                    </button>
-                  )}
-                  {selectedTask.status === 'En cours' && (
-                    <button onClick={() => { updateTaskStatus(selectedTask.id, 'Terminée'); setSelectedTask(null); }}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-white transition-colors">
-                      <CheckCircle className="w-4 h-4" />Marquer terminée
-                    </button>
-                  )}
-                  <button onClick={() => setSelectedTask(null)}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${isDark ? 'bg-white/[0.06] hover:bg-white/10 text-white/70' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
-                    Fermer
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* TOAST NOTIFICATION */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border backdrop-blur-xl whitespace-nowrap
-              ${toast.type === 'success'
-                ? isDark ? 'bg-emerald-900/80 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                : isDark ? 'bg-amber-900/80 border-amber-500/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'
-              }`}>
-            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${toast.type === 'success' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            <span className="text-sm font-semibold">{toast.msg}</span>
-            <button onClick={() => setToast(null)} className="ml-2 opacity-60 hover:opacity-100 transition-opacity">
-              <XCircle className="w-4 h-4" />
+  return (
+    <div className={`${card} rounded-2xl p-4`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Home size={14} className="text-blue-400 flex-shrink-0" />
+            <span className={`font-semibold ${text} truncate`}>{c.propertyName || `PropriÃ©tÃ© #${c.propertyId}`}</span>
+            {isToday && <span className="px-2 py-0.5 rounded-full bg-[#FF385C]/20 text-[#FF385C] text-xs font-medium">Aujourd'hui</span>}
+          </div>
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+            <span className={`text-xs ${muted} flex items-center gap-1`}>
+              <Calendar size={11} />
+              {date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} Ã  {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            {c.estimatedTime && (
+              <span className={`text-xs ${muted} flex items-center gap-1`}>
+                <Clock size={11} />{Math.floor(c.estimatedTime / 60)}h{String(c.estimatedTime % 60).padStart(2, '0')}
+              </span>
+            )}
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusLabel[c.status]?.color}`}>
+              {statusLabel[c.status]?.label}
+            </span>
+          </div>
+          {c.notes && <p className={`text-xs ${muted} mt-1.5 line-clamp-2`}>{c.notes}</p>}
+        </div>
+        <div className="flex flex-col gap-2 flex-shrink-0">
+          {c.status === 'SCHEDULED' && (
+            <button
+              onClick={() => onUpdate(c.id, 'IN_PROGRESS')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition text-xs font-medium"
+            >
+              <Play size={12} />DÃ©marrer
             </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+          {c.status === 'IN_PROGRESS' && (
+            <button
+              onClick={() => onUpdate(c.id, 'COMPLETED')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition text-xs font-medium"
+            >
+              <CheckCircle size={12} />Terminer
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      {/* ADD TIME MODAL */}
-      <AnimatePresence>
-        {showTimeModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setShowTimeModal(false)}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-              onClick={e => e.stopPropagation()}
-              className={`w-full max-w-md rounded-2xl shadow-2xl ${isDark ? 'bg-[#1a1a2e] border border-white/[0.1]' : 'bg-white'}`}>
-              <div className="h-1.5 bg-gradient-to-r from-violet-500 to-indigo-500 rounded-t-2xl" />
-              <div className="p-5">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 bg-violet-500/15 rounded-xl flex items-center justify-center">
-                    <Plus className="w-5 h-5 text-violet-500" />
-                  </div>
-                  <h3 className={`font-bold ${T}`}>Ajouter du temps travaillé</h3>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className={`block text-xs font-semibold ${M} mb-1.5 uppercase tracking-wide`}>Tâche</label>
-                    <select value={currentTimeEntry.taskId}
-                      onChange={e => setCurrentTimeEntry({ ...currentTimeEntry, taskId: parseInt(e.target.value) })}
-                      className={`w-full px-4 py-2.5 text-sm ${INP}`}>
-                      <option value={0}>Sélectionner une tâche</option>
-                      {myTasks.map(t => <option key={t.id} value={t.id}>{t.description}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={`block text-xs font-semibold ${M} mb-1.5 uppercase tracking-wide`}>Heures travaillées</label>
-                    <input type="number" step="0.5" placeholder="0.0" value={currentTimeEntry.hours || ''}
-                      onChange={e => setCurrentTimeEntry({ ...currentTimeEntry, hours: parseFloat(e.target.value) || 0 })}
-                      className={`w-full px-4 py-2.5 text-sm ${INP}`} />
-                  </div>
-                  <div>
-                    <label className={`block text-xs font-semibold ${M} mb-1.5 uppercase tracking-wide`}>Description</label>
-                    <textarea placeholder="Décrivez le travail effectué..." value={currentTimeEntry.description}
-                      onChange={e => setCurrentTimeEntry({ ...currentTimeEntry, description: e.target.value })}
-                      className={`w-full px-4 py-2.5 text-sm resize-none ${INP}`} rows={3} />
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-5">
-                  <button onClick={addTimeEntry}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:opacity-90 transition-opacity">
-                    <Plus className="w-4 h-4" />Ajouter
-                  </button>
-                  <button onClick={() => setShowTimeModal(false)}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${isDark ? 'bg-white/[0.06] hover:bg-white/10 text-white/70' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
-                    Annuler
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+// â”€â”€ Maintenance Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+function MaintenanceCard({ task: m, isDark, onUpdate }: {
+  task: Maintenance;
+  isDark: boolean;
+  onUpdate: (id: number, status: string) => void;
+}) {
+  const card = isDark ? 'bg-white/5 border border-white/10' : 'bg-white border border-gray-200';
+  const text = isDark ? 'text-white' : 'text-gray-900';
+  const muted = isDark ? 'text-gray-400' : 'text-gray-500';
+  const isOverdue = m.dueDate && new Date(m.dueDate) < new Date() && m.status !== 'COMPLETED' && m.status !== 'CANCELLED';
+
+  return (
+    <div className={`${card} rounded-2xl p-4 ${isOverdue ? 'border-red-500/30' : ''}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Wrench size={14} className="text-orange-400 flex-shrink-0" />
+            <span className={`font-semibold ${text} truncate`}>{m.title}</span>
+            {isOverdue && <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-xs font-medium">En retard</span>}
+          </div>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className={`text-xs ${muted} flex items-center gap-1`}>
+              <MapPin size={11} />{m.propertyName || `PropriÃ©tÃ© #${m.propertyId}`}
+            </span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityLabel[m.priority]?.color}`}>
+              {priorityLabel[m.priority]?.label}
+            </span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusLabel[m.status]?.color}`}>
+              {statusLabel[m.status]?.label}
+            </span>
+            {m.category && <span className={`text-xs ${muted}`}>{m.category}</span>}
+          </div>
+          {m.description && <p className={`text-xs ${muted} mt-1.5 line-clamp-2`}>{m.description}</p>}
+          {m.dueDate && (
+            <p className={`text-xs mt-1 ${isOverdue ? 'text-red-400' : muted} flex items-center gap-1`}>
+              <Calendar size={11} />Ã‰chÃ©ance : {new Date(m.dueDate).toLocaleDateString('fr-FR')}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-2 flex-shrink-0">
+          {m.status === 'PENDING' && (
+            <button
+              onClick={() => onUpdate(m.id, 'IN_PROGRESS')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition text-xs font-medium"
+            >
+              <Play size={12} />DÃ©marrer
+            </button>
+          )}
+          {m.status === 'IN_PROGRESS' && (
+            <button
+              onClick={() => onUpdate(m.id, 'COMPLETED')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition text-xs font-medium"
+            >
+              <CheckCircle size={12} />Terminer
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// â”€â”€ Empty State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function EmptyState({ text, isDark }: { text: string; isDark: boolean }) {
+  const card = isDark ? 'bg-white/5 border border-white/10' : 'bg-white border border-gray-200';
+  return (
+    <div className={`${card} rounded-2xl p-10 text-center`}>
+      <ClipboardList size={36} className="mx-auto mb-3 text-gray-400" />
+      <p className={isDark ? 'text-gray-300 font-medium' : 'text-gray-600 font-medium'}>{text}</p>
     </div>
   );
 }
