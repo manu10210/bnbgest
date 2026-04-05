@@ -78,11 +78,17 @@ export default function LoginPage() {
     setError('');
     setIsSubmitting(true);
     try {
-      const success = await login(email, password);
-      if (success) {
-        router.push('/admin');
-      } else {
-        setError('Email ou mot de passe incorrect');
+      const result = await signIn('credentials', {
+        redirect: false,
+        email,
+        password,
+        callbackUrl: '/admin'
+      });
+
+      if (result?.error) {
+         setError('Email ou mot de passe incorrect');
+      } else if (result?.ok) {
+         window.location.href = '/admin';
       }
     } catch (_err) {
       setError('Une erreur est survenue');
