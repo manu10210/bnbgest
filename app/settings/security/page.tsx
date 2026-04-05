@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   Shield,
@@ -51,6 +52,8 @@ export default function SecuritySettingsPage() {
     new: '',
     confirm: ''
   });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   const [sessions, setSessions] = useState<Session[]>([
     {
@@ -96,17 +99,46 @@ export default function SecuritySettingsPage() {
     }
   ]);
 
-  const handlePasswordChange = () => {
-    if (passwordData.new !== passwordData.confirm) {
-      alert('Les mots de passe ne correspondent pas');
+  const handlePasswordChange = async () => {
+    setPasswordError('');
+    setPasswordSuccess(false);
+
+    if (!passwordData.current) {
+      setPasswordError('Veuillez saisir votre mot de passe actuel');
       return;
     }
+    if (passwordData.new !== passwordData.confirm) {
+      setPasswordError('Les nouveaux mots de passe ne correspondent pas');
+      return;
+    }
+    if (passwordData.new.length < 8) {
+      setPasswordError('Le nouveau mot de passe doit contenir au moins 8 caractères');
+      return;
+    }
+
     setSaving(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword: passwordData.current,
+          newPassword: passwordData.new,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPasswordError(data.error || 'Erreur lors du changement de mot de passe');
+      } else {
+        setPasswordSuccess(true);
+        setPasswordData({ current: '', new: '', confirm: '' });
+        toast.success('Mot de passe modifié avec succès !');
+      }
+    } catch {
+      setPasswordError('Erreur réseau, veuillez réessayer');
+    } finally {
       setSaving(false);
-      setPasswordData({ current: '', new: '', confirm: '' });
-      alert('Mot de passe modifié avec succès');
-    }, 1000);
+    }
   };
 
   const handleToggleTwoFactor = () => {
@@ -269,6 +301,20 @@ export default function SecuritySettingsPage() {
             <Lock size={20} />
             {saving ? 'Modification...' : 'Changer le mot de passe'}
           </button>
+
+          {/* Messages erreur / succès */}
+          {passwordError && (
+            <div className="flex items-center gap-2 mt-3 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">
+              <X size={16} />
+              <span className="text-sm">{passwordError}</span>
+            </div>
+          )}
+          {passwordSuccess && (
+            <div className="flex items-center gap-2 mt-3 px-4 py-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400">
+              <Check size={16} />
+              <span className="text-sm">Mot de passe modifié avec succès ! Utilisez ce nouveau mot de passe à votre prochaine connexion.</span>
+            </div>
+          )}
         </div>
 
         {/* Two-Factor Authentication */}
