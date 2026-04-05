@@ -1,8 +1,13 @@
 import NextAuth from 'next-auth';
-import { authConfig } from './auth.config';
+import Google from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from './lib/prisma';
+
+const AUTHORIZED_ADMINS = [
+  'claustre.emmanuel@gmail.com',
+  'employee@bnbgest.com'
+];
 
 const USERS = [
   {
@@ -24,9 +29,18 @@ const USERS = [
 ];
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  ...authConfig,
   providers: [
-    ...authConfig.providers.filter(p => (p as { id?: string }).id !== 'credentials'),
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: {
+          prompt: 'consent',
+          access_type: 'offline',
+          response_type: 'code'
+        }
+      }
+    }),
     Credentials({
       name: 'Credentials',
       credentials: {
@@ -42,7 +56,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const user = USERS.find(u => u.email === emailInput);
         if (!user) return null;
 
-        // 1. Vérifier d'abord AppCredential en DB (mot de passe défini via reset)
+        // 1. Vérifier AppCredential en DB (mot de passe défini via reset)
         try {
           const dbCredential = await prisma.appCredential.findUnique({
             where: { email: emailInput },
@@ -58,7 +72,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           console.error('DB credential check error:', e);
         }
 
-        // 2. Fallback : vérifier le mot de passe en variable d'environnement
+        // 2. Fallback : mot de passe en variable d'environnement
         if (user.password && user.password === passwordInput) {
           return { id: user.id, email: user.email, name: user.name, role: user.role, image: user.image };
         }
@@ -67,5 +81,40 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
     })
   ],
+  callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === 'google') {
+        return AUTHORIZED_ADMINS.includes(user.email || '');
+      }
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      if (user) {
+        token.role = (user as { role?: string }).role || 'client';
+        token.id = user.id;
+      }
+      if (account) {
+        token.provider = account.provider;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.role = token.role as string;
+        session.user.id = token.id as string;
+        session.user.provider = token.provider as string;
+      }
+      return session;
+    }
+  },
+  pages: {
+    signIn: '/login',
+    error: '/login',
+  },
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60,
+  },
+  secret: process.env.NEXTAUTH_SECRET,
 });
 
