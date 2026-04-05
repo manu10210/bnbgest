@@ -2178,6 +2178,63 @@ export default function InvoiceEditor() {
         </div>
       </div>
 
+      {/* ── KPI Strip ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Revenue encaissé */}
+        <motion.div whileHover={{ scale: 1.02 }}
+          className={`relative overflow-hidden rounded-2xl p-4 border ${isDark ? 'bg-gradient-to-br from-emerald-900/40 to-teal-900/30 border-emerald-500/20' : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200'}`}>
+          <div className="absolute top-2 right-3 text-3xl opacity-10 select-none">💰</div>
+          <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>Encaissé</p>
+          <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>{fmt(stats.revenue)} €</p>
+          <div className="flex items-center gap-1.5 mt-2">
+            {stats.trend.percent >= 0
+              ? <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
+              : <ArrowDownRight className="w-3.5 h-3.5 text-rose-400" />}
+            <span className={`text-xs font-semibold ${stats.trend.percent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {stats.trend.percent >= 0 ? '+' : ''}{stats.trend.percent}% vs mois préc.
+            </span>
+          </div>
+        </motion.div>
+
+        {/* En attente */}
+        <motion.div whileHover={{ scale: 1.02 }}
+          className={`relative overflow-hidden rounded-2xl p-4 border ${isDark ? 'bg-gradient-to-br from-amber-900/40 to-orange-900/30 border-amber-500/20' : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200'}`}>
+          <div className="absolute top-2 right-3 text-3xl opacity-10 select-none">⏳</div>
+          <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>En attente</p>
+          <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>{fmt(stats.pending)} €</p>
+          <p className={`text-xs mt-2 ${isDark ? 'text-amber-400/70' : 'text-amber-600'}`}>
+            {stats.sent + stats.overdue} facture{stats.sent + stats.overdue !== 1 ? 's' : ''} • {stats.overdue} en retard
+          </p>
+        </motion.div>
+
+        {/* Taux conversion */}
+        <motion.div whileHover={{ scale: 1.02 }}
+          className={`relative overflow-hidden rounded-2xl p-4 border ${isDark ? 'bg-gradient-to-br from-indigo-900/40 to-purple-900/30 border-indigo-500/20' : 'bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200'}`}>
+          <div className="absolute top-2 right-3 text-3xl opacity-10 select-none">🎯</div>
+          <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${isDark ? 'text-indigo-400' : 'text-indigo-700'}`}>Taux de conversion</p>
+          <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>{stats.conversion}%</p>
+          <div className="mt-2 h-1.5 rounded-full overflow-hidden bg-white/10">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${stats.conversion}%` }}
+              transition={{ duration: 1, ease: 'easeOut' }}
+              className={`h-full rounded-full ${stats.conversion >= 70 ? 'bg-emerald-400' : stats.conversion >= 40 ? 'bg-amber-400' : 'bg-rose-400'}`}
+            />
+          </div>
+        </motion.div>
+
+        {/* Brouillons / À envoyer */}
+        <motion.div whileHover={{ scale: 1.02 }}
+          className={`relative overflow-hidden rounded-2xl p-4 border ${isDark ? 'bg-gradient-to-br from-slate-800/80 to-slate-900/50 border-white/[0.06]' : 'bg-gradient-to-br from-gray-50 to-slate-50 border-gray-200'}`}>
+          <div className="absolute top-2 right-3 text-3xl opacity-10 select-none">📋</div>
+          <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Brouillons</p>
+          <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>{stats.draft}</p>
+          <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            {stats.total} total • {stats.paid} payée{stats.paid !== 1 ? 's' : ''}
+          </p>
+        </motion.div>
+      </div>
+
       {/* Client Balance Panel */}
       <AnimatePresence>
         {showClientBalance && (

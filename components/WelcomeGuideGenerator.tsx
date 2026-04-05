@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useBNB, Property, Booking } from '../contexts/BNBContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface WelcomeGuideData {
   property: Property;
@@ -44,6 +45,7 @@ interface WelcomeGuideData {
 
 const WelcomeGuideGenerator = () => {
   const { properties, bookings, getProperty, getBookingsByProperty } = useBNB();
+  const { isDark } = useTheme();
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [guideData, setGuideData] = useState<WelcomeGuideData | null>(null);
@@ -513,21 +515,24 @@ const WelcomeGuideGenerator = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">Générateur de Guide de Bienvenue</h1>
+    <div className={`max-w-7xl mx-auto p-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+      <div className="mb-8">
+        <h1 className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>📋 Générateur de Guide de Bienvenue</h1>
+        <p className={`mt-1 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Créez un guide personnalisé pour chaque voyageur</p>
+      </div>
 
       {/* Selection Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">Sélection</h2>
+      <div className={`rounded-xl shadow-sm border p-6 mb-6 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'}`}>
+        <h2 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>1. Sélection</h2>
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
               Propriété
             </label>
             <select
               value={selectedPropertyId || ''}
               onChange={(e) => setSelectedPropertyId(Number(e.target.value))}
-              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white [&>option]:bg-[#1e1e2d]' : 'bg-white border-gray-300 text-gray-900'}`}
             >
               <option value="">Sélectionner une propriété</option>
               {properties.map((property: Property) => (
@@ -539,14 +544,14 @@ const WelcomeGuideGenerator = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
               Réservation
             </label>
             <select
               value={selectedBookingId || ''}
               onChange={(e) => setSelectedBookingId(Number(e.target.value))}
               disabled={!selectedPropertyId}
-              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+              className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50 ${isDark ? 'bg-white/10 border-white/10 text-white [&>option]:bg-[#1e1e2d]' : 'bg-white border-gray-300 text-gray-900'}`}
             >
               <option value="">Sélectionner une réservation</option>
               {propertyBookings.map((booking: Booking) => (
@@ -561,113 +566,158 @@ const WelcomeGuideGenerator = () => {
         <button
           onClick={initializeGuide}
           disabled={!selectedPropertyId || !selectedBookingId}
-          className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          className="mt-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-2.5 rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-40 disabled:cursor-not-allowed font-medium shadow-sm transition-all"
         >
-          Initialiser le guide
+          🚀 Initialiser le guide
         </button>
       </div>
 
       {guideData && (
         <>
           {/* Customization Section */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4">Personnalisation</h2>
+          <div className={`rounded-xl shadow-sm border p-6 mb-6 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'}`}>
+            <h2 className={`text-lg font-semibold mb-5 ${isDark ? 'text-white' : 'text-gray-800'}`}>2. Personnalisation</h2>
 
             {/* Template and Language */}
             <div className="grid md:grid-cols-2 gap-6 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                   Template
                 </label>
-                <select
-                  value={guideData.template}
-                  onChange={(e) => setGuideData({ ...guideData, template: e.target.value as 'modern' | 'classic' | 'minimal' })}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="modern">Moderne</option>
-                  <option value="classic">Classique</option>
-                  <option value="minimal">Minimal</option>
-                </select>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { id: 'modern', label: 'Moderne', emoji: '✨' },
+                    { id: 'classic', label: 'Classique', emoji: '📜' },
+                    { id: 'minimal', label: 'Minimal', emoji: '⬜' },
+                  ].map(tpl => (
+                    <button
+                      key={tpl.id}
+                      onClick={() => setGuideData({ ...guideData, template: tpl.id as 'modern' | 'classic' | 'minimal' })}
+                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                        guideData.template === tpl.id
+                          ? 'border-blue-500 bg-blue-500/10 text-blue-500'
+                          : isDark ? 'border-white/10 text-gray-400 hover:border-white/20' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                      }`}
+                    >
+                      <span className="text-xl">{tpl.emoji}</span>
+                      {tpl.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                   Langue
                 </label>
                 <select
                   value={guideData.language}
                   onChange={(e) => setGuideData({ ...guideData, language: e.target.value as 'fr' | 'en' | 'es' | 'it' | 'de' })}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white [&>option]:bg-[#1e1e2d]' : 'bg-white border-gray-300 text-gray-900'}`}
                 >
-                  <option value="fr">Français</option>
-                  <option value="en">English</option>
-                  <option value="es">Español</option>
-                  <option value="it">Italiano</option>
-                  <option value="de">Deutsch</option>
+                  <option value="fr">🇫🇷 Français</option>
+                  <option value="en">🇬🇧 English</option>
+                  <option value="es">🇪🇸 Español</option>
+                  <option value="it">🇮🇹 Italiano</option>
+                  <option value="de">🇩🇪 Deutsch</option>
                 </select>
               </div>
             </div>
 
+            {/* Completion checklist */}
+            {(() => {
+              const checks = [
+                { ok: !!guideData.customContent.wifiPassword, label: 'WiFi' },
+                { ok: !!guideData.customContent.accessCodes.mainDoor, label: 'Code entrée' },
+                { ok: !!guideData.customContent.accessCodes.apartmentDoor, label: 'Code appart.' },
+                { ok: !!guideData.customContent.emergencyContacts.owner.phone, label: 'Urgences' },
+                { ok: guideData.customContent.neighborhood.restaurants.length > 0, label: 'Quartier' },
+              ];
+              const filled = checks.filter(c => c.ok).length;
+              return (
+                <div className={`rounded-xl p-4 mb-5 ${isDark ? 'bg-white/5 border border-white/10' : 'bg-blue-50 border border-blue-100'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-blue-800'}`}>
+                      📝 Complétude du guide
+                    </span>
+                    <span className={`text-sm font-bold ${filled === checks.length ? 'text-emerald-500' : isDark ? 'text-gray-400' : 'text-blue-600'}`}>
+                      {filled}/{checks.length}
+                    </span>
+                  </div>
+                  <div className={`h-1.5 rounded-full mb-3 overflow-hidden ${isDark ? 'bg-white/10' : 'bg-blue-200'}`}>
+                    <div className={`h-full rounded-full transition-all ${filled === checks.length ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${(filled / checks.length) * 100}%` }} />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {checks.map(c => (
+                      <span key={c.label} className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.ok ? 'bg-emerald-500/20 text-emerald-500' : isDark ? 'bg-white/10 text-gray-500' : 'bg-white text-gray-400 border border-gray-200'}`}>
+                        {c.ok ? '✓' : '○'} {c.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* WiFi */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mot de passe WiFi
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                🔒 Mot de passe WiFi
               </label>
               <input
                 type="text"
                 value={guideData.customContent.wifiPassword}
                 onChange={(e) => updateCustomContent('wifiPassword', '', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                 placeholder="Entrez le mot de passe WiFi"
               />
             </div>
 
             {/* Access Codes */}
             <div className="mb-6">
-              <h3 className="text-lg font-medium text-gray-700 mb-3">Codes d&apos;accès</h3>
+              <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>🔑 Codes d&apos;accès</h3>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Porte d&apos;entrée
                   </label>
                   <input
                     type="text"
                     value={guideData.customContent.accessCodes.mainDoor}
                     onChange={(e) => updateCustomContent('accessCodes', 'mainDoor', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Appartement
                   </label>
                   <input
                     type="text"
                     value={guideData.customContent.accessCodes.apartmentDoor}
                     onChange={(e) => updateCustomContent('accessCodes', 'apartmentDoor', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ascenseur (optionnel)
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    🛗 Ascenseur (optionnel)
                   </label>
                   <input
                     type="text"
                     value={guideData.customContent.accessCodes.elevator || ''}
                     onChange={(e) => updateCustomContent('accessCodes', 'elevator', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Parking (optionnel)
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    🅿️ Parking (optionnel)
                   </label>
                   <input
                     type="text"
                     value={guideData.customContent.accessCodes.parking || ''}
                     onChange={(e) => updateCustomContent('accessCodes', 'parking', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                   />
                 </div>
               </div>
@@ -675,10 +725,10 @@ const WelcomeGuideGenerator = () => {
 
             {/* Emergency Contacts */}
             <div className="mb-6">
-              <h3 className="text-lg font-medium text-gray-700 mb-3">Contacts d&apos;urgence</h3>
+              <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>🚨 Contacts d&apos;urgence</h3>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Nom du propriétaire
                   </label>
                   <input
@@ -688,11 +738,11 @@ const WelcomeGuideGenerator = () => {
                       ...guideData.customContent.emergencyContacts.owner,
                       name: e.target.value
                     })}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Téléphone propriétaire
                   </label>
                   <input
@@ -702,11 +752,11 @@ const WelcomeGuideGenerator = () => {
                       ...guideData.customContent.emergencyContacts.owner,
                       phone: e.target.value
                     })}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Email propriétaire
                   </label>
                   <input
@@ -716,18 +766,18 @@ const WelcomeGuideGenerator = () => {
                       ...guideData.customContent.emergencyContacts.owner,
                       email: e.target.value
                     })}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Urgences locales
                   </label>
                   <input
                     type="text"
                     value={guideData.customContent.emergencyContacts.localEmergency}
                     onChange={(e) => updateCustomContent('emergencyContacts', 'localEmergency', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     placeholder="112"
                   />
                 </div>
@@ -736,52 +786,52 @@ const WelcomeGuideGenerator = () => {
 
             {/* Neighborhood */}
             <div className="mb-6">
-              <h3 className="text-lg font-medium text-gray-700 mb-3">Informations quartier</h3>
+              <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>🗺️ Informations quartier</h3>
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Supermarchés (un par ligne)
                   </label>
                   <textarea
                     value={guideData.customContent.neighborhood.supermarkets.join('\n')}
                     onChange={(e) => updateArrayField('neighborhood', 'supermarkets', e.target.value.split('\n').filter(item => item.trim()))}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     rows={3}
                     placeholder="Carrefour Market&#10;Monoprix&#10;Lidl"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Restaurants (un par ligne)
                   </label>
                   <textarea
                     value={guideData.customContent.neighborhood.restaurants.join('\n')}
                     onChange={(e) => updateArrayField('neighborhood', 'restaurants', e.target.value.split('\n').filter(item => item.trim()))}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     rows={3}
                     placeholder="Le Petit Bistrot&#10;Pizza Roma&#10;Sushi Zen"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Transports (un par ligne)
                   </label>
                   <textarea
                     value={guideData.customContent.neighborhood.transport.join('\n')}
                     onChange={(e) => updateArrayField('neighborhood', 'transport', e.target.value.split('\n').filter(item => item.trim()))}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     rows={3}
                     placeholder="Métro ligne 1 - 5 min&#10;Bus 38 - arrêt devant&#10;Gare SNCF - 10 min"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                      voir / Attractions (un par ligne)
                   </label>
                   <textarea
                     value={guideData.customContent.neighborhood.attractions.join('\n')}
                     onChange={(e) => updateArrayField('neighborhood', 'attractions', e.target.value.split('\n').filter(item => item.trim()))}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     rows={3}
                     placeholder="Tour Eiffel - 15 min&#10;Musée du Louvre - 20 min&#10;Jardin du Luxembourg - 10 min"
                   />
@@ -791,52 +841,52 @@ const WelcomeGuideGenerator = () => {
 
             {/* Instructions */}
             <div className="mb-6">
-              <h3 className="text-lg font-medium text-gray-700 mb-3">Instructions</h3>
+              <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>⚙️ Instructions</h3>
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Chauffage
                   </label>
                   <textarea
                     value={guideData.customContent.instructions.heating}
                     onChange={(e) => updateCustomContent('instructions', 'heating', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     rows={3}
                     placeholder="Le chauffage se règle avec le thermostat mural..."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Électroménagers
                   </label>
                   <textarea
                     value={guideData.customContent.instructions.appliances}
                     onChange={(e) => updateCustomContent('instructions', 'appliances', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     rows={3}
                     placeholder="Lave-vaisselle : programme éco...&#10;Four : préchauffer 10 min..."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Déchets
                   </label>
                   <textarea
                     value={guideData.customContent.instructions.waste}
                     onChange={(e) => updateCustomContent('instructions', 'waste', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     rows={3}
                     placeholder="Tri sélectif obligatoire...&#10;Conteneurs dans la cour..."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Parking
                   </label>
                   <textarea
                     value={guideData.customContent.instructions.parking}
                     onChange={(e) => updateCustomContent('instructions', 'parking', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     rows={3}
                     placeholder="Parking gratuit dans la rue...&#10;Place réservée n°5..."
                   />
@@ -846,40 +896,40 @@ const WelcomeGuideGenerator = () => {
 
             {/* Services */}
             <div className="mb-6">
-              <h3 className="text-lg font-medium text-gray-700 mb-3">Services</h3>
+              <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>🛎️ Services</h3>
               <div className="grid md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Ménage
                   </label>
                   <textarea
                     value={guideData.customContent.services.cleaning}
                     onChange={(e) => updateCustomContent('services', 'cleaning', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     rows={3}
                     placeholder="Service de ménage disponible...&#10;Tarif : 50€/heure..."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Laverie
                   </label>
                   <textarea
                     value={guideData.customContent.services.laundry}
                     onChange={(e) => updateCustomContent('services', 'laundry', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     rows={3}
                     placeholder="Laverie automatique au sous-sol...&#10;Ouvert 24h/24..."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     Conciergerie
                   </label>
                   <textarea
                     value={guideData.customContent.services.concierge}
                     onChange={(e) => updateCustomContent('services', 'concierge', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder:text-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                     rows={3}
                     placeholder="Conciergerie disponible 24h/24...&#10;Tél : 01 23 45 67 89..."
                   />
@@ -889,13 +939,13 @@ const WelcomeGuideGenerator = () => {
           </div>
 
           {/* Preview and Generate */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Aperçu et génération</h2>
+          <div className={`rounded-xl shadow-sm border p-6 mb-6 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'}`}>
+            <div className="flex justify-between items-center mb-5">
+              <h2 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>3. Aperçu et génération</h2>
               <button
                 onClick={generatePDF}
                 disabled={isGenerating}
-                className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center"
+                className="bg-gradient-to-r from-emerald-500 to-green-600 text-white px-6 py-2.5 rounded-xl hover:from-emerald-600 hover:to-green-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-sm transition-all"
               >
                 {isGenerating ? (
                   <>
@@ -911,11 +961,12 @@ const WelcomeGuideGenerator = () => {
               </button>
             </div>
 
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                <h3 className="font-medium text-gray-700">Aperçu du guide</h3>
+            <div className={`border rounded-xl overflow-hidden ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+              <div className={`px-4 py-3 border-b flex items-center gap-2 ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+                <span>👁️</span>
+                <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-700'}`}>Aperçu du guide</h3>
               </div>
-              <div className="max-h-96 overflow-y-auto p-4 bg-white">
+              <div className={`max-h-96 overflow-y-auto p-4 ${isDark ? 'bg-[#1a1a2e]' : 'bg-white'}`}>
                 {renderGuidePreview()}
               </div>
             </div>

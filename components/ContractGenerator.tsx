@@ -423,6 +423,55 @@ export default function ContractGenerator() {
       {/* ONGLET GÉNÉRER */}
       {activeTab === 'generate' && (
         <div className="space-y-6">
+
+          {/* ── Profil propriétaire — barre de complétion ── */}
+          {(() => {
+            const fields = [
+              { key: 'ownerName',    label: 'Nom' },
+              { key: 'ownerAddress', label: 'Adresse' },
+              { key: 'ownerPhone',   label: 'Téléphone' },
+              { key: 'ownerEmail',   label: 'Email' },
+              { key: 'ownerSiret',   label: 'SIRET' },
+              { key: 'ownerLicense', label: 'Licence' },
+            ] as const;
+            const cfg = config as unknown as Record<string, string>;
+            const filled  = fields.filter(f => !!cfg[f.key]).length;
+            const pct     = Math.round((filled / fields.length) * 100);
+            const missing = fields.filter(f => !cfg[f.key]);
+            const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-400' : 'bg-red-400';
+            const textColor = pct >= 80 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-500' : 'text-red-500';
+            return (
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                className={`rounded-2xl border p-4 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'} shadow-sm`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                    📋 Profil propriétaire
+                  </span>
+                  <span className={`text-sm font-bold ${textColor}`}>{filled}/{fields.length} champs remplis</span>
+                </div>
+                <div className={`h-2 rounded-full mb-2 overflow-hidden ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}>
+                  <motion.div
+                    className={`h-full rounded-full ${barColor}`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                  />
+                </div>
+                {missing.length > 0 ? (
+                  <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Manquant&nbsp;: {missing.map(f => f.label).join(', ')} —{' '}
+                    <button onClick={() => setActiveTab('settings')}
+                      className="text-indigo-500 hover:underline font-medium">
+                      Compléter dans Paramètres →
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-xs text-emerald-500 font-medium">✅ Profil complet — prêt à générer</p>
+                )}
+              </motion.div>
+            );
+          })()}
+
           {/* Sélection propriété/réservation */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`${cardClass} border rounded-2xl p-6`}>
             <h3 className={`text-lg font-bold mb-4 flex items-center gap-2 ${textClass}`}>

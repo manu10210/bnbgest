@@ -329,6 +329,62 @@ export default function RevenueForecasting() {
         </div>
       </div>
 
+      {/* ── Forecast Insights Strip ── */}
+      {forecastData.length > 0 && (() => {
+        const bestMonth = [...forecastData].sort((a, b) => b.projected - a.projected)[0];
+        const totalCoverage = totalProjected > 0 ? Math.round((totalConfirmed / totalProjected) * 100) : 0;
+        const highOccMonths = forecastData.filter(m => m.occupancy >= 70).length;
+        const trend = forecastData.length >= 2
+          ? forecastData[forecastData.length - 1].projected > forecastData[0].projected ? '↑' : '↓'
+          : '→';
+        return (
+          <div className={`rounded-xl border p-4 mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4 ${isDark ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-[#f7f7f7] border-[#ebebeb]'}`}>
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${isDark ? 'bg-yellow-500/10' : 'bg-yellow-50'}`}>
+                <span className="text-lg">🏆</span>
+              </div>
+              <div>
+                <p className={`text-[10px] font-medium ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>Meilleur mois</p>
+                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-[#222]'}`}>{bestMonth.month}</p>
+                <p className="text-xs text-[#FF385C] font-semibold">{bestMonth.projected.toLocaleString('fr-FR')} €</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
+                <span className="text-lg">📊</span>
+              </div>
+              <div>
+                <p className={`text-[10px] font-medium ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>Couverture confirmée</p>
+                <p className={`text-sm font-bold ${totalCoverage >= 50 ? 'text-emerald-400' : 'text-amber-400'}`}>{totalCoverage}%</p>
+                <div className={`mt-1 h-1.5 rounded-full overflow-hidden w-20 ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
+                  <div className={`h-full rounded-full transition-all ${totalCoverage >= 50 ? 'bg-emerald-400' : 'bg-amber-400'}`} style={{ width: `${Math.min(100, totalCoverage)}%` }} />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
+                <span className="text-lg">📅</span>
+              </div>
+              <div>
+                <p className={`text-[10px] font-medium ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>Mois haute saison</p>
+                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-[#222]'}`}>{highOccMonths} / {forecastData.length}</p>
+                <p className={`text-[10px] ${isDark ? 'text-gray-600' : 'text-[#b0b0b0]'}`}>{'(taux ≥ 70%)'}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${isDark ? 'bg-purple-500/10' : 'bg-purple-50'}`}>
+                <span className="text-lg">{trend === '↑' ? '📈' : trend === '↓' ? '📉' : '➡️'}</span>
+              </div>
+              <div>
+                <p className={`text-[10px] font-medium ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>Tendance horizon</p>
+                <p className={`text-2xl font-bold leading-none ${trend === '↑' ? 'text-emerald-400' : trend === '↓' ? 'text-red-400' : 'text-gray-400'}`}>{trend}</p>
+                <p className={`text-[10px] ${isDark ? 'text-gray-600' : 'text-[#b0b0b0]'}`}>{forecastData[0]?.month} → {forecastData[forecastData.length - 1]?.month}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Revenue Chart */}
       <div className={`rounded-xl p-4 border mb-6 ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-[#f7f7f7] border-[#ebebeb]'}`}>
         <h3 className={`text-sm font-semibold mb-4 ${isDark ? 'text-white' : 'text-[#222222]'}`}>

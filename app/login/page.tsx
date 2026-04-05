@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
 import { ArrowLeft, LogIn, Eye, EyeOff, Mail, Lock, Home, Sparkles, Shield, Zap, User, UserPlus } from 'lucide-react';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -282,6 +283,15 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* Mot de passe oublié - uniquement en mode connexion */}
+            {!isSignUp && (
+              <div className="flex justify-end -mt-1">
+                <Link href="/forgot-password" className={`text-xs font-medium hover:underline transition-colors ${isDark ? 'text-[#FF385C]/80 hover:text-[#FF385C]' : 'text-[#FF385C]/70 hover:text-[#FF385C]'}`}>
+                  Mot de passe oublié ?
+                </Link>
+              </div>
+            )}
+
             <button type="submit" disabled={isSubmitting}
               className="w-full flex justify-center items-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-[#FF385C] to-[#E31C5F] hover:shadow-xl hover:shadow-[#FF385C]/25 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
               {isSubmitting ? (
@@ -338,11 +348,11 @@ export default function LoginPage() {
               <div className={`text-xs space-y-1.5 ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>
                 <div className="flex items-center gap-2">
                   <div className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold ${isDark ? 'bg-[#FF385C]/20 text-[#FF385C]' : 'bg-[#FF385C]/10 text-[#FF385C]'}`}>A</div>
-                  <span><strong className={`${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>claustre.emmanuel@gmail.com</strong> / admin123</span>
+                  <span><strong className={`${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>claustre.emmanuel@gmail.com</strong> &mdash; Admin</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold ${isDark ? 'bg-violet-500/20 text-violet-400' : 'bg-violet-100 text-violet-600'}`}>E</div>
-                <span><strong className={`${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>employee@bnbgest.com</strong> / emp123</span>
+                <span><strong className={`${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>employee@bnbgest.com</strong> &mdash; Employé</span>
               </div>
             </div>
             </div>

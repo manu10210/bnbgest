@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
@@ -62,20 +62,12 @@ export default function EmployeePage() {
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [currentTimeEntry, setCurrentTimeEntry] = useState({ taskId: 0, hours: 0, description: '' });
   const [now, setNow] = useState(new Date());
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'warning' } | null>(null);
 
-  // Live clock — updates every second for precise elapsed timers
+  // Live clock — updates every minute for elapsed timers
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
+    const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
-
-  // Auto-dismiss toast
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3500);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([
     { id: 1, taskId: 1, date: '2026-03-20', hours: 2.5, description: 'Nettoyage complet appartement' },
@@ -84,10 +76,10 @@ export default function EmployeePage() {
   ]);
 
   const [tasks, setTasks] = useState<Task[]>([
-    { id: 1, propertyId: 1, property: 'Appartement Paris', description: 'Nettoyage complet après départ', date: '2026-04-05', status: 'Planifiée', assignedTo: 'Employee1', priority: 'normal', cost: 50, notes: 'Utiliser produits écologiques', timeSpent: 150 },
-    { id: 2, propertyId: 2, property: 'Maison Lyon', description: 'Réparation fuite salle de bain', date: '2026-04-05', status: 'En cours', assignedTo: 'Employee1', priority: 'urgent', cost: 120, notes: 'Fuite importante sous le lavabo', startedAt: new Date(Date.now() - 2 * 3600 * 1000 - 14 * 60 * 1000).toISOString() },
-    { id: 3, propertyId: 1, property: 'Appartement Paris', description: 'Changement complet de la literie', date: '2026-04-03', status: 'Terminée', assignedTo: 'Employee1', priority: 'normal', cost: 30, notes: 'Draps neufs, oreillers changés', timeSpent: 90, completedAt: '2026-04-03T11:30' },
-    { id: 4, propertyId: 3, property: 'Studio Marseille', description: 'Révision climatisation', date: '2026-04-07', status: 'Planifiée', assignedTo: 'Employee1', priority: 'low', cost: 80, notes: 'Vérifier filtres et niveau gaz' },
+    { id: 1, propertyId: 1, property: 'Appartement Paris', description: 'Nettoyage complet après départ', date: '2026-03-20', status: 'Planifiée', assignedTo: 'Employee1', priority: 'normal', cost: 50, notes: 'Utiliser produits écologiques', timeSpent: 150 },
+    { id: 2, propertyId: 2, property: 'Maison Lyon', description: 'Réparation fuite salle de bain', date: '2026-03-22', status: 'En cours', assignedTo: 'Employee1', priority: 'urgent', cost: 120, notes: 'Fuite importante sous le lavabo', startedAt: '2026-03-22T09:00' },
+    { id: 3, propertyId: 1, property: 'Appartement Paris', description: 'Changement complet de la literie', date: '2026-03-25', status: 'Terminée', assignedTo: 'Employee1', priority: 'normal', cost: 30, notes: 'Draps neufs, oreillers changés', timeSpent: 90, completedAt: '2026-03-25T11:30' },
+    { id: 4, propertyId: 3, property: 'Studio Marseille', description: 'Révision climatisation', date: '2026-03-28', status: 'Planifiée', assignedTo: 'Employee1', priority: 'low', cost: 80, notes: 'Vérifier filtres et niveau gaz' },
   ]);
 
   const myTasks = tasks.filter(t => t.assignedTo === employeeName);
@@ -120,20 +112,10 @@ export default function EmployeePage() {
 
   // Elapsed time for a task currently in progress
   function getElapsed(startedAt: string): string {
-    const totalSecs = Math.max(0, Math.floor((now.getTime() - new Date(startedAt).getTime()) / 1000));
-    const h = Math.floor(totalSecs / 3600);
-    const m = Math.floor((totalSecs % 3600) / 60);
-    const s = totalSecs % 60;
-    if (h > 0) return `${h}h${m.toString().padStart(2, '0')}m${s.toString().padStart(2, '0')}s`;
-    if (m > 0) return `${m}m${s.toString().padStart(2, '0')}s`;
-    return `${s}s`;
-  }
-
-  function getElapsedColor(startedAt: string): string {
-    const mins = Math.floor((now.getTime() - new Date(startedAt).getTime()) / 60000);
-    if (mins > 120) return isDark ? 'text-red-400' : 'text-red-600';
-    if (mins > 60) return isDark ? 'text-orange-400' : 'text-orange-600';
-    return isDark ? 'text-amber-400' : 'text-amber-700';
+    const mins = Math.round((now.getTime() - new Date(startedAt).getTime()) / 60000);
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return h > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${m}min`;
   }
 
   const updateTaskStatus = (id: number, status: string) => {
@@ -150,8 +132,6 @@ export default function EmployeePage() {
       }
       return updated;
     }));
-    if (status === 'En cours') setToast({ msg: 'Tâche démarrée — minuterie en cours ⏱', type: 'warning' });
-    if (status === 'Terminée') setToast({ msg: 'Tâche marquée comme terminée ✓', type: 'success' });
   };
 
   const addTimeEntry = () => {
@@ -165,7 +145,6 @@ export default function EmployeePage() {
       }]);
       setCurrentTimeEntry({ taskId: 0, hours: 0, description: '' });
       setShowTimeModal(false);
-      setToast({ msg: `${currentTimeEntry.hours}h ajoutées avec succès`, type: 'success' });
     }
   };
 
@@ -372,7 +351,7 @@ export default function EmployeePage() {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {task.status === 'En cours' && task.startedAt && (
-                      <span className={`text-xs font-mono font-semibold ${getElapsedColor(task.startedAt)}`}>{getElapsed(task.startedAt)}</span>
+                      <span className={`text-xs font-mono font-semibold ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>{getElapsed(task.startedAt)}</span>
                     )}
                     {task.status === 'Planifiée' && (
                       <button onClick={() => updateTaskStatus(task.id, 'En cours')}
@@ -459,26 +438,11 @@ export default function EmployeePage() {
               </div>
 
               {filteredTasks.length === 0 ? (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className={`${C} p-12 flex flex-col items-center gap-4 text-center`}>
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? 'bg-white/[0.04]' : 'bg-gray-100'}`}>
-                    <ClipboardList className={`w-8 h-8 ${M} opacity-50`} />
-                  </div>
-                  <div>
-                    <p className={`font-bold text-base ${T}`}>Aucune tâche trouvée</p>
-                    <p className={`text-sm mt-1 ${M}`}>
-                      {searchTerm || filterStatus !== 'all' || filterPriority !== 'all'
-                        ? 'Modifiez vos filtres pour afficher plus de résultats.'
-                        : 'Vous n\'avez pas encore de tâches assignées.'}
-                    </p>
-                  </div>
-                  {(searchTerm || filterStatus !== 'all' || filterPriority !== 'all') && (
-                    <button onClick={() => { setSearchTerm(''); setFilterStatus('all'); setFilterPriority('all'); }}
-                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:opacity-90 transition-opacity">
-                      <XCircle className="w-4 h-4" />Réinitialiser les filtres
-                    </button>
-                  )}
-                </motion.div>
+                <div className={`${C} p-10 flex flex-col items-center gap-3`}>
+                  <ClipboardList className={`w-12 h-12 ${M} opacity-40`} />
+                  <p className={`${T} font-medium`}>Aucune tâche trouvée</p>
+                  <p className={M}>Modifiez vos filtres pour afficher plus de résultats.</p>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {filteredTasks.map((task, i) => {
@@ -522,11 +486,11 @@ export default function EmployeePage() {
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                               className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-xl ${isDark ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-amber-50 border border-amber-100'}`}>
                               <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                              <span className={`text-xs font-semibold font-mono ${getElapsedColor(task.startedAt)}`}>
-                                {getElapsed(task.startedAt)}
+                              <span className={`text-xs font-semibold ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                                En cours depuis {getElapsed(task.startedAt)}
                               </span>
                               <span className={`text-xs ${isDark ? 'text-amber-400/60' : 'text-amber-600'}`}>
-                                &mdash; démarrée à {new Date(task.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                &mdash; démarrée le {new Date(task.startedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </motion.div>
                           )}
@@ -611,17 +575,12 @@ export default function EmployeePage() {
                       return (
                         <motion.div key={entry.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
                           className={`${SC} px-4 py-3 flex items-center justify-between gap-3 flex-wrap`}>
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center flex-shrink-0">
-                              <Clock className="w-4 h-4 text-violet-400" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className={`text-sm font-medium truncate ${T}`}>{task?.description || 'Tâche inconnue'}</p>
-                              <p className={`text-xs ${M}`}>{new Date(entry.date).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })} &middot; {entry.description || 'Sans description'}</p>
-                            </div>
+                          <div>
+                            <p className={`text-sm font-medium ${T}`}>{task?.description || 'Tâche inconnue'}</p>
+                            <p className={`text-xs ${M}`}>{new Date(entry.date).toLocaleDateString('fr-FR')} &middot; {entry.description}</p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-sm font-bold text-violet-400 bg-violet-500/10 px-2.5 py-1 rounded-lg">{entry.hours}h</span>
+                            <span className="text-sm font-bold text-violet-400">{entry.hours}h</span>
                           </div>
                         </motion.div>
                       );
@@ -633,38 +592,6 @@ export default function EmployeePage() {
                   <span className="text-lg font-black text-violet-400">{stats.totalHours.toFixed(1)}h</span>
                 </div>
               </div>
-
-              {/* Weekly chart — hours per entry visualised as bars */}
-              {timeEntries.length > 0 && (() => {
-                const maxH = Math.max(...timeEntries.map(e => e.hours), 1);
-                const barColors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-                return (
-                  <div className={`${C} p-5`}>
-                    <h4 className={`font-semibold mb-4 flex items-center gap-2 ${T}`}>
-                      <BarChart3 className="w-4 h-4 text-violet-500" />Répartition des heures
-                    </h4>
-                    <div className="flex items-end gap-3 h-24">
-                      {timeEntries.map((entry, i) => {
-                        const task = tasks.find(t => t.id === entry.taskId);
-                        const pct = (entry.hours / maxH) * 100;
-                        const color = barColors[i % barColors.length];
-                        return (
-                          <div key={entry.id} className="flex-1 flex flex-col items-center gap-1.5 min-w-0 group">
-                            <span className="text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color }}>{entry.hours}h</span>
-                            <motion.div
-                              initial={{ height: 0 }} animate={{ height: `${pct}%` }} transition={{ duration: 0.7, delay: i * 0.08 }}
-                              className="w-full rounded-t-lg min-h-[4px]" style={{ backgroundColor: color, maxHeight: '80px' }} />
-                            <span className={`text-[9px] font-medium truncate w-full text-center ${M}`}>
-                              {task?.property?.split(' ')[0] || '?'}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className={`text-xs text-center mt-2 ${M}`}>Heures enregistrées par entrée</div>
-                  </div>
-                );
-              })()}
             </motion.div>
           )}
 
@@ -769,81 +696,6 @@ export default function EmployeePage() {
                   <p className="text-2xl font-black text-violet-400 flex-shrink-0">{stats.completionRate}%</p>
                 </div>
               </div>
-
-              {/* Revenue by property */}
-              {(() => {
-                const props = Array.from(new Set(myTasks.map(t => t.property)));
-                const maxRevenue = Math.max(...props.map(p => myTasks.filter(t => t.property === p && t.status === 'Terminée').reduce((s, t) => s + t.cost, 0)), 1);
-                const propColors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-                return (
-                  <div className={`${C} p-5`}>
-                    <h4 className={`font-semibold mb-4 flex items-center gap-2 ${T}`}>
-                      <Euro className="w-4 h-4 text-violet-500" />Revenus par propriété
-                    </h4>
-                    <div className="space-y-3">
-                      {props.map((prop, i) => {
-                        const earned = myTasks.filter(t => t.property === prop && t.status === 'Terminée').reduce((s, t) => s + t.cost, 0);
-                        const potential = myTasks.filter(t => t.property === prop).reduce((s, t) => s + t.cost, 0);
-                        const pct = potential ? Math.round((earned / potential) * 100) : 0;
-                        const color = propColors[i % propColors.length];
-                        return (
-                          <div key={prop}>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                                <span className={`text-sm font-medium truncate ${T}`}>{prop}</span>
-                              </div>
-                              <div className="flex items-center gap-3 flex-shrink-0">
-                                <span className="text-xs font-bold" style={{ color }}>{euroFmt(earned)}</span>
-                                <span className={`text-xs ${M}`}>/ {euroFmt(potential)}</span>
-                              </div>
-                            </div>
-                            <div className={`w-full h-2 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}>
-                              <motion.div
-                                initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, delay: i * 0.1 }}
-                                className="h-full rounded-full" style={{ backgroundColor: color }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Hours breakdown by task */}
-              {(() => {
-                const timed = myTasks.filter(t => t.timeSpent);
-                if (timed.length === 0) return null;
-                const maxTime = Math.max(...timed.map(t => t.timeSpent || 0), 1);
-                return (
-                  <div className={`${C} p-5`}>
-                    <h4 className={`font-semibold mb-4 flex items-center gap-2 ${T}`}>
-                      <Timer className="w-4 h-4 text-violet-500" />Temps par tâche
-                    </h4>
-                    <div className="space-y-3">
-                      {timed.map((task, i) => {
-                        const pct = Math.round(((task.timeSpent || 0) / maxTime) * 100);
-                        const isDone = task.status === 'Terminée';
-                        const color = isDone ? '#10b981' : '#f59e0b';
-                        return (
-                          <div key={task.id}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className={`text-sm truncate max-w-[60%] ${T}`}>{task.description}</span>
-                              <span className="text-xs font-bold flex-shrink-0" style={{ color }}>{formatTime(task.timeSpent || 0)}</span>
-                            </div>
-                            <div className={`w-full h-2 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}>
-                              <motion.div
-                                initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, delay: i * 0.1 }}
-                                className="h-full rounded-full" style={{ backgroundColor: color }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
             </motion.div>
           )}
 
@@ -943,27 +795,6 @@ export default function EmployeePage() {
         )}
       </AnimatePresence>
 
-      {/* TOAST NOTIFICATION */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border backdrop-blur-xl whitespace-nowrap
-              ${toast.type === 'success'
-                ? isDark ? 'bg-emerald-900/80 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                : isDark ? 'bg-amber-900/80 border-amber-500/30 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'
-              }`}>
-            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${toast.type === 'success' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            <span className="text-sm font-semibold">{toast.msg}</span>
-            <button onClick={() => setToast(null)} className="ml-2 opacity-60 hover:opacity-100 transition-opacity">
-              <XCircle className="w-4 h-4" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ADD TIME MODAL */}
       <AnimatePresence>
         {showTimeModal && (
@@ -1024,3 +855,4 @@ export default function EmployeePage() {
     </div>
   );
 }
+

@@ -9,11 +9,11 @@ if (!process.env.RESEND_API_KEY) {
 // Initialiser Resend seulement si la clé existe
 let resend: Resend | null = null;
 if (process.env.RESEND_API_KEY) {
-  resend = new Resend(process.env.RESEND_API_KEY);
+  resend = new Resend(process.env.RESEND_API_KEY.trim());
 }
 
 // Email de l'expéditeur (doit être vérifié dans Resend)
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'BNBGest <noreply@bnbgest.com>';
+const FROM_EMAIL = (process.env.RESEND_FROM_EMAIL || 'BNBGest <onboarding@resend.dev>').trim();
 
 export interface EmailOptions {
   to: string | string[];

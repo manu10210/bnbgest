@@ -284,16 +284,16 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h2 className={`text-2xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
             🔧 Maintenance
             {propertyId && getProperty(propertyId) && (
-              <span className="text-lg font-normal text-gray-400">— {getProperty(propertyId)?.name}</span>
+              <span className={`text-lg font-normal ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>— {getProperty(propertyId)?.name}</span>
             )}
           </h2>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className={`text-sm mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
             {scopeTasks.length} tache{scopeTasks.length !== 1 ? 's' : ''}
-            {statOverdue > 0 && <span className="text-red-600 font-medium"> · {statOverdue} en retard</span>}
-            {statInProgress > 0 && <span className="text-blue-600 font-medium"> · {statInProgress} en cours</span>}
+            {statOverdue > 0 && <span className="text-red-500 font-medium"> · {statOverdue} en retard</span>}
+            {statInProgress > 0 && <span className="text-blue-500 font-medium"> · {statInProgress} en cours</span>}
           </p>
         </div>
         <button onClick={() => setShowAddTask(true)} className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-5 py-2.5 rounded-xl font-medium shadow hover:from-blue-600 hover:to-blue-700 transition-all flex items-center gap-2">
@@ -303,40 +303,40 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
 
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         {kpiItems.map(s => (
-          <div key={s.label} onClick={s.filter} className={`bg-white rounded-2xl shadow-sm border p-4 flex items-center gap-3 transition-all ${s.filter ? 'cursor-pointer hover:shadow-md' : ''} ${s.active ? 'ring-2 ring-blue-400 border-blue-200' : 'border-gray-100'}`}>
+          <div key={s.label} onClick={s.filter} className={`rounded-2xl shadow-sm border p-4 flex items-center gap-3 transition-all ${s.filter ? 'cursor-pointer hover:shadow-md' : ''} ${s.active ? 'ring-2 ring-blue-400 border-blue-200' : ''} ${isDark ? 'bg-white/5 border-white/10 hover:border-white/20' : 'bg-white border-gray-100'}`}>
             <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center text-base flex-shrink-0`}>{s.icon}</div>
             <div className="min-w-0">
-              <p className="text-lg font-bold text-gray-900 leading-none truncate">{s.value}</p>
-              <p className="text-xs text-gray-500 mt-0.5 leading-tight">{s.label}</p>
+              <p className={`text-lg font-bold leading-none truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{s.value}</p>
+              <p className={`text-xs mt-0.5 leading-tight ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{s.label}</p>
             </div>
           </div>
         ))}
       </div>
 
       {showFilters && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+        <div className={`rounded-2xl border shadow-sm p-4 space-y-3 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'}`}>
           <div className="flex flex-wrap gap-3 items-center">
             <div className="relative flex-1 min-w-48">
               <svg className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              <input type="text" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none" />
+              <input type="text" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} className={`w-full pl-9 pr-4 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none ${isDark ? 'bg-white/10 border-white/10 text-white placeholder-gray-500' : 'bg-white border-gray-200 text-gray-900'}`} />
             </div>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={`border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${isDark ? 'bg-white/10 border-white/10 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
               <option value="all">Tous statuts</option>
               <option value="pending">⏳ En attente</option>
               <option value="in_progress">🔄 En cours</option>
               <option value="completed">✅ Terminee</option>
               <option value="cancelled">✕ Annulee</option>
             </select>
-            <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className={`border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${isDark ? 'bg-white/10 border-white/10 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
               <option value="all">Toutes priorites</option>
               <option value="urgent">🔴 Urgente</option>
-              <option value="high">�� Haute</option>
+              <option value="high">🟠 Haute</option>
               <option value="medium">🟡 Moyenne</option>
               <option value="low">🟢 Basse</option>
             </select>
-            <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className={`border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${isDark ? 'bg-white/10 border-white/10 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
               <option value="all">Toutes categories</option>
               <option value="cleaning">🧹 Nettoyage</option>
               <option value="repair">🔧 Reparation</option>
@@ -344,14 +344,14 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
               <option value="supplies">📦 Fournitures</option>
               <option value="other">⚙️ Autre</option>
             </select>
-            <select value={sortBy} onChange={e => setSortBy(e.target.value as 'priority' | 'date' | 'cost')} className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as 'priority' | 'date' | 'cost')} className={`border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${isDark ? 'bg-white/10 border-white/10 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
               <option value="priority">Tri : Priorite</option>
               <option value="date">Tri : Date</option>
               <option value="cost">Tri : Cout</option>
             </select>
-            <div className="flex border border-gray-200 rounded-xl overflow-hidden">
+            <div className={`flex border rounded-xl overflow-hidden ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
               {(['cards', 'table', 'kanban'] as const).map(m => (
-                <button key={m} onClick={() => setViewMode(m)} className={`px-3 py-2 text-xs transition-colors ${viewMode === m ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                <button key={m} onClick={() => setViewMode(m)} className={`px-3 py-2 text-xs transition-colors ${viewMode === m ? 'bg-blue-500 text-white' : isDark ? 'text-gray-400 hover:bg-white/10' : 'text-gray-500 hover:bg-gray-50'}`}>
                   {m === 'cards' ? '🃏' : m === 'table' ? '☰' : '⊞'}
                 </button>
               ))}
@@ -368,7 +368,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
             )}
           </div>
           {filteredTasks.length !== scopeTasks.length && (
-            <p className="text-xs text-gray-400">{filteredTasks.length} sur {scopeTasks.length} taches</p>
+            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{filteredTasks.length} sur {scopeTasks.length} taches</p>
           )}
         </div>
       )}
@@ -385,10 +385,10 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
 
       {viewMode === 'cards' && (
         filteredTasks.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
+          <div className={`rounded-2xl border shadow-sm p-16 text-center ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'}`}>
             <div className="text-5xl mb-4">🔧</div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Aucune tache</h3>
-            <p className="text-gray-400 text-sm mb-6">{search || statusFilter !== 'all' || priorityFilter !== 'all' || categoryFilter !== 'all' ? 'Aucune tache ne correspond.' : 'Creez votre premiere tache.'}</p>
+            <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-700'}`}>Aucune tache</h3>
+            <p className={`text-sm mb-6 ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>{search || statusFilter !== 'all' || priorityFilter !== 'all' || categoryFilter !== 'all' ? 'Aucune tache ne correspond.' : 'Creez votre premiere tache.'}</p>
             <button onClick={() => setShowAddTask(true)} className="bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-blue-600 transition-colors">+ Nouvelle tache</button>
           </div>
         ) : (
@@ -397,21 +397,21 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
       )}
 
       {viewMode === 'table' && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className={`rounded-2xl border shadow-sm overflow-hidden ${isDark ? 'bg-[#1e1e2d] border-white/10' : 'bg-white border-gray-100'}`}>
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className={`border-b ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-100'}`}>
               <tr>
-                <th className="text-left px-4 py-3 text-gray-600 font-semibold">Tache</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-semibold hidden sm:table-cell">Propriete</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-semibold hidden md:table-cell">Categorie</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-semibold">Priorite</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-semibold hidden lg:table-cell">Echeance</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-semibold hidden lg:table-cell">Cout</th>
-                <th className="text-left px-4 py-3 text-gray-600 font-semibold">Statut</th>
+                <th className={`text-left px-4 py-3 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Tache</th>
+                <th className={`text-left px-4 py-3 font-semibold hidden sm:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Propriete</th>
+                <th className={`text-left px-4 py-3 font-semibold hidden md:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Categorie</th>
+                <th className={`text-left px-4 py-3 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Priorite</th>
+                <th className={`text-left px-4 py-3 font-semibold hidden lg:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Echeance</th>
+                <th className={`text-left px-4 py-3 font-semibold hidden lg:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Cout</th>
+                <th className={`text-left px-4 py-3 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Statut</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-50'}`}>
               {filteredTasks.map(task => {
                 const prop = getProperty(task.propertyId);
                 const over = isOverdue(task);
@@ -419,12 +419,12 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
                 const sc   = STATUS_CFG[task.status];
                 const cc   = CAT_CFG[task.category];
                 return (
-                  <tr key={task.id} className={`hover:bg-gray-50 transition-colors ${over ? 'bg-red-50/30' : ''}`}>
+                  <tr key={task.id} className={`transition-colors ${over ? (isDark ? 'bg-red-500/10' : 'bg-red-50/30') : ''} ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900 text-sm">{task.title}{over && <span className="ml-1.5 text-red-500 text-xs">⚠</span>}</div>
+                      <div className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{task.title}{over && <span className="ml-1.5 text-red-500 text-xs">⚠</span>}</div>
                       {task.description && <p className="text-xs text-gray-400 truncate max-w-48">{task.description}</p>}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">{prop?.name ?? '—'}</td>
+                    <td className={`px-4 py-3 text-xs hidden sm:table-cell ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{prop?.name ?? '—'}</td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cc.color}`}>{cc.icon} {cc.label}</span>
                     </td>
@@ -433,10 +433,10 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
                         <span className={`w-1.5 h-1.5 rounded-full ${pc.dot}`} /> {pc.label}
                       </span>
                     </td>
-                    <td className={`px-4 py-3 text-xs hidden lg:table-cell ${over ? 'text-red-600 font-medium' : 'text-gray-500'}`}>{fmt(task.scheduledDate)}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500 hidden lg:table-cell">
+                    <td className={`px-4 py-3 text-xs hidden lg:table-cell ${over ? 'text-red-600 font-medium' : (isDark ? 'text-gray-400' : 'text-gray-500')}`}>{fmt(task.scheduledDate)}</td>
+                    <td className={`px-4 py-3 text-xs hidden lg:table-cell ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                       {task.estimatedCost.toLocaleString('fr-FR')}€
-                      {task.actualCost !== undefined && <span className="text-green-600 ml-1">({task.actualCost.toLocaleString('fr-FR')}€)</span>}
+                      {task.actualCost !== undefined && <span className="text-green-500 ml-1">({task.actualCost.toLocaleString('fr-FR')}€)</span>}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${sc.bg} ${sc.text}`}>{sc.icon} {sc.label}</span>
@@ -445,7 +445,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
                       <div className="flex gap-1">
                         {task.status === 'pending'     && <button onClick={() => handleStart(task)}   className="p-1.5 bg-blue-100  text-blue-600  rounded-lg hover:bg-blue-200  transition-colors text-xs" title="Demarrer">▶</button>}
                         {task.status === 'in_progress' && <button onClick={() => openComplete(task)} className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors text-xs" title="Terminer">✓</button>}
-                        <button onClick={() => openEdit(task)} className="p-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-xs" title="Modifier">✏️</button>
+                        <button onClick={() => openEdit(task)} className={`p-1.5 rounded-lg transition-colors text-xs ${isDark ? 'bg-white/10 text-gray-300 hover:bg-white/20' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`} title="Modifier">✏️</button>
                       </div>
                     </td>
                   </tr>
@@ -453,7 +453,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
               })}
             </tbody>
           </table>
-          {filteredTasks.length === 0 && <div className="text-center py-12 text-gray-400 text-sm">Aucune tache</div>}
+          {filteredTasks.length === 0 && <div className={`text-center py-12 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Aucune tache</div>}
         </div>
       )}
 
@@ -462,14 +462,14 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
           {kanbanGroups.map(group => {
             const groupTasks = filteredTasks.filter(t => t.status === group.key);
             return (
-              <div key={group.key} className={`rounded-2xl border p-4 ${group.color}`}>
+              <div key={group.key} className={`rounded-2xl border p-4 ${isDark ? 'bg-white/5 border-white/10' : group.color}`}>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-gray-700 text-sm">{group.icon} {group.label}</h3>
-                  <span className="bg-white text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">{groupTasks.length}</span>
+                  <h3 className={`font-semibold text-sm ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>{group.icon} {group.label}</h3>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full shadow-sm ${isDark ? 'bg-white/10 text-gray-300' : 'bg-white text-gray-600'}`}>{groupTasks.length}</span>
                 </div>
                 <div className="space-y-2">
                   {groupTasks.length === 0 ? (
-                    <div className="text-center py-6 text-gray-400 text-xs">Aucune tache</div>
+                    <div className={`text-center py-6 text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>Aucune tache</div>
                   ) : groupTasks.map(task => {
                     const over = isOverdue(task);
                     const pc   = PRIORITY_CFG[task.priority];
@@ -491,7 +491,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
-                                <p className="font-semibold text-gray-900 text-sm leading-tight flex-1">{task.title}</p>
+                                <p className={`font-semibold text-sm leading-tight flex-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{task.title}</p>
                                 {over && <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />}
                               </div>
                               <div className="flex flex-wrap gap-1 mb-2">
@@ -500,7 +500,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
                                   {pc.label}
                                 </span>
                               </div>
-                              <div className="text-xs text-gray-500 flex justify-between items-center">
+                              <div className={`text-xs flex justify-between items-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                                 <span className="flex items-center gap-1">
                                   <Home className="w-3 h-3" />
                                   {prop?.name ?? `#${task.propertyId}`}

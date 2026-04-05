@@ -228,6 +228,69 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
         </div>
       </div>
 
+      {/* ── Next 7 Days Forecast Strip ────────────────────────────────────── */}
+      {(() => {
+        const days = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(today);
+          d.setDate(d.getDate() + i);
+          const dStr = d.toISOString().split('T')[0];
+          const arrivals = bookings.filter(b => b.checkIn?.toString().split('T')[0] === dStr).length;
+          const departures = bookings.filter(b => b.checkOut?.toString().split('T')[0] === dStr).length;
+          const isToday = i === 0;
+          return { d, dStr, arrivals, departures, isToday };
+        });
+        const hasEvents = days.some(d => d.arrivals > 0 || d.departures > 0);
+        return (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                7 prochains jours
+              </h3>
+              <button onClick={() => nav('bookings')}
+                className={`text-xs font-semibold flex items-center gap-1 ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-500'}`}>
+                Voir tout <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-7 gap-2">
+              {days.map(({ d, arrivals, departures, isToday }, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.04 }}
+                  onClick={() => nav('bookings')}
+                  className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl border cursor-pointer hover:scale-105 transition-all ${
+                    isToday
+                      ? (isDark ? 'bg-indigo-500/15 border-indigo-500/40' : 'bg-indigo-50 border-indigo-200')
+                      : (isDark ? 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]' : 'bg-white border-gray-100 hover:border-gray-200')
+                  }`}>
+                  <span className={`text-[10px] font-bold uppercase ${isToday ? (isDark ? 'text-indigo-400' : 'text-indigo-600') : sub}`}>
+                    {d.toLocaleDateString('fr-FR', { weekday: 'short' })}
+                  </span>
+                  <span className={`text-lg font-black ${isToday ? (isDark ? 'text-indigo-300' : 'text-indigo-700') : text}`}>
+                    {d.getDate()}
+                  </span>
+                  {arrivals > 0 && (
+                    <div className={`flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-700'}`}>
+                      <LogIn className="w-2.5 h-2.5" />{arrivals}
+                    </div>
+                  )}
+                  {departures > 0 && (
+                    <div className={`flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isDark ? 'bg-blue-500/15 text-blue-400' : 'bg-blue-50 text-blue-700'}`}>
+                      <LogOut className="w-2.5 h-2.5" />{departures}
+                    </div>
+                  )}
+                  {arrivals === 0 && departures === 0 && (
+                    <div className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
+                  )}
+                </motion.div>
+              ))}
+            </div>
+            {!hasEvents && (
+              <p className={`text-center text-xs mt-2 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+                Aucun arrivée ou départ prévu cette semaine
+              </p>
+            )}
+          </motion.div>
+        );
+      })()}
+
       {/* ── Bento Grid ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 

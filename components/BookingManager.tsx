@@ -102,13 +102,20 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
 
   // Charger les réservations avec données étendues
   const extendedBookings: ExtendedBooking[] = useMemo(() => {
+    // Stable seeded pseudo-random using booking ID to prevent flickering
+    const seededInt = (id: number, mod: number, offset: number = 0) => ((id * 2654435761 + offset) >>> 0) % mod;
+    const seededStr = (id: number, len: number) => {
+      let s = '';
+      for (let i = 0; i < len; i++) s += 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[seededInt(id, 32, i * 1000)];
+      return s;
+    };
     return bookings.map(booking => ({
       ...booking,
       checkInTime: '15:00',
       checkOutTime: '11:00',
       adults: Math.floor(booking.guests * 0.7),
       children: Math.floor(booking.guests * 0.3),
-      source: (['direct', 'airbnb', 'booking', 'vrbo'] as const)[Math.floor(Math.random() * 4)],
+      source: (['direct', 'airbnb', 'booking', 'vrbo'] as const)[seededInt(booking.id, 4)],
       commission: booking.totalPrice * 0.15,
       deposit: booking.totalPrice * 0.3,
       depositStatus: 'received' as const,
@@ -121,8 +128,8 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
       assignedStaff: [],
       checkInCompleted: booking.status === 'completed' || booking.status === 'confirmed',
       documentsVerified: booking.status === 'confirmed',
-      accessCode: Math.random().toString(36).substr(2, 6).toUpperCase(),
-      wifiPassword: 'Welcome' + Math.floor(Math.random() * 10000),
+      accessCode: seededStr(booking.id, 6),
+      wifiPassword: 'Welcome' + (1000 + seededInt(booking.id, 9000, 500)),
     }));
   }, [bookings]);
 

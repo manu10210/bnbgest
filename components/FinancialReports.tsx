@@ -8,7 +8,8 @@ import { Button } from './ui/Button';
 import { motion } from 'framer-motion';
 import {
   BarChart, Bar, PieChart as RechartsPie, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart,
+  LineChart, Line
 } from 'recharts';
 import {
   TrendingUp,
@@ -23,7 +24,12 @@ import {
   Home,
   Activity,
   AlertTriangle,
-  Save
+  Save,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+  Zap,
+  Trophy
 } from 'lucide-react';
 
 interface FinancialReportsProps {
@@ -44,6 +50,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [report, setReport] = useState<FinancialReport | null>(null);
+  const [previousReport, setPreviousReport] = useState<FinancialReport | null>(null);
   const [loading, setLoading] = useState(false);
 
   const generateReport = useCallback(async () => {
@@ -51,28 +58,43 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
     try {
       let startDate: string;
       let endDate: string;
+      let prevStartDate: string;
+      let prevEndDate: string;
 
       if (selectedPeriod === 'month') {
         startDate = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}-01`;
         const nextMonth = selectedMonth === 12 ? 1 : selectedMonth + 1;
         const nextYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear;
         endDate = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-01`;
+        // previous month
+        const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
+        const prevYear = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
+        prevStartDate = `${prevYear}-${prevMonth.toString().padStart(2, '0')}-01`;
+        prevEndDate = startDate;
       } else if (selectedPeriod === 'quarter') {
         const quarter = Math.floor((selectedMonth - 1) / 3) + 1;
         const quarterStartMonth = (quarter - 1) * 3 + 1;
         startDate = `${selectedYear}-${quarterStartMonth.toString().padStart(2, '0')}-01`;
-
         const quarterEndMonth = quarter * 3;
         const nextYear = quarterEndMonth === 12 ? selectedYear + 1 : selectedYear;
         const nextMonth = quarterEndMonth === 12 ? 1 : quarterEndMonth + 1;
         endDate = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-01`;
+        // previous quarter
+        const prevQuarterStartMonth = quarter === 1 ? 10 : (quarter - 2) * 3 + 1;
+        const prevQuarterYear = quarter === 1 ? selectedYear - 1 : selectedYear;
+        prevStartDate = `${prevQuarterYear}-${prevQuarterStartMonth.toString().padStart(2, '0')}-01`;
+        prevEndDate = startDate;
       } else { // year
         startDate = `${selectedYear}-01-01`;
         endDate = `${selectedYear + 1}-01-01`;
+        prevStartDate = `${selectedYear - 1}-01-01`;
+        prevEndDate = startDate;
       }
 
       const generatedReport = generateFinancialReport(startDate, endDate);
+      const prevReport = generateFinancialReport(prevStartDate, prevEndDate);
       setReport(generatedReport);
+      setPreviousReport(prevReport);
     } catch (error) {
       console.error('Erreur lors de la génération du rapport:', error);
     } finally {
@@ -93,6 +115,34 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
 
   const formatPercentage = (value: number) => {
     return `${value.toFixed(1)}%`;
+  };
+
+  // Compute delta % between current and previous value
+  const getDelta = (current: number, previous: number) => {
+    if (!previous || previous === 0) return null;
+    return ((current - previous) / Math.abs(previous)) * 100;
+  };
+
+  const DeltaBadge = ({ current, previous, inverse = false }: { current: number; previous: number; inverse?: boolean }) => {
+    const delta = getDelta(current, previous);
+    if (delta === null) return null;
+    const positive = inverse ? delta < 0 : delta > 0;
+    const neutral = Math.abs(delta) < 0.5;
+    if (neutral) return (
+      <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${isDark ? 'bg-gray-500/20 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+        <Minus className="w-2.5 h-2.5" /> 0%
+      </span>
+    );
+    return (
+      <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+        positive
+          ? (isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700')
+          : (isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-700')
+      }`}>
+        {positive ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+        {Math.abs(delta).toFixed(1)}%
+      </span>
+    );
   };
 
   const getPeriodLabel = () => {
@@ -382,58 +432,84 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
           >
             {/* Revenue */}
             <div className={`col-span-1 rounded-2xl p-4 ${isDark ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-emerald-50 border border-emerald-100'}`}>
-              <div className="flex items-center gap-2 mb-1">
-                <Euro className="h-4 w-4 text-emerald-500" />
-                <span className={`text-xs font-medium ${isDark ? 'text-emerald-400/70' : 'text-emerald-600/70'}`}>Revenus</span>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Euro className="h-4 w-4 text-emerald-500" />
+                  <span className={`text-xs font-medium ${isDark ? 'text-emerald-400/70' : 'text-emerald-600/70'}`}>Revenus</span>
+                </div>
+                {previousReport && <DeltaBadge current={report.revenue} previous={previousReport.revenue} />}
               </div>
               <p className="text-xl font-bold text-emerald-600">{formatCurrency(report.revenue)}</p>
+              {previousReport && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-emerald-400/40' : 'text-emerald-600/40'}`}>vs {formatCurrency(previousReport.revenue)}</p>}
             </div>
 
             {/* Expenses */}
             <div className={`col-span-1 rounded-2xl p-4 ${isDark ? 'bg-red-500/10 border border-red-500/20' : 'bg-red-50 border border-red-100'}`}>
-              <div className="flex items-center gap-2 mb-1">
-                <Activity className="h-4 w-4 text-red-500" />
-                <span className={`text-xs font-medium ${isDark ? 'text-red-400/70' : 'text-red-600/70'}`}>Depenses</span>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-red-500" />
+                  <span className={`text-xs font-medium ${isDark ? 'text-red-400/70' : 'text-red-600/70'}`}>Depenses</span>
+                </div>
+                {previousReport && <DeltaBadge current={report.expenses} previous={previousReport.expenses} inverse />}
               </div>
               <p className="text-xl font-bold text-red-500">{formatCurrency(report.expenses)}</p>
+              {previousReport && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-red-400/40' : 'text-red-600/40'}`}>vs {formatCurrency(previousReport.expenses)}</p>}
             </div>
 
             {/* Profit */}
             <div className={`col-span-1 rounded-2xl p-4 border-2 ${report.profit >= 0
               ? (isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200')
               : (isDark ? 'bg-red-500/10 border-red-500/30' : 'bg-red-50 border-red-200')}`}>
-              <div className="flex items-center gap-2 mb-1">
-                {report.profit >= 0 ? <TrendingUp className="h-4 w-4 text-emerald-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
-                <span className={`text-xs font-medium ${report.profit >= 0 ? (isDark ? 'text-emerald-400/70' : 'text-emerald-600/70') : (isDark ? 'text-red-400/70' : 'text-red-600/70')}`}>Benefice</span>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  {report.profit >= 0 ? <TrendingUp className="h-4 w-4 text-emerald-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+                  <span className={`text-xs font-medium ${report.profit >= 0 ? (isDark ? 'text-emerald-400/70' : 'text-emerald-600/70') : (isDark ? 'text-red-400/70' : 'text-red-600/70')}`}>Benefice</span>
+                </div>
+                {previousReport && <DeltaBadge current={report.profit} previous={previousReport.profit} />}
               </div>
               <p className={`text-xl font-bold ${report.profit >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{formatCurrency(report.profit)}</p>
+              {previousReport && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-white/20' : 'text-black/20'}`}>vs {formatCurrency(previousReport.profit)}</p>}
             </div>
 
             {/* Margin */}
             <div className={`col-span-1 rounded-2xl p-4 ${isDark ? 'bg-violet-500/10 border border-violet-500/20' : 'bg-violet-50 border border-violet-100'}`}>
-              <div className="flex items-center gap-2 mb-1">
-                <Target className="h-4 w-4 text-violet-500" />
-                <span className={`text-xs font-medium ${isDark ? 'text-violet-400/70' : 'text-violet-600/70'}`}>Marge</span>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-violet-500" />
+                  <span className={`text-xs font-medium ${isDark ? 'text-violet-400/70' : 'text-violet-600/70'}`}>Marge</span>
+                </div>
+                {previousReport && previousReport.revenue > 0 && (
+                  <DeltaBadge current={marginPct} previous={previousReport.revenue > 0 ? (previousReport.profit / previousReport.revenue) * 100 : 0} />
+                )}
               </div>
               <p className="text-xl font-bold text-violet-600">{formatPercentage(marginPct)}</p>
+              {previousReport && previousReport.revenue > 0 && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-violet-400/40' : 'text-violet-600/40'}`}>vs {formatPercentage((previousReport.profit / previousReport.revenue) * 100)}</p>}
             </div>
 
             {/* Occupancy */}
             <div className={`col-span-1 rounded-2xl p-4 ${isDark ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-blue-50 border border-blue-100'}`}>
-              <div className="flex items-center gap-2 mb-1">
-                <Home className="h-4 w-4 text-blue-500" />
-                <span className={`text-xs font-medium ${isDark ? 'text-blue-400/70' : 'text-blue-600/70'}`}>Occupation</span>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Home className="h-4 w-4 text-blue-500" />
+                  <span className={`text-xs font-medium ${isDark ? 'text-blue-400/70' : 'text-blue-600/70'}`}>Occupation</span>
+                </div>
+                {previousReport && <DeltaBadge current={report.occupancyRate} previous={previousReport.occupancyRate} />}
               </div>
               <p className="text-xl font-bold text-blue-600">{formatPercentage(report.occupancyRate)}</p>
+              {previousReport && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-blue-400/40' : 'text-blue-600/40'}`}>vs {formatPercentage(previousReport.occupancyRate)}</p>}
             </div>
 
             {/* Bookings */}
             <div className={`col-span-1 rounded-2xl p-4 ${isDark ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-amber-50 border border-amber-100'}`}>
-              <div className="flex items-center gap-2 mb-1">
-                <Calendar className="h-4 w-4 text-amber-500" />
-                <span className={`text-xs font-medium ${isDark ? 'text-amber-400/70' : 'text-amber-600/70'}`}>Reservations</span>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-amber-500" />
+                  <span className={`text-xs font-medium ${isDark ? 'text-amber-400/70' : 'text-amber-600/70'}`}>Reservations</span>
+                </div>
+                {previousReport && <DeltaBadge current={report.bookingsCount} previous={previousReport.bookingsCount} />}
               </div>
               <p className="text-xl font-bold text-amber-600">{report.bookingsCount}</p>
+              {previousReport && <p className={`text-[10px] mt-0.5 ${isDark ? 'text-amber-400/40' : 'text-amber-600/40'}`}>vs {previousReport.bookingsCount}</p>}
             </div>
           </motion.div>
 
@@ -680,6 +756,100 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
               </Card>
             </div>
           </motion.div>
+          {/* ═══ TOP PROPERTIES PODIUM ═══ */}
+          {getOccupancyData().length >= 2 && (
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <Card hover={false}>
+                <div className="p-6">
+                  <h3 className={`text-base font-semibold mb-5 flex items-center gap-2 ${isDark ? 'text-white' : 'text-[#222222]'}`}>
+                    <Trophy className="h-4 w-4 text-amber-500" />
+                    Classement des propriétés
+                    <span className={`ml-auto text-xs font-normal px-2 py-1 rounded-full ${isDark ? 'bg-white/[0.06] text-gray-400' : 'bg-[#f7f7f7] text-[#717171]'}`}>{getPeriodLabel()}</span>
+                  </h3>
+                  <div className="flex items-end justify-center gap-4">
+                    {getOccupancyData().slice(0, 3).map((prop, i) => {
+                      const podiumOrder = [1, 0, 2]; // 2nd, 1st, 3rd visual layout
+                      const displayIdx = podiumOrder.indexOf(i);
+                      const heights = ['h-24', 'h-32', 'h-16'];
+                      const medals = ['🥇', '🥈', '🥉'];
+                      const colors = [
+                        isDark ? 'bg-amber-500/20 border-amber-500/40' : 'bg-amber-50 border-amber-200',
+                        isDark ? 'bg-slate-500/20 border-slate-500/40' : 'bg-slate-50 border-slate-200',
+                        isDark ? 'bg-orange-500/20 border-orange-500/40' : 'bg-orange-50 border-orange-200',
+                      ];
+                      const actualIdx = podiumOrder[displayIdx];
+                      const actualProp = getOccupancyData()[actualIdx];
+                      if (!actualProp) return null;
+                      return (
+                        <div key={actualIdx} className="flex flex-col items-center gap-2 flex-1 max-w-[160px]">
+                          <span className="text-2xl">{medals[actualIdx]}</span>
+                          <div className={`text-center p-3 rounded-xl border w-full ${colors[actualIdx]}`}>
+                            <p className={`text-xs font-semibold truncate ${isDark ? 'text-white' : 'text-[#222222]'}`}>{actualProp.name}</p>
+                            <p className="text-sm font-bold text-[#FF385C] mt-1">{formatCurrency(actualProp.revenue)}</p>
+                            <p className={`text-[10px] mt-0.5 ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>{formatPercentage(actualProp.occupancy)} occ.</p>
+                          </div>
+                          <div className={`w-full rounded-t-xl border border-b-0 ${colors[actualIdx]} ${heights[actualIdx]}`} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* ═══ MONTHLY COMPARISON TABLE ═══ */}
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+            <Card hover={false}>
+              <div className="p-6">
+                <h3 className={`text-base font-semibold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-[#222222]'}`}>
+                  <Zap className="h-4 w-4 text-[#FF385C]" />
+                  Détail mensuel {selectedYear}
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className={`${isDark ? 'border-white/[0.06]' : 'border-[#f0f0f0]'} border-b`}>
+                        <th className={`text-left pb-3 text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>Mois</th>
+                        <th className={`text-right pb-3 text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>Revenus</th>
+                        <th className={`text-right pb-3 text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>Rés.</th>
+                        <th className={`text-right pb-3 text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>Tendance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getMonthlyTrend.map((row, i) => {
+                        const prev = i > 0 ? getMonthlyTrend[i - 1] : null;
+                        const delta = prev && prev.revenue > 0 ? ((row.revenue - prev.revenue) / prev.revenue) * 100 : null;
+                        const maxRev = Math.max(...getMonthlyTrend.map(r => r.revenue), 1);
+                        return (
+                          <tr key={i} className={`${isDark ? 'border-white/[0.04] hover:bg-white/[0.02]' : 'border-[#f7f7f7] hover:bg-[#fafafa]'} border-b transition-colors`}>
+                            <td className={`py-2.5 text-sm ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>{row.month}</td>
+                            <td className={`py-2.5 text-right font-semibold text-sm ${row.revenue > 0 ? (isDark ? 'text-white' : 'text-[#222222]') : (isDark ? 'text-gray-600' : 'text-gray-300')}`}>
+                              {row.revenue > 0 ? formatCurrency(row.revenue) : '—'}
+                            </td>
+                            <td className={`py-2.5 text-right text-sm ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>{row.bookings > 0 ? row.bookings : '—'}</td>
+                            <td className="py-2.5 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {row.revenue > 0 && (
+                                  <div className={`h-1.5 rounded-full ${isDark ? 'bg-[#FF385C]/60' : 'bg-[#FF385C]/50'}`} style={{ width: `${Math.round((row.revenue / maxRev) * 60)}px` }} />
+                                )}
+                                {delta !== null && Math.abs(delta) >= 0.5 && (
+                                  <span className={`text-[10px] font-bold ${delta >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                    {delta >= 0 ? '↑' : '↓'}{Math.abs(delta).toFixed(0)}%
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center">

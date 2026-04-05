@@ -376,6 +376,68 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
         </div>
       </div>
 
+      {/* ── Stock Health Gauge ── */}
+      {stats.totalItems > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`rounded-2xl p-5 mb-6 border ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100 shadow-sm'}`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h2 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              🏥 Santé du stock
+            </h2>
+            <div className="flex items-center gap-4 text-xs font-medium">
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> En stock ({stats.inStockCount})</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> Stock faible ({stats.lowStockCount})</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Rupture ({stats.outOfStockCount})</span>
+            </div>
+          </div>
+          <div className="flex h-4 rounded-full overflow-hidden gap-0.5">
+            {stats.inStockCount > 0 && (
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(stats.inStockCount / stats.totalItems) * 100}%` }}
+                transition={{ duration: 0.7, ease: 'easeOut' }}
+                className="bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-l-full"
+                title={`En stock: ${stats.inStockCount}`}
+              />
+            )}
+            {stats.lowStockCount > 0 && (
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(stats.lowStockCount / stats.totalItems) * 100}%` }}
+                transition={{ duration: 0.7, ease: 'easeOut', delay: 0.1 }}
+                className="bg-gradient-to-r from-amber-400 to-amber-500"
+                title={`Stock faible: ${stats.lowStockCount}`}
+              />
+            )}
+            {stats.outOfStockCount > 0 && (
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(stats.outOfStockCount / stats.totalItems) * 100}%` }}
+                transition={{ duration: 0.7, ease: 'easeOut', delay: 0.2 }}
+                className="bg-gradient-to-r from-red-400 to-red-500 rounded-r-full"
+                title={`Rupture: ${stats.outOfStockCount}`}
+              />
+            )}
+          </div>
+          <div className="flex justify-between mt-2">
+            <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              Indice santé: <span className={`font-bold ${
+                stats.inStockCount / stats.totalItems >= 0.8 ? 'text-emerald-500' :
+                stats.inStockCount / stats.totalItems >= 0.5 ? 'text-amber-500' : 'text-red-500'
+              }`}>{Math.round((stats.inStockCount / stats.totalItems) * 100)}%</span>
+            </span>
+            {stats.outOfStockCount > 0 && (
+              <span className="text-xs text-red-500 font-medium animate-pulse">
+                ⚠ {stats.outOfStockCount} article{stats.outOfStockCount > 1 ? 's' : ''} en rupture — réapprovisionnement urgent
+              </span>
+            )}
+          </div>
+        </motion.div>
+      )}
+
       {/* Cartes de statistiques rapides */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <motion.div

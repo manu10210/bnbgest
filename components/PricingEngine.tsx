@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useBNB, Property } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { motion } from 'framer-motion';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import {
@@ -231,6 +232,44 @@ export default function PricingEngine() {
 
   const selectedProperty = properties.find(p => p.id === simPropertyId);
 
+  // Today's price badge — compute live season multiplier for today
+  const todayPriceBadges = useMemo(() => {
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    const dayOfWeek = today.getDay();
+
+    return properties.map(p => {
+      let multiplier = 1;
+      let seasonName = 'Tarif standard';
+      const season = config.seasons.find(s => {
+        if (s.startMonth <= s.endMonth) {
+          return (month > s.startMonth || (month === s.startMonth && day >= s.startDay)) &&
+                 (month < s.endMonth || (month === s.endMonth && day <= s.endDay));
+        } else {
+          return (month > s.startMonth || (month === s.startMonth && day >= s.startDay)) ||
+                 (month < s.endMonth || (month === s.endMonth && day <= s.endDay));
+        }
+      });
+      if (season) { multiplier = season.multiplier; seasonName = season.name; }
+      let nightPrice = p.price * multiplier;
+      let isWeekend = false;
+      if (config.weekendDays.includes(dayOfWeek)) {
+        nightPrice *= (1 + config.weekendSurcharge / 100);
+        isWeekend = true;
+      }
+      return {
+        propertyId: p.id,
+        name: p.name,
+        basePrice: p.price,
+        todayPrice: Math.round(nightPrice),
+        multiplier,
+        seasonName,
+        isWeekend,
+      };
+    });
+  }, [properties, config]);
+
   const priceBreakdown = useMemo(() => {
     if (!selectedProperty || !simCheckIn || !simCheckOut) return null;
     return calculatePrice(selectedProperty, simCheckIn, simCheckOut, config, simPromoCode || undefined);
@@ -301,6 +340,50 @@ export default function PricingEngine() {
 
   return (
     <div className="space-y-6">
+      {/* ── Prix Aujourd'hui ── */}
+      {todayPriceBadges.length > 0 && (
+        <div className={`rounded-2xl p-5 border ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100 shadow-sm'}`}>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              Prix suggéré ce soir
+            </h3>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-white/10 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {todayPriceBadges.map((badge) => (
+              <motion.div
+                key={badge.propertyId}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`flex items-center justify-between p-4 rounded-xl border ${
+                  isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-100'
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className={`text-sm font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    {badge.name}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    {badge.seasonName}{badge.isWeekend ? ' · Weekend' : ''}
+                  </p>
+                </div>
+                <div className="text-right shrink-0 ml-3">
+                  <p className="text-lg font-black text-emerald-500">{badge.todayPrice}€</p>
+                  <p className={`text-xs ${
+                    badge.multiplier > 1 ? 'text-orange-500' : badge.multiplier < 1 ? 'text-blue-500' : isDark ? 'text-gray-500' : 'text-gray-400'
+                  }`}>
+                    {badge.multiplier !== 1 ? `${badge.multiplier > 1 ? '+' : ''}${Math.round((badge.multiplier - 1) * 100)}% vs base` : 'Prix standard'}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Section tabs */}
       <div className="flex flex-wrap gap-2">
         {[

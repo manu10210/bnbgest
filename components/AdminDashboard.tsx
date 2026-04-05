@@ -23,6 +23,9 @@ const RevenueForecasting = dynamic(() => import('./RevenueForecasting'), { ssr: 
 const EquipmentVideoQR = dynamic(() => import('./EquipmentVideoQR'), { ssr: false });
 const ReviewsManager = dynamic(() => import('./ReviewsManager'), { ssr: false });
 const InvoiceEditor = dynamic(() => import('./InvoiceEditor'), { ssr: false });
+const SmartPropertyIntelligence = dynamic(() => import('./SmartPropertyIntelligence'), { ssr: false });
+const SmartChatAssistant = dynamic(() => import('./SmartChatAssistant'), { ssr: false });
+const RevenueAutopilot = dynamic(() => import('./RevenueAutopilot'), { ssr: false });
 const GlobalSearch = dynamic(() => import('./GlobalSearch'), { ssr: false });
 const DataExportImportAdvanced = dynamic(() => import('./DataExportImportAdvanced'), { ssr: false });
 const AdminSidebar = dynamic(() => import('./AdminSidebar'), { ssr: false });
@@ -79,7 +82,7 @@ import {
 import ThemeToggle from './ThemeToggle';
 import { useTheme } from '../contexts/ThemeContext';
 
-export type TabType = 'overview' | 'bookings' | 'maintenance' | 'inventory' | 'financial' | 'guests' | 'reviews' | 'welcome' | 'properties' | 'settings' | 'qrcheckin' | 'contract' | 'cleaning' | 'pricing' | 'notifications' | 'cleaningGallery' | 'shareLinks' | 'forecasting' | 'videoguides' | 'reviewsmanager' | 'invoice';
+export type TabType = 'overview' | 'bookings' | 'maintenance' | 'inventory' | 'financial' | 'guests' | 'reviews' | 'welcome' | 'properties' | 'settings' | 'qrcheckin' | 'contract' | 'cleaning' | 'pricing' | 'notifications' | 'cleaningGallery' | 'shareLinks' | 'forecasting' | 'videoguides' | 'reviewsmanager' | 'invoice' | 'intelligence' | 'assistant' | 'autopilot';
 
 export default function AdminDashboard() {
   const {
@@ -345,6 +348,8 @@ export default function AdminDashboard() {
                  pricing:        'Moteur de Prix',
                  notifications:  'Notifications',
                  settings:       'Param\u00e8tres',
+                 intelligence:   '🧠 IA Propri\u00e9t\u00e9s',
+                 assistant:      '💬 Assistant IA',
                } as Record<string, string>)[activeTab] ?? activeTab}
              </h1>
           </div>
@@ -785,6 +790,9 @@ export default function AdminDashboard() {
             {/* Reviews Manager Tab */}
             {activeTab === 'reviewsmanager' && <ReviewsManager />}
             {activeTab === 'invoice' && <InvoiceEditor />}
+            {activeTab === 'intelligence' && <SmartPropertyIntelligence />}
+            {activeTab === 'assistant' && <SmartChatAssistant />}
+            {activeTab === 'autopilot' && <RevenueAutopilot />}
           </div>
 
           </div>

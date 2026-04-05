@@ -1,7 +1,78 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Pages qui nécessitent une authentification
+const PROTECTED_PATHS = [
+  '/dashboard',
+  '/properties',
+  '/bookings',
+  '/guests',
+  '/employee',
+  '/settings',
+  '/admin',
+  '/inventory',
+  '/maintenance',
+  '/cleaning',
+  '/contracts',
+  '/reviews',
+  '/gallery',
+  '/monitoring',
+  '/upload-video',
+];
+
+// Simple rate limit store (in-memory, par IP)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  if (!entry || entry.resetAt < now) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+    return true; // OK
+  }
+  entry.count++;
+  if (entry.count > limit) return false; // Bloqué
+  return true;
+}
+
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+
+  // ── Rate limiting sur les endpoints auth sensibles ──────────────────────────
+  const authEndpoints = [
+    '/api/auth/forgot-password',
+    '/api/auth/reset-password',
+    '/api/auth/signin',
+  ];
+  if (authEndpoints.some(ep => pathname.startsWith(ep))) {
+    const key = `auth:${ip}`;
+    if (!checkRateLimit(key, 10, 60_000)) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Réessayez dans 1 minute.' },
+        { status: 429, headers: { 'Retry-After': '60' } }
+      );
+    }
+  }
+
+  // ── Protection des pages : vérification du cookie de session ────────────────
+  const isProtected = PROTECTED_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
+
+  if (isProtected) {
+    // NextAuth v5 utilise authjs.session-token (prod) ou next-auth.session-token (dev)
+    const sessionToken =
+      request.cookies.get('authjs.session-token')?.value ||
+      request.cookies.get('next-auth.session-token')?.value ||
+      request.cookies.get('__Secure-authjs.session-token')?.value ||
+      request.cookies.get('__Secure-next-auth.session-token')?.value;
+
+    if (!sessionToken) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   const response = NextResponse.next();
 
   // Security Headers

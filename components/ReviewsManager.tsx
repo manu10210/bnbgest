@@ -435,32 +435,44 @@ export default function ReviewsManager() {
             </div>
           </div>
 
-          {/* Category Averages */}
+          {/* Category Averages — Sentiment Strip */}
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
             <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Moyennes par catégorie
+              Analyse par catégorie
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {Object.entries(stats.categoryAverages).map(([key, value]) => (
-                <div key={key} className={`p-3 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'} capitalize`}>
-                      {key === 'cleanliness' ? 'Propreté' :
-                       key === 'communication' ? 'Communication' :
-                       key === 'checkIn' ? 'Check-in' :
-                       key === 'accuracy' ? 'Exactitude' :
-                       key === 'location' ? 'Emplacement' :
-                       'Rapport qualité/prix'}
-                    </span>
-                    <span className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                      {value.toFixed(1)}
-                    </span>
+            <div className="space-y-3">
+              {[
+                { key: 'cleanliness', label: '🧹 Propreté', color: 'from-cyan-400 to-cyan-500' },
+                { key: 'communication', label: '💬 Communication', color: 'from-blue-400 to-blue-500' },
+                { key: 'checkIn', label: '🔑 Check-in', color: 'from-violet-400 to-violet-500' },
+                { key: 'accuracy', label: '📋 Exactitude', color: 'from-indigo-400 to-indigo-500' },
+                { key: 'location', label: '📍 Emplacement', color: 'from-pink-400 to-pink-500' },
+                { key: 'value', label: '💰 Rapport Q/P', color: 'from-emerald-400 to-emerald-500' },
+              ].map(({ key, label, color }) => {
+                const val = stats.categoryAverages[key as keyof typeof stats.categoryAverages];
+                const pct = (val / 5) * 100;
+                const sentiment = val >= 4.5 ? '😊 Excellent' : val >= 3.5 ? '🙂 Bien' : val >= 2.5 ? '😐 Neutre' : '😞 À améliorer';
+                const sentimentColor = val >= 4.5 ? 'text-emerald-500' : val >= 3.5 ? 'text-blue-500' : val >= 2.5 ? 'text-amber-500' : 'text-red-500';
+                return (
+                  <div key={key}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{label}</span>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-semibold ${sentimentColor}`}>{sentiment}</span>
+                        <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{val.toFixed(1)}</span>
+                      </div>
+                    </div>
+                    <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}>
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.6, ease: 'easeOut' }}
+                        className={`h-full rounded-full bg-gradient-to-r ${color}`}
+                      />
+                    </div>
                   </div>
-                  <div className="flex gap-0.5">
-                    {renderStars(value, 14)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -581,6 +593,16 @@ export default function ReviewsManager() {
                   </div>
 
                   <div className="flex items-center gap-3">
+                    {/* Sentiment Badge */}
+                    <div className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      review.rating >= 4.5 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                      review.rating >= 3.5 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                      review.rating >= 2.5 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                      'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                    }`}>
+                      {review.rating >= 4.5 ? '😊 Excellent' : review.rating >= 3.5 ? '🙂 Bien' : review.rating >= 2.5 ? '😐 Neutre' : '😞 Décevant'}
+                    </div>
+
                     {/* Status Badge */}
                     <div className={`px-3 py-1 rounded-full text-xs font-medium ${
                       review.status === 'published' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
@@ -788,6 +810,30 @@ export default function ReviewsManager() {
                 <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   par {selectedReview.guestName}
                 </span>
+              </div>
+            </div>
+
+            {/* Response Templates */}
+            <div className="mb-4">
+              <p className={`text-sm font-medium mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                ✨ Modèles rapides
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: '😊 Positif', text: `Merci infiniment pour votre superbe avis, ${selectedReview.guestName} ! Votre satisfaction est notre plus belle récompense. Nous espérons vous accueillir à nouveau très bientôt !` },
+                  { label: '😐 Neutre', text: `Merci pour votre retour ${selectedReview.guestName}. Nous prenons note de vos commentaires et travaillons à améliorer continuellement votre expérience. N'hésitez pas à nous recontacter pour tout futur séjour.` },
+                  { label: '😞 À améliorer', text: `Merci pour votre honnêteté ${selectedReview.guestName}. Nous sommes sincèrement désolés que votre séjour n'ait pas répondu à vos attentes. Vos remarques nous permettent de progresser et nous espérons pouvoir vous offrir une expérience améliorée lors d'un prochain séjour.` },
+                ].map((tpl) => (
+                  <button
+                    key={tpl.label}
+                    onClick={() => setResponseText(tpl.text)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border hover:scale-105 ${
+                      isDark ? 'bg-white/10 border-white/10 text-gray-300 hover:bg-white/20' : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {tpl.label}
+                  </button>
+                ))}
               </div>
             </div>
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
+import PushNotificationButton from '@/components/PushNotificationButton';
 import {
   ArrowLeft,
   Bell,
@@ -332,6 +333,19 @@ export default function NotificationsSettingsPage() {
               Notifications push
             </p>
           </div>
+        </div>
+
+        {/* Push Notifications PWA */}
+        <div className={`mb-6 p-6 rounded-2xl ${
+          isDark ? 'bg-white/5 border border-white/10' : 'bg-white border border-gray-200'
+        }`}>
+          <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            Notifications push (PWA)
+          </h2>
+          <p className={`text-sm mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            Recevez des alertes instantanées même quand l&apos;application est fermée.
+          </p>
+          <PushNotificationButton />
         </div>
 
         {/* Contact Info */}

@@ -532,13 +532,34 @@ export default function EquipmentVideoQR() {
     return result;
   }, [guides, selectedProperty, selectedCategory, selectedDifficulty, searchQuery, sortBy]);
 
-  const stats = useMemo(() => ({
-    total: guides.length,
-    properties: new Set(guides.map(g => g.propertyId)).size,
-    categories: new Set(guides.map(g => g.category)).size,
-    totalViews: guides.reduce((sum, g) => sum + (g.views || 0), 0),
-    avgRating: guides.filter(g => g.ratingCount).reduce((sum, g) => sum + (g.rating || 0), 0) / (guides.filter(g => g.ratingCount).length || 1),
-  }), [guides]);
+  const stats = useMemo(() => {
+    const total = guides.length;
+    const totalViews = guides.reduce((sum, g) => sum + (g.views || 0), 0);
+    const ratedGuides = guides.filter(g => g.ratingCount);
+    const avgRating = ratedGuides.length
+      ? ratedGuides.reduce((sum, g) => sum + (g.rating || 0), 0) / ratedGuides.length
+      : 0;
+    // Most popular category
+    const catCounts = guides.reduce<Record<string, number>>((acc, g) => {
+      acc[g.category] = (acc[g.category] || 0) + 1;
+      return acc;
+    }, {});
+    const topCatKey = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    const topCat = topCatKey ? CATEGORY_CONFIG[topCatKey as EquipmentCategory] : null;
+    // Most viewed guide
+    const mostViewed = guides.length ? [...guides].sort((a, b) => (b.views || 0) - (a.views || 0))[0] : null;
+    return {
+      total,
+      properties: new Set(guides.map(g => g.propertyId)).size,
+      categories: new Set(guides.map(g => g.category)).size,
+      totalViews,
+      avgRating,
+      topCatKey,
+      topCat,
+      catCounts,
+      mostViewed,
+    };
+  }, [guides]);
 
   const getPropertyName = useCallback((id: number) => properties.find(p => p.id === id)?.name || `Propriete #${id}`, [properties]);
 
@@ -611,6 +632,84 @@ export default function EquipmentVideoQR() {
           </div>
         ))}
       </motion.div>
+
+      {/* ── Insights strip ── */}
+      {guides.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className={`rounded-2xl border p-4 ${isDark ? 'bg-white/5 border-white/10' : 'bg-gradient-to-r from-slate-50 to-gray-50 border-gray-200'}`}>
+          <div className="flex flex-wrap items-center gap-6">
+            {/* Top category */}
+            {stats.topCat && (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-lg">📦</span>
+                <div>
+                  <p className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Catégorie #1</p>
+                  <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{stats.topCat.label}</p>
+                </div>
+                <span className={`ml-1 text-xs px-2 py-0.5 rounded-full font-semibold ${isDark ? 'bg-white/10 text-gray-300' : 'bg-white text-gray-600 shadow-sm'}`}>
+                  {stats.catCounts[stats.topCatKey!]} guides
+                </span>
+              </div>
+            )}
+
+            {/* Divider */}
+            <div className={`hidden sm:block w-px h-8 ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
+
+            {/* Most viewed */}
+            {stats.mostViewed && (stats.mostViewed.views || 0) > 0 && (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-lg">👁️</span>
+                <div className="min-w-0">
+                  <p className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Guide le + vu</p>
+                  <p className={`text-sm font-bold truncate max-w-36 ${isDark ? 'text-white' : 'text-gray-800'}`}>{stats.mostViewed.equipmentName}</p>
+                </div>
+                <span className={`ml-1 text-xs px-2 py-0.5 rounded-full font-semibold text-blue-500 ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
+                  {stats.mostViewed.views} vues
+                </span>
+              </div>
+            )}
+
+            {/* Divider */}
+            <div className={`hidden sm:block w-px h-8 ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
+
+            {/* Category mini-bars */}
+            <div className="flex-1 min-w-48">
+              <p className={`text-xs font-medium mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Répartition par catégorie</p>
+              <div className="flex gap-0.5 h-4 rounded-full overflow-hidden">
+                {Object.entries(stats.catCounts)
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 6)
+                  .map(([cat, count]) => {
+                    const cfg = CATEGORY_CONFIG[cat as EquipmentCategory];
+                    const pct = stats.total > 0 ? (count / stats.total) * 100 : 0;
+                    return (
+                      <div
+                        key={cat}
+                        title={`${cfg?.label ?? cat}: ${count}`}
+                        style={{ width: `${pct}%`, backgroundColor: cfg?.color ?? '#888' }}
+                        className="transition-all duration-500 first:rounded-l-full last:rounded-r-full"
+                      />
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Avg rating */}
+            {stats.avgRating > 0 && (
+              <>
+                <div className={`hidden sm:block w-px h-8 ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">⭐</span>
+                  <div>
+                    <p className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Note moy.</p>
+                    <p className={`text-sm font-bold ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>{stats.avgRating.toFixed(1)}/5</p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </motion.div>
+      )}
 
       {/* Galerie des vidéos uploadées */}
       <AnimatePresence>

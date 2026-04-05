@@ -33,8 +33,19 @@ const getMockMetrics = (): SystemMetrics => ({
   },
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Protection : token Bearer obligatoire
+    const authHeader = request.headers.get('authorization');
+    const internalToken = process.env.INTERNAL_API_TOKEN?.trim();
+
+    if (!internalToken || authHeader !== `Bearer ${internalToken}`) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const startTime = Date.now();
     
     const metrics = getMockMetrics();

@@ -11,6 +11,18 @@ interface VercelEnvInfo {
 
 export async function GET(request: Request) {
   try {
+    // Protection : token Bearer obligatoire
+    const authHeader = request.headers.get('authorization');
+    const internalToken = process.env.INTERNAL_API_TOKEN?.trim();
+
+    // Bloquer si pas de token configuré OU si token fourni incorrect
+    if (!internalToken || authHeader !== `Bearer ${internalToken}`) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Récupérer les informations Vercel depuis les headers et variables d'environnement
     const headers = request.headers;
     

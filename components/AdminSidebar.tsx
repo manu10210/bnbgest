@@ -25,11 +25,13 @@ import {
   MessageSquare,
   Package,
   Home,
-  Receipt
+  Receipt,
+  Brain,
+  Zap
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { TabType } from './AdminDashboard';
 
 interface AdminSidebarProps {
@@ -42,6 +44,20 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
   const { bookings, maintenanceTasks, reviews } = useBNB();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState('');
+  const [currentDate, setCurrentDate] = useState('');
+
+  // Live clock
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setCurrentDate(now.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }));
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Compute live badges
   const badges = useMemo(() => {
@@ -99,6 +115,9 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
         { id: 'forecasting', label: 'Prévisionnel', icon: TrendingUp, badge: 0 },
         { id: 'pricing', label: 'Moteur de prix', icon: Tags, badge: 0 },
         { id: 'invoice', label: 'Factures', icon: Receipt, badge: 0 },
+        { id: 'intelligence', label: '🧠 IA Propriétés', icon: Brain, badge: 0 },
+        { id: 'assistant', label: '💬 Assistant IA', icon: MessageSquare, badge: 0 },
+        { id: 'autopilot', label: '🤖 Autopilot', icon: Zap, badge: 0 },
       ]
     },
     {
@@ -284,6 +303,16 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
 
       {/* Footer / User Profile */}
       <div className={`p-4 border-t ${isDark ? 'border-white/[0.06]' : 'border-gray-200'}`}>
+        {!isCollapsed && currentTime && (
+          <div className={`mb-3 px-3 py-2 rounded-xl text-center ${isDark ? 'bg-white/[0.03]' : 'bg-gray-50'}`}>
+            <div className={`text-lg font-bold tabular-nums tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {currentTime}
+            </div>
+            <div className={`text-[11px] capitalize ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              {currentDate}
+            </div>
+          </div>
+        )}
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={`w-full flex items-center justify-center p-2 rounded-xl transition-colors ${

@@ -22,8 +22,14 @@ interface HealthStatus {
   responseTime: number;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const startTime = Date.now();
+  
+  // Déterminer si la requête est authentifiée (token interne requis pour détails)
+  const authHeader = request.headers.get('authorization');
+  const internalToken = process.env.INTERNAL_API_TOKEN?.trim();
+  const isInternal = Boolean(internalToken) &&
+                     authHeader === `Bearer ${internalToken}`;
   
   try {
     // Vérification base de données avec latence
@@ -70,8 +76,23 @@ export async function GET() {
     };
 
     return NextResponse.json({
-      ...health,
-      responseTime: `${responseTime}ms`,
+      status: health.status,
+      timestamp: health.timestamp,
+      // Infos détaillées uniquement pour les appels internes/authentifiés
+      ...(isInternal ? {
+        uptime: health.uptime,
+        version: health.version,
+        services: health.services,
+        memory: health.memory,
+        responseTime: `${responseTime}ms`,
+      } : {
+        // Version publique minimaliste
+        services: {
+          api: services.api,
+          auth: services.auth,
+          database: services.database,
+        },
+      }),
     }, {
       status: health.status === 'healthy' ? 200 : 503,
       headers: {

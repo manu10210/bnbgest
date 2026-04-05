@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useBNB } from '../contexts/BNBContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, CreditCard, Bell, Shield, Globe, Smartphone, 
@@ -201,6 +202,7 @@ const InputGroup = ({ label, children }: { label: string; children: React.ReactN
 
 export default function SettingsManager({ initialTab = 'profile' }: { initialTab?: string }) {
   const { properties, bookings, guests } = useBNB();
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isSaving, setIsSaving] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -254,12 +256,12 @@ export default function SettingsManager({ initialTab = 'profile' }: { initialTab
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50/50">
+    <div className={`flex flex-col h-full ${isDark ? 'bg-[#13131f]' : 'bg-gray-50/50'}`}>
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between">
+      <div className={`sticky top-0 z-10 border-b px-8 py-4 flex items-center justify-between ${isDark ? 'bg-[#1a1a2e] border-white/10' : 'bg-white border-gray-200'}`}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
-          <p className="text-sm text-gray-500">Gérez vos préférences et la configuration de l'application</p>
+          <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Paramètres</h1>
+          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Gérez vos préférences et la configuration de l'application</p>
         </div>
         <button
           onClick={handleSave}
@@ -277,9 +279,26 @@ export default function SettingsManager({ initialTab = 'profile' }: { initialTab
         </button>
       </div>
 
+      {/* ── Account stats strip ── */}
+      <div className={`px-8 py-3 border-b flex gap-6 overflow-x-auto ${isDark ? 'bg-[#1a1a2e]/50 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
+        {[
+          { icon: '🏠', label: 'Propriétés', value: properties.length },
+          { icon: '📅', label: 'Réservations', value: bookings.length },
+          { icon: '👥', label: 'Voyageurs', value: guests.length },
+          { icon: '✅', label: 'Actives', value: bookings.filter(b => b.status === 'confirmed').length },
+          { icon: '💰', label: 'Revenu total', value: bookings.filter(b => b.status === 'confirmed' || b.status === 'completed').reduce((s, b) => s + b.totalPrice, 0).toLocaleString('fr-FR') + ' €' },
+        ].map(stat => (
+          <div key={stat.label} className="flex items-center gap-2 shrink-0">
+            <span className="text-base">{stat.icon}</span>
+            <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{stat.label}</span>
+            <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{stat.value}</span>
+          </div>
+        ))}
+      </div>
+
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 overflow-y-auto hidden md:block">
+        <aside className={`w-64 border-r overflow-y-auto hidden md:block ${isDark ? 'bg-[#1a1a2e] border-white/10' : 'bg-white border-gray-200'}`}>
           <nav className="p-4 space-y-1">
             {tabs.map((tab) => (
               <button
@@ -288,7 +307,7 @@ export default function SettingsManager({ initialTab = 'profile' }: { initialTab
                 className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all ${
                   activeTab === tab.id
                     ? 'bg-[#FF385C]/10 text-[#FF385C]'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    : isDark ? 'text-gray-400 hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
                 <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? 'stroke-[2.5px]' : ''}`} />
@@ -312,10 +331,13 @@ export default function SettingsManager({ initialTab = 'profile' }: { initialTab
                 {/* ─── PROFILE ─── */}
                 {activeTab === 'profile' && (
                   <div className="space-y-8">
-                    <SectionHeader title="Profil & Organisation" description="Informations visibles sur vos documents et factures." />
+                    <div className="mb-6">
+                      <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Profil & Organisation</h3>
+                      <p className={`mt-1 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Informations visibles sur vos documents et factures.</p>
+                    </div>
                     
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 grid md:grid-cols-2 gap-6">
-                      <div className="md:col-span-2 flex items-center gap-6 pb-6 border-b border-gray-100">
+                    <div className={`p-6 rounded-2xl shadow-sm border grid md:grid-cols-2 gap-6 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'}`}>
+                      <div className={`md:col-span-2 flex items-center gap-6 pb-6 border-b ${isDark ? 'border-white/10' : 'border-gray-100'}`}>
                         <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center text-3xl">
                           {settings.profile.avatar ? '🖼️' : '👤'}
                         </div>

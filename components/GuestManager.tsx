@@ -141,18 +141,18 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
         favoriteProperty,
         totalNights,
         cancellationRate,
-        responseTime: Math.floor(Math.random() * 24) + 1, // Simulé
+        responseTime: 1 + ((guest.id * 1013 + 7) % 23), // Stable seeded, no Math.random
         verificationLevel: guest.status === 'active' 
-          ? (['email', 'phone', 'verified', 'superhost'] as const)[Math.floor(Math.random() * 4)]
+          ? (['email', 'phone', 'verified', 'superhost'] as const)[((guest.id * 2654435761) >>> 0) % 4]
           : 'none' as const,
-        tags: ['Régulier', 'Recommandé'].filter(() => Math.random() > 0.5),
+        tags: ['Régulier', 'Recommandé'].filter((_, i) => ((guest.id * (i + 1) * 31337) >>> 0) % 2 === 0),
         loyaltyPoints: guest.totalBookings * 100,
         vipStatus: guest.totalBookings >= 5,
         blacklisted: guest.status === 'blocked',
         communicationPreferences: {
           email: true,
-          sms: Math.random() > 0.5,
-          whatsapp: Math.random() > 0.3,
+          sms: ((guest.id * 997) >>> 0) % 2 === 0,
+          whatsapp: ((guest.id * 1009) >>> 0) % 3 !== 0,
           language: guest.language,
         },
       };
@@ -483,6 +483,60 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
         </div>
       </motion.div>
 
+      {/* ═══ TOP GUESTS PODIUM ═══ */}
+      {extendedGuests.length >= 3 && (() => {
+        const topBySpend = [...extendedGuests].sort((a, b) => b.totalSpent - a.totalSpent).slice(0, 3);
+        const getLoyaltyTier = (spent: number) => {
+          if (spent >= 5000) return { label: 'Platine', color: 'text-cyan-500', bg: 'bg-cyan-500/10', icon: '💎' };
+          if (spent >= 2000) return { label: 'Or', color: 'text-amber-500', bg: 'bg-amber-500/10', icon: '🥇' };
+          if (spent >= 500) return { label: 'Argent', color: 'text-slate-400', bg: 'bg-slate-500/10', icon: '🥈' };
+          return { label: 'Bronze', color: 'text-orange-500', bg: 'bg-orange-500/10', icon: '🥉' };
+        };
+        const podiumOrder = [1, 0, 2];
+        const podiumHeights = ['h-20', 'h-28', 'h-14'];
+        const medals = ['🥇', '🥈', '🥉'];
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700"
+          >
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-5">
+              <Award className="w-5 h-5 text-amber-500" />
+              Top Voyageurs — Fidélité
+            </h3>
+            <div className="flex items-end justify-center gap-4 mb-4">
+              {podiumOrder.map((displayIdx) => {
+                const guest = topBySpend[displayIdx];
+                if (!guest) return null;
+                const tier = getLoyaltyTier(guest.totalSpent);
+                return (
+                  <div key={guest.id} className="flex flex-col items-center gap-2 flex-1 max-w-[160px]">
+                    <span className="text-2xl">{medals[displayIdx]}</span>
+                    <div className={`w-full text-center p-3 rounded-xl border cursor-pointer hover:scale-105 transition-transform ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-gray-50'}`}
+                      onClick={() => { setSelectedGuest(guest); setShowModal('details'); }}>
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm mx-auto mb-1.5">
+                        {guest.name.charAt(0).toUpperCase()}
+                      </div>
+                      <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">{guest.name}</p>
+                      <p className="text-sm font-bold text-indigo-600 mt-0.5">{formatCurrency(guest.totalSpent)}</p>
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 ${tier.bg} ${tier.color}`}>
+                        {tier.icon} {tier.label}
+                      </span>
+                    </div>
+                    <div className={`w-full rounded-t-xl ${isDark ? 'bg-indigo-500/20 border border-indigo-500/30' : 'bg-indigo-100 border border-indigo-200'} ${podiumHeights[displayIdx]}`} />
+                  </div>
+                );
+              })}
+            </div>
+            <p className={`text-center text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              Classement par dépenses totales • {extendedGuests.filter(g => g.vipStatus).length} VIP au total
+            </p>
+          </motion.div>
+        );
+      })()}
+
       {/* Filtres */}
       {showFiltersPanel && (
         <motion.div
@@ -737,6 +791,13 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
                                     <Award className="w-4 h-4 text-yellow-500" />
                                   </span>
                                 )}
+                                {guest.totalSpent >= 5000 ? (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600">💎 Platine</span>
+                                ) : guest.totalSpent >= 2000 ? (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">🥇 Or</span>
+                                ) : guest.totalSpent >= 500 ? (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-500/10 text-slate-500">🥈 Argent</span>
+                                ) : null}
                                 {guest.nationality && (
                                   <span title={guest.nationality}>
                                     {NATIONALITY_FLAGS[guest.nationality] || '🌍'}

@@ -593,152 +593,104 @@ export default function CleaningChecklist() {
   }, [activeSession]);
 
   return (
-    <div className={`space-y-6 ${isDark ? 'dark' : ''}`}>
-      {/* En-tête */}
+    <div className={`space-y-6`}>
+      {/* En-tête modernisé */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700"
+        className={`rounded-2xl border p-6 ${isDark ? 'bg-[#1a1a2e] border-white/[0.08]' : 'bg-white border-gray-100 shadow-sm'}`}
       >
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-              <Sparkles className="w-8 h-8 text-pink-600" />
-              Checklist Ménage
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-2 flex items-center gap-4">
-              <span className="flex items-center gap-1">
-                <ClipboardCheck className="w-4 h-4" />
-                {stats.total} session(s)
-              </span>
-              <span className="flex items-center gap-1">
-                <CheckCircle className="w-4 h-4" />
-                {stats.completed} complétée(s)
-              </span>
-              <span className="flex items-center gap-1">
-                <Star className="w-4 h-4" />
-                Note moyenne: {stats.avgRating}/5
-              </span>
-            </p>
+        {/* Top row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            {/* Completion ring */}
+            <div className="relative w-16 h-16 flex-shrink-0">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 56 56">
+                <circle cx="28" cy="28" r="24" fill="none" strokeWidth="5"
+                  className={isDark ? 'stroke-white/10' : 'stroke-gray-100'} />
+                <circle cx="28" cy="28" r="24" fill="none" strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 24}`}
+                  strokeDashoffset={`${2 * Math.PI * 24 * (1 - Number(stats.completionRate) / 100)}`}
+                  className="stroke-pink-500 transition-all duration-700"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className={`text-xs font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>{stats.completionRate}%</span>
+              </div>
+            </div>
+            <div>
+              <h2 className={`text-2xl font-black flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                <Sparkles className="w-6 h-6 text-pink-500" />
+                Checklist Ménage
+              </h2>
+              <p className={`text-sm mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                {stats.total} session{stats.total !== 1 ? 's' : ''} · {stats.completed} complétée{stats.completed !== 1 ? 's' : ''} · note moy. ⭐ {stats.avgRating}/5
+              </p>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setShowModal('new');
-                setSelectedPropertyId(null);
-                setSelectedBookingId(null);
-                setAssignedTo('');
-                setTeamMembers([]);
-              }}
-              className="bg-pink-600 text-white px-6 py-3 rounded-xl hover:bg-pink-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2 font-semibold"
+          <button
+            onClick={() => {
+              setShowModal('new');
+              setSelectedPropertyId(null);
+              setSelectedBookingId(null);
+              setAssignedTo('');
+              setTeamMembers([]);
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-white text-sm bg-gradient-to-r from-pink-500 to-rose-600 shadow-lg hover:shadow-pink-500/30 transition-all hover:scale-105 self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            Nouvelle session
+          </button>
+        </div>
+
+        {/* KPI Strip */}
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+          {[
+            { icon: ClipboardCheck, label: 'Total', value: stats.total, color: 'blue', emoji: '📋' },
+            { icon: CheckCircle, label: 'Terminées', value: stats.completed, color: 'green', emoji: '✅' },
+            { icon: Activity, label: 'En cours', value: stats.inProgress, color: 'orange', emoji: '⚡' },
+            { icon: Clock, label: 'Durée moy.', value: `${stats.avgDuration}m`, color: 'purple', emoji: '⏱️' },
+            { icon: Star, label: 'Note', value: `${stats.avgRating}/5`, color: 'yellow', emoji: '⭐' },
+            { icon: TrendingUp, label: 'Coût total', value: `${stats.totalCost}€`, color: 'indigo', emoji: '💶' },
+          ].map(({ icon: Icon, label, value, color, emoji }) => (
+            <motion.div
+              key={label}
+              whileHover={{ scale: 1.05 }}
+              className={`rounded-xl p-3 border text-center ${
+                isDark
+                  ? `bg-${color}-500/10 border-${color}-500/20`
+                  : `bg-${color}-50 border-${color}-200`
+              }`}
             >
-              <Plus className="w-5 h-5" />
-              Nouvelle session
+              <div className="text-xl mb-1">{emoji}</div>
+              <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>{value}</p>
+              <p className={`text-[10px] font-semibold uppercase tracking-wide ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{label}</p>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Navigation tabs */}
+        <div className={`flex gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+          {[
+            { key: 'active', label: '▶ Session active' },
+            { key: 'history', label: '📜 Historique' },
+            { key: 'stats', label: '📊 Statistiques' },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setViewMode(key as 'active' | 'history' | 'stats')}
+              className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
+                viewMode === key
+                  ? 'bg-pink-500 text-white shadow-md'
+                  : isDark
+                    ? 'text-gray-400 hover:text-white hover:bg-white/5'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+              }`}
+            >
+              {label}
             </button>
-          </div>
-        </div>
-
-        {/* Statistiques */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 rounded-xl p-4 border border-blue-200 dark:border-blue-700"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <ClipboardCheck className="w-6 h-6 text-blue-600 dark:text-blue-300" />
-              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">Total</span>
-            </div>
-            <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{stats.total}</p>
-          </motion.div>
-
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900 dark:to-green-800 rounded-xl p-4 border border-green-200 dark:border-green-700"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-300" />
-              <span className="text-sm font-medium text-green-900 dark:text-green-100">Complétées</span>
-            </div>
-            <p className="text-2xl font-bold text-green-900 dark:text-green-100">{stats.completed}</p>
-          </motion.div>
-
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900 dark:to-orange-800 rounded-xl p-4 border border-orange-200 dark:border-orange-700"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Activity className="w-6 h-6 text-orange-600 dark:text-orange-300" />
-              <span className="text-sm font-medium text-orange-900 dark:text-orange-100">En cours</span>
-            </div>
-            <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">{stats.inProgress}</p>
-          </motion.div>
-
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900 dark:to-purple-800 rounded-xl p-4 border border-purple-200 dark:border-purple-700"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Clock className="w-6 h-6 text-purple-600 dark:text-purple-300" />
-              <span className="text-sm font-medium text-purple-900 dark:text-purple-100">Durée moy.</span>
-            </div>
-            <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{stats.avgDuration}m</p>
-          </motion.div>
-
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900 dark:to-yellow-800 rounded-xl p-4 border border-yellow-200 dark:border-yellow-700"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Star className="w-6 h-6 text-yellow-600 dark:text-yellow-300" />
-              <span className="text-sm font-medium text-yellow-900 dark:text-yellow-100">Note</span>
-            </div>
-            <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{stats.avgRating}/5</p>
-          </motion.div>
-
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900 dark:to-indigo-800 rounded-xl p-4 border border-indigo-200 dark:border-indigo-700"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Target className="w-6 h-6 text-indigo-600 dark:text-indigo-300" />
-              <span className="text-sm font-medium text-indigo-900 dark:text-indigo-100">Taux</span>
-            </div>
-            <p className="text-2xl font-bold text-indigo-900 dark:text-indigo-100">{stats.completionRate}%</p>
-          </motion.div>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex gap-2 mt-6">
-          <button
-            onClick={() => setViewMode('active')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              viewMode === 'active'
-                ? 'bg-pink-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-            }`}
-          >
-            Session active
-          </button>
-          <button
-            onClick={() => setViewMode('history')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              viewMode === 'history'
-                ? 'bg-pink-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-            }`}
-          >
-            Historique
-          </button>
-          <button
-            onClick={() => setViewMode('stats')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              viewMode === 'stats'
-                ? 'bg-pink-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-            }`}
-          >
-            Statistiques
-          </button>
+          ))}
         </div>
       </motion.div>
 
@@ -749,14 +701,14 @@ export default function CleaningChecklist() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700"
+            className={`rounded-2xl p-6 border ${isDark ? 'bg-[#1a1a2e] border-white/[0.08]' : 'bg-white border-gray-100 shadow-sm'}`}
           >
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   {properties.find(p => p.id === activeSession.propertyId)?.name || 'Propriété inconnue'}
                 </h3>
-                <div className="flex items-center gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                <div className={`flex items-center gap-4 mt-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   <span className="flex items-center gap-1">
                     <User className="w-4 h-4" />
                     {activeSession.assignedTo}
@@ -817,40 +769,42 @@ export default function CleaningChecklist() {
               </div>
             </div>
 
-            {/* Timer et progression */}
+          {/* Timer et progression */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
+              <div className={`rounded-xl p-4 ${isDark ? 'bg-white/5 border border-white/[0.06]' : 'bg-gray-50 border border-gray-100'}`}>
+                <div className={`flex items-center gap-2 text-sm mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   <Clock className="w-4 h-4" />
                   Temps écoulé
                 </div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                <div className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   {formatDuration(elapsedTime)}
                 </div>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
+              <div className={`rounded-xl p-4 ${isDark ? 'bg-white/5 border border-white/[0.06]' : 'bg-gray-50 border border-gray-100'}`}>
+                <div className={`flex items-center gap-2 text-sm mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   <Target className="w-4 h-4" />
                   Progression
                 </div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                <div className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   {sessionProgress.toFixed(0)}%
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
-                  <div
-                    className="bg-gradient-to-r from-pink-500 to-purple-600 h-2 rounded-full transition-all"
-                    style={{ width: `${sessionProgress}%` }}
+                <div className={`w-full rounded-full h-2 mt-2 ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${sessionProgress}%` }}
+                    transition={{ duration: 0.7, ease: 'easeOut' }}
+                    className="bg-gradient-to-r from-pink-500 to-purple-600 h-2 rounded-full"
                   />
                 </div>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
+              <div className={`rounded-xl p-4 ${isDark ? 'bg-white/5 border border-white/[0.06]' : 'bg-gray-50 border border-gray-100'}`}>
+                <div className={`flex items-center gap-2 text-sm mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   <CheckCircle className="w-4 h-4" />
                   Tâches
                 </div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                <div className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   {activeSession.rooms.reduce((sum, r) => sum + (r.completedCount || 0), 0)} / {activeSession.rooms.reduce((sum, r) => sum + r.items.length, 0)}
                 </div>
               </div>
@@ -869,32 +823,32 @@ export default function CleaningChecklist() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: roomIndex * 0.05 }}
-                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700"
+                  className={`rounded-2xl overflow-hidden border ${isDark ? 'bg-[#1a1a2e] border-white/[0.08]' : 'bg-white border-gray-100 shadow-sm'}`}
                 >
                   <button
                     onClick={() => toggleRoom(room.room)}
-                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    className={`w-full px-6 py-4 flex items-center justify-between transition-colors ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${room.color} flex items-center justify-center text-2xl shadow-lg`}>
                         {room.icon}
                       </div>
                       <div className="text-left">
-                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                        <h4 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                           {room.room}
                         </h4>
                         <div className="flex items-center gap-3 mt-1">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                          <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                             {room.completedCount} / {room.totalCount} tâches
                           </span>
-                          <span className="text-sm font-medium text-pink-600">
+                          <span className="text-sm font-medium text-pink-500">
                             {completionRate.toFixed(0)}%
                           </span>
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-32 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                      <div className={`w-32 rounded-full h-2 ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
                         <div
                           className={`bg-gradient-to-r ${room.color} h-2 rounded-full transition-all`}
                           style={{ width: `${completionRate}%` }}
@@ -914,17 +868,17 @@ export default function CleaningChecklist() {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="border-t border-gray-200 dark:border-gray-700"
+                        className={`border-t ${isDark ? 'border-white/[0.06]' : 'border-gray-100'}`}
                       >
                         <div className="p-6 space-y-3">
                           {room.items.map((item) => (
                             <motion.div
                               key={item.id}
                               whileHover={{ scale: 1.01 }}
-                              className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${
+                              className={`flex items-start gap-4 p-4 rounded-xl border transition-all ${
                                 item.done
-                                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                                  : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-pink-300 dark:hover:border-pink-700'
+                                  ? isDark ? 'bg-green-900/20 border-green-800/30' : 'bg-green-50 border-green-200'
+                                  : isDark ? 'bg-white/[0.03] border-white/[0.06] hover:border-pink-500/30' : 'bg-gray-50 border-gray-200 hover:border-pink-300'
                               }`}
                             >
                               <button
@@ -942,7 +896,7 @@ export default function CleaningChecklist() {
                                   <span className={`font-medium ${
                                     item.done
                                       ? 'text-gray-500 line-through'
-                                      : 'text-gray-900 dark:text-white'
+                                      : isDark ? 'text-white' : 'text-gray-900'
                                   }`}>
                                     {item.label}
                                   </span>
@@ -954,14 +908,14 @@ export default function CleaningChecklist() {
                                     </span>
                                   )}
                                   {item.estimatedTime && (
-                                    <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                    <span className={`text-xs flex items-center gap-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                                       <Clock className="w-3 h-3" />
                                       {item.estimatedTime}m
                                     </span>
                                   )}
                                 </div>
                                 {item.completedBy && (
-                                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  <div className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                                     Terminé par {item.completedBy} à {formatDate(item.completedAt!)}
                                   </div>
                                 )}
@@ -983,7 +937,7 @@ export default function CleaningChecklist() {
             animate={{ opacity: 1 }}
             className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700"
           >
-            <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+            <h4 className={`text-lg font-bold mb-3 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
               <MessageSquare className="w-5 h-5" />
               Notes de session
             </h4>
@@ -991,7 +945,7 @@ export default function CleaningChecklist() {
               value={sessionNotes}
               onChange={(e) => setSessionNotes(e.target.value)}
               placeholder="Ajoutez des remarques, observations ou problèmes rencontrés..."
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 dark:bg-gray-700 dark:text-white resize-none"
+              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 resize-none ${isDark ? 'bg-white/[0.05] border-white/10 text-white placeholder-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
               rows={4}
             />
           </motion.div>
@@ -1005,7 +959,7 @@ export default function CleaningChecklist() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 border border-gray-200 dark:border-gray-700"
+            className={`rounded-2xl p-4 border ${isDark ? 'bg-[#1a1a2e] border-white/[0.08]' : 'bg-white border-gray-100 shadow-sm'}`}
           >
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative">
@@ -1015,14 +969,14 @@ export default function CleaningChecklist() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Rechercher..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 dark:bg-gray-700 dark:text-white"
+                  className={`w-full pl-10 pr-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/[0.05] border-white/10 text-white placeholder-gray-600' : 'bg-white border-gray-300 text-gray-900'}`}
                 />
               </div>
 
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 dark:bg-gray-700 dark:text-white"
+                className={`px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/[0.05] border-white/10 text-white [&>option]:bg-[#1e1e2d]' : 'bg-white border-gray-300 text-gray-900'}`}
               >
                 <option value="all">Tous les statuts</option>
                 <option value="completed">Complétées</option>
@@ -1034,7 +988,7 @@ export default function CleaningChecklist() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 dark:bg-gray-700 dark:text-white"
+                className={`px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/[0.05] border-white/10 text-white [&>option]:bg-[#1e1e2d]' : 'bg-white border-gray-300 text-gray-900'}`}
               >
                 <option value="date">Date</option>
                 <option value="property">Propriété</option>
@@ -1048,7 +1002,7 @@ export default function CleaningChecklist() {
                   setStatusFilter('all');
                   setSortBy('date');
                 }}
-                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+                className={`px-4 py-2 rounded-xl transition-colors flex items-center justify-center gap-2 font-semibold text-sm ${isDark ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 <RefreshCw className="w-4 h-4" />
                 Réinitialiser
@@ -1074,12 +1028,12 @@ export default function CleaningChecklist() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ delay: index * 0.03 }}
-                    className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow"
+                    className={`rounded-2xl p-6 border transition-all hover:scale-[1.005] ${isDark ? 'bg-[#1a1a2e] border-white/[0.08] hover:border-white/15' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'}`}
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                          <h4 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                             {property?.name || 'Propriété inconnue'}
                           </h4>
                           <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(session.status)}`}>
@@ -1087,7 +1041,7 @@ export default function CleaningChecklist() {
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 dark:text-gray-400">
+                        <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                           <div className="flex items-center gap-2">
                             <User className="w-4 h-4" />
                             {session.assignedTo}
