@@ -12,6 +12,7 @@ import {
   Reply, Bot, ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
+import AdminSidebar from '../../components/AdminSidebar';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -276,7 +277,9 @@ export default function MessagesPage() {
   const filteredThreads = threads.filter(t => !t.isArchived);
 
   return (
-    <div className={`h-screen flex flex-col ${bg}`}>
+    <div className={`flex h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <AdminSidebar />
+      <div className={`flex-1 flex flex-col min-w-0 overflow-hidden ${bg}`}>
 
       {/* Header */}
       <header className={`flex-shrink-0 z-40 backdrop-blur-md ${isDark ? 'bg-gray-950/90 border-b border-white/10' : 'bg-white/90 border-b border-gray-200'}`}>
@@ -583,6 +586,7 @@ export default function MessagesPage() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

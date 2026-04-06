@@ -386,25 +386,23 @@ export default function AdminDashboard() {
             </button>
 
             {/* Notification Bell with live badge */}
-            <button
-              onClick={() => setActiveTab('notifications')}
+            <a
+              href="/notifications"
               className={`relative flex items-center justify-center w-9 h-9 rounded-xl transition-all border ${
-                activeTab === 'notifications'
-                  ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500'
-                  : isDark
-                    ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-                    : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'
+                isDark
+                  ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:border-amber-500/30 hover:text-amber-400'
+                  : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-600'
               }`}
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
               {(bookings.filter(b => b.status === 'pending').length + maintenanceTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length) > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm animate-pulse">
                   {Math.min(bookings.filter(b => b.status === 'pending').length + maintenanceTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length, 9)}
                   {(bookings.filter(b => b.status === 'pending').length + maintenanceTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length) > 9 && '+'}
                 </span>
               )}
-            </button>
+            </a>
             
             <select
               value={selectedPropertyId ?? ''}

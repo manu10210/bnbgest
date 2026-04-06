@@ -32,12 +32,27 @@ import {
   CalendarDays,
   ClipboardCheck,
   KeyRound,
-  Inbox
+  Inbox,
+  ExternalLink,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
 import { useState, useMemo, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import type { TabType } from './AdminDashboard';
+
+// Routes that open dedicated pages instead of in-dashboard tabs
+const EXTERNAL_ROUTES: Record<string, { href: string; color: string }> = {
+  settings:       { href: '/settings',       color: 'text-gray-400 group-hover:text-white' },
+  expenses:       { href: '/expenses',       color: 'text-rose-400 group-hover:text-rose-300' },
+  planning:       { href: '/planning',       color: 'text-indigo-400 group-hover:text-indigo-300' },
+  inspections:    { href: '/inspections',    color: 'text-amber-400 group-hover:text-amber-300' },
+  'access-codes': { href: '/access-codes',   color: 'text-pink-400 group-hover:text-pink-300' },
+  messages:       { href: '/messages',       color: 'text-teal-400 group-hover:text-teal-300' },
+  notifications:  { href: '/notifications',  color: 'text-amber-400 group-hover:text-amber-300' },
+  rentabilite:    { href: '/rentabilite',    color: 'text-emerald-400 group-hover:text-emerald-300' },
+  'rapports-fiscaux': { href: '/rapports-fiscaux', color: 'text-violet-400 group-hover:text-violet-300' },
+};
 
 interface AdminSidebarProps {
   activeTab?: TabType;
@@ -52,6 +67,7 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
   const [mobileOpen, setMobileOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
   const [currentDate, setCurrentDate] = useState('');
+  const pathname = usePathname();
 
   // Live clock
   useEffect(() => {
@@ -229,149 +245,42 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
-                
-                // Si c'est "settings", créer un lien vers /settings
-                if (item.id === 'settings') {
+                const ext = EXTERNAL_ROUTES[item.id];
+
+                // External page link
+                if (ext) {
+                  const isExtActive = pathname === ext.href;
                   return (
                     <a
                       key={item.id}
-                      href="/settings"
+                      href={ext.href}
+                      title={isCollapsed ? item.label : undefined}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                        isDark 
-                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]' 
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        isExtActive
+                          ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10'
+                          : isDark
+                            ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                       }`}
                     >
-                      <Icon className={`w-5 h-5 shrink-0 relative z-10 ${
-                        isDark ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-gray-900'
+                      <Icon className={`w-5 h-5 shrink-0 relative z-10 transition-colors ${
+                        isExtActive ? 'text-indigo-400' : ext.color
                       }`} />
                       {!isCollapsed && (
-                        <span className="text-sm font-medium relative z-10">
-                          {item.label}
-                        </span>
+                        <>
+                          <span className={`text-sm font-medium relative z-10 flex-1 ${isExtActive ? 'font-bold text-indigo-400' : ''}`}>
+                            {item.label}
+                          </span>
+                          {item.badge > 0 && (
+                            <span className="relative z-10 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500">
+                              {item.badge > 9 ? '9+' : item.badge}
+                            </span>
+                          )}
+                          <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-40 shrink-0 relative z-10" />
+                        </>
                       )}
-                    </a>
-                  );
-                }
-
-                // Si c'est "expenses", créer un lien vers /expenses
-                if (item.id === 'expenses') {
-                  return (
-                    <a
-                      key={item.id}
-                      href="/expenses"
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                        isDark
-                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-red-400 group-hover:text-red-300`} />
-                      {!isCollapsed && (
-                        <span className="text-sm font-medium relative z-10">{item.label}</span>
-                      )}
-                    </a>
-                  );
-                }
-
-                // Si c'est "planning", créer un lien vers /planning
-                if (item.id === 'planning') {
-                  return (
-                    <a
-                      key={item.id}
-                      href="/planning"
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                        isDark
-                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-indigo-400 group-hover:text-indigo-300`} />
-                      {!isCollapsed && (
-                        <span className="text-sm font-medium relative z-10">{item.label}</span>
-                      )}
-                    </a>
-                  );
-                }
-
-                // Si c'est "inspections", créer un lien vers /inspections
-                if (item.id === 'inspections') {
-                  return (
-                    <a
-                      key={item.id}
-                      href="/inspections"
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                        isDark
-                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-amber-400 group-hover:text-amber-300`} />
-                      {!isCollapsed && (
-                        <span className="text-sm font-medium relative z-10">{item.label}</span>
-                      )}
-                    </a>
-                  );
-                }
-
-                // Si c'est "access-codes", créer un lien vers /access-codes
-                if (item.id === 'access-codes') {
-                  return (
-                    <a
-                      key={item.id}
-                      href="/access-codes"
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                        isDark
-                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-[#FF385C] group-hover:text-[#E31C5F]`} />
-                      {!isCollapsed && (
-                        <span className="text-sm font-medium relative z-10">{item.label}</span>
-                      )}
-                    </a>
-                  );
-                }
-
-                // Si c'est "messages", créer un lien vers /messages
-                if (item.id === 'messages') {
-                  return (
-                    <a
-                      key={item.id}
-                      href="/messages"
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                        isDark
-                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-teal-400 group-hover:text-teal-300`} />
-                      {!isCollapsed && (
-                        <span className="text-sm font-medium relative z-10">{item.label}</span>
-                      )}
-                    </a>
-                  );
-                }
-
-                // Si c'est "notifications", créer un lien vers /notifications
-                if (item.id === 'notifications') {
-                  return (
-                    <a
-                      key={item.id}
-                      href="/notifications"
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                        isDark
-                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-amber-400 group-hover:text-amber-300`} />
-                      {!isCollapsed && (
-                        <span className="text-sm font-medium relative z-10">{item.label}</span>
-                      )}
-                      {!isCollapsed && item.badge > 0 && (
-                        <span className="relative z-10 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500 ml-auto">
+                      {isCollapsed && item.badge > 0 && (
+                        <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center">
                           {item.badge > 9 ? '9+' : item.badge}
                         </span>
                       )}
@@ -379,50 +288,12 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
                   );
                 }
 
-                // Si c'est "rentabilite", créer un lien vers /rentabilite
-                if (item.id === 'rentabilite') {
-                  return (
-                    <a
-                      key={item.id}
-                      href="/rentabilite"
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                        isDark
-                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-emerald-400 group-hover:text-emerald-300`} />
-                      {!isCollapsed && (
-                        <span className="text-sm font-medium relative z-10">{item.label}</span>
-                      )}
-                    </a>
-                  );
-                }
-
-                // Si c'est "rapports-fiscaux", créer un lien vers /rapports-fiscaux
-                if (item.id === 'rapports-fiscaux') {
-                  return (
-                    <a
-                      key={item.id}
-                      href="/rapports-fiscaux"
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                        isDark
-                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-violet-400 group-hover:text-violet-300`} />
-                      {!isCollapsed && (
-                        <span className="text-sm font-medium relative z-10">{item.label}</span>
-                      )}
-                    </a>
-                  );
-                }
-                
+                // In-dashboard tab button
                 return (
                   <button
                     key={item.id}
                     onClick={() => safeSetActiveTab(item.id as TabType)}
+                    title={isCollapsed ? item.label : undefined}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
                       isActive
                         ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-500'
@@ -538,6 +409,26 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
                   {group.items.map(item => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;
+                    const ext = EXTERNAL_ROUTES[item.id];
+
+                    if (ext) {
+                      return (
+                        <a key={item.id} href={ext.href}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
+                            pathname === ext.href
+                              ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-400 font-bold'
+                              : isDark ? 'text-gray-400 hover:bg-white/[0.04] hover:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          }`}>
+                          <Icon className={`w-5 h-5 shrink-0 ${ext.color}`} />
+                          <span className="text-sm flex-1">{item.label}</span>
+                          {item.badge > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500">{item.badge > 9 ? '9+' : item.badge}</span>
+                          )}
+                          <ExternalLink className="w-3 h-3 opacity-30" />
+                        </a>
+                      );
+                    }
+
                     return (
                       <button key={item.id}
                         onClick={() => { safeSetActiveTab(item.id as TabType); setMobileOpen(false); }}

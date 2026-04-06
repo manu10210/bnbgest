@@ -12,6 +12,7 @@ import {
   HardHat, RefreshCw, AlertCircle, Download
 } from 'lucide-react';
 import { toast } from 'sonner';
+import AdminSidebar from '../../components/AdminSidebar';
 
 const CATEGORIES = [
   { value: 'CLEANING',     label: 'Ménage',        icon: <Home size={14} />,         color: 'bg-blue-500/15 text-blue-400' },
@@ -254,7 +255,9 @@ export default function ExpensesPage() {
   const years = Array.from({ length: 5 }, (_, i) => String(currentYear - i));
 
   return (
-    <div className={`min-h-screen ${bg}`}>
+    <div className={`flex h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <AdminSidebar />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       {/* Header */}
       <header className={`sticky top-0 z-40 backdrop-blur-md ${isDark ? 'bg-gray-950/90 border-b border-white/10' : 'bg-white/90 border-b border-gray-200'}`}>
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
@@ -280,6 +283,7 @@ export default function ExpensesPage() {
         </div>
       </header>
 
+      <div className="flex-1 overflow-y-auto">
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
 
         {/* Summary cards */}
@@ -424,6 +428,7 @@ export default function ExpensesPage() {
             })}
           </div>
         )}
+      </div>
       </div>
 
       {/* ── Add/Edit Modal ─────────────────────────────────── */}
@@ -576,6 +581,7 @@ export default function ExpensesPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
