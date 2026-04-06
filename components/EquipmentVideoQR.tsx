@@ -64,42 +64,42 @@ interface UploadedVideo {
 const CATEGORY_CONFIG: Record<EquipmentCategory, { label: string; icon: React.ElementType; color: string; bgColor: string }> = {
   chauffage: { label: 'Chauffage', icon: Flame, color: 'text-orange-500', bgColor: 'bg-orange-500/10' },
   climatisation: { label: 'Climatisation', icon: AirVent, color: 'text-blue-400', bgColor: 'bg-blue-400/10' },
-  electromenager: { label: 'Electromenager', icon: Refrigerator, color: 'text-gray-400', bgColor: 'bg-gray-400/10' },
-  multimedia: { label: 'Multimedia / TV', icon: Tv, color: 'text-purple-400', bgColor: 'bg-purple-400/10' },
-  securite: { label: 'Securite / Acces', icon: Lock, color: 'text-red-400', bgColor: 'bg-red-400/10' },
+  electromenager: { label: 'Électroménager', icon: Refrigerator, color: 'text-gray-400', bgColor: 'bg-gray-400/10' },
+  multimedia: { label: 'Multimédia / TV', icon: Tv, color: 'text-purple-400', bgColor: 'bg-purple-400/10' },
+  securite: { label: 'Sécurité / Accès', icon: Lock, color: 'text-red-400', bgColor: 'bg-red-400/10' },
   salle_de_bain: { label: 'Salle de bain', icon: Droplets, color: 'text-cyan-400', bgColor: 'bg-cyan-400/10' },
   cuisine: { label: 'Cuisine', icon: Coffee, color: 'text-amber-400', bgColor: 'bg-amber-400/10' },
   buanderie: { label: 'Buanderie', icon: WashingMachine, color: 'text-indigo-400', bgColor: 'bg-indigo-400/10' },
-  exterieur: { label: 'Exterieur', icon: Sun, color: 'text-green-400', bgColor: 'bg-green-400/10' },
-  eclairage: { label: 'Eclairage', icon: Lightbulb, color: 'text-yellow-400', bgColor: 'bg-yellow-400/10' },
+  exterieur: { label: 'Extérieur', icon: Sun, color: 'text-green-400', bgColor: 'bg-green-400/10' },
+  eclairage: { label: 'Éclairage', icon: Lightbulb, color: 'text-yellow-400', bgColor: 'bg-yellow-400/10' },
   audio: { label: 'Audio / Enceintes', icon: Speaker, color: 'text-pink-400', bgColor: 'bg-pink-400/10' },
   autre: { label: 'Autre', icon: Package, color: 'text-gray-400', bgColor: 'bg-gray-400/10' },
 };
 
 const PRESET_EQUIPMENTS = [
-  'Televiseur', 'Climatiseur', 'Chauffage', 'Machine a laver', 'Seche-linge',
-  'Lave-vaisselle', 'Four', 'Micro-ondes', 'Plaque de cuisson', 'Cafetiere',
+  'Téléviseur', 'Climatiseur', 'Chauffage', 'Machine à laver', 'Sèche-linge',
+  'Lave-vaisselle', 'Four', 'Micro-ondes', 'Plaque de cuisson', 'Cafetière',
   'Bouilloire', 'Grille-pain', 'Robot aspirateur', 'Alarme', 'Digicode',
-  'Serrure connectee', 'Box internet / Wifi', 'Enceinte Bluetooth',
+  'Serrure connectée', 'Box internet / Wifi', 'Enceinte Bluetooth',
   'Jacuzzi / Spa', 'Barbecue', 'Volets roulants', 'Store banne',
-  'Cheminee', 'Poele a bois', 'Chauffe-eau', 'VMC', 'Interphone',
-  'Thermostat connecte', 'Camera de surveillance', 'Detecteur de fumee',
-  'Ampoules connectees', 'Radiateur electrique', 'Ventilateur', 'Purificateur air'
+  'Cheminée', 'Poêle à bois', 'Chauffe-eau', 'VMC', 'Interphone',
+  'Thermostat connecté', 'Caméra de surveillance', 'Détecteur de fumée',
+  'Ampoules connectées', 'Radiateur électrique', 'Ventilateur', 'Purificateur d\'air'
 ];
 
 const LANGUAGES = [
-  { code: 'fr', label: 'Francais', flag: '🇫🇷' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
   { code: 'en', label: 'English', flag: '🇬🇧' },
-  { code: 'es', label: 'Espanol', flag: '🇪🇸' },
+  { code: 'es', label: 'Español', flag: '🇪🇸' },
   { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
   { code: 'it', label: 'Italiano', flag: '🇮🇹' },
-  { code: 'pt', label: 'Portugues', flag: '🇵🇹' },
+  { code: 'pt', label: 'Português', flag: '🇵🇹' },
 ];
 
 const COMMON_TAGS = [
-  'Installation', 'Depannage', 'Entretien', 'Nettoyage', 'Configuration',
-  'Wifi', 'Bluetooth', 'Tele­commande', 'Programmation', 'Urgence',
-  'Economie energie', 'Securite', 'Confort', 'Smart home', 'Eco-responsable'
+  'Installation', 'Dépannage', 'Entretien', 'Nettoyage', 'Configuration',
+  'Wifi', 'Bluetooth', 'Télécommande', 'Programmation', 'Urgence',
+  'Économie énergie', 'Sécurité', 'Confort', 'Smart home', 'Éco-responsable'
 ];
 
 type ViewMode = 'grid' | 'list';
@@ -379,7 +379,7 @@ export default function EquipmentVideoQR() {
   }, []);
 
   const handleDelete = useCallback((id: string) => {
-    if (confirm('Supprimer ce guide video ?')) {
+    if (confirm('Supprimer ce guide vidéo ?')) {
       setGuides(prev => prev.filter(g => g.id !== id));
     }
   }, []);
@@ -432,10 +432,10 @@ export default function EquipmentVideoQR() {
       ctx.fillText(equipmentName, 250, 480);
       ctx.font = '16px Arial';
       ctx.fillStyle = '#666666';
-      ctx.fillText('Scannez pour voir le tutoriel video', 250, 510);
+      ctx.fillText('Scannez pour voir le tutoriel vidéo', 250, 510);
       ctx.font = 'bold 14px Arial';
       ctx.fillStyle = '#FF385C';
-      ctx.fillText('BNBGest - Guide Equipement', 250, 550);
+      ctx.fillText('BNBGest - Guide Équipement', 250, 550);
       const a = document.createElement('a');
       a.download = `qr-${equipmentName.replace(/\s+/g, '-').toLowerCase()}.png`;
       a.href = canvas.toDataURL('image/png');
@@ -450,7 +450,7 @@ export default function EquipmentVideoQR() {
     const publicUrl = getPublicUrl(guide.id);
     const cat = CATEGORY_CONFIG[guide.category];
     const IconComp = cat.icon;
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR Code - ${guide.equipmentName}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh}.container{max-width:600px;padding:40px;text-align:center;border:2px solid #222;border-radius:20px}.header{margin-bottom:30px}.header h1{font-size:28px;color:#222;margin-bottom:8px}.header .category{display:inline-flex;align-items:center;gap:8px;background:#f0f0f0;padding:8px 16px;border-radius:20px;font-size:14px;color:#666;margin-top:10px}.qr-box{background:#fafafa;border:3px solid #FF385C;border-radius:16px;padding:30px;margin:20px 0}.info{margin-top:30px;text-align:left;background:#f7f7f7;padding:20px;border-radius:12px}.info-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e0e0e0}.info-row:last-child{border:none}.label{font-size:13px;color:#666;font-weight:600}.value{font-size:13px;color:#222}.footer{margin-top:30px;padding-top:20px;border-top:2px solid #e0e0e0;font-size:12px;color:#999}@media print{body{background:#fff}.container{border:none;max-width:100%}}</style></head><body><div class="container"><div class="header"><h1>${guide.equipmentName}</h1><div class="category"><span style="color:${cat.color}">📱</span> ${cat.label}</div></div><div class="qr-box"><div id="qr-container"></div><p style="margin-top:15px;color:#666;font-size:14px">Scannez ce code pour voir le tutoriel video</p></div>${guide.description ? `<p style="margin:20px 0;color:#666;font-size:14px;line-height:1.6">${guide.description}</p>` : ''}<div class="info">${guide.brand ? `<div class="info-row"><span class="label">Marque</span><span class="value">${guide.brand}</span></div>` : ''}${guide.model ? `<div class="info-row"><span class="label">Modele</span><span class="value">${guide.model}</span></div>` : ''}${guide.duration ? `<div class="info-row"><span class="label">Duree video</span><span class="value">${guide.duration}</span></div>` : ''}<div class="info-row"><span class="label">Lien video</span><span class="value" style="word-break:break-all;font-size:11px">${guide.videoUrl}</span></div></div><div class="footer">Guide genere par BNBGest • ${new Date().toLocaleDateString('fr-FR')}</div></div><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"><\/script><script>QRCode.toCanvas('${publicUrl}',{width:300,margin:2,color:{dark:'#222222',light:'#ffffff'}},function(err,canvas){if(err) return;document.getElementById('qr-container').appendChild(canvas);setTimeout(function(){window.print();},500);});<\/script></body></html>`);
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR Code - ${guide.equipmentName}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh}.container{max-width:600px;padding:40px;text-align:center;border:2px solid #222;border-radius:20px}.header{margin-bottom:30px}.header h1{font-size:28px;color:#222;margin-bottom:8px}.header .category{display:inline-flex;align-items:center;gap:8px;background:#f0f0f0;padding:8px 16px;border-radius:20px;font-size:14px;color:#666;margin-top:10px}.qr-box{background:#fafafa;border:3px solid #FF385C;border-radius:16px;padding:30px;margin:20px 0}.info{margin-top:30px;text-align:left;background:#f7f7f7;padding:20px;border-radius:12px}.info-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e0e0e0}.info-row:last-child{border:none}.label{font-size:13px;color:#666;font-weight:600}.value{font-size:13px;color:#222}.footer{margin-top:30px;padding-top:20px;border-top:2px solid #e0e0e0;font-size:12px;color:#999}@media print{body{background:#fff}.container{border:none;max-width:100%}}</style></head><body><div class="container"><div class="header"><h1>${guide.equipmentName}</h1><div class="category"><span style="color:${cat.color}">📱</span> ${cat.label}</div></div><div class="qr-box"><div id="qr-container"></div><p style="margin-top:15px;color:#666;font-size:14px">Scannez ce code pour voir le tutoriel vidéo</p></div>${guide.description ? `<p style="margin:20px 0;color:#666;font-size:14px;line-height:1.6">${guide.description}</p>` : ''}<div class="info">${guide.brand ? `<div class="info-row"><span class="label">Marque</span><span class="value">${guide.brand}</span></div>` : ''}${guide.model ? `<div class="info-row"><span class="label">Modèle</span><span class="value">${guide.model}</span></div>` : ''}${guide.duration ? `<div class="info-row"><span class="label">Durée vidéo</span><span class="value">${guide.duration}</span></div>` : ''}<div class="info-row"><span class="label">Lien vidéo</span><span class="value" style="word-break:break-all;font-size:11px">${guide.videoUrl}</span></div></div><div class="footer">Guide généré par BNBGest • ${new Date().toLocaleDateString('fr-FR')}</div></div><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"><\/script><script>QRCode.toCanvas('${publicUrl}',{width:300,margin:2,color:{dark:'#222222',light:'#ffffff'}},function(err,canvas){if(err) return;document.getElementById('qr-container').appendChild(canvas);setTimeout(function(){window.print();},500);});<\/script></body></html>`);
     win.document.close();
   }, [getPublicUrl]);
 
@@ -460,7 +460,7 @@ export default function EquipmentVideoQR() {
       try {
         await navigator.share({
           title: `Guide: ${guide.equipmentName}`,
-          text: `Tutoriel video pour ${guide.equipmentName}`,
+          text: `Tutoriel vidéo pour ${guide.equipmentName}`,
           url: url,
         });
       } catch {}
@@ -472,7 +472,7 @@ export default function EquipmentVideoQR() {
   const handleEmailGuide = useCallback((guide: EquipmentGuide) => {
     const url = getPublicUrl(guide.id);
     const subject = encodeURIComponent(`Guide video: ${guide.equipmentName}`);
-    const body = encodeURIComponent(`Bonjour,\n\nVoici le guide video pour ${guide.equipmentName}:\n\n${guide.description || ''}\n\nLien direct: ${url}\nVideo: ${guide.videoUrl}\n\nScannez le QR code pour un acces rapide.\n\nCordialement,\nBNBGest`);
+    const body = encodeURIComponent(`Bonjour,\n\nVoici le guide vidéo pour ${guide.equipmentName}:\n\n${guide.description || ''}\n\nLien direct: ${url}\nVidéo: ${guide.videoUrl}\n\nScannez le QR code pour un accès rapide.\n\nCordialement,\nBNBGest`);
     window.open(`mailto:?subject=${subject}&body=${body}`);
   }, [getPublicUrl]);
 
@@ -561,7 +561,7 @@ export default function EquipmentVideoQR() {
     };
   }, [guides]);
 
-  const getPropertyName = useCallback((id: number) => properties.find(p => p.id === id)?.name || `Propriete #${id}`, [properties]);
+  const getPropertyName = useCallback((id: number) => properties.find(p => p.id === id)?.name || `Propriété #${id}`, [properties]);
 
   if (!mounted) return null;
 
@@ -578,10 +578,10 @@ export default function EquipmentVideoQR() {
         <div>
           <h2 className={`text-2xl font-bold flex items-center gap-2 ${txtCls}`}>
             <PlayCircle className="w-6 h-6 text-[#FF385C]" />
-            Guides Video Equipements
+            Guides Vidéo Équipements
           </h2>
           <p className={`text-sm mt-1 ${subCls}`}>
-            QR codes lies a des videos tutoriels pour chaque equipement
+            QR codes liés à des vidéos tutoriels pour chaque équipement
           </p>
         </div>
         <div className="flex gap-3">
@@ -621,8 +621,8 @@ export default function EquipmentVideoQR() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           { label: 'Total guides', value: stats.total, icon: BookOpen, color: 'text-[#FF385C]', bg: isDark ? 'bg-[#FF385C]/10' : 'bg-red-50' },
-          { label: 'Proprietes', value: stats.properties, icon: Home, color: 'text-blue-500', bg: isDark ? 'bg-blue-500/10' : 'bg-blue-50' },
-          { label: 'Categories', value: stats.categories, icon: Grid, color: 'text-amber-500', bg: isDark ? 'bg-amber-500/10' : 'bg-amber-50' },
+          { label: 'Propriétés', value: stats.properties, icon: Home, color: 'text-blue-500', bg: isDark ? 'bg-blue-500/10' : 'bg-blue-50' },
+          { label: 'Catégories', value: stats.categories, icon: Grid, color: 'text-amber-500', bg: isDark ? 'bg-amber-500/10' : 'bg-amber-50' },
           { label: 'Vues totales', value: stats.totalViews, icon: TrendingUp, color: 'text-green-500', bg: isDark ? 'bg-green-500/10' : 'bg-green-50' },
           { label: 'Note moyenne', value: stats.avgRating.toFixed(1), icon: Star, color: 'text-yellow-500', bg: isDark ? 'bg-yellow-500/10' : 'bg-yellow-50' },
         ].map(s => (
@@ -940,22 +940,22 @@ export default function EquipmentVideoQR() {
             <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${subCls}`} />
             <input
               type="text"
-              placeholder="Rechercher equipement, marque, description..."
+              placeholder="Rechercher équipement, marque, description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm ${inputCls}`}
             />
           </div>
           <select value={selectedProperty === 'all' ? '' : selectedProperty} onChange={(e) => setSelectedProperty(e.target.value ? Number(e.target.value) : 'all')} className={`border rounded-xl px-4 py-2.5 text-sm ${inputCls}`}>
-            <option value="">Toutes proprietes</option>
+            <option value="">Toutes propriétés</option>
             {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value as typeof selectedCategory)} className={`border rounded-xl px-4 py-2.5 text-sm ${inputCls}`}>
-            <option value="all">Toutes categories</option>
+            <option value="all">Toutes catégories</option>
             {Object.entries(CATEGORY_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
           <select value={selectedDifficulty} onChange={(e) => setSelectedDifficulty(e.target.value as typeof selectedDifficulty)} className={`border rounded-xl px-4 py-2.5 text-sm ${inputCls}`}>
-            <option value="all">Toutes difficultes</option>
+            <option value="all">Toutes difficultés</option>
             <option value="facile">Facile</option>
             <option value="moyen">Moyen</option>
             <option value="difficile">Difficile</option>
@@ -969,11 +969,11 @@ export default function EquipmentVideoQR() {
           <div className="flex items-center gap-2">
             <span className={`text-xs ${subCls}`}>Trier par:</span>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)} className={`border rounded-lg px-3 py-1.5 text-xs ${inputCls}`}>
-              <option value="recent">Plus recent</option>
+              <option value="recent">Plus récent</option>
               <option value="name">Nom A-Z</option>
               <option value="views">Plus vus</option>
-              <option value="rating">Mieux notes</option>
-              <option value="category">Categorie</option>
+              <option value="rating">Mieux notés</option>
+              <option value="category">Catégorie</option>
             </select>
           </div>
         </div>
@@ -983,38 +983,38 @@ export default function EquipmentVideoQR() {
         {showForm && (
           <motion.div key="form" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className={`border rounded-2xl overflow-hidden ${cardCls}`}>
             <div className={`px-6 py-4 border-b flex items-center justify-between ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
-              <h3 className={`font-bold ${txtCls}`}>{editingId ? 'Modifier le guide' : 'Nouveau guide video'}</h3>
+              <h3 className={`font-bold ${txtCls}`}>{editingId ? 'Modifier le guide' : 'Nouveau guide vidéo'}</h3>
               <button onClick={resetForm} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/[0.06] text-gray-400' : 'hover:bg-gray-200 text-gray-500'}`}><X className="w-4 h-4" /></button>
             </div>
             <div className="p-6 space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Propriete *</label>
+                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Propriété *</label>
                   <select value={form.propertyId} onChange={(e) => setForm({ ...form, propertyId: Number(e.target.value) })} className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`}>
                     {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
-                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Categorie *</label>
+                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Catégorie *</label>
                   <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as EquipmentCategory })} className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`}>
                     {Object.entries(CATEGORY_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                   </select>
                 </div>
-                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Nom equipement *</label>
-                  <input type="text" value={form.equipmentName} onChange={(e) => setForm({ ...form, equipmentName: e.target.value })} placeholder="Ex: Televiseur Samsung 55 pouces" list="equipment-presets" className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`} />
+                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Nom équipement *</label>
+                  <input type="text" value={form.equipmentName} onChange={(e) => setForm({ ...form, equipmentName: e.target.value })} placeholder="Ex: Téléviseur Samsung 55 pouces" list="equipment-presets" className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`} />
                   <datalist id="equipment-presets">{PRESET_EQUIPMENTS.map(e => <option key={e} value={e} />)}</datalist>
                 </div>
-                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>URL video *</label>
+                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>URL vidéo *</label>
                   <input type="url" value={form.videoUrl} onChange={(e) => setForm({ ...form, videoUrl: e.target.value })} placeholder="https://youtube.com/watch?v=..." className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`} />
                 </div>
                 <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Marque</label>
                   <input type="text" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Samsung, LG, Bosch..." className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`} />
                 </div>
-                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Modele</label>
+                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Modèle</label>
                   <input type="text" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="UE55TU7125" className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`} />
                 </div>
-                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Duree video</label>
+                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Durée vidéo</label>
                   <input type="text" value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="5:30" className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`} />
                 </div>
-                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Difficulte</label>
+                <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Difficulté</label>
                   <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value as typeof form.difficulty })} className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`}>
                     <option value="facile">Facile</option>
                     <option value="moyen">Moyen</option>
@@ -1043,7 +1043,7 @@ export default function EquipmentVideoQR() {
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <input type="text" value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCustomTag()} placeholder="Tag personnalise..." className={`flex-1 border rounded-xl px-3 py-2 text-sm ${inputCls}`} />
+                  <input type="text" value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCustomTag()} placeholder="Tag personnalisé..." className={`flex-1 border rounded-xl px-3 py-2 text-sm ${inputCls}`} />
                   <button onClick={addCustomTag} className="px-4 py-2 bg-[#FF385C] text-white rounded-xl hover:bg-[#E31C5F] transition-colors"><Plus className="w-4 h-4" /></button>
                 </div>
               </div>
@@ -1064,19 +1064,19 @@ export default function EquipmentVideoQR() {
               </div>
               <div>
                 <button onClick={() => setShowAdvanced(!showAdvanced)} className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}>
-                  <Settings className="w-4 h-4" /> Options avancees {showAdvanced ? '▲' : '▼'}
+                  <Settings className="w-4 h-4" /> Options avancées {showAdvanced ? '▲' : '▼'}
                 </button>
                 <AnimatePresence>
                   {showAdvanced && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Date achat</label>
+                      <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Date d&apos;achat</label>
                         <input type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`} />
                       </div>
                       <div><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Garantie jusqu&apos;au</label>
                         <input type="date" value={form.warrantyUntil} onChange={(e) => setForm({ ...form, warrantyUntil: e.target.value })} className={`w-full border rounded-xl px-3 py-2.5 text-sm ${inputCls}`} />
                       </div>
-                      <div className="md:col-span-2"><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Notes maintenance</label>
-                        <textarea value={form.maintenanceNotes} onChange={(e) => setForm({ ...form, maintenanceNotes: e.target.value })} placeholder="Historique reparations, entretien..." rows={3} className={`w-full border rounded-xl px-3 py-2.5 text-sm resize-none ${inputCls}`} />
+                      <div className="md:col-span-2"><label className={`block text-xs font-medium mb-1.5 ${subCls}`}>Notes de maintenance</label>
+                        <textarea value={form.maintenanceNotes} onChange={(e) => setForm({ ...form, maintenanceNotes: e.target.value })} placeholder="Historique réparations, entretien..." rows={3} className={`w-full border rounded-xl px-3 py-2.5 text-sm resize-none ${inputCls}`} />
                       </div>
                     </motion.div>
                   )}
@@ -1086,7 +1086,7 @@ export default function EquipmentVideoQR() {
             <div className={`px-6 py-4 border-t flex justify-end gap-3 ${isDark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
               <button onClick={resetForm} className={`px-5 py-2.5 rounded-xl text-sm border transition-colors ${isDark ? 'border-white/[0.08] text-gray-300 hover:bg-white/[0.04]' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>Annuler</button>
               <button onClick={handleSave} disabled={!form.equipmentName.trim() || !form.videoUrl.trim()} className="flex items-center gap-2 bg-gradient-to-r from-[#FF385C] to-[#E31C5F] text-white px-6 py-2.5 rounded-xl hover:from-[#E31C5F] hover:to-[#C8184F] transition-all text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed shadow-lg">
-                <Save className="w-4 h-4" /> {editingId ? 'Enregistrer' : 'Creer le guide'}
+                <Save className="w-4 h-4" /> {editingId ? 'Enregistrer' : 'Créer le guide'}
               </button>
             </div>
           </motion.div>
@@ -1096,8 +1096,8 @@ export default function EquipmentVideoQR() {
       {filteredAndSorted.length === 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`border-2 border-dashed rounded-2xl p-16 text-center ${isDark ? 'border-white/[0.08]' : 'border-gray-300'}`}>
           <QrCode className={`w-16 h-16 mx-auto mb-4 ${isDark ? 'text-gray-600' : 'text-gray-300'}`} />
-          <p className={`font-medium mb-2 ${txtCls}`}>{guides.length === 0 ? 'Aucun guide video' : 'Aucun resultat'}</p>
-          <p className={`text-sm ${subCls}`}>{guides.length === 0 ? 'Creez votre premier guide pour generer un QR code' : 'Modifiez vos filtres de recherche'}</p>
+          <p className={`font-medium mb-2 ${txtCls}`}>{guides.length === 0 ? 'Aucun guide vidéo' : 'Aucun résultat'}</p>
+          <p className={`text-sm ${subCls}`}>{guides.length === 0 ? 'Créez votre premier guide pour générer un QR code' : 'Modifiez vos filtres de recherche'}</p>
         </motion.div>
       ) : (
         <motion.div layout className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4' : 'space-y-3'}>
@@ -1208,8 +1208,8 @@ export default function EquipmentVideoQR() {
                     <p className={`text-sm mt-3 font-medium ${txtCls}`}>Scannez pour voir le tutoriel</p>
                   </div>
                   <div className="flex-1 space-y-3">
-                    <div><p className={`text-xs font-medium ${subCls}`}>Propriete</p><p className={`text-sm ${txtCls}`}>{getPropertyName(previewGuide.propertyId)}</p></div>
-                    {previewGuide.brand && <div><p className={`text-xs font-medium ${subCls}`}>Marque & Modele</p><p className={`text-sm ${txtCls}`}>{previewGuide.brand} {previewGuide.model}</p></div>}
+                    <div><p className={`text-xs font-medium ${subCls}`}>Propriété</p><p className={`text-sm ${txtCls}`}>{getPropertyName(previewGuide.propertyId)}</p></div>
+                    {previewGuide.brand && <div><p className={`text-xs font-medium ${subCls}`}>Marque &amp; Modèle</p><p className={`text-sm ${txtCls}`}>{previewGuide.brand} {previewGuide.model}</p></div>}
                     {previewGuide.description && <div><p className={`text-xs font-medium ${subCls}`}>Description</p><p className={`text-sm ${txtCls}`}>{previewGuide.description}</p></div>}
                     <div className="flex flex-wrap gap-2">
                       {previewGuide.difficulty && <span className={`text-xs px-3 py-1.5 rounded-xl ${previewGuide.difficulty === 'facile' ? 'bg-green-500/10 text-green-500' : previewGuide.difficulty === 'moyen' ? 'bg-amber-500/10 text-amber-500' : 'bg-red-500/10 text-red-500'}`}>{previewGuide.difficulty}</span>}
@@ -1226,9 +1226,9 @@ export default function EquipmentVideoQR() {
                         ))}
                       </div>
                     )}
-                    <div><p className={`text-xs font-medium ${subCls}`}>Lien video</p>
+                    <div><p className={`text-xs font-medium ${subCls}`}>Lien vidéo</p>
                       <a href={previewGuide.videoUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[#FF385C] hover:underline flex items-center gap-1 mt-1">
-                        <Play className="w-4 h-4" /> Ouvrir la video <ExternalLink className="w-3 h-3" />
+                        <Play className="w-4 h-4" /> Ouvrir la vidéo <ExternalLink className="w-3 h-3" />
                       </a>
                     </div>
                   </div>
@@ -1253,7 +1253,7 @@ export default function EquipmentVideoQR() {
                   <Printer className="w-4 h-4" />Imprimer
                 </button>
                 <button onClick={() => downloadQR(previewGuide.id, previewGuide.equipmentName)} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#FF385C] to-[#E31C5F] text-white py-3 rounded-xl text-sm font-semibold hover:from-[#E31C5F] hover:to-[#C8184F] transition-all shadow-lg">
-                  <Download className="w-4 h-4" />Telecharger QR
+                  <Download className="w-4 h-4" />Télécharger QR
                 </button>
               </div>
             </motion.div>
