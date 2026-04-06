@@ -37,11 +37,11 @@ export async function GET() {
       videos: validVideos,
       count: validVideos.length
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error listing videos:', error);
     
     // Si le dossier n'existe pas, retourner une liste vide
-    if (error.code === 'ENOENT') {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
       return NextResponse.json({
         success: true,
         videos: [],
@@ -49,8 +49,9 @@ export async function GET() {
       });
     }
     
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { success: false, error: 'Failed to list videos', message: error.message },
+      { success: false, error: 'Failed to list videos', message },
       { status: 500 }
     );
   }

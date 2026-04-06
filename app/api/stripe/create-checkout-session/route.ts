@@ -76,10 +76,11 @@ export async function POST(request: NextRequest) {
       sessionId: session.id,
       url: session.url,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Erreur création Checkout Session:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Erreur serveur', message: error.message },
+      { error: 'Erreur serveur', message },
       { status: 500 }
     );
   }

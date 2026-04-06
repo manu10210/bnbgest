@@ -58,10 +58,11 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ received: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Erreur webhook Stripe:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Erreur serveur', message: error.message },
+      { error: 'Erreur serveur', message },
       { status: 500 }
     );
   }
@@ -101,7 +102,7 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     });
 
     console.log(`✅ Paiement réussi pour réservation ${bookingId}: ${paymentIntent.amount / 100}€`);
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Erreur traitement paiement réussi:', error);
   }
 }
@@ -127,7 +128,7 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
     });
 
     console.log(`❌ Paiement échoué pour réservation ${bookingId}`);
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Erreur traitement paiement échoué:', error);
   }
 }
@@ -166,7 +167,7 @@ async function handleRefund(charge: Stripe.Charge) {
     });
 
     console.log(`✅ Remboursement traité pour réservation ${payment.bookingId}`);
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Erreur traitement remboursement:', error);
   }
 }
@@ -205,7 +206,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     });
 
     console.log(`✅ Checkout complété pour réservation ${bookingId}`);
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Erreur traitement checkout complété:', error);
   }
 }

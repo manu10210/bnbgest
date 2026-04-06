@@ -78,10 +78,11 @@ export async function POST(request: NextRequest) {
       amount: paymentIntent.amount / 100,
       currency: paymentIntent.currency,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Erreur création Payment Intent:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Erreur serveur', message: error.message },
+      { error: 'Erreur serveur', message },
       { status: 500 }
     );
   }
