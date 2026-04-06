@@ -65,6 +65,10 @@ const NAV_ITEMS = [
   { path: '/employee', Icon: Wrench, label: 'Employés', desc: 'Tâches et suivi du personnel', gradient: 'from-amber-500 to-orange-600', emoji: '🔧', stat: 'Pro' },
   { path: '/calendar', Icon: Calendar, label: 'Calendrier', desc: 'Disponibilités et planification', gradient: 'from-teal-500 to-emerald-600', emoji: '📅', stat: '365j' },
   { path: '/photos', Icon: Camera, label: 'Photos', desc: 'Galeries et médias des biens', gradient: 'from-violet-500 to-purple-600', emoji: '📷', stat: 'HD' },
+  { path: '/messages', Icon: Inbox, label: 'Messagerie', desc: 'Messages et communications voyageurs', gradient: 'from-teal-500 to-cyan-600', emoji: '💬', stat: 'Live' },
+  { path: '/inspections', Icon: Shield, label: 'États des lieux', desc: 'Inspections et rapports entrée/sortie', gradient: 'from-orange-500 to-amber-600', emoji: '🔍', stat: 'PDF' },
+  { path: '/access-codes', Icon: Zap, label: 'Codes d\'accès', desc: 'Codes d\'entrée et accès voyageurs', gradient: 'from-pink-500 to-fuchsia-600', emoji: '🔑', stat: 'QR' },
+  { path: '/planning', Icon: Calendar, label: 'Planning', desc: 'Organisation et calendrier opérationnel', gradient: 'from-blue-500 to-indigo-600', emoji: '📋', stat: 'Live' },
 ];
 
 const FINANCE_ITEMS = [
@@ -252,7 +256,7 @@ function AuthenticatedDashboard({ isDark, userName, properties, confirmedBooking
   const propCounter = useAnimatedCounter(properties.length);
   const bookCounter = useAnimatedCounter(confirmedBookings);
   const revCounter = useAnimatedCounter(totalRevenue, 1800);
-  const ratingCounter = useAnimatedCounter(Number(avgRating) * 10);
+  const ratingCounter = useAnimatedCounter(Number(avgRating) * 10, 1500);
 
   return (
     <div className={`relative ${isDark ? 'gradient-mesh-dark' : 'gradient-mesh-light'}`}>
@@ -283,7 +287,7 @@ function AuthenticatedDashboard({ isDark, userName, properties, confirmedBooking
             { label: 'Propriétés', counter: propCounter, suffix: '', icon: Home, color: '#FF385C', bg: isDark ? 'rgba(255,56,92,0.12)' : '#fff0f3' },
             { label: 'Réservations', counter: bookCounter, suffix: '', icon: Calendar, color: '#14b8a6', bg: isDark ? 'rgba(20,184,166,0.12)' : '#f0fdfa' },
             { label: 'Revenus', counter: revCounter, suffix: '€', icon: Euro, color: '#10b981', bg: isDark ? 'rgba(16,185,129,0.12)' : '#ecfdf5' },
-            { label: 'Note moyenne', counter: ratingCounter, suffix: '/50', icon: Star, color: '#f59e0b', bg: isDark ? 'rgba(245,158,11,0.12)' : '#fffbeb' },
+            { label: 'Note moyenne', counter: ratingCounter, suffix: '/5', icon: Star, color: '#f59e0b', bg: isDark ? 'rgba(245,158,11,0.12)' : '#fffbeb' },
           ].map(({ label, counter, suffix, icon: Icon, color, bg }, i) => (
             <motion.div 
               ref={counter.ref} 
@@ -306,7 +310,7 @@ function AuthenticatedDashboard({ isDark, userName, properties, confirmedBooking
                 </div>
               </div>
               <p className={`text-[28px] font-black stat-underline animate-counterUp ${isDark ? 'text-white' : 'text-[#222222]'}`}>
-                {label === 'Revenus' ? counter.count.toLocaleString('fr-FR') : counter.count}{suffix}
+                {label === 'Revenus' ? counter.count.toLocaleString('fr-FR') : label === 'Note moyenne' ? (counter.count / 10).toFixed(1) : counter.count}{suffix}
               </p>
               <p className={`text-sm mt-2 font-medium ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>{label}</p>
             </motion.div>
@@ -331,32 +335,32 @@ function AuthenticatedDashboard({ isDark, userName, properties, confirmedBooking
             variants={gridContainer}
             initial="initial"
             animate="animate"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+            className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4"
           >
             {NAV_ITEMS.map(({ path, Icon, label, desc, gradient, emoji, stat }) => (
               <motion.button 
                 key={path} 
                 variants={gridItem}
-                whileHover={{ scale: 1.02, y: -4 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.04, y: -4 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => handleNavigation(path)} 
-                className="group text-left rounded-2xl p-6 transition-all duration-300 tilt-card card-shine glass-card"
+                className="group text-left rounded-2xl p-4 transition-all duration-300 tilt-card card-shine glass-card"
               >
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start justify-between mb-3">
                   <motion.div 
                     whileHover={{ scale: 1.1, rotate: 5 }}
-                    className={`w-14 h-14 bg-gradient-to-br ${gradient} rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all`}
+                    className={`w-12 h-12 bg-gradient-to-br ${gradient} rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all`}
                   >
-                    <Icon size={24} className="text-white" />
+                    <Icon size={22} className="text-white" />
                   </motion.div>
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${isDark ? 'bg-white/[0.06] text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold ${isDark ? 'bg-white/[0.06] text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
                     <span>{stat}</span>
                   </div>
                 </div>
-                <h4 className={`font-bold text-[15px] mb-1.5 ${isDark ? 'text-white' : 'text-[#222222]'}`}>{label}</h4>
-                <p className={`text-[13px] leading-relaxed mb-4 ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>{desc}</p>
-                <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#FF385C] transition-all group-hover:gap-3">
-                  Explorer <ArrowRight size={14} className="transition-transform group-hover:translate-x-2" />
+                <h4 className={`font-bold text-[13px] mb-1 leading-tight ${isDark ? 'text-white' : 'text-[#222222]'}`}>{label}</h4>
+                <p className={`text-[11px] leading-snug mb-3 ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>{desc}</p>
+                <div className="flex items-center gap-1 text-[12px] font-semibold text-[#FF385C] transition-all group-hover:gap-2">
+                  Explorer <ArrowRight size={12} className="transition-transform group-hover:translate-x-1" />
                 </div>
               </motion.button>
             ))}

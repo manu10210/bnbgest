@@ -674,7 +674,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
             <div className={`p-2 rounded-xl ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><Zap className="w-4 h-4 text-violet-500" /></div>
             <h3 className={`font-bold text-base ${text}`}>Accès rapide</h3>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-11 gap-3">
             {[
               { href: '/rentabilite',     label: 'Rentabilité',     icon: TrendingUp, color: 'bg-emerald-500/10 text-emerald-500', badge: 'NEW' },
               { href: '/rapports-fiscaux',label: 'Rapports fiscaux',icon: FileText,   color: 'bg-violet-500/10 text-violet-500',  badge: 'NEW' },
@@ -684,6 +684,9 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
               { href: '/notifications',   label: 'Notifications',   icon: Bell,       color: 'bg-amber-500/10 text-amber-500',    badge: '' },
               { href: '/inspections',     label: 'États des lieux', icon: ShieldCheck,color: 'bg-orange-500/10 text-orange-500',  badge: '' },
               { href: '/access-codes',    label: 'Codes d\'accès',  icon: Zap,        color: 'bg-pink-500/10 text-pink-500',      badge: '' },
+              { href: '/calendar',        label: 'Calendrier',      icon: Calendar,   color: 'bg-indigo-500/10 text-indigo-500',  badge: '' },
+              { href: '/photos',          label: 'Photos',          icon: MapPin,     color: 'bg-fuchsia-500/10 text-fuchsia-500',badge: '' },
+              { href: '/settings',        label: 'Paramètres',      icon: Activity,   color: 'bg-gray-500/10 text-gray-400',      badge: '' },
             ].map(({ href, label, icon: Icon, color, badge }) => (
               <a key={href} href={href}
                 className={`relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all hover:scale-105 text-center group ${isDark ? 'hover:bg-white/[0.04]' : 'hover:bg-gray-50'}`}>

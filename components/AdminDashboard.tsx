@@ -442,11 +442,11 @@ export default function AdminDashboard() {
               <div className={`glass-pro rounded-2xl p-6 border-gradient`}>
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Reservations</h2>
-                    <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>{filteredBookings.length} reservations</p>
+                    <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Réservations</h2>
+                    <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>{filteredBookings.length} réservation{filteredBookings.length > 1 ? 's' : ''}</p>
                   </div>
                   <Button onClick={handleNewBooking} className="flex items-center gap-2">
-                    <Plus className="w-4 h-4" /> Nouvelle Reservation
+                    <Plus className="w-4 h-4" /> Nouvelle Réservation
                   </Button>
                 </div>
                 {filteredBookings.length === 0 ? (
@@ -454,8 +454,8 @@ export default function AdminDashboard() {
                     <div className="w-16 h-16 rounded-2xl bg-[#FF385C]/10 flex items-center justify-center mx-auto mb-4">
                       <Calendar className="w-7 h-7 text-[#FF385C]" />
                     </div>
-                    <p className={`text-lg font-bold ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Aucune reservation</p>
-                    <p className={`text-sm mt-1 ${isDark ? 'text-gray-600' : 'text-[#b0b0b0]'}`}>Creez votre premiere reservation</p>
+                    <p className={`text-lg font-bold ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Aucune réservation</p>
+                    <p className={`text-sm mt-1 ${isDark ? 'text-gray-600' : 'text-[#b0b0b0]'}`}>Créez votre première réservation</p>
                   </div>
                 ) : (
                   <div className="space-y-3 stagger-children">
@@ -466,7 +466,7 @@ export default function AdminDashboard() {
                           <div className="flex-1">
                             <div className="flex items-center gap-3">
                               <span className={`font-bold ${isDark ? 'text-white' : 'text-[#222222]'}`}>{booking.guestInfo?.name ?? 'Client'}</span>
-                              <span className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{prop?.name ?? `Propriete #${booking.propertyId}`}</span>
+                              <span className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{prop?.name ?? `Propriété #${booking.propertyId}`}</span>
                             </div>
                             <div className={`flex items-center gap-4 mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
                               <span>{new Date(booking.checkIn).toLocaleDateString('fr-FR')} &rarr; {new Date(booking.checkOut).toLocaleDateString('fr-FR')}</span>
@@ -480,7 +480,7 @@ export default function AdminDashboard() {
                               booking.status === 'cancelled' ? 'bg-red-500/20 text-red-300' :
                               'bg-blue-500/20 text-blue-300'
                             }`}>
-                              {booking.status === 'confirmed' ? 'Confirme' : booking.status === 'pending' ? 'En attente' : booking.status === 'cancelled' ? 'Annule' : 'Termine'}
+                              {booking.status === 'confirmed' ? 'Confirmé' : booking.status === 'pending' ? 'En attente' : booking.status === 'cancelled' ? 'Annulé' : 'Terminé'}
                             </span>
                             <button onClick={() => setBookingToEdit(booking)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/[0.06] text-[#717171] hover:text-white' : 'hover:bg-gray-200 text-[#b0b0b0] hover:text-[#222222]'}`}>
                               <Edit className="w-4 h-4" />
@@ -499,11 +499,11 @@ export default function AdminDashboard() {
               <div className={`glass-pro rounded-2xl p-6 border-gradient animate-fadeInUp`}>
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Gestion des Proprietes</h2>
-                    <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>Gerez vos <span className="font-bold text-[#FF385C]">{properties.length}</span> proprietes</p>
+                    <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Gestion des Propriétés</h2>
+                    <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>Gérez vos <span className="font-bold text-[#FF385C]">{properties.length}</span> propriété{properties.length > 1 ? 's' : ''}</p>
                   </div>
                   <Button onClick={() => setShowPropertyConfigurator(true)} className="flex items-center gap-2 hover-lift">
-                    <Plus className="w-4 h-4" /> Ajouter une Propriete
+                    <Plus className="w-4 h-4" /> Ajouter une Propriété
                   </Button>
                 </div>
                 {properties.length === 0 ? (
@@ -511,8 +511,8 @@ export default function AdminDashboard() {
                     <div className="w-20 h-20 rounded-2xl aurora-bg flex items-center justify-center mx-auto mb-4 animate-float pulse-ring">
                       <Building2 className="w-9 h-9 text-white" />
                     </div>
-                    <p className={`text-lg font-black ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Aucune propriete</p>
-                    <p className={`text-sm mt-1 ${isDark ? 'text-gray-600' : 'text-[#b0b0b0]'}`}>Ajoutez votre premiere propriete</p>
+                    <p className={`text-lg font-black ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Aucune propriété</p>
+                    <p className={`text-sm mt-1 ${isDark ? 'text-gray-600' : 'text-[#b0b0b0]'}`}>Ajoutez votre première propriété</p>
                   </div>
                 ) : (
                   <div className="grid md:grid-cols-2 gap-4 stagger-children">
@@ -820,7 +820,7 @@ export default function AdminDashboard() {
               <div>
                 <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Propriete</label>
                 <select value={newBooking.propertyId} onChange={(e) => setNewBooking({...newBooking, propertyId: e.target.value})} className={`w-full border rounded-lg px-3 py-2 focus:ring-[#FF385C]/40 focus:border-[#FF385C]/50 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] [&>option]:bg-white'}`}>
-                  <option value="">Selectionner une propriete</option>
+                  <option value="">Sélectionner une propriété</option>
                   {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
@@ -859,13 +859,13 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Demandes speciales</label>
-                <textarea value={newBooking.specialRequests} onChange={(e) => setNewBooking({...newBooking, specialRequests: e.target.value})} className={`w-full border rounded-lg px-3 py-2 h-20 resize-none ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] placeholder:text-[#b0b0b0]'}`} placeholder="Notes particulieres..." />
+                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Demandes spéciales</label>
+                <textarea value={newBooking.specialRequests} onChange={(e) => setNewBooking({...newBooking, specialRequests: e.target.value})} className={`w-full border rounded-lg px-3 py-2 h-20 resize-none ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] placeholder:text-[#b0b0b0]'}`} placeholder="Notes particulières..." />
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <Button variant="ghost" onClick={() => setShowNewBookingModal(false)}>Annuler</Button>
-              <Button onClick={handleSubmitBooking}>Creer la reservation</Button>
+              <Button onClick={handleSubmitBooking}>Créer la réservation</Button>
             </div>
           </div>
         </Modal>
@@ -878,7 +878,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center"><Edit className="w-5 h-5 text-white" /></div>
-                <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Modifier la Reservation</h3>
+                <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Modifier la Réservation</h3>
               </div>
               <button onClick={() => setBookingToEdit(null)} className={`p-2 rounded-xl transition-all hover:scale-110 ${isDark ? 'text-[#717171] hover:text-white hover:bg-white/[0.06]' : 'text-[#b0b0b0] hover:text-[#222222] hover:bg-gray-100'}`}><X className="w-5 h-5" /></button>
             </div>
@@ -901,10 +901,10 @@ export default function AdminDashboard() {
                 <div>
                   <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Statut</label>
                   <select value={bookingToEdit.status} onChange={(e) => setBookingToEdit({...bookingToEdit, status: e.target.value as Booking['status']})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] [&>option]:bg-white'}`}>
-                    <option value="confirmed">Confirme</option>
+                    <option value="confirmed">Confirmé</option>
                     <option value="pending">En attente</option>
-                    <option value="cancelled">Annule</option>
-                    <option value="completed">Termine</option>
+                    <option value="cancelled">Annulé</option>
+                    <option value="completed">Terminé</option>
                   </select>
                 </div>
                 <div>
@@ -921,7 +921,7 @@ export default function AdminDashboard() {
                 <input type="number" min="0" value={bookingToEdit.totalPrice} onChange={(e) => setBookingToEdit({...bookingToEdit, totalPrice: Number(e.target.value)})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Demandes speciales</label>
+                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Demandes spéciales</label>
                 <textarea value={bookingToEdit.specialRequests ?? ''} onChange={(e) => setBookingToEdit({...bookingToEdit, specialRequests: e.target.value})} className={`w-full border rounded-lg px-3 py-2 h-20 resize-none ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
               </div>
             </div>
@@ -947,7 +947,7 @@ export default function AdminDashboard() {
             <div className="space-y-4">
               <div>
                 <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Nom complet</label>
-                <input type="text" value={newGuest.name} onChange={(e) => setNewGuest({...newGuest, name: e.target.value})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] placeholder:text-[#b0b0b0]'}`} placeholder="Nom et prenom" />
+                <input type="text" value={newGuest.name} onChange={(e) => setNewGuest({...newGuest, name: e.target.value})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] placeholder:text-[#b0b0b0]'}`} placeholder="Nom et prénom" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -962,7 +962,7 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Nationalite</label>
-                  <input type="text" value={newGuest.nationality} onChange={(e) => setNewGuest({...newGuest, nationality: e.target.value})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] placeholder:text-[#b0b0b0]'}`} placeholder="Nationalite" />
+                  <input type="text" value={newGuest.nationality} onChange={(e) => setNewGuest({...newGuest, nationality: e.target.value})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] placeholder:text-[#b0b0b0]'}`} placeholder="Nationalité" />
                 </div>
                 <div>
                   <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Langue</label>
@@ -977,7 +977,7 @@ export default function AdminDashboard() {
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <Button variant="ghost" onClick={() => setShowNewGuestModal(false)}>Annuler</Button>
-              <Button onClick={handleSubmitGuest}>Creer le client</Button>
+              <Button onClick={handleSubmitGuest}>Créer le voyageur</Button>
             </div>
           </div>
         </Modal>
@@ -1033,7 +1033,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center"><Wrench className="w-5 h-5 text-white" /></div>
-                <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Nouvelle Tache de Maintenance</h3>
+                <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Nouvelle Tâche de Maintenance</h3>
               </div>
               <button onClick={() => setShowNewMaintenanceModal(false)} className={`p-2 rounded-xl transition-all hover:scale-110 ${isDark ? 'text-[#717171] hover:text-white hover:bg-white/[0.06]' : 'text-[#b0b0b0] hover:text-[#222222] hover:bg-gray-100'}`}><X className="w-5 h-5" /></button>
             </div>
@@ -1041,7 +1041,7 @@ export default function AdminDashboard() {
               <div>
                 <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Propriete</label>
                 <select value={newMaintenanceTask.propertyId} onChange={(e) => setNewMaintenanceTask({...newMaintenanceTask, propertyId: e.target.value})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] [&>option]:bg-white'}`}>
-                  <option value="">Selectionner une propriete</option>
+                  <option value="">Sélectionner une propriété</option>
                   {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
@@ -1051,13 +1051,13 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Description</label>
-                <textarea value={newMaintenanceTask.description} onChange={(e) => setNewMaintenanceTask({...newMaintenanceTask, description: e.target.value})} className={`w-full border rounded-lg px-3 py-2 h-20 resize-none ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] placeholder:text-[#b0b0b0]'}`} placeholder="Description detaillee..." />
+                <textarea value={newMaintenanceTask.description} onChange={(e) => setNewMaintenanceTask({...newMaintenanceTask, description: e.target.value})} className={`w-full border rounded-lg px-3 py-2 h-20 resize-none ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] placeholder:text-[#b0b0b0]'}`} placeholder="Description détaillée..." />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Categorie</label>
                   <select value={newMaintenanceTask.category} onChange={(e) => setNewMaintenanceTask({...newMaintenanceTask, category: e.target.value as typeof newMaintenanceTask.category})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] [&>option]:bg-white'}`}>
-                    <option value="repair">Reparation</option>
+                    <option value="repair">Réparation</option>
                     <option value="cleaning">Nettoyage</option>
                     <option value="inspection">Inspection</option>
                     <option value="supplies">Fournitures</option>
@@ -1076,18 +1076,18 @@ export default function AdminDashboard() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Date prevue</label>
+                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Date prévue</label>
                   <input type="date" value={newMaintenanceTask.scheduledDate} onChange={(e) => setNewMaintenanceTask({...newMaintenanceTask, scheduledDate: e.target.value})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Cout estime (&euro;)</label>
+                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Coût estimé (&euro;)</label>
                   <input type="number" min="0" value={newMaintenanceTask.estimatedCost} onChange={(e) => setNewMaintenanceTask({...newMaintenanceTask, estimatedCost: Number(e.target.value)})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
                 </div>
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <Button variant="ghost" onClick={() => setShowNewMaintenanceModal(false)}>Annuler</Button>
-              <Button onClick={handleSubmitMaintenanceTask}>Creer la tache</Button>
+              <Button onClick={handleSubmitMaintenanceTask}>Créer la tâche</Button>
             </div>
           </div>
         </Modal>
@@ -1108,7 +1108,7 @@ export default function AdminDashboard() {
               <div>
                 <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Propriete</label>
                 <select value={newInventoryItem.propertyId} onChange={(e) => setNewInventoryItem({...newInventoryItem, propertyId: e.target.value})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] [&>option]:bg-white'}`}>
-                  <option value="">Selectionner une propriete</option>
+                  <option value="">Sélectionner une propriété</option>
                   {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
@@ -1135,7 +1135,7 @@ export default function AdminDashboard() {
                   <input type="number" min="0" value={newInventoryItem.quantity} onChange={(e) => setNewInventoryItem({...newInventoryItem, quantity: Number(e.target.value)})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Quantite minimale</label>
+                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Quantité minimale</label>
                   <input type="number" min="0" value={newInventoryItem.minimumQuantity} onChange={(e) => setNewInventoryItem({...newInventoryItem, minimumQuantity: Number(e.target.value)})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
                 </div>
               </div>
@@ -1155,24 +1155,24 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center"><DollarSign className="w-5 h-5 text-white" /></div>
-                <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Generer un Rapport Financier</h3>
+                <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Générer un Rapport Financier</h3>
               </div>
               <button onClick={() => setShowFinancialReportModal(false)} className={`p-2 rounded-xl transition-all hover:scale-110 ${isDark ? 'text-[#717171] hover:text-white hover:bg-white/[0.06]' : 'text-[#b0b0b0] hover:text-[#222222] hover:bg-gray-100'}`}><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Periode</label>
+                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Période</label>
                 <select value={financialPeriod} onChange={(e) => setFinancialPeriod(e.target.value)} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] [&>option]:bg-white'}`}>
                   <option value="month">Ce mois</option>
                   <option value="quarter">Ce trimestre</option>
-                  <option value="year">Cette annee</option>
+                  <option value="year">Cette année</option>
                 </select>
               </div>
               <div className={`glass-card rounded-2xl p-4 space-y-3 border-gradient`}>
                 <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>Revenus totaux : <span className="font-black text-emerald-400 text-lg">{totalRevenue.toLocaleString('fr-FR')}&euro;</span></p>
-                <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>Reservations : <span className={`font-black text-lg ${isDark ? 'text-white' : 'text-[#222222]'}`}>{bookings.length}</span></p>
+                <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>Réservations : <span className={`font-black text-lg ${isDark ? 'text-white' : 'text-[#222222]'}`}>{bookings.length}</span></p>
                 <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>Note moyenne : <span className="font-black text-amber-400 text-lg">{averageRating}/5</span></p>
-                <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>Taches en cours : <span className="font-black text-orange-400 text-lg">{pendingTasks}</span></p>
+                <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>Tâches en cours : <span className="font-black text-orange-400 text-lg">{pendingTasks}</span></p>
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
@@ -1207,8 +1207,8 @@ export default function AdminDashboard() {
                 <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{reviewToReply.comment}</p>
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Votre reponse</label>
-                <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} className={`w-full border rounded-lg px-3 py-2 h-24 resize-none ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] placeholder:text-[#b0b0b0]'}`} placeholder="Ecrivez votre reponse..." />
+                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Votre réponse</label>
+                <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} className={`w-full border rounded-lg px-3 py-2 h-24 resize-none ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] placeholder:text-[#b0b0b0]'}`} placeholder="Écrivez votre réponse..." />
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
@@ -1225,9 +1225,9 @@ export default function AdminDashboard() {
           <div className={`glass-pro border rounded-2xl p-6 w-full max-w-md border-gradient animate-scaleIn`}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center"><Trash2 className="w-5 h-5 text-white" /></div>
-              <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Supprimer la Propriete</h3>
+              <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Supprimer la Propriété</h3>
             </div>
-            <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Cette action est irreversible. Toutes les donnees associees seront perdues.</p>
+            <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Cette action est irréversible. Toutes les données associées seront perdues.</p>
             <div className="flex justify-end gap-3 mt-6">
               <Button variant="ghost" onClick={() => setPropertyToDelete(null)}>Annuler</Button>
               <Button variant="danger" onClick={() => { deleteProperty(propertyToDelete); setPropertyToDelete(null); }}>Supprimer</Button>
