@@ -38,14 +38,14 @@ function getVimeoEmbedUrl(url: string): string | null {
 const CATEGORY_LABELS: Record<string, string> = {
   chauffage: 'Chauffage',
   climatisation: 'Climatisation',
-  electromenager: 'Electromenager',
-  multimedia: 'Multimedia / TV',
-  securite: 'Securite / Acces',
+  electromenager: 'Électroménager',
+  multimedia: 'Multimédia / TV',
+  securite: 'Sécurité / Accès',
   salle_de_bain: 'Salle de bain',
   cuisine: 'Cuisine',
   buanderie: 'Buanderie',
-  exterieur: 'Exterieur',
-  autre: 'Equipement',
+  exterieur: 'Extérieur',
+  autre: 'Équipement',
 };
 
 export default function GuidePage() {
@@ -132,10 +132,10 @@ export default function GuidePage() {
           </div>
           <h1 className="text-xl font-bold text-[#222222] mb-2">Guide introuvable</h1>
           <p className="text-[#717171] text-sm mb-6">
-            Ce guide video n&apos;existe pas ou a ete supprime.
+            Ce guide vidéo n&apos;existe pas ou a été supprimé.
           </p>
           <a href="/" className="inline-flex items-center gap-2 text-[#FF385C] font-medium text-sm hover:underline">
-            <Home className="w-4 h-4" /> Retour a l&apos;accueil
+            <Home className="w-4 h-4" /> Retour à l&apos;accueil
           </a>
         </div>
       </div>
@@ -145,7 +145,7 @@ export default function GuidePage() {
   const youtubeEmbed = getYouTubeEmbedUrl(guide.videoUrl);
   const vimeoEmbed = getVimeoEmbedUrl(guide.videoUrl);
   const embedUrl = youtubeEmbed || vimeoEmbed;
-  const categoryLabel = CATEGORY_LABELS[guide.category] || 'Equipement';
+  const categoryLabel = CATEGORY_LABELS[guide.category] || 'Équipement';
   
   // Détecte si c'est une vidéo locale (commence par /uploads/)
   const isLocalVideo = guide.videoUrl.startsWith('/uploads/') || guide.videoUrl.includes('/uploads/');
@@ -166,7 +166,7 @@ export default function GuidePage() {
             </div>
             <span className="text-sm font-bold text-[#FF385C]">bnbgest</span>
           </div>
-          <span className="text-xs text-[#b0b0b0]">Guide equipement</span>
+          <span className="text-xs text-[#b0b0b0]">Guide équipement</span>
         </div>
       </header>
 
@@ -181,7 +181,7 @@ export default function GuidePage() {
         {/* Title */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-[#222222] mb-1">{guide.equipmentName}</h1>
-          <p className="text-sm text-[#717171]">Comment utiliser cet equipement</p>
+          <p className="text-sm text-[#717171]">Comment utiliser cet équipement</p>
         </div>
 
         {/* Video Player */}
@@ -225,7 +225,7 @@ export default function GuidePage() {
               <div className="w-20 h-20 rounded-full bg-[#FF385C] flex items-center justify-center mb-4 shadow-lg shadow-[#FF385C]/20 group-hover:scale-110 transition-transform">
                 <Play className="w-8 h-8 text-white ml-1" />
               </div>
-              <p className="text-[#222222] font-semibold mb-1">Voir la video</p>
+              <p className="text-[#222222] font-semibold mb-1">Voir la vidéo</p>
               <p className="text-[#717171] text-sm flex items-center gap-1">
                 <ExternalLink className="w-3.5 h-3.5" /> S&apos;ouvre dans un nouvel onglet
               </p>
@@ -248,7 +248,7 @@ export default function GuidePage() {
 
         {/* Direct link fallback */}
         <div className="bg-white rounded-2xl border border-[#ebebeb] p-4 shadow-sm">
-          <p className="text-xs text-[#b0b0b0] mb-2">Lien direct vers la video :</p>
+          <p className="text-xs text-[#b0b0b0] mb-2">Lien direct vers la vidéo :</p>
           <a
             href={guide.videoUrl}
             target="_blank"
@@ -262,7 +262,7 @@ export default function GuidePage() {
 
         {/* Footer */}
         <div className="text-center mt-8 mb-4">
-          <p className="text-xs text-[#b0b0b0]">Propulse par BNBGest</p>
+          <p className="text-xs text-[#b0b0b0]">Propulsé par BNBGest</p>
         </div>
       </main>
     </div>

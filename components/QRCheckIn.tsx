@@ -42,12 +42,12 @@ interface QRTemplate { id: string; name: string; color: string; icon: string; }
 interface SavedQR { id: string; guestName: string; propertyName: string; createdAt: string; checkIn: string; checkOut: string; data: CheckInData; }
 
 const LANGUAGES = [
-  { code: 'fr', label: 'Francais' },
+  { code: 'fr', label: 'Français' },
   { code: 'en', label: 'English' },
-  { code: 'es', label: 'Espanol' },
+  { code: 'es', label: 'Español' },
   { code: 'de', label: 'Deutsch' },
   { code: 'it', label: 'Italiano' },
-  { code: 'pt', label: 'Portugues' },
+  { code: 'pt', label: 'Português' },
   { code: 'nl', label: 'Nederlands' },
   { code: 'ru', label: 'Russe' },
 ];
@@ -57,21 +57,21 @@ const QR_TEMPLATES: QRTemplate[] = [
   { id: 'airbnb', name: 'Airbnb', color: '#FF385C', icon: '🌟' },
   { id: 'luxury', name: 'Luxe', color: '#B8860B', icon: '✨' },
   { id: 'nature', name: 'Nature', color: '#059669', icon: '🌿' },
-  { id: 'ocean', name: 'Ocean', color: '#0284c7', icon: '🌊' },
+  { id: 'ocean', name: 'Océan', color: '#0284c7', icon: '🌊' },
 ];
 
 const DEFAULT_CHECKLIST = [
-  'Trouver la cle / Digicode',
-  'Verifier l etat du logement',
+  'Trouver la clé / Digicode',
+  'Vérifier l\'état du logement',
   'Tester le WiFi',
-  'Reperer les sorties de secours',
-  'Lire les consignes de securite',
-  'Contacter l hote si besoin',
+  'Repérer les sorties de secours',
+  'Lire les consignes de sécurité',
+  'Contacter l\'hôte si besoin',
 ];
 
 const NEARBY_TYPES = [
   { value: 'restaurant', label: 'Restaurant' },
-  { value: 'supermarket', label: 'Supermarche' },
+  { value: 'supermarket', label: 'Supermarché' },
   { value: 'transport', label: 'Transport' },
   { value: 'pharmacy', label: 'Pharmacie' },
   { value: 'parking', label: 'Parking' },
