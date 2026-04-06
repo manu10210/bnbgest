@@ -28,6 +28,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 interface ExportConfig {
   dataType: 'all' | 'properties' | 'bookings' | 'guests' | 'maintenance' | 'inventory' | 'reviews';
@@ -305,14 +306,20 @@ export default function DataExportImportAdvanced({ onClose }: DataExportImportAd
       }
 
       // Show success notification
-      alert(`✅ Export réussi !\n\n${
-        exportConfig.dataType === 'all' 
-          ? `${dataCounts.total} éléments exportés` 
-          : `${dataCounts[exportConfig.dataType as keyof typeof dataCounts]} éléments exportés`
-      }`);
+      const count = exportConfig.dataType === 'all' 
+        ? dataCounts.total 
+        : dataCounts[exportConfig.dataType as keyof typeof dataCounts];
+      
+      toast.success('Export réussi', {
+        description: `${count} éléments exportés avec succès`,
+        duration: 3000
+      });
     } catch (error) {
       console.error('Export error:', error);
-      alert('❌ Erreur lors de l\'export');
+      toast.error('Erreur export', {
+        description: 'Impossible d\'exporter les données',
+        duration: 4000
+      });
     } finally {
       setIsExporting(false);
     }

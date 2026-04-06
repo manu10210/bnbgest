@@ -13,6 +13,7 @@ import {
   Briefcase, ShoppingCart, ClipboardCheck, RefreshCw, Upload,
   Image, Video, Mic, Hash, Percent, DollarSign, Euro, X, Plus
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // ==================== TYPES ====================
 
@@ -370,7 +371,10 @@ export default function CleaningChecklist() {
   // Actions CRUD
   const createSession = useCallback(() => {
     if (!selectedPropertyId) {
-      alert('Veuillez sélectionner une propriété');
+      toast.error('Propriété requise', {
+        description: 'Veuillez sélectionner une propriété',
+        duration: 4000
+      });
       return;
     }
 
@@ -545,7 +549,10 @@ export default function CleaningChecklist() {
 
   const exportToPDF = useCallback(() => {
     if (!activeSession) return;
-    alert('Export PDF (à implémenter avec jsPDF ou similaire)');
+    toast.info('Export PDF', {
+      description: 'Fonctionnalité à implémenter avec jsPDF',
+      duration: 3000
+    });
   }, [activeSession]);
 
   const duplicateSession = useCallback((sessionId: string) => {

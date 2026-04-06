@@ -14,6 +14,7 @@ import {
   Copy, Archive, CheckSquare, XSquare, Layers, SlidersHorizontal,
   BarChart3, PieChart, Activity, Package, RefreshCw
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // ==================== TYPES ====================
 
@@ -290,7 +291,10 @@ export default function CleaningGallery() {
   // Actions CRUD
   const createSession = useCallback(() => {
     if (!newSession.propertyId || !newSession.completedBy || newSession.rooms.length === 0) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      toast.error('Formulaire incomplet', {
+        description: 'Veuillez remplir tous les champs obligatoires',
+        duration: 4000
+      });
       return;
     }
 

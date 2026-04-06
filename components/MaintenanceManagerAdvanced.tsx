@@ -13,6 +13,7 @@ import {
   ChevronDown, ChevronRight, Paperclip, Star, BarChart,
   PieChart, LineChart, Phone, Mail, MapPin, ExternalLink
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // ==================== INTERFACES AVANCÉES ====================
 
@@ -307,7 +308,10 @@ export default function MaintenanceManagerAdvanced() {
   
   const handleCreateTask = () => {
     if (!newTask.title || !newTask.propertyId) {
-      alert('Veuillez remplir tous les champs requis');
+      toast.error('Formulaire incomplet', {
+        description: 'Veuillez remplir tous les champs requis',
+        duration: 4000
+      });
       return;
     }
 
@@ -375,7 +379,10 @@ export default function MaintenanceManagerAdvanced() {
   
   const handleCreateSupplier = () => {
     if (!newSupplier.name) {
-      alert('Veuillez entrer un nom de fournisseur');
+      toast.error('Nom requis', {
+        description: 'Veuillez entrer un nom de fournisseur',
+        duration: 4000
+      });
       return;
     }
 
@@ -423,7 +430,10 @@ export default function MaintenanceManagerAdvanced() {
   
   const handleCreateTemplate = () => {
     if (!newTemplate.name) {
-      alert('Veuillez entrer un nom de modèle');
+      toast.error('Nom requis', {
+        description: 'Veuillez entrer un nom de modèle',
+        duration: 4000
+      });
       return;
     }
 
@@ -675,9 +685,15 @@ export default function MaintenanceManagerAdvanced() {
       try {
         const data = JSON.parse(e.target?.result as string);
         // Ici vous pouvez implémenter la logique d'import
-        alert('Import réussi !');
+        toast.success('Import réussi', {
+          description: 'Données importées avec succès',
+          duration: 3000
+        });
       } catch (error) {
-        alert('Erreur lors de l\'import du fichier');
+        toast.error('Erreur import', {
+          description: 'Impossible de lire le fichier',
+          duration: 4000
+        });
       }
     };
     reader.readAsText(file);
@@ -1845,7 +1861,10 @@ export default function MaintenanceManagerAdvanced() {
                   size="sm"
                   onClick={() => {
                     // Créer une tâche à partir du template
-                    alert('Création d\'une tâche à partir du modèle');
+                    toast.info('Modèle sélectionné', {
+                      description: 'Création d\'une tâche à partir du modèle',
+                      duration: 3000
+                    });
                   }}
                 >
                   Utiliser
@@ -1970,7 +1989,10 @@ export default function MaintenanceManagerAdvanced() {
                     <button
                       onClick={() => {
                         // Toggle active status
-                        alert('Activer/Désactiver la règle');
+                        toast.info('Règle modifiée', {
+                          description: 'Statut de la règle mis à jour',
+                          duration: 2000
+                        });
                       }}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         rule.active
@@ -2169,7 +2191,10 @@ export default function MaintenanceManagerAdvanced() {
                       checked={rule.enabled}
                       onChange={() => {
                         // Toggle notification
-                        alert('Toggle notification');
+                        toast.info('Notification mise à jour', {
+                          description: 'Préférences de notification modifiées',
+                          duration: 2000
+                        });
                       }}
                       className="sr-only peer"
                     />
