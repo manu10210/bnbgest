@@ -93,7 +93,7 @@ const TRUST_ITEMS = [
   { icon: Shield, text: 'Données sécurisées', color: '#10b981' },
   { icon: Zap, text: 'Ultra rapide', color: '#f59e0b' },
   { icon: Heart, text: 'Design premium', color: '#FF385C' },
-  { icon: Award, text: '18 outils intégrés', color: '#8b5cf6' },
+  { icon: Award, text: '30+ outils intégrés', color: '#8b5cf6' },
   { icon: Rocket, text: 'Mis à jour en continu', color: '#3b82f6' },
 ];
 
@@ -381,10 +381,10 @@ function AuthenticatedDashboard({ isDark, userName, properties, confirmedBooking
             <div className="relative p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
               <div>
                 <div className={`inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-3 badge-shine ${isDark ? 'bg-[#FF385C]/20 text-[#FF385C]' : 'bg-[#FF385C]/10 text-[#FF385C]'}`}>
-                  <Sparkles size={12} className="animate-wiggle" /> 18 outils disponibles
+                  <Sparkles size={12} className="animate-wiggle" /> 30+ outils disponibles
                 </div>
                 <h3 className={`font-black text-xl mb-1 ${isDark ? 'text-white' : 'text-[#222222]'}`}>Tableau de bord complet</h3>
-                <p className={`text-sm max-w-md ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>Réservations, tarifs, maintenance, inventaire, finances, contrats, QR codes et bien plus</p>
+                <p className={`text-sm max-w-md ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>Réservations, tarifs, maintenance, inventaire, finances, contrats, QR codes, IA et bien plus</p>
               </div>
               <motion.button 
                 onClick={() => handleNavigation('/admin')} 

@@ -667,6 +667,71 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
           )}
         </motion.div>
 
+        {/* ── Alertes & Actions prioritaires ───────────────────────────────── */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.46 }}
+          className={`col-span-1 md:col-span-2 lg:col-span-4 p-6 ${card}`}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className={`p-2 rounded-xl ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><Bell className="w-4 h-4 text-rose-500" /></div>
+              <h3 className={`font-bold text-base ${text}`}>Alertes prioritaires</h3>
+            </div>
+            <button onClick={() => nav('maintenance')} className={`flex items-center gap-1 text-xs font-semibold transition-colors ${isDark ? 'text-rose-400 hover:text-rose-300' : 'text-rose-600 hover:text-rose-700'}`}>
+              Tout voir <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="space-y-2">
+            {urgentMaintenance > 0 && (
+              <motion.button initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}
+                onClick={() => nav('maintenance')}
+                className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all hover:scale-[1.01] ${isDark ? 'bg-rose-500/10 hover:bg-rose-500/15' : 'bg-rose-50 hover:bg-rose-100'}`}>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-rose-500/20' : 'bg-rose-100'}`}>
+                  <Wrench className="w-4 h-4 text-rose-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold ${isDark ? 'text-rose-300' : 'text-rose-700'}`}>{urgentMaintenance} tâche{urgentMaintenance > 1 ? 's' : ''} urgente{urgentMaintenance > 1 ? 's' : ''}</p>
+                  <p className={`text-xs ${isDark ? 'text-rose-400/60' : 'text-rose-500/70'}`}>Intervention requise immédiatement</p>
+                </div>
+                <span className="text-xs font-black px-2 py-0.5 rounded-lg bg-rose-500 text-white shrink-0">URGENT</span>
+              </motion.button>
+            )}
+            {pendingBookingsCount > 0 && (
+              <motion.button initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.55 }}
+                onClick={() => nav('bookings')}
+                className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all hover:scale-[1.01] ${isDark ? 'bg-amber-500/10 hover:bg-amber-500/15' : 'bg-amber-50 hover:bg-amber-100'}`}>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-amber-500/20' : 'bg-amber-100'}`}>
+                  <Calendar className="w-4 h-4 text-amber-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>{pendingBookingsCount} réservation{pendingBookingsCount > 1 ? 's' : ''} en attente</p>
+                  <p className={`text-xs ${isDark ? 'text-amber-400/60' : 'text-amber-500/70'}`}>Confirmation requise</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-amber-500 shrink-0" />
+              </motion.button>
+            )}
+            {pendingResponses > 0 && (
+              <motion.button initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.6 }}
+                onClick={() => nav('reviews')}
+                className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all hover:scale-[1.01] ${isDark ? 'bg-indigo-500/10 hover:bg-indigo-500/15' : 'bg-indigo-50 hover:bg-indigo-100'}`}>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDark ? 'bg-indigo-500/20' : 'bg-indigo-100'}`}>
+                  <Star className="w-4 h-4 text-indigo-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>{pendingResponses} avis sans réponse</p>
+                  <p className={`text-xs ${isDark ? 'text-indigo-400/60' : 'text-indigo-500/70'}`}>Répondez pour soigner votre e-réputation</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-indigo-500 shrink-0" />
+              </motion.button>
+            )}
+            {urgentMaintenance === 0 && pendingBookingsCount === 0 && pendingResponses === 0 && (
+              <div className={`flex flex-col items-center justify-center py-8 text-center ${sub}`}>
+                <CheckCircle2 className="w-10 h-10 mb-3 text-emerald-500 opacity-70" />
+                <p className={`text-sm font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Tout est en ordre !</p>
+                <p className="text-xs mt-1 opacity-60">Aucune alerte prioritaire</p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
         {/* ── Accès rapide pages dédiées ────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.48 }}
           className={`col-span-1 md:col-span-2 lg:col-span-4 p-6 ${card}`}>
