@@ -146,7 +146,13 @@ export default function InteractiveCalendar() {
     });
     const occupancyRate = Math.round((occupiedDays.size / daysInMonth) * 100);
     const now = new Date();
-    const nextCheckIn = bookings.filter(b => b.status !== 'cancelled' && (filterProperty === 'all' || b.propertyId === filterProperty)).map(b => parseISO(b.checkIn)).filter(d => d > now).sort((a, z) => a.getTime() - z.getTime())[0];
+    const nextCheckIn = bookings.reduce<Date | null>((earliest, b) => {
+      if (b.status === 'cancelled') return earliest;
+      if (filterProperty !== 'all' && b.propertyId !== filterProperty) return earliest;
+      const checkInDate = parseISO(b.checkIn);
+      if (checkInDate <= now) return earliest;
+      return !earliest || checkInDate < earliest ? checkInDate : earliest;
+    }, null);
 
     // Stats mois précédent
     const prevMonthStart = startOfMonth(subMonths(currentDate, 1));

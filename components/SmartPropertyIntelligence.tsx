@@ -101,7 +101,7 @@ export default function SmartPropertyIntelligence() {
     const sd:Record<number,number>={};
     done.forEach(b=>{const n=ddays(b.checkIn,b.checkOut);sd[n]=(sd[n]||0)+1;});
     const optS=Object.keys(sd).length>0?Number(Object.entries(sd).sort((a,b)=>b[1]-a[1])[0][0]):3;
-    const lts=conf.filter(b=>b.createdAt).map(b=>ddays(b.createdAt!.split('T')[0],b.checkIn)).filter(x=>x>=0&&x<365);
+    const lts=conf.reduce<number[]>((acc,b)=>{if(!b.createdAt)return acc;const d=ddays(b.createdAt.split('T')[0],b.checkIn);if(d>=0&&d<365)acc.push(d);return acc;},[]);
     const alt=lts.length>0?Math.round(lts.reduce((s,v)=>s+v,0)/lts.length):14;
     const cans=pb.filter(b=>b.status==='cancelled').length;
     const cr=pb.length>0?cans/pb.length:0;
