@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import IntegrationSettings from '@/components/IntegrationSettings';
+import AdminSidebar from '@/components/AdminSidebar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -10,7 +11,9 @@ export default function IntegrationsPage() {
   const router = useRouter();
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`flex h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <AdminSidebar />
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
       <div className="p-6 max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -101,6 +104,7 @@ export default function IntegrationsPage() {
             </li>
           </ul>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -54,10 +54,10 @@ const priorityLabel: Record<string, { label: string; color: string }> = {
 };
 
 const statusLabel: Record<string, { label: string; color: string }> = {
-  SCHEDULED:   { label: 'PlanifiÃ©',   color: 'bg-blue-500/20 text-blue-400' },
+  SCHEDULED:   { label: 'Planifié',    color: 'bg-blue-500/20 text-blue-400' },
   IN_PROGRESS: { label: 'En cours',   color: 'bg-amber-500/20 text-amber-400' },
-  COMPLETED:   { label: 'TerminÃ©',    color: 'bg-green-500/20 text-green-400' },
-  CANCELLED:   { label: 'AnnulÃ©',     color: 'bg-gray-500/20 text-gray-400' },
+  COMPLETED:   { label: 'Terminé',    color: 'bg-green-500/20 text-green-400' },
+  CANCELLED:   { label: 'Annulé',     color: 'bg-gray-500/20 text-gray-400' },
   PENDING:     { label: 'En attente', color: 'bg-blue-500/20 text-blue-400' },
 };
 

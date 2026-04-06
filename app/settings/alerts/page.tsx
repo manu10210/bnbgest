@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
+import AdminSidebar from '@/components/AdminSidebar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import {
@@ -153,7 +154,9 @@ export default function AlertsPage() {
   };
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`flex h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <AdminSidebar />
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
       <div className="p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -534,6 +537,7 @@ export default function AlertsPage() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
