@@ -31,7 +31,8 @@ import {
   TrendingDown,
   CalendarDays,
   ClipboardCheck,
-  KeyRound
+  KeyRound,
+  Inbox
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
@@ -111,6 +112,7 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
       items: [
         { id: 'reviews', label: 'Avis & Notes', icon: Star, badge: badges.pendingReviews },
         { id: 'reviewsmanager', label: 'Gestion Avis', icon: MessageSquare, badge: 0 },
+        { id: 'messages', label: 'Messagerie', icon: Inbox, badge: 0 },
         { id: 'welcome', label: 'Livret d\'accueil', icon: BookOpen, badge: 0 },
         { id: 'shareLinks', label: 'Liens de partage', icon: Share2, badge: 0 },
       ]
@@ -324,6 +326,51 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
                       <Icon className={`w-5 h-5 shrink-0 relative z-10 text-[#FF385C] group-hover:text-[#E31C5F]`} />
                       {!isCollapsed && (
                         <span className="text-sm font-medium relative z-10">{item.label}</span>
+                      )}
+                    </a>
+                  );
+                }
+
+                // Si c'est "messages", créer un lien vers /messages
+                if (item.id === 'messages') {
+                  return (
+                    <a
+                      key={item.id}
+                      href="/messages"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                        isDark
+                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-teal-400 group-hover:text-teal-300`} />
+                      {!isCollapsed && (
+                        <span className="text-sm font-medium relative z-10">{item.label}</span>
+                      )}
+                    </a>
+                  );
+                }
+
+                // Si c'est "notifications", créer un lien vers /notifications
+                if (item.id === 'notifications') {
+                  return (
+                    <a
+                      key={item.id}
+                      href="/notifications"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                        isDark
+                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-amber-400 group-hover:text-amber-300`} />
+                      {!isCollapsed && (
+                        <span className="text-sm font-medium relative z-10">{item.label}</span>
+                      )}
+                      {!isCollapsed && item.badge > 0 && (
+                        <span className="relative z-10 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500 ml-auto">
+                          {item.badge > 9 ? '9+' : item.badge}
+                        </span>
                       )}
                     </a>
                   );

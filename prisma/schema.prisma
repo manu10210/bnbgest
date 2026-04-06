@@ -193,6 +193,9 @@ model Property {
   inventory       InventoryItem[]
   contracts       Contract[]
   expenses        Expense[]
+  inspections     PropertyInspection[]
+  accessCodes     AccessCode[]
+  messageThreads  MessageThread[]
 
   @@map("properties")
 }
@@ -657,4 +660,130 @@ enum ExpenseCategory {
   RENOVATION       // Travaux
   SUBSCRIPTION     // Abonnements (Airbnb, logiciels...)
   OTHER            // Autres
+}
+
+// ==========================================
+// PROPERTY INSPECTIONS (État des lieux)
+// ==========================================
+
+model PropertyInspection {
+  id          Int              @id @default(autoincrement())
+  propertyId  Int
+  bookingId   Int?
+  type        InspectionType   // CHECKIN | CHECKOUT | PERIODIC
+  status      InspectionStatus @default(DRAFT)
+  date        DateTime
+  inspector   String?          // Nom de l'inspecteur
+  guestName   String?
+  guestEmail  String?
+  notes       String?
+  signature   String?          // Base64 ou URL image signature
+  signedAt    DateTime?
+  rooms       Json?            // Array of { name, items: [{ label, status, photos, notes }] }
+  globalScore Int?             // 1-5
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  property    Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([bookingId])
+  @@index([type])
+  @@map("property_inspections")
+}
+
+enum InspectionType {
+  CHECKIN
+  CHECKOUT
+  PERIODIC
+}
+
+enum InspectionStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  SIGNED
+}
+
+// ==========================================
+// ACCESS CODES (Gestion des accès)
+// ==========================================
+
+model AccessCode {
+  id           Int              @id @default(autoincrement())
+  propertyId   Int
+  bookingId    Int?
+  label        String           // "Porte principale", "Boîte à clés", "Digicode"
+  code         String
+  type         AccessCodeType   @default(DOOR_CODE)
+  validFrom    DateTime?
+  validUntil   DateTime?
+  isActive     Boolean          @default(true)
+  sentByEmail  Boolean          @default(false)
+  sentAt       DateTime?
+  notes        String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  property     Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([bookingId])
+  @@map("access_codes")
+}
+
+enum AccessCodeType {
+  DOOR_CODE      // Digicode porte
+  KEY_BOX        // Boîte à clés
+  SMART_LOCK     // Serrure connectée
+  WIFI           // Code WiFi
+  PARKING        // Accès parking
+  GATE           // Portail / grille
+  OTHER
+}
+
+// ==========================================
+// MESSAGERIE CENTRALISÉE
+// ==========================================
+
+model MessageThread {
+  id             Int       @id @default(autoincrement())
+  platform       String    // airbnb | booking | manual
+  externalId     String?   // ID thread côté plateforme
+  propertyId     Int?
+  bookingId      Int?
+  guestName      String
+  guestEmail     String?
+  subject        String?
+  lastMessage    String?
+  lastMessageAt  DateTime  @default(now())
+  isRead         Boolean   @default(false)
+  isArchived     Boolean   @default(false)
+  autoReplied    Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  property  Property?  @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  messages  Message[]
+
+  @@index([platform])
+  @@index([propertyId])
+  @@index([isRead])
+  @@index([lastMessageAt])
+  @@map("message_threads")
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  threadId   Int
+  content    String
+  senderType String   // guest | host
+  senderName String?
+  isAI       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@map("messages")
 }
