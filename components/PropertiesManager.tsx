@@ -55,7 +55,7 @@ export default function PropertiesManager() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showImporter, setShowImporter] = useState(false);
 
-  // Fetch des proprietes avec filtres
+  // Fetch des propriétés avec filtres
   const url = filter === 'ALL' 
     ? '/api/properties' 
     : `/api/properties?status=${filter}`;
@@ -83,7 +83,7 @@ export default function PropertiesManager() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <Home className="w-8 h-8" />
-                Gestion des Proprietes
+                Gestion des Propriétés
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
                 {data?.count || 0} propriété(s) trouvée(s)

@@ -418,7 +418,7 @@ export default function PricingEngine() {
               </h3>
 
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Propriete</label>
+                <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Propriété</label>
                 <select
                   value={simPropertyId}
                   onChange={(e) => setSimPropertyId(Number(e.target.value))}

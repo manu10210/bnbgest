@@ -514,7 +514,7 @@ export default function RevenueForecasting() {
         <div className={`text-center py-8 rounded-xl mt-4 ${isDark ? 'bg-white/[0.02]' : 'bg-amber-50'}`}>
           <Zap className="w-8 h-8 mx-auto mb-2 text-amber-400" />
           <p className={`text-sm font-medium ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
-            Ajoutez des reservations pour des previsions plus precises
+            Ajoutez des réservations pour des prévisions plus précises
           </p>
           <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-amber-500'}`}>
             Les prévisions utilisent la saisonnalité et les réservations confirmées
