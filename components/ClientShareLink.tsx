@@ -313,7 +313,7 @@ export default function ClientShareLink() {
               <div>
                 <label className={labelClass}>{t('tab.bookings')}</label>
                 <select value={newLink.bookingId} onChange={(e) => setNewLink({...newLink, bookingId: e.target.value})} className={inputClass}>
-                  <option value="">Selectionner une reservation</option>
+                  <option value="">Sélectionner une réservation</option>
                   {bookings.filter(b => b.status === 'confirmed' || b.status === 'pending').map(b => {
                     const prop = properties.find(p => p.id === b.propertyId);
                     return (
@@ -475,4 +475,5 @@ export default function ClientShareLink() {
     </div>
   );
 }
+
 

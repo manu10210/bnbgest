@@ -30,13 +30,13 @@ const PRIORITY_CFG = {
 const STATUS_CFG = {
   pending:     { label: 'En attente', bg: 'bg-slate-100', text: 'text-slate-600', icon: '⏳' },
   in_progress: { label: 'En cours',   bg: 'bg-blue-100',  text: 'text-blue-700',  icon: '🔄' },
-  completed:   { label: 'Terminee',   bg: 'bg-green-100', text: 'text-green-700', icon: '✅' },
+  completed:   { label: 'Terminée',   bg: 'bg-green-100', text: 'text-green-700', icon: '✅' },
   cancelled:   { label: 'Annulée',    bg: 'bg-red-100',   text: 'text-red-600',   icon: '✕'  },
 } as const;
 
 const CAT_CFG = {
   cleaning:   { label: 'Nettoyage',   icon: '🧹', color: 'bg-[#FF385C]/10 text-[#FF385C]' },
-  repair:     { label: 'Reparation',  icon: '🔧', color: 'bg-blue-100 text-blue-700' },
+  repair:     { label: 'Réparation',  icon: '🔧', color: 'bg-blue-100 text-blue-700' },
   inspection: { label: 'Inspection',  icon: '🔍', color: 'bg-[#FF385C]/10 text-[#FF385C]' },
   supplies:   { label: 'Fournitures', icon: '📦', color: 'bg-amber-100 text-amber-700' },
   other:      { label: 'Autre',       icon: '⚙️', color: 'bg-gray-100 text-gray-700' },
@@ -129,21 +129,21 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
   const openComplete  = (task: MaintenanceTask) => { setCompletingTask(task); setActualCostInput(String(task.estimatedCost)); setShowCompleteModal(true); };
   const handleComplete = () => { if (!completingTask) return; completeMaintenanceTask(completingTask.id, parseFloat(actualCostInput) || undefined); setShowCompleteModal(false); setCompletingTask(null); };
   const handleStart   = (task: MaintenanceTask) => updateMaintenanceTask(task.id, { status: 'in_progress' });
-  const handleCancel  = (task: MaintenanceTask) => { if (confirm('Annuler cette tache ?')) updateMaintenanceTask(task.id, { status: 'cancelled' }); };
+  const handleCancel  = (task: MaintenanceTask) => { if (confirm('Annuler cette tâche ?')) updateMaintenanceTask(task.id, { status: 'cancelled' }); };
 
   const kpiItems: { label: string; value: string | number; icon: string; color: string; filter?: () => void; active?: boolean }[] = [
     { label: 'En attente',   value: statPending,    icon: '⏳', color: 'from-slate-400 to-slate-500',    filter: () => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending'), active: statusFilter === 'pending' },
     { label: 'En cours',     value: statInProgress, icon: '🔄', color: 'from-blue-400 to-blue-500',      filter: () => setStatusFilter(statusFilter === 'in_progress' ? 'all' : 'in_progress'), active: statusFilter === 'in_progress' },
-    { label: 'Terminees',    value: statCompleted,  icon: '✅', color: 'from-green-400 to-green-500',    filter: () => setStatusFilter(statusFilter === 'completed' ? 'all' : 'completed'), active: statusFilter === 'completed' },
+    { label: 'Terminées',    value: statCompleted,  icon: '✅', color: 'from-green-400 to-green-500',    filter: () => setStatusFilter(statusFilter === 'completed' ? 'all' : 'completed'), active: statusFilter === 'completed' },
     { label: 'En retard',    value: statOverdue,    icon: '⚠️', color: 'from-red-400 to-red-500' },
-    { label: 'Cout estimé',  value: `${totalEstimated.toLocaleString('fr-FR')}€`, icon: '💶', color: 'from-[#FF385C] to-[#E31C5F]' },
-    { label: 'Cout reel',    value: `${totalActual.toLocaleString('fr-FR')}€`,    icon: '💰', color: 'from-emerald-400 to-emerald-500' },
+    { label: 'Coût estimé',  value: `${totalEstimated.toLocaleString('fr-FR')}€`, icon: '💶', color: 'from-[#FF385C] to-[#E31C5F]' },
+    { label: 'Coût réel',    value: `${totalActual.toLocaleString('fr-FR')}€`,    icon: '💰', color: 'from-emerald-400 to-emerald-500' },
   ];
 
   const kanbanGroups = [
     { key: 'pending'     as MaintenanceTask['status'], label: 'En attente', icon: '⏳', color: 'bg-slate-50 border-slate-200' },
     { key: 'in_progress' as MaintenanceTask['status'], label: 'En cours',   icon: '🔄', color: 'bg-blue-50 border-blue-200' },
-    { key: 'completed'   as MaintenanceTask['status'], label: 'Terminees',  icon: '✅', color: 'bg-green-50 border-green-200' },
+    { key: 'completed'   as MaintenanceTask['status'], label: 'Terminées',  icon: '✅', color: 'bg-green-50 border-green-200' },
   ];
 
   const TaskCard = ({ task }: { task: MaintenanceTask }) => {
@@ -291,13 +291,13 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
             )}
           </h2>
           <p className={`text-sm mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-            {scopeTasks.length} tache{scopeTasks.length !== 1 ? 's' : ''}
+            {scopeTasks.length} tâche{scopeTasks.length !== 1 ? 's' : ''}
             {statOverdue > 0 && <span className="text-red-500 font-medium"> · {statOverdue} en retard</span>}
             {statInProgress > 0 && <span className="text-blue-500 font-medium"> · {statInProgress} en cours</span>}
           </p>
         </div>
         <button onClick={() => setShowAddTask(true)} className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-5 py-2.5 rounded-xl font-medium shadow hover:from-blue-600 hover:to-blue-700 transition-all flex items-center gap-2">
-          <span className="text-lg leading-none">+</span> Nouvelle tache
+          <span className="text-lg leading-none">+</span> Nouvelle tâche
         </button>
       </div>
 
@@ -326,20 +326,20 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
               <option value="all">Tous statuts</option>
               <option value="pending">⏳ En attente</option>
               <option value="in_progress">🔄 En cours</option>
-              <option value="completed">✅ Terminee</option>
+              <option value="completed">✅ Terminée</option>
               <option value="cancelled">✕ Annulée</option>
             </select>
             <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className={`border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${isDark ? 'bg-white/10 border-white/10 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
-              <option value="all">Toutes priorites</option>
+              <option value="all">Toutes priorités</option>
               <option value="urgent">🔴 Urgente</option>
               <option value="high">🟠 Haute</option>
               <option value="medium">🟡 Moyenne</option>
               <option value="low">🟢 Basse</option>
             </select>
             <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className={`border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${isDark ? 'bg-white/10 border-white/10 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
-              <option value="all">Toutes categories</option>
+              <option value="all">Toutes catégories</option>
               <option value="cleaning">🧹 Nettoyage</option>
-              <option value="repair">🔧 Reparation</option>
+              <option value="repair">🔧 Réparation</option>
               <option value="inspection">🔍 Inspection</option>
               <option value="supplies">📦 Fournitures</option>
               <option value="other">⚙️ Autre</option>
@@ -368,7 +368,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
             )}
           </div>
           {filteredTasks.length !== scopeTasks.length && (
-            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{filteredTasks.length} sur {scopeTasks.length} taches</p>
+            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{filteredTasks.length} sur {scopeTasks.length} tâches</p>
           )}
         </div>
       )}
@@ -377,7 +377,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
           <span className="text-2xl">🚨</span>
           <div>
-            <p className="font-semibold text-red-700 text-sm">{urgentActive.length} tache(s) urgente(s)</p>
+            <p className="font-semibold text-red-700 text-sm">{urgentActive.length} tâche(s) urgente(s)</p>
             <p className="text-xs text-red-500 mt-0.5">{urgentActive.map(t => t.title).join(' · ')}</p>
           </div>
         </div>
@@ -387,9 +387,9 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
         filteredTasks.length === 0 ? (
           <div className={`rounded-2xl border shadow-sm p-16 text-center ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'}`}>
             <div className="text-5xl mb-4">🔧</div>
-            <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-700'}`}>Aucune tache</h3>
-            <p className={`text-sm mb-6 ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>{search || statusFilter !== 'all' || priorityFilter !== 'all' || categoryFilter !== 'all' ? 'Aucune tache ne correspond.' : 'Creez votre premiere tache.'}</p>
-            <button onClick={() => setShowAddTask(true)} className="bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-blue-600 transition-colors">+ Nouvelle tache</button>
+            <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-700'}`}>Aucune tâche</h3>
+            <p className={`text-sm mb-6 ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>{search || statusFilter !== 'all' || priorityFilter !== 'all' || categoryFilter !== 'all' ? 'Aucune tâche ne correspond.' : 'Creez votre premiere tâche.'}</p>
+            <button onClick={() => setShowAddTask(true)} className="bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-blue-600 transition-colors">+ Nouvelle tâche</button>
           </div>
         ) : (
           <div className="space-y-3">{filteredTasks.map(task => <TaskCard key={task.id} task={task} />)}</div>
@@ -401,7 +401,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
           <table className="w-full text-sm">
             <thead className={`border-b ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-100'}`}>
               <tr>
-                <th className={`text-left px-4 py-3 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Tache</th>
+                <th className={`text-left px-4 py-3 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>tâche</th>
                 <th className={`text-left px-4 py-3 font-semibold hidden sm:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Propriété</th>
                 <th className={`text-left px-4 py-3 font-semibold hidden md:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Catégorie</th>
                 <th className={`text-left px-4 py-3 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Priorite</th>
@@ -443,7 +443,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
-                        {task.status === 'pending'     && <button onClick={() => handleStart(task)}   className="p-1.5 bg-blue-100  text-blue-600  rounded-lg hover:bg-blue-200  transition-colors text-xs" title="Demarrer">▶</button>}
+                        {task.status === 'pending'     && <button onClick={() => handleStart(task)}   className="p-1.5 bg-blue-100  text-blue-600  rounded-lg hover:bg-blue-200  transition-colors text-xs" title="Démarrer">▶</button>}
                         {task.status === 'in_progress' && <button onClick={() => openComplete(task)} className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors text-xs" title="Terminer">✓</button>}
                         <button onClick={() => openEdit(task)} className={`p-1.5 rounded-lg transition-colors text-xs ${isDark ? 'bg-white/10 text-gray-300 hover:bg-white/20' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`} title="Modifier">✏️</button>
                       </div>
@@ -453,7 +453,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
               })}
             </tbody>
           </table>
-          {filteredTasks.length === 0 && <div className={`text-center py-12 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Aucune tache</div>}
+          {filteredTasks.length === 0 && <div className={`text-center py-12 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Aucune tâche</div>}
         </div>
       )}
 
@@ -469,7 +469,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
                 </div>
                 <div className="space-y-2">
                   {groupTasks.length === 0 ? (
-                    <div className={`text-center py-6 text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>Aucune tache</div>
+                    <div className={`text-center py-6 text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>Aucune tâche</div>
                   ) : groupTasks.map(task => {
                     const over = isOverdue(task);
                     const pc   = PRIORITY_CFG[task.priority];
@@ -954,5 +954,6 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
     </div>
   );
 }
+
 
 

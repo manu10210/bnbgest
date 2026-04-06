@@ -162,11 +162,11 @@ export default function QRCheckIn() {
     const lines = [
       data.propertyName,
       data.address + ', ' + data.city,
-      'Arrivee: ' + new Date(data.checkIn).toLocaleDateString('fr-FR') + ' a ' + data.checkInTime,
-      'Depart: ' + new Date(data.checkOut).toLocaleDateString('fr-FR') + ' a ' + data.checkOutTime,
+      'Arrivée: ' + new Date(data.checkIn).toLocaleDateString('fr-FR') + ' a ' + data.checkInTime,
+      'Départ: ' + new Date(data.checkOut).toLocaleDateString('fr-FR') + ' a ' + data.checkOutTime,
       data.wifiName ? 'WiFi: ' + data.wifiName : '',
       data.wifiPassword ? 'Mot de passe WiFi: ' + data.wifiPassword : '',
-      data.accessCode ? 'Code acces: ' + data.accessCode : '',
+      data.accessCode ? 'Code accès: ' + data.accessCode : '',
       data.parkingCode ? 'Code parking: ' + data.parkingCode : '',
       data.ownerPhone ? 'Contact: ' + data.ownerPhone : '',
       data.emergencyPhone ? 'Urgences: ' + data.emergencyPhone : '',
@@ -215,7 +215,7 @@ export default function QRCheckIn() {
     if (!win) return;
     const svgHTML = qrRef.current?.querySelector('svg')?.outerHTML || '';
     const c = currentTemplate.color;
-    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Check-in</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;background:#f8fafc;color:#1e293b}.page{max-width:680px;margin:30px auto;background:white;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)}.header{background:linear-gradient(135deg,' + c + ',' + c + 'cc);color:white;padding:32px;text-align:center}.header h1{font-size:26px;font-weight:800;margin-bottom:6px}.hero{display:flex;gap:32px;align-items:center;padding:32px;border-bottom:1px solid #f1f5f9}.qr-box{background:white;padding:16px;border:2px solid ' + c + '40;border-radius:16px}.section{padding:24px 32px;border-bottom:1px solid #f1f5f9}.section h3{font-size:14px;font-weight:700;color:' + c + ';text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.info-item{background:#f8fafc;padding:12px 16px;border-radius:12px;border-left:3px solid ' + c + '}.info-label{font-size:11px;color:#64748b;text-transform:uppercase;margin-bottom:4px}.info-value{font-size:15px;font-weight:600}.tag{display:inline-flex;background:' + c + '15;color:' + c + ';padding:6px 12px;border-radius:20px;font-size:13px;font-weight:600;margin:4px}.rules-list{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:8px}.rules-list li{background:#fef9ec;padding:8px 12px;border-radius:8px;font-size:13px;color:#92400e}.checklist{list-style:none}.checklist li{padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:14px}.checklist li::before{content:"- "}.footer{text-align:center;padding:20px;background:#f8fafc;font-size:12px;color:#94a3b8}@media print{body{background:white}.page{box-shadow:none}}</style></head><body><div class="page"><div class="header"><h1>' + data.propertyName + '</h1><p>Check-in pour ' + data.guestName + '</p></div><div class="hero"><div class="qr-box">' + svgHTML + '</div><div><h2 style="font-size:20px;font-weight:700;margin-bottom:12px">Bienvenue !</h2><span class="tag">Arrivee: ' + new Date(data.checkIn).toLocaleDateString('fr-FR') + '</span><span class="tag">Depart: ' + new Date(data.checkOut).toLocaleDateString('fr-FR') + '</span><span class="tag">' + data.guests + ' voyageur(s)</span><div style="margin-top:12px;font-size:13px;color:#64748b"><div>Check-in: ' + data.checkInTime + ' | Check-out: ' + data.checkOutTime + '</div><div>' + data.address + '</div></div></div></div><div class="section"><h3>Acces</h3><div class="info-grid">' + (data.accessCode ? '<div class="info-item"><div class="info-label">Code acces</div><div class="info-value">' + data.accessCode + '</div></div>' : '') + (data.parkingCode ? '<div class="info-item"><div class="info-label">Code parking</div><div class="info-value">' + data.parkingCode + '</div></div>' : '') + (data.wifiName ? '<div class="info-item"><div class="info-label">Reseau WiFi</div><div class="info-value">' + data.wifiName + '</div></div>' : '') + (data.wifiPassword ? '<div class="info-item"><div class="info-label">Mot de passe WiFi</div><div class="info-value">' + data.wifiPassword + '</div></div>' : '') + (data.ownerPhone ? '<div class="info-item"><div class="info-label">Hote</div><div class="info-value">' + data.ownerPhone + '</div></div>' : '') + (data.emergencyPhone ? '<div class="info-item"><div class="info-label">Urgences</div><div class="info-value">' + data.emergencyPhone + '</div></div>' : '') + '</div></div>' + (data.specialInstructions ? '<div class="section"><h3>Instructions</h3><p style="font-size:14px;color:#475569;line-height:1.6">' + data.specialInstructions + '</p></div>' : '') + (data.houseRules && data.houseRules.length > 0 ? '<div class="section"><h3>Regles</h3><ul class="rules-list">' + data.houseRules.map(r => '<li>' + r + '</li>').join('') + '</ul></div>' : '') + (data.nearbyPlaces && data.nearbyPlaces.length > 0 ? '<div class="section"><h3>A proximite</h3>' + data.nearbyPlaces.map(p => '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>' + p.name + '</span><span style="color:#94a3b8">' + p.distance + '</span></div>').join('') + '</div>' : '') + (data.checklistItems && data.checklistItems.length > 0 ? '<div class="section"><h3>Checklist</h3><ul class="checklist">' + data.checklistItems.map(item => '<li>' + item + '</li>').join('') + '</ul></div>' : '') + '<div class="footer">Genere par BNBGest - ' + new Date().toLocaleDateString('fr-FR') + ' - Bon sejour !</div></div><script>window.print();<\/script></body></html>');
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Check-in</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;background:#f8fafc;color:#1e293b}.page{max-width:680px;margin:30px auto;background:white;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)}.header{background:linear-gradient(135deg,' + c + ',' + c + 'cc);color:white;padding:32px;text-align:center}.header h1{font-size:26px;font-weight:800;margin-bottom:6px}.hero{display:flex;gap:32px;align-items:center;padding:32px;border-bottom:1px solid #f1f5f9}.qr-box{background:white;padding:16px;border:2px solid ' + c + '40;border-radius:16px}.section{padding:24px 32px;border-bottom:1px solid #f1f5f9}.section h3{font-size:14px;font-weight:700;color:' + c + ';text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.info-item{background:#f8fafc;padding:12px 16px;border-radius:12px;border-left:3px solid ' + c + '}.info-label{font-size:11px;color:#64748b;text-transform:uppercase;margin-bottom:4px}.info-value{font-size:15px;font-weight:600}.tag{display:inline-flex;background:' + c + '15;color:' + c + ';padding:6px 12px;border-radius:20px;font-size:13px;font-weight:600;margin:4px}.rules-list{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:8px}.rules-list li{background:#fef9ec;padding:8px 12px;border-radius:8px;font-size:13px;color:#92400e}.checklist{list-style:none}.checklist li{padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:14px}.checklist li::before{content:"- "}.footer{text-align:center;padding:20px;background:#f8fafc;font-size:12px;color:#94a3b8}@media print{body{background:white}.page{box-shadow:none}}</style></head><body><div class="page"><div class="header"><h1>' + data.propertyName + '</h1><p>Check-in pour ' + data.guestName + '</p></div><div class="hero"><div class="qr-box">' + svgHTML + '</div><div><h2 style="font-size:20px;font-weight:700;margin-bottom:12px">Bienvenue !</h2><span class="tag">Arrivée: ' + new Date(data.checkIn).toLocaleDateString('fr-FR') + '</span><span class="tag">Départ: ' + new Date(data.checkOut).toLocaleDateString('fr-FR') + '</span><span class="tag">' + data.guests + ' voyageur(s)</span><div style="margin-top:12px;font-size:13px;color:#64748b"><div>Check-in: ' + data.checkInTime + ' | Check-out: ' + data.checkOutTime + '</div><div>' + data.address + '</div></div></div></div><div class="section"><h3>Accès</h3><div class="info-grid">' + (data.accessCode ? '<div class="info-item"><div class="info-label">Code accès</div><div class="info-value">' + data.accessCode + '</div></div>' : '') + (data.parkingCode ? '<div class="info-item"><div class="info-label">Code parking</div><div class="info-value">' + data.parkingCode + '</div></div>' : '') + (data.wifiName ? '<div class="info-item"><div class="info-label">Réseau WiFi</div><div class="info-value">' + data.wifiName + '</div></div>' : '') + (data.wifiPassword ? '<div class="info-item"><div class="info-label">Mot de passe WiFi</div><div class="info-value">' + data.wifiPassword + '</div></div>' : '') + (data.ownerPhone ? '<div class="info-item"><div class="info-label">Hôte</div><div class="info-value">' + data.ownerPhone + '</div></div>' : '') + (data.emergencyPhone ? '<div class="info-item"><div class="info-label">Urgences</div><div class="info-value">' + data.emergencyPhone + '</div></div>' : '') + '</div></div>' + (data.specialInstructions ? '<div class="section"><h3>Instructions</h3><p style="font-size:14px;color:#475569;line-height:1.6">' + data.specialInstructions + '</p></div>' : '') + (data.houseRules && data.houseRules.length > 0 ? '<div class="section"><h3>Règles</h3><ul class="rules-list">' + data.houseRules.map(r => '<li>' + r + '</li>').join('') + '</ul></div>' : '') + (data.nearbyPlaces && data.nearbyPlaces.length > 0 ? '<div class="section"><h3>À proximité</h3>' + data.nearbyPlaces.map(p => '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>' + p.name + '</span><span style="color:#94a3b8">' + p.distance + '</span></div>').join('') + '</div>' : '') + (data.checklistItems && data.checklistItems.length > 0 ? '<div class="section"><h3>Checklist</h3><ul class="checklist">' + data.checklistItems.map(item => '<li>' + item + '</li>').join('') + '</ul></div>' : '') + '<div class="footer">Généré par BNBGest - ' + new Date().toLocaleDateString('fr-FR') + ' - Bon séjour !</div></div><script>window.print();<\/script></body></html>');
     win.document.close();
   };
 
@@ -226,12 +226,12 @@ export default function QRCheckIn() {
     const body = encodeURIComponent(
       'Bonjour ' + data.guestName + ',\n\nVoici vos informations de check-in :\n\n' +
       'Adresse : ' + data.address + ', ' + data.city + '\n' +
-      'Arrivee : ' + new Date(data.checkIn).toLocaleDateString('fr-FR') + ' a ' + data.checkInTime + '\n' +
-      'Depart : ' + new Date(data.checkOut).toLocaleDateString('fr-FR') + ' a ' + data.checkOutTime + '\n\n' +
-      (data.accessCode ? 'Code acces : ' + data.accessCode + '\n' : '') +
+      'Arrivée : ' + new Date(data.checkIn).toLocaleDateString('fr-FR') + ' a ' + data.checkInTime + '\n' +
+      'Départ : ' + new Date(data.checkOut).toLocaleDateString('fr-FR') + ' a ' + data.checkOutTime + '\n\n' +
+      (data.accessCode ? 'Code accès : ' + data.accessCode + '\n' : '') +
       (data.wifiPassword ? 'WiFi : ' + (data.wifiName || 'WiFi') + ' - ' + data.wifiPassword + '\n' : '') +
       (data.ownerPhone ? 'Contact : ' + data.ownerPhone + '\n' : '') +
-      '\nBon sejour !\nBNBGest'
+      '\nBon séjour !\nBNBGest'
     );
     window.open('mailto:' + selectedBooking.guestInfo.email + '?subject=' + subject + '&body=' + body);
   };
@@ -274,15 +274,15 @@ export default function QRCheckIn() {
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap justify-between items-start gap-4">
         <div>
           <h2 className={'text-2xl font-bold flex items-center gap-2 ' + txt}><QrCode className="h-6 w-6 text-[#FF385C]" /> QR Code Check-in</h2>
-          <p className={'text-sm mt-1 ' + sub}>Generez, personnalisez et partagez vos informations d&apos;arrivee</p>
+          <p className={'text-sm mt-1 ' + sub}>Générez, personnalisez et partagez vos informations d&apos;arrivee</p>
         </div>
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Proprietes', value: properties.length, icon: Home, color: 'text-blue-500', bg: isDark ? 'bg-blue-500/10' : 'bg-blue-50' },
-          { label: 'Reservations', value: propertyBookings.length, icon: Calendar, color: 'text-green-500', bg: isDark ? 'bg-green-500/10' : 'bg-green-50' },
-          { label: 'QR sauvegardes', value: savedQRs.length, icon: QrCode, color: 'text-[#FF385C]', bg: isDark ? 'bg-[#FF385C]/10' : 'bg-red-50' },
+          { label: 'Propriétés', value: properties.length, icon: Home, color: 'text-blue-500', bg: isDark ? 'bg-blue-500/10' : 'bg-blue-50' },
+          { label: 'Réservations', value: propertyBookings.length, icon: Calendar, color: 'text-green-500', bg: isDark ? 'bg-green-500/10' : 'bg-green-50' },
+          { label: 'QR sauvegardés', value: savedQRs.length, icon: QrCode, color: 'text-[#FF385C]', bg: isDark ? 'bg-[#FF385C]/10' : 'bg-red-50' },
           { label: 'Lieux proches', value: nearbyPlaces.length, icon: MapPin, color: 'text-purple-500', bg: isDark ? 'bg-purple-500/10' : 'bg-purple-50' },
         ].map((s, i) => (
           <div key={i} className={'border rounded-xl p-3 flex items-center gap-3 ' + card}>
@@ -381,7 +381,7 @@ export default function QRCheckIn() {
 
             {activeTab === 'access' && (
               <motion.div key="access" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={'border rounded-2xl p-5 space-y-4 ' + card}>
-                <h3 className={'font-semibold flex items-center gap-2 ' + txt}><Key className="h-4 w-4 text-amber-500" />Informations d&apos;acces</h3>
+                <h3 className={'font-semibold flex items-center gap-2 ' + txt}><Key className="h-4 w-4 text-amber-500" />Informations d&apos;Accès</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div><label className={'block text-sm font-medium mb-1.5 ' + lbl}><Wifi className="inline h-3.5 w-3.5 mr-1" />Nom WiFi</label><input type="text" value={wifiName} onChange={(e) => setWifiName(e.target.value)} placeholder="Nom_reseau" className={'w-full border rounded-xl px-3 py-2.5 ' + inp} /></div>
                   <div>
@@ -591,3 +591,4 @@ export default function QRCheckIn() {
     </div>
   );
 }
+

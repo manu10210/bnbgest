@@ -606,7 +606,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
               <div className="p-6">
                 <h3 className={`text-base font-semibold mb-4 flex items-center ${isDark ? 'text-white' : 'text-[#222222]'}`}>
                   <Home className="h-4 w-4 mr-2 text-[#FF385C]" />
-                  Performance par propriete
+                  Performance par propriété
                 </h3>
                 {getOccupancyData().length > 0 ? (
                   <>
@@ -649,11 +649,11 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
                 <div className="p-5">
                   <h4 className={`text-sm font-semibold mb-3 flex items-center ${isDark ? 'text-white' : 'text-[#222222]'}`}>
                     <Activity className="h-4 w-4 mr-2 text-[#FF385C]" />
-                    Metriques cles
+                    Métriques clés
                   </h4>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>Rev / reservation</span>
+                      <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>Rev / réservation</span>
                       <span className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-[#222222]'}`}>
                         {report.bookingsCount > 0 ? formatCurrency(report.revenue / report.bookingsCount) : formatCurrency(0)}
                       </span>
@@ -695,7 +695,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
                       <div className={`flex items-start gap-2 p-2.5 rounded-xl ${isDark ? 'bg-yellow-500/10' : 'bg-yellow-50'}`}>
                         <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 mt-0.5 flex-shrink-0" />
                         <span className={`text-xs leading-relaxed ${isDark ? 'text-yellow-300/80' : 'text-yellow-700'}`}>
-                          Occupation faible. Reduisez les prix ou lancez des promotions.
+                          Occupation faible. Réduisez les prix ou lancez des promotions.
                         </span>
                       </div>
                     )}
@@ -703,7 +703,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
                       <div className={`flex items-start gap-2 p-2.5 rounded-xl ${isDark ? 'bg-red-500/10' : 'bg-red-50'}`}>
                         <AlertTriangle className="h-3.5 w-3.5 text-red-500 mt-0.5 flex-shrink-0" />
                         <span className={`text-xs leading-relaxed ${isDark ? 'text-red-300/80' : 'text-red-700'}`}>
-                          Pertes enregistrees. Revisez les couts.
+                          Pertes enregistrées. Révisez les coûts.
                         </span>
                       </div>
                     )}
@@ -719,7 +719,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
                       <div className={`flex items-start gap-2 p-2.5 rounded-xl ${isDark ? 'bg-orange-500/10' : 'bg-orange-50'}`}>
                         <Activity className="h-3.5 w-3.5 text-orange-500 mt-0.5 flex-shrink-0" />
                         <span className={`text-xs leading-relaxed ${isDark ? 'text-orange-300/80' : 'text-orange-700'}`}>
-                          Maintenance elevee ({formatPercentage((report.breakdown.maintenance / report.revenue) * 100)} du CA).
+                          Maintenance élevée ({formatPercentage((report.breakdown.maintenance / report.revenue) * 100)} du CA).
                         </span>
                       </div>
                     )}
@@ -856,11 +856,12 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
           <div className="text-center">
             <Euro className={`h-16 w-16 mx-auto mb-4 ${isDark ? 'text-white/10' : 'text-gray-200'}`} />
             <p className={`text-lg font-medium ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>Aucun rapport disponible</p>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Selectionnez une periode et cliquez sur Actualiser</p>
+            <p className={`text-sm mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Sélectionnez une période et cliquez sur Actualiser</p>
           </div>
         </div>
       )}
     </div>
   );
 }
+
 

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useBNB } from '../contexts/BNBContext';
@@ -566,3 +566,4 @@ export default function GlobalSearch({ isOpen, onClose, onNavigate }: GlobalSear
     </AnimatePresence>
   );
 }
+
