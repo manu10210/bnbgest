@@ -58,9 +58,10 @@ export function StripePaymentForm({
         setIsSuccess(true);
         onSuccess?.();
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Une erreur est survenue');
-      onError?.(err.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue';
+      setErrorMessage(message);
+      onError?.(message);
     } finally {
       setIsProcessing(false);
     }

@@ -75,8 +75,9 @@ export default function AirbnbCsvImporter({ onClose }: { onClose: () => void }) 
       }
 
       setParsedData(data);
-    } catch (e: any) {
-      setError("Erreur lors de l'analyse du CSV : " + e.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      setError("Erreur lors de l'analyse du CSV : " + message);
     }
   };
 

@@ -58,11 +58,12 @@ export function StripeCheckoutButton({
       } else {
         throw new Error('URL de paiement non disponible');
       }
-    } catch (err: any) {
-      console.error('Erreur checkout:', err);
-      setError(err.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      console.error('Erreur checkout:', error);
+      setError(message);
       toast.error('Erreur de paiement', {
-        description: err.message,
+        description: message,
       });
     } finally {
       setIsLoading(false);

@@ -18,6 +18,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Home, Plus, Edit, Trash2, Eye, MapPin, Users, Download, Camera } from 'lucide-react';
 import AirbnbCsvImporter from './AirbnbCsvImporter';
 import { useSession } from 'next-auth/react';
+import { toast } from 'sonner';
 
 interface Property {
   id: number;
@@ -235,8 +236,9 @@ function PropertyCard({ property, onUpdate }: { property: Property; onUpdate: ()
     try {
       await deleteProperty({});
       onUpdate();
-    } catch (err: any) {
-      alert('Erreur: ' + err.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      toast.error('Erreur: ' + message);
     }
   };
 
@@ -386,8 +388,10 @@ function CreatePropertyModal({ onClose, onSuccess, userId }: { onClose: () => vo
     try {
       await mutate(formData);
       onSuccess();
-    } catch (err: any) {
-      console.error('Create failed:', err);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Create failed';
+      console.error(message, error);
+      toast.error('Erreur lors de la création: ' + message);
     }
   };
 
