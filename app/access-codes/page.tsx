@@ -259,7 +259,7 @@ export default function AccessCodesPage() {
               <KeyRound size={18} className="text-white" />
             </div>
             <div>
-              <h1 className={`font-bold text-base ${text}`}>Codes d'accès</h1>
+              <h1 className={`font-bold text-base ${text}`}>Codes d&apos;accès</h1>
               <p className={`text-xs ${muted}`}>{activeCount} actif{activeCount !== 1 ? 's' : ''} · {codes.length} total</p>
             </div>
           </div>
@@ -322,7 +322,7 @@ export default function AccessCodesPage() {
           <div className={`${card} border rounded-2xl p-12 text-center`}>
             <KeyRound size={40} className="mx-auto mb-3 text-gray-400" />
             <p className={`font-semibold ${text}`}>Aucun code trouvé</p>
-            <p className={`text-sm ${muted} mt-1 mb-4`}>Ajoutez vos codes d'accès pour les gérer ici.</p>
+            <p className={`text-sm ${muted} mt-1 mb-4`}>Ajoutez vos codes d&apos;accès pour les gérer ici.</p>
             <button onClick={openNew} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FF385C] text-white font-semibold text-sm hover:bg-[#E31C5F] transition">
               <Plus size={16} />Ajouter un code
             </button>
@@ -457,7 +457,7 @@ export default function AccessCodesPage() {
                     className={`w-full px-3 py-2.5 rounded-xl text-sm outline-none ${inp}`} />
                 </div>
                 <div>
-                  <label className={`block text-xs font-semibold ${muted} mb-1.5 uppercase tracking-wide`}>Valide jusqu'au</label>
+                  <label className={`block text-xs font-semibold ${muted} mb-1.5 uppercase tracking-wide`}>Valide jusqu&apos;au</label>
                   <input type="date" value={form.validUntil} onChange={e => setForm(f => ({ ...f, validUntil: e.target.value }))}
                     className={`w-full px-3 py-2.5 rounded-xl text-sm outline-none ${inp}`} />
                 </div>
