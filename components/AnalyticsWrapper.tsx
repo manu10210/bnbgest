@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 // Web Vitals tracking pour Vercel Analytics
 export default function AnalyticsWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -12,7 +14,7 @@ export default function AnalyticsWrapper({ children }: { children: React.ReactNo
     if (typeof window !== 'undefined' && pathname) {
       // Vercel Analytics tracking
       if ('__VERCEL_ANALYTICS__' in window) {
-        console.log('[Analytics] Page view:', pathname);
+        if (isDev) console.log('[Analytics] Page view:', pathname);
       }
 
       // Track navigation timing
@@ -25,12 +27,14 @@ export default function AnalyticsWrapper({ children }: { children: React.ReactNo
           const connectTime = perfData.responseEnd - perfData.requestStart;
           const renderTime = perfData.domComplete - perfData.domLoading;
           
-          console.log('[Performance]', {
-            pathname,
-            pageLoadTime: `${pageLoadTime}ms`,
-            connectTime: `${connectTime}ms`,
-            renderTime: `${renderTime}ms`,
-          });
+          if (isDev) {
+            console.log('[Performance]', {
+              pathname,
+              pageLoadTime: `${pageLoadTime}ms`,
+              connectTime: `${connectTime}ms`,
+              renderTime: `${renderTime}ms`,
+            });
+          }
         }
       }
     }
@@ -41,27 +45,27 @@ export default function AnalyticsWrapper({ children }: { children: React.ReactNo
     if (typeof window !== 'undefined') {
       import('web-vitals').then(({ onCLS, onFCP, onLCP, onTTFB, onINP }) => {
         onCLS((metric: any) => {
-          console.log('[Web Vital] CLS:', metric.value);
+          if (isDev) console.log('[Web Vital] CLS:', metric.value);
           sendToAnalytics('CLS', metric.value);
         });
         
         onFCP((metric: any) => {
-          console.log('[Web Vital] FCP:', metric.value);
+          if (isDev) console.log('[Web Vital] FCP:', metric.value);
           sendToAnalytics('FCP', metric.value);
         });
         
         onLCP((metric: any) => {
-          console.log('[Web Vital] LCP:', metric.value);
+          if (isDev) console.log('[Web Vital] LCP:', metric.value);
           sendToAnalytics('LCP', metric.value);
         });
         
         onTTFB((metric: any) => {
-          console.log('[Web Vital] TTFB:', metric.value);
+          if (isDev) console.log('[Web Vital] TTFB:', metric.value);
           sendToAnalytics('TTFB', metric.value);
         });
 
         onINP((metric: any) => {
-          console.log('[Web Vital] INP:', metric.value);
+          if (isDev) console.log('[Web Vital] INP:', metric.value);
           sendToAnalytics('INP', metric.value);
         });
       });

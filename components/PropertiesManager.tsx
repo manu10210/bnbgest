@@ -17,6 +17,7 @@ import { LoadingSpinner, LoadingTable, LoadingCard } from '@/components/LoadingS
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Home, Plus, Edit, Trash2, Eye, MapPin, Users, Download, Camera } from 'lucide-react';
 import AirbnbCsvImporter from './AirbnbCsvImporter';
+import { useSession } from 'next-auth/react';
 
 interface Property {
   id: number;
@@ -51,6 +52,7 @@ interface ApiResponse {
 }
 
 export default function PropertiesManager() {
+  const { data: session } = useSession();
   const [filter, setFilter] = useState<'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'ALL'>('ACTIVE');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showImporter, setShowImporter] = useState(false);
@@ -204,6 +206,7 @@ export default function PropertiesManager() {
                 setShowCreateForm(false);
                 refetch();
               }}
+              userId={session?.user?.id as number | undefined}
             />
           )}
 
@@ -349,7 +352,7 @@ function PropertyCard({ property, onUpdate }: { property: Property; onUpdate: ()
 }
 
 // Component: CreatePropertyModal
-function CreatePropertyModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function CreatePropertyModal({ onClose, onSuccess, userId }: { onClose: () => void; onSuccess: () => void; userId?: number }) {
   const { mutate, loading, error } = useMutation('/api/properties', 'POST');
   const [formData, setFormData] = useState<{
     name: string;
@@ -375,7 +378,7 @@ function CreatePropertyModal({ onClose, onSuccess }: { onClose: () => void; onSu
     bathrooms: 1,
     maxGuests: 2,
     pricePerNight: 100,
-    ownerId: 1, // TODO: Get from session
+    ownerId: userId || 1, // Use passed userId or fallback to 1
     status: 'ACTIVE'
   });  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
