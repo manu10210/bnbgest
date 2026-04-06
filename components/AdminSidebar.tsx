@@ -28,7 +28,10 @@ import {
   Receipt,
   Brain,
   Zap,
-  TrendingDown
+  TrendingDown,
+  CalendarDays,
+  ClipboardCheck,
+  KeyRound
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
@@ -98,6 +101,9 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
         { id: 'inventory', label: 'Inventaire', icon: ClipboardList, badge: 0 },
         { id: 'qrcheckin', label: 'QR Check-in', icon: QrCode, badge: 0 },
         { id: 'videoguides', label: 'Guides Vidéo', icon: Video, badge: 0 },
+        { id: 'planning', label: 'Planning', icon: CalendarDays, badge: 0 },
+        { id: 'inspections', label: 'États des lieux', icon: ClipboardCheck, badge: 0 },
+        { id: 'access-codes', label: 'Codes d\'accès', icon: KeyRound, badge: 0 },
       ]
     },
     {
@@ -256,6 +262,66 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
                       }`}
                     >
                       <Icon className={`w-5 h-5 shrink-0 relative z-10 text-red-400 group-hover:text-red-300`} />
+                      {!isCollapsed && (
+                        <span className="text-sm font-medium relative z-10">{item.label}</span>
+                      )}
+                    </a>
+                  );
+                }
+
+                // Si c'est "planning", créer un lien vers /planning
+                if (item.id === 'planning') {
+                  return (
+                    <a
+                      key={item.id}
+                      href="/planning"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                        isDark
+                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-indigo-400 group-hover:text-indigo-300`} />
+                      {!isCollapsed && (
+                        <span className="text-sm font-medium relative z-10">{item.label}</span>
+                      )}
+                    </a>
+                  );
+                }
+
+                // Si c'est "inspections", créer un lien vers /inspections
+                if (item.id === 'inspections') {
+                  return (
+                    <a
+                      key={item.id}
+                      href="/inspections"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                        isDark
+                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-amber-400 group-hover:text-amber-300`} />
+                      {!isCollapsed && (
+                        <span className="text-sm font-medium relative z-10">{item.label}</span>
+                      )}
+                    </a>
+                  );
+                }
+
+                // Si c'est "access-codes", créer un lien vers /access-codes
+                if (item.id === 'access-codes') {
+                  return (
+                    <a
+                      key={item.id}
+                      href="/access-codes"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                        isDark
+                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-[#FF385C] group-hover:text-[#E31C5F]`} />
                       {!isCollapsed && (
                         <span className="text-sm font-medium relative z-10">{item.label}</span>
                       )}
