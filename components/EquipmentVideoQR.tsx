@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Video, Plus, Trash2, Download, Eye, Copy, Check, Search, Globe,
   Tv, Coffee, WashingMachine, Play,
@@ -300,18 +301,24 @@ export default function EquipmentVideoQR() {
       const response = await fetch(`/api/delete-video?id=${videoId}`, {
         method: 'DELETE'
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       
       if (data.success) {
-        alert('Vidéo supprimée avec succès !');
+        toast.success('Vidéo supprimée avec succès ! 🗑️');
         loadUploadedVideos(); // Recharger la liste
         setSelectedVideo(null);
       } else {
-        alert('Erreur lors de la suppression de la vidéo');
+        toast.error(data.error || 'Erreur lors de la suppression de la vidéo');
       }
     } catch (error) {
       console.error('Error deleting video:', error);
-      alert('Erreur lors de la suppression de la vidéo');
+      const message = error instanceof Error ? error.message : 'Erreur lors de la suppression de la vidéo';
+      toast.error(message);
     }
   };
 

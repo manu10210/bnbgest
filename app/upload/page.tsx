@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 
 function MobileUploadContent() {
   const [images, setImages] = useState<string[]>([]);
@@ -48,13 +49,14 @@ function MobileUploadContent() {
       if (result.success) {
         setUploadedCount(prev => prev + result.uploaded);
         await loadExistingImages(); // Recharger les images
-        alert(`${result.uploaded} photo(s) uploadée(s) avec succès !`);
+        toast.success(`${result.uploaded} photo(s) uploadée(s) avec succès ! 📸`);
       } else {
-        alert('Erreur lors de l\'upload');
+        toast.error(result.error || 'Erreur lors de l\'upload');
       }
     } catch (error) {
       console.error('Erreur upload:', error);
-      alert('Erreur lors de l\'upload');
+      const message = error instanceof Error ? error.message : 'Erreur lors de l\'upload';
+      toast.error(message);
     } finally {
       setUploading(false);
     }
