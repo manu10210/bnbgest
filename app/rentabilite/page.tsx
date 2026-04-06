@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import {
   TrendingUp, TrendingDown, Building2, Euro, BarChart3,
   Calendar, RefreshCw, ChevronDown, ArrowUpRight, ArrowDownRight,
-  Percent, Bed, Star
+  Percent, Bed, Star, Download
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -226,6 +226,29 @@ export default function RentabilitePage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const exportCSV = () => {
+    if (!data) return;
+    const rows: string[][] = [
+      ['Propriété', 'Ville', 'Réservations', 'Nuits', 'Taux occ.', 'Revenu brut', 'Dépenses', 'Profit net', 'ROI', 'RevPAR', 'ADR'],
+    ];
+    for (const p of data.properties) {
+      rows.push([
+        p.property.name, p.property.city,
+        String(p.bookingsCount), String(p.bookedNights),
+        `${p.occupancyRate.toFixed(1)}%`,
+        p.grossRevenue.toFixed(2), p.totalExpenses.toFixed(2), p.netProfit.toFixed(2),
+        `${p.roi.toFixed(1)}%`, p.revPAR.toFixed(2), p.adr.toFixed(2),
+      ]);
+    }
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `rentabilite_${data.year}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    toast.success('Export CSV téléchargé');
+  };
+
   const fmt = (n: number, currency = 'EUR') =>
     new Intl.NumberFormat('fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
   const fmtPct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
@@ -276,6 +299,9 @@ export default function RentabilitePage() {
               isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
             }`}>
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button onClick={exportCSV} disabled={!data} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors">
+              <Download className="w-4 h-4" /> CSV
             </button>
             <ThemeToggle />
           </div>

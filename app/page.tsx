@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Users, Wrench, Calendar, Camera, LayoutDashboard, ArrowRight, LogOut, Home, Star, Search, Globe, Sparkles, TrendingUp, Euro, Package, Shield, Zap, BarChart3, Clock, Heart, MapPin, CheckCircle, Play, ChevronRight, Award, Rocket, Target, Coffee } from 'lucide-react';
+import { Users, Wrench, Calendar, Camera, LayoutDashboard, ArrowRight, LogOut, Home, Star, Search, Globe, Sparkles, TrendingUp, Euro, Package, Shield, Zap, BarChart3, Clock, Heart, MapPin, CheckCircle, Play, ChevronRight, Award, Rocket, Target, Coffee, FileText, Inbox, Bell, Percent } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
@@ -65,6 +65,13 @@ const NAV_ITEMS = [
   { path: '/employee', Icon: Wrench, label: 'Employés', desc: 'Tâches et suivi du personnel', gradient: 'from-amber-500 to-orange-600', emoji: '🔧', stat: 'Pro' },
   { path: '/calendar', Icon: Calendar, label: 'Calendrier', desc: 'Disponibilités et planification', gradient: 'from-teal-500 to-emerald-600', emoji: '📅', stat: '365j' },
   { path: '/photos', Icon: Camera, label: 'Photos', desc: 'Galeries et médias des biens', gradient: 'from-violet-500 to-purple-600', emoji: '📷', stat: 'HD' },
+];
+
+const FINANCE_ITEMS = [
+  { path: '/rentabilite',    Icon: TrendingUp, label: 'Rentabilité',      desc: 'RevPAR · ROI · Taux d\'occupation',    gradient: 'from-emerald-500 to-teal-600',  badge: 'NOUVEAU' },
+  { path: '/rapports-fiscaux', Icon: FileText, label: 'Rapports fiscaux', desc: 'Micro-BIC · LMNP · Export CSV',          gradient: 'from-violet-500 to-purple-600', badge: 'NOUVEAU' },
+  { path: '/expenses',       Icon: Euro,       label: 'Dépenses',         desc: 'Suivi des charges par catégorie',        gradient: 'from-amber-500 to-orange-600',  badge: '' },
+  { path: '/planning',       Icon: Calendar,   label: 'Planning',         desc: 'Calendrier opérationnel',                gradient: 'from-blue-500 to-indigo-600',   badge: '' },
 ];
 
 const FEATURES = [
@@ -413,6 +420,78 @@ function AuthenticatedDashboard({ isDark, userName, properties, confirmedBooking
             </div>
           </div>
         )}
+
+        {/* Finance & Outils rapides */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-10"
+        >
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <BarChart3 className="w-4.5 h-4.5 text-emerald-500" />
+            </div>
+            <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-[#222222]'}`}>Finance & Outils</h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {FINANCE_ITEMS.map(({ path, Icon, label, desc, gradient, badge }) => (
+              <motion.button
+                key={path}
+                whileHover={{ scale: 1.03, y: -3 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => handleNavigation(path)}
+                className="group text-left rounded-2xl p-4 transition-all duration-300 glass-card relative overflow-hidden"
+              >
+                {badge && (
+                  <span className="absolute top-2 right-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#FF385C] text-white">
+                    {badge}
+                  </span>
+                )}
+                <div className={`w-10 h-10 bg-gradient-to-br ${gradient} rounded-xl flex items-center justify-center shadow-md mb-3`}>
+                  <Icon size={18} className="text-white" />
+                </div>
+                <p className={`font-bold text-[13px] mb-0.5 ${isDark ? 'text-white' : 'text-[#222222]'}`}>{label}</p>
+                <p className={`text-[11px] leading-snug ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>{desc}</p>
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Messagerie + Notifications rapides */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4"
+        >
+          <button
+            onClick={() => handleNavigation('/messages')}
+            className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all hover:scale-[1.02] glass-card group`}
+          >
+            <div className="w-12 h-12 rounded-xl bg-teal-500/10 flex items-center justify-center group-hover:bg-teal-500/20 transition-colors">
+              <Inbox className="w-6 h-6 text-teal-500" />
+            </div>
+            <div>
+              <p className={`font-bold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Messagerie</p>
+              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Gérer les messages voyageurs</p>
+            </div>
+            <ArrowRight className={`w-4 h-4 ml-auto transition-transform group-hover:translate-x-1 ${isDark ? 'text-gray-600' : 'text-gray-300'}`} />
+          </button>
+          <button
+            onClick={() => handleNavigation('/notifications')}
+            className={`flex items-center gap-4 p-4 rounded-2xl text-left transition-all hover:scale-[1.02] glass-card group`}
+          >
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
+              <Bell className="w-6 h-6 text-amber-500" />
+            </div>
+            <div>
+              <p className={`font-bold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Notifications</p>
+              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Alertes push &amp; SMS</p>
+            </div>
+            <ArrowRight className={`w-4 h-4 ml-auto transition-transform group-hover:translate-x-1 ${isDark ? 'text-gray-600' : 'text-gray-300'}`} />
+          </button>
+        </motion.div>
       </div>
     </div>
   );

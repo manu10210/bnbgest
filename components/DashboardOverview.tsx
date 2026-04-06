@@ -8,7 +8,7 @@ import {
   CheckCircle2, AlertCircle, Wrench, Star, Activity,
   LogIn, LogOut, Plus, ClipboardList, QrCode, MessageSquare, Zap, Home,
   ChevronRight, Target, Award, Flame, ShieldCheck, BarChart2,
-  Euro, MapPin, Moon, Sparkles,
+  Euro, MapPin, Moon, Sparkles, FileText, Inbox, Bell,
 } from 'lucide-react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis, BarChart, Bar, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -615,6 +615,38 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
               })}
             </div>
           )}
+        </motion.div>
+
+        {/* ── Accès rapide pages dédiées ────────────────────────────────────── */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.48 }}
+          className={`col-span-1 md:col-span-2 lg:col-span-4 p-6 ${card}`}>
+          <div className="flex items-center gap-2 mb-4">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><Zap className="w-4 h-4 text-violet-500" /></div>
+            <h3 className={`font-bold text-base ${text}`}>Accès rapide</h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { href: '/rentabilite',     label: 'Rentabilité',     icon: TrendingUp, color: 'bg-emerald-500/10 text-emerald-500', badge: 'NEW' },
+              { href: '/rapports-fiscaux',label: 'Rapports fiscaux',icon: FileText,   color: 'bg-violet-500/10 text-violet-500',  badge: 'NEW' },
+              { href: '/messages',        label: 'Messagerie',      icon: Inbox,      color: 'bg-teal-500/10 text-teal-500',      badge: '' },
+              { href: '/notifications',   label: 'Notifications',   icon: Bell,       color: 'bg-amber-500/10 text-amber-500',    badge: '' },
+              { href: '/planning',        label: 'Planning',        icon: Calendar,   color: 'bg-blue-500/10 text-blue-500',      badge: '' },
+              { href: '/expenses',        label: 'Dépenses',        icon: Euro,       color: 'bg-rose-500/10 text-rose-500',      badge: '' },
+            ].map(({ href, label, icon: Icon, color, badge }) => (
+              <a key={href} href={href}
+                className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl transition-all hover:scale-105 text-center group ${isDark ? 'hover:bg-white/[0.04]' : 'hover:bg-gray-50'}`}>
+                {badge && (
+                  <span className="absolute top-1 right-1 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-rose-500 text-white leading-none">
+                    {badge}
+                  </span>
+                )}
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color} group-hover:scale-110 transition-transform`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className={`text-[11px] font-semibold leading-tight ${text}`}>{label}</span>
+              </a>
+            ))}
+          </div>
         </motion.div>
 
       </div>

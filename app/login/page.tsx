@@ -54,10 +54,15 @@ export default function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      // Simulation d'inscription (en production, appeler votre API)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setSuccess('✅ Inscription réussie ! Redirection...');
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Erreur lors de l\'inscription');
+
+      setSuccess('✅ Inscription réussie ! Vous pouvez maintenant vous connecter.');
       setTimeout(() => {
         setIsSignUp(false);
         setEmail('');
@@ -65,9 +70,9 @@ export default function LoginPage() {
         setConfirmPassword('');
         setName('');
         setSuccess('');
-      }, 2000);
-    } catch (_err) {
-      setError('Une erreur est survenue lors de l\'inscription');
+      }, 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue lors de l\'inscription');
     } finally {
       setIsSubmitting(false);
     }
