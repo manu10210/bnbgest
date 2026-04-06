@@ -44,9 +44,14 @@ export async function createPaymentIntent(
     });
 
     return paymentIntent;
-  } catch (error: any) {
-    console.error('❌ Erreur création Payment Intent:', error.message);
-    throw error;
+  } catch (error) {
+    if (error instanceof Stripe.errors.StripeError) {
+      console.error('❌ Erreur création Payment Intent:', error.message);
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : 'Stripe error';
+    console.error('❌ Erreur création Payment Intent:', message);
+    throw new Error(message);
   }
 }
 
@@ -64,9 +69,14 @@ export async function retrievePaymentIntent(
   try {
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
     return paymentIntent;
-  } catch (error: any) {
-    console.error('❌ Erreur récupération Payment Intent:', error.message);
-    throw error;
+  } catch (error) {
+    if (error instanceof Stripe.errors.StripeError) {
+      console.error('❌ Erreur récupération Payment Intent:', error.message);
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : 'Stripe error';
+    console.error('❌ Erreur récupération Payment Intent:', message);
+    throw new Error(message);
   }
 }
 
@@ -84,9 +94,14 @@ export async function cancelPaymentIntent(
   try {
     const paymentIntent = await stripe.paymentIntents.cancel(paymentIntentId);
     return paymentIntent;
-  } catch (error: any) {
-    console.error('❌ Erreur annulation Payment Intent:', error.message);
-    throw error;
+  } catch (error) {
+    if (error instanceof Stripe.errors.StripeError) {
+      console.error('❌ Erreur annulation Payment Intent:', error.message);
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : 'Stripe error';
+    console.error('❌ Erreur annulation Payment Intent:', message);
+    throw new Error(message);
   }
 }
 
@@ -133,9 +148,14 @@ export async function createCheckoutSession(params: {
     });
 
     return session;
-  } catch (error: any) {
-    console.error('❌ Erreur création Checkout Session:', error.message);
-    throw error;
+  } catch (error) {
+    if (error instanceof Stripe.errors.StripeError) {
+      console.error('❌ Erreur création Checkout Session:', error.message);
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : 'Stripe error';
+    console.error('❌ Erreur création Checkout Session:', message);
+    throw new Error(message);
   }
 }
 
@@ -167,9 +187,14 @@ export async function createRefund(
 
     const refund = await stripe.refunds.create(refundParams);
     return refund;
-  } catch (error: any) {
-    console.error('❌ Erreur création remboursement:', error.message);
-    throw error;
+  } catch (error) {
+    if (error instanceof Stripe.errors.StripeError) {
+      console.error('❌ Erreur création remboursement:', error.message);
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : 'Stripe error';
+    console.error('❌ Erreur création remboursement:', message);
+    throw new Error(message);
   }
 }
 
@@ -192,8 +217,13 @@ export async function listCustomerPayments(
 
     // Filtrer par email dans les métadonnées si nécessaire
     return paymentIntents.data;
-  } catch (error: any) {
-    console.error('❌ Erreur liste paiements:', error.message);
+  } catch (error) {
+    if (error instanceof Stripe.errors.StripeError) {
+      console.error('❌ Erreur liste paiements:', error.message);
+      return [];
+    }
+    const message = error instanceof Error ? error.message : 'Stripe error';
+    console.error('❌ Erreur liste paiements:', message);
     return [];
   }
 }
@@ -217,8 +247,13 @@ export function verifyWebhookSignature(
       process.env.STRIPE_WEBHOOK_SECRET
     );
     return event;
-  } catch (error: any) {
-    console.error('❌ Erreur vérification webhook:', error.message);
+  } catch (error) {
+    if (error instanceof Stripe.errors.StripeError) {
+      console.error('❌ Erreur vérification webhook:', error.message);
+      return null;
+    }
+    const message = error instanceof Error ? error.message : 'Stripe error';
+    console.error('❌ Erreur vérification webhook:', message);
     return null;
   }
 }
