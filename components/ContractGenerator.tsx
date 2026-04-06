@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useBNB, Booking, Property } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   FileText, Download, Eye, Calendar, Users, Euro, Home, 
   CheckCircle, AlertTriangle, Edit, Send, Copy, Archive, Clock,
@@ -284,7 +285,7 @@ export default function ContractGenerator() {
 
   const saveAsTemplate = useCallback(() => {
     if (!newTemplateName.trim()) {
-      alert('Veuillez entrer un nom pour le modèle');
+      toast.error('Veuillez entrer un nom pour le modèle');
       return;
     }
 
@@ -332,12 +333,12 @@ export default function ContractGenerator() {
 
   const generatePDF = useCallback(async () => {
     if (!selectedBooking || !selectedProperty || !calculateTotals) {
-      alert('Veuillez sélectionner une propriété et une réservation');
+      toast.error('Veuillez sélectionner une propriété et une réservation');
       return;
     }
 
     if (!config.ownerName || !config.ownerAddress || !config.ownerPhone || !config.ownerEmail) {
-      alert('Veuillez remplir toutes les informations du propriétaire');
+      toast.error('Veuillez remplir toutes les informations du propriétaire');
       return;
     }
 
@@ -349,10 +350,12 @@ export default function ContractGenerator() {
       
       addToHistory(selectedBooking.id, selectedProperty.id, selectedBooking.guestInfo.name);
       
-      alert(`Contrat généré avec succès!\n\nLocataire: ${selectedBooking.guestInfo.name}\nPropriété: ${selectedProperty.name}\nTotal: ${calculateTotals.total.toFixed(2)} €`);
+      toast.success('Contrat généré avec succès', {
+        description: `Locataire: ${selectedBooking.guestInfo.name}\nPropriété: ${selectedProperty.name}\nTotal: ${calculateTotals.total.toFixed(2)} €`
+      });
     } catch (error) {
       console.error('Erreur génération PDF:', error);
-      alert('Erreur lors de la génération du PDF');
+      toast.error('Erreur lors de la génération du PDF');
     } finally {
       setGenerating(false);
     }

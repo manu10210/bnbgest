@@ -5,6 +5,7 @@ import { useBNB, Booking } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
+import { toast } from 'sonner';
 import {
   Calendar, Users, Clock, DollarSign, Mail, Phone, MapPin, FileText,
   CheckCircle, XCircle, AlertCircle, TrendingUp, Download, Send,
@@ -320,7 +321,7 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
 
   const handleBulkAction = useCallback((action: string) => {
     if (selectedBookings.size === 0) {
-      alert('Veuillez sélectionner au moins une réservation');
+      toast.error('Veuillez sélectionner au moins une réservation');
       return;
     }
     
@@ -337,7 +338,7 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
       a.download = `reservations-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
     } else if (action === 'email') {
-      alert(`Envoi d'emails à ${selectedBookings.size} clients...`);
+      toast.info(`Envoi d'emails à ${selectedBookings.size} clients...`);
     } else if (action === 'confirm') {
       if (confirm(`Confirmer ${selectedBookings.size} réservations ?`)) {
         selectedBookings.forEach(id => updateBooking(id, { status: 'confirmed' }));
@@ -1345,7 +1346,7 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
                       accessCode: selectedBooking.accessCode,
                       wifi: selectedBooking.wifiPassword,
                     }));
-                    alert('Informations copiées !');
+                    toast.success('Informations copiées !');
                   }}
                   className="px-4 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 font-semibold"
                 >

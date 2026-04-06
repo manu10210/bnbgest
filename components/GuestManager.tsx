@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useBNB, Guest } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Users, Mail, Phone, MapPin, Globe, Calendar, DollarSign,
   Star, TrendingUp, Award, Shield, AlertCircle, CheckCircle,
@@ -281,7 +282,7 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
   // Actions
   const handleBulkAction = useCallback((action: string) => {
     if (selectedGuests.size === 0) {
-      alert('Veuillez sélectionner au moins un voyageur');
+      toast.error('Veuillez sélectionner au moins un voyageur');
       return;
     }
 
@@ -300,7 +301,7 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
         break;
       
       case 'email':
-        alert(`Envoi d'emails à ${selectedGuests.size} voyageurs...`);
+        toast.info(`Envoi d'emails à ${selectedGuests.size} voyageurs...`);
         break;
       
       case 'activate':

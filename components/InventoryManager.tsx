@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Package,
   Search,
@@ -278,7 +279,7 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
     });
 
     setShowRestockModal(false);
-    alert(`${itemsToRestock.length} articles réapprovisionnés avec succès !`);
+    toast.success(`${itemsToRestock.length} articles réapprovisionnés`);
   };
 
   // Nouvelle fonction: Voir les détails d'un article
