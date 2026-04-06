@@ -11,6 +11,7 @@ import {
   Calendar, Home, ChevronDown, Mail, Power, PowerOff,
   AlertCircle
 } from 'lucide-react';
+import AdminSidebar from '../../components/AdminSidebar';
 import { toast } from 'sonner';
 
 const CODE_TYPES = [
@@ -244,7 +245,9 @@ export default function AccessCodesPage() {
   const wifiCount     = codes.filter(c => c.type === 'WIFI').length;
 
   return (
-    <div className={`min-h-screen ${bg}`}>
+    <div className={`flex h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <AdminSidebar />
+      <div className={`flex-1 flex flex-col min-w-0 overflow-hidden ${bg}`}>
       {/* Header */}
       <header className={`sticky top-0 z-40 backdrop-blur-md ${isDark ? 'bg-gray-950/90 border-b border-white/10' : 'bg-white/90 border-b border-gray-200'}`}>
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
@@ -515,6 +518,7 @@ export default function AccessCodesPage() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

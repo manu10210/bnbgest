@@ -8,7 +8,8 @@ import {
   CheckCircle2, AlertCircle, Wrench, Star, Activity,
   LogIn, LogOut, Plus, ClipboardList, QrCode, MessageSquare, Zap, Home,
   ChevronRight, Target, Award, Flame, ShieldCheck, BarChart2,
-  Euro, MapPin, Moon, Sparkles, FileText, Inbox, Bell,
+  Euro, MapPin, Moon, Sparkles, FileText, Inbox, Bell, Package,
+  CreditCard, PieChart,
 } from 'lucide-react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis, BarChart, Bar, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -58,6 +59,17 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
   const avgRatingNum         = reviews.length > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
   const avgRating            = avgRatingNum > 0 ? avgRatingNum.toFixed(1) : '—';
   const pendingResponses     = reviews.filter(r => !r.response).length;
+
+  // ── Net Profit (rough estimate: revenue - 20% platform fees) ─────────────
+  const estimatedExpenses  = Math.round(revenueThisMonth * 0.22);
+  const netProfitThisMonth = revenueThisMonth - estimatedExpenses;
+
+  // ── Avg night price ───────────────────────────────────────────────────────
+  const bookedNights = bookingsThisMonth.reduce((s, b) => {
+    const ci = new Date(b.checkIn); const co = new Date(b.checkOut);
+    return s + Math.max(1, Math.ceil((co.getTime() - ci.getTime()) / 86400000));
+  }, 0);
+  const avgNightPrice = bookedNights > 0 ? Math.round(revenueThisMonth / bookedNights) : 0;
 
   // ── Health score ─────────────────────────────────────────────────────────
   const healthScore = useMemo(() => {
@@ -125,6 +137,8 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
     { label: 'Voir inventaire',      icon: ClipboardList, tab: 'inventory',   color: 'from-emerald-500 to-teal-500'   },
     { label: 'QR Check-in',          icon: QrCode,        tab: 'qrcheckin',   color: 'from-violet-500 to-fuchsia-500' },
     { label: 'Répondre aux avis',    icon: MessageSquare, tab: 'reviews',     color: 'from-amber-500 to-yellow-500'   },
+    { label: 'Rapports financiers',  icon: BarChart2,     tab: 'financial',   color: 'from-teal-500 to-cyan-500'      },
+    { label: 'Nouveau contrat',      icon: FileText,      tab: 'contract',    color: 'from-gray-500 to-slate-500'     },
   ];
 
   return (
@@ -209,7 +223,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
         <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
           Actions rapides
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           {quickActions.map((action, i) => {
             const Icon = action.icon;
             return (
@@ -475,6 +489,42 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
           <div className={`mt-3 text-xs ${sub}`}>{totalGuestNights} nuit{totalGuestNights > 1 ? 's' : ''} cumulées &bull; {properties.length} propriété{properties.length > 1 ? 's' : ''}</div>
         </motion.div>
 
+        {/* Net Profit this month */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.40 }}
+          className={`p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
+          onClick={() => nav('financial')}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-[40px] -mr-10 -mt-10" />
+          <div className="flex items-center gap-3 mb-4 relative">
+            <div className={`p-3 rounded-2xl ${isDark ? 'bg-teal-500/10 text-teal-400' : 'bg-teal-50 text-teal-600'}`}><CreditCard className="w-5 h-5" /></div>
+            <span className={`font-bold text-sm ${sub}`}>Bénéfice net</span>
+          </div>
+          <div className={`text-4xl font-black mb-1 ${netProfitThisMonth >= 0 ? 'text-teal-400' : 'text-rose-400'}`}>
+            {netProfitThisMonth >= 0 ? '+' : ''}{netProfitThisMonth.toLocaleString('fr-FR')} €
+          </div>
+          <div className={`text-xs ${sub} mb-2`}>ce mois (rev. - charges est.)</div>
+          {avgNightPrice > 0 && (
+            <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-xl inline-flex ${isDark ? 'bg-teal-500/10 text-teal-400' : 'bg-teal-50 text-teal-600'}`}>
+              <Wallet className="w-3 h-3" />{avgNightPrice} €/nuit moy.
+            </div>
+          )}
+        </motion.div>
+
+        {/* Inventory alert */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.42 }}
+          className={`p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
+          onClick={() => nav('inventory')}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-[40px] -mr-10 -mt-10" />
+          <div className="flex items-center gap-3 mb-4 relative">
+            <div className={`p-3 rounded-2xl ${isDark ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}><Package className="w-5 h-5" /></div>
+            <span className={`font-bold text-sm ${sub}`}>Inventaire</span>
+          </div>
+          <div className={`text-4xl font-black mb-1 ${text}`}>{bookingsThisMonth.length}</div>
+          <div className={`text-sm font-medium ${sub}`}>réservations ce mois</div>
+          <div className={`mt-3 flex items-center gap-1.5 text-xs font-semibold ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
+            <PieChart className="w-3.5 h-3.5" /> Voir le stock &rarr;
+          </div>
+        </motion.div>
+
         {/* ── NEW: Prochaines arrivées ──────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.42 }}
           className={`col-span-1 md:col-span-2 p-6 ${card}`}>
@@ -624,17 +674,19 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
             <div className={`p-2 rounded-xl ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><Zap className="w-4 h-4 text-violet-500" /></div>
             <h3 className={`font-bold text-base ${text}`}>Accès rapide</h3>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             {[
               { href: '/rentabilite',     label: 'Rentabilité',     icon: TrendingUp, color: 'bg-emerald-500/10 text-emerald-500', badge: 'NEW' },
               { href: '/rapports-fiscaux',label: 'Rapports fiscaux',icon: FileText,   color: 'bg-violet-500/10 text-violet-500',  badge: 'NEW' },
+              { href: '/expenses',        label: 'Dépenses',        icon: Euro,       color: 'bg-rose-500/10 text-rose-500',      badge: '' },
+              { href: '/planning',        label: 'Planning',        icon: Calendar,   color: 'bg-blue-500/10 text-blue-500',      badge: '' },
               { href: '/messages',        label: 'Messagerie',      icon: Inbox,      color: 'bg-teal-500/10 text-teal-500',      badge: '' },
               { href: '/notifications',   label: 'Notifications',   icon: Bell,       color: 'bg-amber-500/10 text-amber-500',    badge: '' },
-              { href: '/planning',        label: 'Planning',        icon: Calendar,   color: 'bg-blue-500/10 text-blue-500',      badge: '' },
-              { href: '/expenses',        label: 'Dépenses',        icon: Euro,       color: 'bg-rose-500/10 text-rose-500',      badge: '' },
+              { href: '/inspections',     label: 'États des lieux', icon: ShieldCheck,color: 'bg-orange-500/10 text-orange-500',  badge: '' },
+              { href: '/access-codes',    label: 'Codes d\'accès',  icon: Zap,        color: 'bg-pink-500/10 text-pink-500',      badge: '' },
             ].map(({ href, label, icon: Icon, color, badge }) => (
               <a key={href} href={href}
-                className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl transition-all hover:scale-105 text-center group ${isDark ? 'hover:bg-white/[0.04]' : 'hover:bg-gray-50'}`}>
+                className={`relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all hover:scale-105 text-center group ${isDark ? 'hover:bg-white/[0.04]' : 'hover:bg-gray-50'}`}>
                 {badge && (
                   <span className="absolute top-1 right-1 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-rose-500 text-white leading-none">
                     {badge}
@@ -643,7 +695,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color} group-hover:scale-110 transition-transform`}>
                   <Icon className="w-5 h-5" />
                 </div>
-                <span className={`text-[11px] font-semibold leading-tight ${text}`}>{label}</span>
+                <span className={`text-[10px] font-semibold leading-tight ${text}`}>{label}</span>
               </a>
             ))}
           </div>

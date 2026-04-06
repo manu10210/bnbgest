@@ -325,33 +325,39 @@ export default function AdminDashboard() {
         {/* Top Header */}
         <header className={`sticky top-0 z-30 px-6 py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e]/90 border-white/5' : 'bg-white/90 border-gray-200'}`}>
           <div className="flex items-center gap-4">
-             <h1 className={`text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
-               {({
-                 overview:       'Tableau de bord',
-                 bookings:       'R\u00e9servations',
-                 properties:     'Mes Propri\u00e9t\u00e9s',
-                 guests:         'Voyageurs',
-                 financial:      'Rapports Financiers',
-                 maintenance:    'Maintenance',
-                 contract:       'G\u00e9n\u00e9rateur de Contrats',
-                 cleaning:       'Check-lists M\u00e9nage',
-                 cleaningGallery:'Galerie M\u00e9nage',
-                 inventory:      'Inventaire',
-                 qrcheckin:      'QR Check-in',
-                 videoguides:    'Guides Vid\u00e9o',
-                 reviews:        'Avis & Notes',
-                 reviewsmanager: 'Gestion des Avis',
-                 invoice:        'Éditeur de Factures',
-                 welcome:        "Livret d'accueil",
-                 shareLinks:     'Liens de Partage',
-                 forecasting:    'Pr\u00e9visionnel',
-                 pricing:        'Moteur de Prix',
-                 notifications:  'Notifications',
-                 settings:       'Param\u00e8tres',
-                 intelligence:   '🧠 IA Propri\u00e9t\u00e9s',
-                 assistant:      '💬 Assistant IA',
-               } as Record<string, string>)[activeTab] ?? activeTab}
-             </h1>
+             <div>
+               <h1 className={`text-xl font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                 {({
+                   overview:       'Tableau de bord',
+                   bookings:       'Réservations',
+                   properties:     'Mes Propriétés',
+                   guests:         'Voyageurs',
+                   financial:      'Rapports Financiers',
+                   maintenance:    'Maintenance',
+                   contract:       'Générateur de Contrats',
+                   cleaning:       'Check-lists Ménage',
+                   cleaningGallery:'Galerie Ménage',
+                   inventory:      'Inventaire',
+                   qrcheckin:      'QR Check-in',
+                   videoguides:    'Guides Vidéo',
+                   reviews:        'Avis & Notes',
+                   reviewsmanager: 'Gestion des Avis',
+                   invoice:        'Éditeur de Factures',
+                   welcome:        "Livret d'accueil",
+                   shareLinks:     'Liens de Partage',
+                   forecasting:    'Prévisionnel',
+                   pricing:        'Moteur de Prix',
+                   notifications:  'Notifications',
+                   settings:       'Paramètres',
+                   intelligence:   '🧠 IA Propriétés',
+                   assistant:      '💬 Assistant IA',
+                   autopilot:      '🤖 Autopilot',
+                 } as Record<string, string>)[activeTab] ?? activeTab}
+               </h1>
+               <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                 {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+               </p>
+             </div>
           </div>
           
           <div className="flex items-center gap-3">
@@ -409,7 +415,7 @@ export default function AdminDashboard() {
               onChange={(e) => setSelectedPropertyId(e.target.value ? Number(e.target.value) : undefined)}
               className={`border rounded-xl px-3 py-2 text-sm transition-all outline-none focus:ring-2 focus:ring-indigo-500/20 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-white border-gray-200 text-gray-900'}`}
             >
-              <option value="">Toutes les propri\u00e9t\u00e9s</option>
+              <option value="">Toutes les propriétés</option>
               {properties.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
