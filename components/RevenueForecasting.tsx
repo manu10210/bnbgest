@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo } from 'react';
 import { useBNB } from '../contexts/BNBContext';
@@ -517,10 +517,11 @@ export default function RevenueForecasting() {
             Ajoutez des reservations pour des previsions plus precises
           </p>
           <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-amber-500'}`}>
-            Les previsions utilisent la saisonnalite et les reservations confirmees
+            Les prévisions utilisent la saisonnalité et les réservations confirmées
           </p>
         </div>
       )}
     </div>
   );
 }
+

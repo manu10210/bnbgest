@@ -574,7 +574,7 @@ export default function InteractiveCalendar() {
             <div className={`mt-5 pt-4 border-t ${isDark ? 'border-white/[0.06]' : 'border-gray-100'} flex flex-wrap gap-4 items-center`}>
               <span className={`text-xs font-bold ${sub}`}>Legende :</span>
               {[
-                { color: '#6366f1', label: 'Reservation confirmee' },
+                { color: '#6366f1', label: 'Réservation confirmée' },
                 { color: '#10b981', label: 'Terminee' },
                 { color: '#f59e0b', label: 'En attente' },
                 { color: '#8b5cf6', label: 'Maintenance' },
@@ -858,3 +858,4 @@ export default function InteractiveCalendar() {
     </div>
   );
 }
+

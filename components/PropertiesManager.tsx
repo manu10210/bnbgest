@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * PropertiesManager - Exemple d'utilisation des nouvelles APIs
@@ -86,7 +86,7 @@ export default function PropertiesManager() {
                 Gestion des Proprietes
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                {data?.count || 0} propriete(s) trouvee(s)
+                {data?.count || 0} propriété(s) trouvée(s)
               </p>
             </div>
 
@@ -539,3 +539,4 @@ function CreatePropertyModal({ onClose, onSuccess }: { onClose: () => void; onSu
     </div>
   );
 }
+

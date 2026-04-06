@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo } from 'react';
 import { useBNB, MaintenanceTask } from '../contexts/BNBContext';
@@ -31,7 +31,7 @@ const STATUS_CFG = {
   pending:     { label: 'En attente', bg: 'bg-slate-100', text: 'text-slate-600', icon: '⏳' },
   in_progress: { label: 'En cours',   bg: 'bg-blue-100',  text: 'text-blue-700',  icon: '🔄' },
   completed:   { label: 'Terminee',   bg: 'bg-green-100', text: 'text-green-700', icon: '✅' },
-  cancelled:   { label: 'Annulee',    bg: 'bg-red-100',   text: 'text-red-600',   icon: '✕'  },
+  cancelled:   { label: 'Annulée',    bg: 'bg-red-100',   text: 'text-red-600',   icon: '✕'  },
 } as const;
 
 const CAT_CFG = {
@@ -327,7 +327,7 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
               <option value="pending">⏳ En attente</option>
               <option value="in_progress">🔄 En cours</option>
               <option value="completed">✅ Terminee</option>
-              <option value="cancelled">✕ Annulee</option>
+              <option value="cancelled">✕ Annulée</option>
             </select>
             <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className={`border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${isDark ? 'bg-white/10 border-white/10 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
               <option value="all">Toutes priorites</option>
@@ -402,8 +402,8 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
             <thead className={`border-b ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-100'}`}>
               <tr>
                 <th className={`text-left px-4 py-3 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Tache</th>
-                <th className={`text-left px-4 py-3 font-semibold hidden sm:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Propriete</th>
-                <th className={`text-left px-4 py-3 font-semibold hidden md:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Categorie</th>
+                <th className={`text-left px-4 py-3 font-semibold hidden sm:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Propriété</th>
+                <th className={`text-left px-4 py-3 font-semibold hidden md:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Catégorie</th>
                 <th className={`text-left px-4 py-3 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Priorite</th>
                 <th className={`text-left px-4 py-3 font-semibold hidden lg:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Echeance</th>
                 <th className={`text-left px-4 py-3 font-semibold hidden lg:table-cell ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Cout</th>
@@ -954,4 +954,5 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
     </div>
   );
 }
+
 

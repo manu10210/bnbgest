@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useBNB } from '../contexts/BNBContext';
@@ -390,7 +390,7 @@ export default function ClientShareLink() {
                   <Home className="w-6 h-6 text-white" />
                 </div>
                 <h4 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-[#222222]'}`}>
-                  {properties.find(p => p.id === showPreview.propertyId)?.name || 'Propriete'}
+                  {properties.find(p => p.id === showPreview.propertyId)?.name || 'Propriété'}
                 </h4>
                 <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>
                   Bienvenue, {showPreview.guestName} !
@@ -475,3 +475,4 @@ export default function ClientShareLink() {
     </div>
   );
 }
+

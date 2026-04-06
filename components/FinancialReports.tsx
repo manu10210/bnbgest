@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useBNB, FinancialReport } from '../contexts/BNBContext';
@@ -369,7 +369,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
                 Rapports Financiers
               </h2>
               <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-[#717171]'}`}>
-                {getPeriodLabel()} {propertyId ? ' — Propriete specifique' : ''}
+                {getPeriodLabel()} {propertyId ? ' — Propriété spécifique' : ''}
               </p>
             </div>
           </div>
@@ -637,7 +637,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
                     </div>
                   </>
                 ) : (
-                  <div className={`flex items-center justify-center h-48 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Aucune propriete</div>
+                  <div className={`flex items-center justify-center h-48 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Aucune propriété</div>
                 )}
               </div>
             </Card>
@@ -863,3 +863,4 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
     </div>
   );
 }
+

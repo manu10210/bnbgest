@@ -95,7 +95,7 @@ export default function QRCheckIn() {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('airbnb');
   const [selectedLanguage, setSelectedLanguage] = useState('fr');
-  const [houseRules, setHouseRules] = useState<string[]>(['Pas de fete', 'Non fumeur', 'Animaux non admis']);
+  const [houseRules, setHouseRules] = useState<string[]>(['Pas de fête', 'Non fumeur', 'Animaux non admis']);
   const [newRule, setNewRule] = useState('');
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [newPlace, setNewPlace] = useState<NearbyPlace>({ name: '', type: 'restaurant', distance: '' });
@@ -297,10 +297,10 @@ export default function QRCheckIn() {
 
           <div className={'flex flex-wrap gap-1.5 p-1.5 rounded-2xl ' + (isDark ? 'bg-white/[0.03]' : 'bg-gray-100')}>
             {([
-              { key: 'config', label: 'Reservation', icon: Home },
-              { key: 'access', label: 'Acces', icon: Key },
-              { key: 'rules', label: 'Regles', icon: Shield },
-              { key: 'nearby', label: 'Proximite', icon: MapPin },
+              { key: 'config', label: 'Réservation', icon: Home },
+              { key: 'access', label: 'Accès', icon: Key },
+              { key: 'rules', label: 'Règles', icon: Shield },
+              { key: 'nearby', label: 'Proximité', icon: MapPin },
               { key: 'checklist', label: 'Checklist', icon: CheckCircle },
               { key: 'history', label: 'Historique', icon: History },
             ] as const).map(tab => (
@@ -314,30 +314,30 @@ export default function QRCheckIn() {
           <AnimatePresence mode="wait">
             {activeTab === 'config' && (
               <motion.div key="config" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={'border rounded-2xl p-5 space-y-4 ' + card}>
-                <h3 className={'font-semibold flex items-center gap-2 ' + txt}><Home className="h-4 w-4 text-[#FF385C]" />Selection propriete et reservation</h3>
+                <h3 className={'font-semibold flex items-center gap-2 ' + txt}><Home className="h-4 w-4 text-[#FF385C]" />Sélection propriété et réservation</h3>
                 <div>
-                  <label className={'block text-sm font-medium mb-1.5 ' + lbl}>Propriete</label>
+                  <label className={'block text-sm font-medium mb-1.5 ' + lbl}>Propriété</label>
                   <select value={selectedPropertyId || ''} onChange={(e) => { setSelectedPropertyId(Number(e.target.value)); setSelectedBookingId(null); setShowCode(false); }} className={'w-full border rounded-xl px-3 py-2.5 ' + inp}>
-                    <option value="">Selectionner une propriete</option>
+                    <option value="">Sélectionner une propriété</option>
                     {properties.map(p => <option key={p.id} value={p.id}>{p.name} - {p.city}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className={'block text-sm font-medium mb-1.5 ' + lbl}>Reservation</label>
                   <select value={selectedBookingId || ''} onChange={(e) => { setSelectedBookingId(Number(e.target.value)); setShowCode(false); }} disabled={!selectedPropertyId} className={'w-full border rounded-xl px-3 py-2.5 disabled:opacity-50 ' + inp}>
-                    <option value="">Selectionner une reservation</option>
+                    <option value="">Sélectionner une réservation</option>
                     {propertyBookings.map(b => <option key={b.id} value={b.id}>{b.guestInfo.name} - {new Date(b.checkIn).toLocaleDateString('fr-FR')} au {new Date(b.checkOut).toLocaleDateString('fr-FR')}</option>)}
                   </select>
-                  {selectedPropertyId && propertyBookings.length === 0 && <p className={'text-xs mt-1.5 flex items-center gap-1 ' + (isDark ? 'text-amber-400' : 'text-amber-600')}><AlertCircle className="h-3.5 w-3.5" />Aucune reservation confirmee.</p>}
+                  {selectedPropertyId && propertyBookings.length === 0 && <p className={'text-xs mt-1.5 flex items-center gap-1 ' + (isDark ? 'text-amber-400' : 'text-amber-600')}><AlertCircle className="h-3.5 w-3.5" />Aucune réservation confirmée.</p>}
                 </div>
                 {selectedBooking && selectedProperty && (
                   <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className={'rounded-xl p-4 space-y-2 border ' + (isDark ? 'bg-[#FF385C]/5 border-[#FF385C]/20' : 'bg-red-50 border-red-100')}>
-                    <p className={'text-xs font-semibold uppercase tracking-wide ' + (isDark ? 'text-[#FF385C]' : 'text-red-500')}>Reservation selectionnee</p>
+                    <p className={'text-xs font-semibold uppercase tracking-wide ' + (isDark ? 'text-[#FF385C]' : 'text-red-500')}>Réservation sélectionnée</p>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div><span className={sub}>Voyageur</span><p className={'font-medium ' + txt}>{selectedBooking.guestInfo.name}</p></div>
                       <div><span className={sub}>Personnes</span><p className={'font-medium ' + txt}>{selectedBooking.guests}</p></div>
-                      <div><span className={sub}>Arrivee</span><p className={'font-medium ' + txt}>{new Date(selectedBooking.checkIn).toLocaleDateString('fr-FR')} a {selectedProperty.checkInTime}</p></div>
-                      <div><span className={sub}>Depart</span><p className={'font-medium ' + txt}>{new Date(selectedBooking.checkOut).toLocaleDateString('fr-FR')} a {selectedProperty.checkOutTime}</p></div>
+                      <div><span className={sub}>Arrivée</span><p className={'font-medium ' + txt}>{new Date(selectedBooking.checkIn).toLocaleDateString('fr-FR')} a {selectedProperty.checkInTime}</p></div>
+                      <div><span className={sub}>Départ</span><p className={'font-medium ' + txt}>{new Date(selectedBooking.checkOut).toLocaleDateString('fr-FR')} a {selectedProperty.checkOutTime}</p></div>
                       <div className="col-span-2"><span className={sub}>Email</span><p className={'font-medium text-xs truncate ' + txt}>{selectedBooking.guestInfo.email}</p></div>
                     </div>
                   </motion.div>
@@ -364,7 +364,7 @@ export default function QRCheckIn() {
                   <p className={'text-xs font-semibold uppercase tracking-wide ' + sub}>Inclure dans le QR</p>
                   {[
                     { label: 'WiFi', state: includeWifi, set: setIncludeWifi, icon: Wifi },
-                    { label: 'Regles', state: includeRules, set: setIncludeRules, icon: Shield },
+                    { label: 'Règles', state: includeRules, set: setIncludeRules, icon: Shield },
                     { label: 'Lieux proches', state: includeNearby, set: setIncludeNearby, icon: MapPin },
                     { label: 'Checklist', state: includeChecklist, set: setIncludeChecklist, icon: CheckCircle },
                   ].map((t, i) => (
@@ -389,22 +389,22 @@ export default function QRCheckIn() {
                     <div className="relative"><input type={showWifiPassword ? 'text' : 'password'} value={wifiPassword} onChange={(e) => setWifiPassword(e.target.value)} placeholder="motdepasse" className={'w-full border rounded-xl px-3 py-2.5 pr-10 ' + inp} /><button onClick={() => setShowWifiPassword(!showWifiPassword)} className={'absolute right-3 top-1/2 -translate-y-1/2 ' + sub}>{showWifiPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
                   </div>
                   <div>
-                    <label className={'block text-sm font-medium mb-1.5 ' + lbl}><Key className="inline h-3.5 w-3.5 mr-1" />Code acces / digicode</label>
+                    <label className={'block text-sm font-medium mb-1.5 ' + lbl}><Key className="inline h-3.5 w-3.5 mr-1" />Code accès / digicode</label>
                     <div className="relative"><input type={showAccessCode ? 'text' : 'password'} value={accessCode} onChange={(e) => setAccessCode(e.target.value)} placeholder="1234" className={'w-full border rounded-xl px-3 py-2.5 pr-10 ' + inp} /><button onClick={() => setShowAccessCode(!showAccessCode)} className={'absolute right-3 top-1/2 -translate-y-1/2 ' + sub}>{showAccessCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
                   </div>
                   <div><label className={'block text-sm font-medium mb-1.5 ' + lbl}><Car className="inline h-3.5 w-3.5 mr-1" />Code parking</label><input type="text" value={parkingCode} onChange={(e) => setParkingCode(e.target.value)} placeholder="P-5678" className={'w-full border rounded-xl px-3 py-2.5 ' + inp} /></div>
-                  <div><label className={'block text-sm font-medium mb-1.5 ' + lbl}><Phone className="inline h-3.5 w-3.5 mr-1" />Tel. hote</label><input type="tel" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} placeholder="+33 6 12 34 56 78" className={'w-full border rounded-xl px-3 py-2.5 ' + inp} /></div>
-                  <div><label className={'block text-sm font-medium mb-1.5 ' + lbl}><AlertCircle className="inline h-3.5 w-3.5 mr-1 text-red-500" />Tel. urgences</label><input type="tel" value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="+33 1 23 45 67 89" className={'w-full border rounded-xl px-3 py-2.5 ' + inp} /></div>
+                  <div><label className={'block text-sm font-medium mb-1.5 ' + lbl}><Phone className="inline h-3.5 w-3.5 mr-1" />Tél. hôte</label><input type="tel" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} placeholder="+33 6 12 34 56 78" className={'w-full border rounded-xl px-3 py-2.5 ' + inp} /></div>
+                  <div><label className={'block text-sm font-medium mb-1.5 ' + lbl}><AlertCircle className="inline h-3.5 w-3.5 mr-1 text-red-500" />Tél. urgences</label><input type="tel" value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="+33 1 23 45 67 89" className={'w-full border rounded-xl px-3 py-2.5 ' + inp} /></div>
                 </div>
-                <div><label className={'block text-sm font-medium mb-1.5 ' + lbl}><MessageSquare className="inline h-3.5 w-3.5 mr-1" />Instructions speciales</label><textarea value={specialInstructions} onChange={(e) => setSpecialInstructions(e.target.value)} placeholder="La cle est dans la boite aux lettres..." rows={4} className={'w-full border rounded-xl px-3 py-2.5 resize-none ' + inp} /></div>
+                <div><label className={'block text-sm font-medium mb-1.5 ' + lbl}><MessageSquare className="inline h-3.5 w-3.5 mr-1" />Instructions spéciales</label><textarea value={specialInstructions} onChange={(e) => setSpecialInstructions(e.target.value)} placeholder="La clé est dans la boîte aux lettres..." rows={4} className={'w-full border rounded-xl px-3 py-2.5 resize-none ' + inp} /></div>
               </motion.div>
             )}
 
             {activeTab === 'rules' && (
               <motion.div key="rules" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={'border rounded-2xl p-5 space-y-4 ' + card}>
-                <h3 className={'font-semibold flex items-center gap-2 ' + txt}><Shield className="h-4 w-4 text-orange-500" />Regles de la maison</h3>
+                <h3 className={'font-semibold flex items-center gap-2 ' + txt}><Shield className="h-4 w-4 text-orange-500" />Règles de la maison</h3>
                 <div className="flex gap-2">
-                  <input type="text" value={newRule} onChange={(e) => setNewRule(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newRule.trim()) { setHouseRules(prev => [...prev, newRule.trim()]); setNewRule(''); } }} placeholder="Ajouter une regle..." className={'flex-1 border rounded-xl px-3 py-2.5 ' + inp} />
+                  <input type="text" value={newRule} onChange={(e) => setNewRule(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newRule.trim()) { setHouseRules(prev => [...prev, newRule.trim()]); setNewRule(''); } }} placeholder="Ajouter une règle..." className={'flex-1 border rounded-xl px-3 py-2.5 ' + inp} />
                   <button onClick={() => { if (newRule.trim()) { setHouseRules(prev => [...prev, newRule.trim()]); setNewRule(''); } }} className="px-4 py-2.5 bg-[#FF385C] text-white rounded-xl hover:bg-[#E31C5F] transition-colors"><Plus className="h-4 w-4" /></button>
                 </div>
                 <div className="space-y-2">
@@ -416,12 +416,12 @@ export default function QRCheckIn() {
                       </motion.div>
                     ))}
                   </AnimatePresence>
-                  {houseRules.length === 0 && <p className={'text-sm text-center py-4 ' + sub}>Aucune regle ajoutee</p>}
+                  {houseRules.length === 0 && <p className={'text-sm text-center py-4 ' + sub}>Aucune règle ajoutée</p>}
                 </div>
                 <div>
-                  <p className={'text-xs font-medium mb-2 ' + sub}>Regles rapides :</p>
+                  <p className={'text-xs font-medium mb-2 ' + sub}>Règles rapides :</p>
                   <div className="flex flex-wrap gap-2">
-                    {['Pas de fete', 'Non fumeur', 'Animaux non admis', 'Animaux admis', 'Pas de bruit apres 22h', 'Pas de visiteurs'].map(r => (
+                    {['Pas de fête', 'Non fumeur', 'Animaux non admis', 'Animaux admis', 'Pas de bruit après 22h', 'Pas de visiteurs'].map(r => (
                       <button key={r} onClick={() => !houseRules.includes(r) && setHouseRules(prev => [...prev, r])} disabled={houseRules.includes(r)} className={'px-3 py-1.5 text-xs rounded-xl border transition-all ' + (houseRules.includes(r) ? 'opacity-40 cursor-not-allowed' : isDark ? 'border-white/10 text-gray-300 hover:bg-white/[0.06]' : 'border-gray-200 text-gray-600 hover:bg-gray-50')}>+ {r}</button>
                     ))}
                   </div>
@@ -431,7 +431,7 @@ export default function QRCheckIn() {
 
             {activeTab === 'nearby' && (
               <motion.div key="nearby" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={'border rounded-2xl p-5 space-y-4 ' + card}>
-                <h3 className={'font-semibold flex items-center gap-2 ' + txt}><MapPin className="h-4 w-4 text-purple-500" />Lieux a proximite</h3>
+                <h3 className={'font-semibold flex items-center gap-2 ' + txt}><MapPin className="h-4 w-4 text-purple-500" />Lieux à proximité</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <input type="text" value={newPlace.name} onChange={(e) => setNewPlace(p => ({ ...p, name: e.target.value }))} placeholder="Nom du lieu" className={'border rounded-xl px-3 py-2.5 text-sm ' + inp} />
                   <select value={newPlace.type} onChange={(e) => setNewPlace(p => ({ ...p, type: e.target.value }))} className={'border rounded-xl px-3 py-2.5 text-sm ' + inp}>{NEARBY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
@@ -455,7 +455,7 @@ export default function QRCheckIn() {
                       );
                     })}
                   </AnimatePresence>
-                  {nearbyPlaces.length === 0 && <p className={'text-sm text-center py-4 ' + sub}>Aucun lieu ajoute</p>}
+                  {nearbyPlaces.length === 0 && <p className={'text-sm text-center py-4 ' + sub}>Aucun lieu ajouté</p>}
                 </div>
               </motion.div>
             )}
@@ -464,7 +464,7 @@ export default function QRCheckIn() {
               <motion.div key="checklist" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={'border rounded-2xl p-5 space-y-4 ' + card}>
                 <h3 className={'font-semibold flex items-center gap-2 ' + txt}><CheckCircle className="h-4 w-4 text-green-500" />Checklist d&apos;arrivee</h3>
                 <div className="flex gap-2">
-                  <input type="text" value={newChecklistItem} onChange={(e) => setNewChecklistItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newChecklistItem.trim()) { setChecklistItems(prev => [...prev, newChecklistItem.trim()]); setNewChecklistItem(''); } }} placeholder="Ajouter une etape..." className={'flex-1 border rounded-xl px-3 py-2.5 ' + inp} />
+                  <input type="text" value={newChecklistItem} onChange={(e) => setNewChecklistItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newChecklistItem.trim()) { setChecklistItems(prev => [...prev, newChecklistItem.trim()]); setNewChecklistItem(''); } }} placeholder="Ajouter une étape..." className={'flex-1 border rounded-xl px-3 py-2.5 ' + inp} />
                   <button onClick={() => { if (newChecklistItem.trim()) { setChecklistItems(prev => [...prev, newChecklistItem.trim()]); setNewChecklistItem(''); } }} className="px-4 py-2.5 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors"><Plus className="h-4 w-4" /></button>
                 </div>
                 <div className="space-y-2">
@@ -477,19 +477,19 @@ export default function QRCheckIn() {
                       </motion.div>
                     ))}
                   </AnimatePresence>
-                  {checklistItems.length === 0 && <p className={'text-sm text-center py-4 ' + sub}>Aucune etape ajoutee</p>}
+                  {checklistItems.length === 0 && <p className={'text-sm text-center py-4 ' + sub}>Aucune étape ajoutée</p>}
                 </div>
-                <button onClick={() => setChecklistItems(DEFAULT_CHECKLIST)} className={'text-sm flex items-center gap-1.5 transition-colors ' + (isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-700')}><RefreshCw className="h-3.5 w-3.5" />Reinitialiser</button>
+                <button onClick={() => setChecklistItems(DEFAULT_CHECKLIST)} className={'text-sm flex items-center gap-1.5 transition-colors ' + (isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-700')}><RefreshCw className="h-3.5 w-3.5" />Réinitialiser</button>
               </motion.div>
             )}
 
             {activeTab === 'history' && (
               <motion.div key="history" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className={'border rounded-2xl p-5 space-y-4 ' + card}>
-                <h3 className={'font-semibold flex items-center gap-2 ' + txt}><History className="h-4 w-4 text-blue-500" />QR Codes sauvegardes</h3>
+                <h3 className={'font-semibold flex items-center gap-2 ' + txt}><History className="h-4 w-4 text-blue-500" />QR Codes sauvegardés</h3>
                 {savedQRs.length === 0 ? (
                   <div className={'text-center py-10 rounded-xl border-2 border-dashed ' + (isDark ? 'border-white/10' : 'border-gray-200')}>
                     <History className={'h-10 w-10 mx-auto mb-3 ' + (isDark ? 'text-gray-600' : 'text-gray-300')} />
-                    <p className={'text-sm ' + sub}>Aucun QR sauvegarde</p>
+                    <p className={'text-sm ' + sub}>Aucun QR sauvegardé</p>
                     <p className={'text-xs mt-1 ' + (isDark ? 'text-gray-600' : 'text-gray-400')}>Sauvegardez depuis le panneau de droite</p>
                   </div>
                 ) : (
@@ -522,7 +522,7 @@ export default function QRCheckIn() {
           <div className={'border rounded-2xl overflow-hidden ' + card}>
             <div className={'px-6 py-4 border-b flex items-center justify-between ' + (isDark ? 'border-white/[0.06]' : 'border-gray-100')}>
               <h3 className={'font-semibold flex items-center gap-2 ' + txt}><Smartphone className="h-4 w-4 text-[#FF385C]" />Apercu QR Code</h3>
-              {showCode && <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-400" /><span className={'text-xs ' + (isDark ? 'text-green-400' : 'text-green-600')}>Pret</span></div>}
+              {showCode && <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-400" /><span className={'text-xs ' + (isDark ? 'text-green-400' : 'text-green-600')}>Prêt</span></div>}
             </div>
             <div className="p-6">
               {showCode && selectedBooking && selectedProperty ? (
@@ -533,7 +533,7 @@ export default function QRCheckIn() {
                       <div ref={qrRef} className="inline-flex p-4 bg-white rounded-2xl shadow-md mb-3" style={{ border: '2px solid ' + currentTemplate.color + '30' }}>
                         <QRCodeSVG value={getQRValue()} size={qrSize} level="M" includeMargin={false} fgColor={currentTemplate.color} bgColor="#ffffff" />
                       </div>
-                      <p className={'text-xs ' + sub}>Scannez pour acceder aux infos de check-in</p>
+                      <p className={'text-xs ' + sub}>Scannez pour accéder aux infos de check-in</p>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -548,11 +548,11 @@ export default function QRCheckIn() {
                     <div className="grid grid-cols-2 gap-2">
                       {[
                         { icon: MapPin, label: selectedProperty.address, active: true },
-                        { icon: Wifi, label: wifiPassword ? 'WiFi configure' : 'WiFi non defini', active: !!wifiPassword },
-                        { icon: Key, label: accessCode ? 'Code acces' : 'Code non defini', active: !!accessCode },
-                        { icon: Car, label: parkingCode ? 'Parking configure' : 'Parking non defini', active: !!parkingCode },
-                        { icon: Shield, label: houseRules.length + ' regle(s)', active: houseRules.length > 0 && includeRules },
-                        { icon: CheckCircle, label: checklistItems.length + ' etape(s)', active: checklistItems.length > 0 && includeChecklist },
+                        { icon: Wifi, label: wifiPassword ? 'WiFi configuré' : 'WiFi non défini', active: !!wifiPassword },
+                        { icon: Key, label: accessCode ? 'Code accès' : 'Code non défini', active: !!accessCode },
+                        { icon: Car, label: parkingCode ? 'Parking configuré' : 'Parking non défini', active: !!parkingCode },
+                        { icon: Shield, label: houseRules.length + ' règle(s)', active: houseRules.length > 0 && includeRules },
+                        { icon: CheckCircle, label: checklistItems.length + ' étape(s)', active: checklistItems.length > 0 && includeChecklist },
                       ].map((item, i) => <div key={i} className={'flex items-center gap-2 text-xs ' + (item.active ? (isDark ? 'text-green-400' : 'text-green-600') : sub)}><item.icon className="h-3 w-3 flex-shrink-0" /><span className="truncate">{item.label}</span></div>)}
                     </div>
                   </div>
@@ -577,10 +577,10 @@ export default function QRCheckIn() {
               ) : (
                 <div className={'text-center py-20 rounded-2xl border-2 border-dashed ' + (isDark ? 'border-white/10' : 'border-gray-200')}>
                   <QrCode className={'h-20 w-20 mx-auto mb-6 ' + (isDark ? 'text-[#FF385C]/20' : 'text-gray-200')} />
-                  <p className={'text-base font-medium ' + sub}>Pret a generer votre QR Code</p>
-                  <p className={'text-sm mt-2 max-w-52 mx-auto ' + (isDark ? 'text-gray-600' : 'text-gray-400')}>Selectionnez une propriete et une reservation dans l&apos;onglet Reservation</p>
+                  <p className={'text-base font-medium ' + sub}>Prêt à générer votre QR Code</p>
+                  <p className={'text-sm mt-2 max-w-52 mx-auto ' + (isDark ? 'text-gray-600' : 'text-gray-400')}>Sélectionnez une propriété et une réservation dans l&apos;onglet Réservation</p>
                   <div className="flex flex-wrap justify-center gap-2 mt-5">
-                    {['Propriete', 'Dates', 'Acces', 'WiFi', 'Checklist'].map((step, i) => <span key={i} className={'text-xs px-3 py-1.5 rounded-xl ' + (isDark ? 'bg-white/[0.04] text-gray-500' : 'bg-gray-100 text-gray-500')}>{step}</span>)}
+                    {['Propriété', 'Dates', 'Accès', 'WiFi', 'Checklist'].map((step, i) => <span key={i} className={'text-xs px-3 py-1.5 rounded-xl ' + (isDark ? 'bg-white/[0.04] text-gray-500' : 'bg-gray-100 text-gray-500')}>{step}</span>)}
                   </div>
                 </div>
               )}

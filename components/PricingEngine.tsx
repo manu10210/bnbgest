@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo } from 'react';
 import { useBNB, Property } from '../contexts/BNBContext';
@@ -540,7 +540,7 @@ export default function PricingEngine() {
                 </div>
               ) : (
                 <p className={`text-center py-8 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                  Selectionnez une propriete et des dates pour voir le calcul
+                  Sélectionnez une propriété et des dates pour voir le calcul
                 </p>
               )}
             </div>
@@ -818,4 +818,5 @@ export default function PricingEngine() {
     </div>
   );
 }
+
 

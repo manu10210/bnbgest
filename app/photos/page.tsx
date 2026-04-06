@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
@@ -324,7 +324,7 @@ export default function PhotosPage() {
             <p className="text-sm font-medium truncate">{filtered[lightbox].filename}</p>
             <p className="text-xs text-gray-300 mt-0.5">{fmtDate(filtered[lightbox].uploadedAt)} - {fmtSize(filtered[lightbox].size)} - {lightbox + 1} / {filtered.length}</p>
             <div className="flex items-center justify-center gap-3 mt-2">
-              <a href={filtered[lightbox].url} download={filtered[lightbox].filename} className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors" onClick={(e) => e.stopPropagation()}>Telecharger</a>
+              <a href={filtered[lightbox].url} download={filtered[lightbox].filename} className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors" onClick={(e) => e.stopPropagation()}>Télécharger</a>
               <button className="text-xs bg-red-500/80 hover:bg-red-600 px-3 py-1 rounded-full transition-colors" onClick={(e) => { e.stopPropagation(); setDeleteTarget(filtered[lightbox]); }}>Supprimer</button>
             </div>
           </div>
