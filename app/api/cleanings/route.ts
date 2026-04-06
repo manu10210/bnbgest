@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const propertyId = searchParams.get('propertyId');
-    const bookingId = searchParams.get('bookingId');
+    const _bookingId = searchParams.get('bookingId'); // Reserved for future use
     const status = searchParams.get('status');
     const assignedTo = searchParams.get('assignedTo');
     const startDate = searchParams.get('startDate');

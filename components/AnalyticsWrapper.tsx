@@ -28,7 +28,7 @@ export default function AnalyticsWrapper({ children }: { children: React.ReactNo
           const renderTime = perfData.domComplete - perfData.domLoading;
           
           if (isDev) {
-            console.log('[Performance]', {
+            if (isDev) console.log('[Performance]', {
               pathname,
               pageLoadTime: `${pageLoadTime}ms`,
               connectTime: `${connectTime}ms`,

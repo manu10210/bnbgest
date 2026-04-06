@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { unlink } from 'fs/promises';
+import { unlink, readFile } from 'fs/promises';
 import { join } from 'path';
 
 export async function DELETE(request: NextRequest) {
@@ -20,8 +20,8 @@ export async function DELETE(request: NextRequest) {
     const metadataPath = join(uploadsDir, `${videoId}-metadata.json`);
     
     // Lire le fichier de métadonnées pour obtenir le nom du fichier vidéo
-    const fs = require('fs').promises;
-    const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+    const metadataContent = await readFile(metadataPath, 'utf-8');
+    const metadata = JSON.parse(metadataContent) as { fileName: string };
     const videoPath = join(uploadsDir, metadata.fileName);
     
     // Supprimer les deux fichiers
@@ -32,10 +32,14 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: 'Video deleted successfully'
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error deleting video:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to delete video', message: error.message },
+      { 
+        success: false, 
+        error: 'Failed to delete video', 
+        message: error instanceof Error ? error.message : 'Unknown error' 
+      },
       { status: 500 }
     );
   }

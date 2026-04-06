@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Générer l'URL d'autorisation
-    const state = crypto.randomUUID();
-    const authUrl = client.getAuthorizationUrl(state);
+    const _state = crypto.randomUUID(); // Will be used for session verification
+    const authUrl = client.getAuthorizationUrl(_state);
 
     // Stocker le state dans la session (pour vérification)
     // TODO: Implémenter le stockage du state en session
