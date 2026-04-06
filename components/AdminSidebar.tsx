@@ -40,11 +40,12 @@ import { useState, useMemo, useEffect } from 'react';
 import type { TabType } from './AdminDashboard';
 
 interface AdminSidebarProps {
-  activeTab: TabType;
-  setActiveTab: (tab: TabType) => void;
+  activeTab?: TabType;
+  setActiveTab?: (tab: TabType) => void;
 }
 
-export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarProps) {
+export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: AdminSidebarProps) {
+  const safeSetActiveTab = (tab: TabType) => setActiveTab?.(tab);
   const { isDark } = useTheme();
   const { bookings, maintenanceTasks, reviews } = useBNB();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -120,14 +121,16 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
     {
       title: 'Finance',
       items: [
-        { id: 'financial', label: 'Rapports', icon: BarChart3, badge: 0 },
-        { id: 'forecasting', label: 'Prévisionnel', icon: TrendingUp, badge: 0 },
-        { id: 'pricing', label: 'Moteur de prix', icon: Tags, badge: 0 },
-        { id: 'invoice', label: 'Factures', icon: Receipt, badge: 0 },
-        { id: 'expenses', label: 'Dépenses', icon: TrendingDown, badge: 0 },
-        { id: 'intelligence', label: '🧠 IA Propriétés', icon: Brain, badge: 0 },
-        { id: 'assistant', label: '💬 Assistant IA', icon: MessageSquare, badge: 0 },
-        { id: 'autopilot', label: '🤖 Autopilot', icon: Zap, badge: 0 },
+        { id: 'financial',       label: 'Rapports',        icon: BarChart3,   badge: 0 },
+        { id: 'rentabilite',     label: 'Rentabilité',     icon: TrendingUp,  badge: 0 },
+        { id: 'rapports-fiscaux',label: 'Rapports fiscaux',icon: FileText,    badge: 0 },
+        { id: 'forecasting',     label: 'Prévisionnel',    icon: TrendingUp,  badge: 0 },
+        { id: 'pricing',         label: 'Moteur de prix',  icon: Tags,        badge: 0 },
+        { id: 'invoice',         label: 'Factures',        icon: Receipt,     badge: 0 },
+        { id: 'expenses',        label: 'Dépenses',        icon: TrendingDown, badge: 0 },
+        { id: 'intelligence',    label: '🧠 IA Propriétés',icon: Brain,       badge: 0 },
+        { id: 'assistant',       label: '💬 Assistant IA', icon: MessageSquare, badge: 0 },
+        { id: 'autopilot',       label: '🤖 Autopilot',    icon: Zap,         badge: 0 },
       ]
     },
     {
@@ -375,11 +378,51 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
                     </a>
                   );
                 }
+
+                // Si c'est "rentabilite", créer un lien vers /rentabilite
+                if (item.id === 'rentabilite') {
+                  return (
+                    <a
+                      key={item.id}
+                      href="/rentabilite"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                        isDark
+                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-emerald-400 group-hover:text-emerald-300`} />
+                      {!isCollapsed && (
+                        <span className="text-sm font-medium relative z-10">{item.label}</span>
+                      )}
+                    </a>
+                  );
+                }
+
+                // Si c'est "rapports-fiscaux", créer un lien vers /rapports-fiscaux
+                if (item.id === 'rapports-fiscaux') {
+                  return (
+                    <a
+                      key={item.id}
+                      href="/rapports-fiscaux"
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                        isDark
+                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 shrink-0 relative z-10 text-violet-400 group-hover:text-violet-300`} />
+                      {!isCollapsed && (
+                        <span className="text-sm font-medium relative z-10">{item.label}</span>
+                      )}
+                    </a>
+                  );
+                }
                 
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setActiveTab(item.id as TabType)}
+                    onClick={() => safeSetActiveTab(item.id as TabType)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
                       isActive
                         ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-500'
@@ -497,7 +540,7 @@ export default function AdminSidebar({ activeTab, setActiveTab }: AdminSidebarPr
                     const isActive = activeTab === item.id;
                     return (
                       <button key={item.id}
-                        onClick={() => { setActiveTab(item.id as TabType); setMobileOpen(false); }}
+                        onClick={() => { safeSetActiveTab(item.id as TabType); setMobileOpen(false); }}
                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
                           isActive
                             ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-500 font-bold'
