@@ -1287,6 +1287,10 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
             onClick={() => setShowModal(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qr-modal-title"
+            aria-describedby="qr-modal-desc"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -1296,10 +1300,11 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
               className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-8"
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">QR Code Réservation</h3>
+                <h3 id="qr-modal-title" className="text-2xl font-bold text-gray-900 dark:text-white">QR Code Réservation</h3>
                 <button
                   onClick={() => setShowModal(null)}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  aria-label="Fermer le modal QR Code"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -1323,7 +1328,7 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
                 />
               </div>
 
-              <div className="space-y-3 text-center mb-6">
+              <div id="qr-modal-desc" className="space-y-3 text-center mb-6">
                 <p className="font-semibold text-gray-900 dark:text-white">Réservation #{selectedBooking.id}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">{selectedBooking.guestInfo.name}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -1335,6 +1340,7 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
                 <button
                   onClick={() => downloadQRCode(selectedBooking)}
                   className="px-4 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 font-semibold"
+                  aria-label="Télécharger le QR code"
                 >
                   <Download className="w-5 h-5" />
                   Télécharger
@@ -1349,6 +1355,7 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
                     toast.success('Informations copiées !');
                   }}
                   className="px-4 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 font-semibold"
+                  aria-label="Copier les informations d'accès"
                 >
                   <Copy className="w-5 h-5" />
                   Copier
@@ -1368,6 +1375,10 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
             onClick={() => setShowModal(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="details-modal-title"
+            aria-describedby="details-modal-desc"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -1377,18 +1388,19 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
               className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
             >
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-6 flex justify-between items-center">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h3 id="details-modal-title" className="text-2xl font-bold text-gray-900 dark:text-white">
                   Réservation #{selectedBooking.id}
                 </h3>
                 <button
                   onClick={() => setShowModal(null)}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  aria-label="Fermer le modal détails"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="p-8 space-y-6">
+              <div id="details-modal-desc" className="p-8 space-y-6">
                 {/* Contenu du modal détails - simplifié */}
                 <div className="grid grid-cols-2 gap-6">
                   <div>
@@ -1415,6 +1427,7 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
                   <button
                     onClick={() => printInvoice(selectedBooking)}
                     className="px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                    aria-label="Imprimer la facture"
                   >
                     <Printer className="w-5 h-5" />
                     Facture
@@ -1424,6 +1437,7 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
                       setShowModal('qr');
                     }}
                     className="px-4 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                    aria-label="Afficher le QR Code"
                   >
                     <Package className="w-5 h-5" />
                     QR Code
@@ -1434,6 +1448,7 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
                       setShowModal('edit');
                     }}
                     className="px-4 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                    aria-label="Modifier la réservation"
                   >
                     <Edit className="w-5 h-5" />
                     Modifier

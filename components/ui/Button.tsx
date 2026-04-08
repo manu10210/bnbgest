@@ -18,6 +18,8 @@ interface ButtonProps {
   disabled?: boolean;
   className?: string;
   title?: string;
+  ariaLabel?: string; // Accessibility: descriptive label for screen readers
+  ariaBusy?: boolean; // Accessibility: indicates loading state
 }
 
 export function Button({
@@ -30,6 +32,8 @@ export function Button({
   fullWidth = false,
   className,
   disabled,
+  ariaLabel,
+  ariaBusy,
   ...props
 }: ButtonProps) {
   const { isDark } = useTheme();
@@ -67,6 +71,9 @@ export function Button({
         className
       )}
       disabled={disabled || loading}
+      aria-label={ariaLabel}
+      aria-busy={ariaBusy ?? loading}
+      aria-disabled={disabled || loading}
       {...props}
     >
       {loading && (
