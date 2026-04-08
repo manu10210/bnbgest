@@ -318,12 +318,12 @@ export default function AdminDashboard() {
 
   return (
     <div className={`flex min-h-screen transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e] text-white' : 'bg-[#f7f7f7] text-[#222222]'}`}>
-      { /* New Layout Structure */ }
+      { /* Sidebar Navigation */ }
       <AdminSidebar activeTab={activeTab} setActiveTab={(tab: TabType) => setActiveTab(tab)} />
       
-      <main className="flex-1 h-screen overflow-y-auto relative scrollbar-hide">
+      <main id="main-content" role="main" className="flex-1 h-screen overflow-y-auto relative scrollbar-hide">
         {/* Top Header */}
-        <header className={`sticky top-0 z-30 px-6 py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e]/90 border-white/5' : 'bg-white/90 border-gray-200'}`}>
+        <header role="banner" className={`sticky top-0 z-30 px-6 py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e]/90 border-white/5' : 'bg-white/90 border-gray-200'}`}>
           <div className="flex items-center gap-4">
              <div>
                <h1 className={`text-xl font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -428,6 +428,49 @@ export default function AdminDashboard() {
             </a>
           </div>
         </header>
+
+        {/* Breadcrumbs Navigation (Accessibilité WCAG 2.1 AA) */}
+        <nav aria-label="Fil d'Ariane" className={`px-6 py-3 border-b ${isDark ? 'border-white/5' : 'border-gray-200'}`}>
+          <ol className="flex items-center gap-2 text-sm">
+            <li>
+              <a 
+                href="/admin" 
+                className={`transition-colors ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                Accueil
+              </a>
+            </li>
+            <li className={isDark ? 'text-gray-600' : 'text-gray-400'}>/</li>
+            <li aria-current="page" className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {({
+                overview:       'Tableau de bord',
+                bookings:       'Réservations',
+                properties:     'Mes Propriétés',
+                guests:         'Voyageurs',
+                financial:      'Rapports Financiers',
+                maintenance:    'Maintenance',
+                contract:       'Générateur de Contrats',
+                cleaning:       'Check-lists Ménage',
+                cleaningGallery:'Galerie Ménage',
+                inventory:      'Inventaire',
+                qrcheckin:      'QR Check-in',
+                videoguides:    'Guides Vidéo',
+                reviews:        'Avis & Notes',
+                reviewsmanager: 'Gestion des Avis',
+                invoice:        'Éditeur de Factures',
+                welcome:        "Livret d'accueil",
+                shareLinks:     'Liens de Partage',
+                forecasting:    'Prévisionnel',
+                pricing:        'Moteur de Prix',
+                notifications:  'Notifications',
+                settings:       'Paramètres',
+                intelligence:   '🧠 IA Propriétés',
+                assistant:      '💬 Assistant IA',
+                autopilot:      '🤖 Autopilot',
+              } as Record<string, string>)[activeTab] ?? activeTab}
+            </li>
+          </ol>
+        </nav>
 
         <div className="p-6 pb-32 space-y-6 max-w-[1600px] mx-auto">
            {/* Overview Tab */}

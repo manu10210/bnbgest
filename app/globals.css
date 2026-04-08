@@ -93,6 +93,72 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* ==================== ACCESSIBILITY ==================== */
+
+/* Skip Link - Navigation clavier (WCAG 2.1 AA) */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 10px;
+  z-index: 9999;
+  padding: 12px 20px;
+  background-color: #000;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 4px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  transition: top 0.2s ease-in-out;
+}
+
+.skip-link:focus {
+  top: 10px;
+  outline: 3px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* Focus Visible - Indicateurs de focus améliorés */
+*:focus-visible {
+  outline: 3px solid #0066cc;
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid #0066cc;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.2);
+}
+
+/* Dark mode skip link */
+.dark .skip-link {
+  background-color: #fff;
+  color: #000;
+}
+
+.dark .skip-link:focus {
+  outline-color: #FF385C;
+}
+
+.dark *:focus-visible {
+  outline-color: #FF385C;
+}
+
+.dark button:focus-visible,
+.dark a:focus-visible,
+.dark input:focus-visible,
+.dark textarea:focus-visible,
+.dark select:focus-visible {
+  outline-color: #FF385C;
+  box-shadow: 0 0 0 4px rgba(255, 56, 92, 0.2);
+}
+
+/* ==================== END ACCESSIBILITY ==================== */
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

@@ -122,6 +122,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Skip Link pour navigation clavier (accessibilité WCAG 2.1 AA) */}
+        <a 
+          href="#main-content" 
+          className="skip-link"
+          aria-label="Aller au contenu principal"
+        >
+          Aller au contenu principal
+        </a>
+
         <ThemeProvider>
           <LanguageProvider>
             <AuthSessionProvider>
