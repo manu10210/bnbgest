@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { setupAuth } from '../../helpers/auth-helper';
 
 /**
  * Tests d'accessibilité pour la navigation (Session 16)
@@ -11,8 +12,8 @@ import AxeBuilder from '@axe-core/playwright';
 
 test.describe('Accessibility - Navigation Structure', () => {
   test.beforeEach(async ({ page }) => {
-    // Aller sur page admin (nécessite auth)
-    await page.goto('/admin');
+    // Authenticate and go to admin page
+    await setupAuth(page);
   });
 
   test('Skip link should be functional and keyboard accessible', async ({ page }) => {
@@ -160,7 +161,7 @@ test.describe('Accessibility - Navigation Structure', () => {
 
 test.describe('Accessibility - Dark Mode Navigation', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/admin');
+    await setupAuth(page);
   });
 
   test('Skip link should adapt to dark mode', async ({ page }) => {

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { setupAuth } from '../../helpers/auth-helper';
 
 /**
  * Tests d'accessibilité pour les modals (Sessions 13-15)
@@ -11,7 +12,7 @@ import AxeBuilder from '@axe-core/playwright';
 
 test.describe('Accessibility - BookingManager Modals', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/admin');
+    await setupAuth(page);
     
     // Navigate to Réservations tab
     await page.click('text=Réservations');
@@ -127,7 +128,7 @@ test.describe('Accessibility - BookingManager Modals', () => {
 
 test.describe('Accessibility - GuestManager Modals', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/admin');
+    await setupAuth(page);
     await page.click('text=Voyageurs');
     await page.waitForTimeout(500);
   });
@@ -173,7 +174,7 @@ test.describe('Accessibility - GuestManager Modals', () => {
 
 test.describe('Accessibility - MaintenanceManager Modal', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/admin');
+    await setupAuth(page);
     await page.click('text=Maintenance');
     await page.waitForTimeout(500);
   });
@@ -216,7 +217,7 @@ test.describe('Accessibility - MaintenanceManager Modal', () => {
 
 test.describe('Accessibility - InventoryManager Modal', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/admin');
+    await setupAuth(page);
     await page.click('text=Inventaire');
     await page.waitForTimeout(500);
   });
@@ -246,7 +247,7 @@ test.describe('Accessibility - InventoryManager Modal', () => {
 
 test.describe('Accessibility - ContractGenerator Modal', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/admin');
+    await setupAuth(page);
     await page.click('text=Générateur de Contrats');
     await page.waitForTimeout(500);
   });
@@ -269,7 +270,7 @@ test.describe('Accessibility - ContractGenerator Modal', () => {
 
 test.describe('Accessibility - Keyboard Navigation All Modals', () => {
   test('All modals should close with ESC key consistently', async ({ page }) => {
-    await page.goto('/admin');
+    await setupAuth(page);
     
     // Test cases: [tab name, button text]
     const modalTests = [
@@ -299,7 +300,7 @@ test.describe('Accessibility - Keyboard Navigation All Modals', () => {
   });
 
   test('All modals should auto-focus on first input consistently', async ({ page }) => {
-    await page.goto('/admin');
+    await setupAuth(page);
     
     const modalTests = [
       ['Réservations', 'Nouvelle Réservation'],
@@ -329,7 +330,7 @@ test.describe('Accessibility - Keyboard Navigation All Modals', () => {
 
 test.describe('Accessibility - Full Page Axe Scan', () => {
   test('Admin dashboard should have no axe violations', async ({ page }) => {
-    await page.goto('/admin');
+    await setupAuth(page);
     
     const accessibilityScanResults = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -339,7 +340,7 @@ test.describe('Accessibility - Full Page Axe Scan', () => {
   });
 
   test('Each tab should have no axe violations', async ({ page }) => {
-    await page.goto('/admin');
+    await setupAuth(page);
     
     const tabs = [
       'Réservations',
