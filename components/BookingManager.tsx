@@ -101,6 +101,36 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
     end: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
   });
 
+  // Focus Management & Keyboard Navigation
+  useEffect(() => {
+    if (showModal) {
+      // Auto-focus premier élément interactif dans le modal
+      const timer = setTimeout(() => {
+        const modalSelector = `[aria-labelledby$="-modal-title"]`;
+        const firstButton = document.querySelector<HTMLButtonElement>(
+          `${modalSelector} button:not([disabled])`
+        );
+        const firstInput = document.querySelector<HTMLInputElement>(
+          `${modalSelector} input:not([disabled])`
+        );
+        (firstButton || firstInput)?.focus();
+      }, 150); // Délai pour animation Framer Motion
+
+      // ESC key handler - fermeture modal
+      const handleEsc = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setShowModal(null);
+        }
+      };
+      document.addEventListener('keydown', handleEsc);
+
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('keydown', handleEsc);
+      };
+    }
+  }, [showModal]);
+
   // Charger les réservations avec données étendues
   const extendedBookings: ExtendedBooking[] = useMemo(() => {
     // Stable seeded pseudo-random using booking ID to prevent flickering

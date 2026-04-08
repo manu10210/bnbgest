@@ -96,6 +96,36 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
   const [editForm, setEditForm] = useState<Partial<ExtendedGuest>>({});
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
+  // Focus Management & Keyboard Navigation
+  useEffect(() => {
+    if (showModal) {
+      // Auto-focus premier élément interactif dans le modal
+      const timer = setTimeout(() => {
+        const modalSelector = `[aria-labelledby$="-modal-title"]`;
+        const firstInput = document.querySelector<HTMLInputElement>(
+          `${modalSelector} input:not([disabled])`
+        );
+        const firstButton = document.querySelector<HTMLButtonElement>(
+          `${modalSelector} button:not([disabled])`
+        );
+        (firstInput || firstButton)?.focus();
+      }, 150); // Délai pour animation Framer Motion
+
+      // ESC key handler - fermeture modal
+      const handleEsc = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setShowModal(null);
+        }
+      };
+      document.addEventListener('keydown', handleEsc);
+
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('keydown', handleEsc);
+      };
+    }
+  }, [showModal]);
+
   // Enrichir les données guests
   const extendedGuests: ExtendedGuest[] = useMemo(() => {
     return guests.map(guest => {
@@ -1147,6 +1177,10 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
             onClick={() => setShowModal(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guest-modal-title"
+            aria-describedby="guest-modal-desc"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -1156,54 +1190,64 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
               className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
             >
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-6 flex justify-between items-center">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h3 id="guest-modal-title" className="text-2xl font-bold text-gray-900 dark:text-white">
                   {showModal === 'new' ? 'Nouveau voyageur' : `Modifier ${selectedGuest?.name}`}
                 </h3>
                 <button
                   onClick={() => setShowModal(null)}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  aria-label="Fermer le modal voyageur"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="p-8 space-y-4">
+              <div id="guest-modal-desc" className="p-8 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Nom complet *
+                    <label htmlFor="guest-name-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Nom complet <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="guest-name-input"
                       type="text"
                       value={editForm.name || ''}
                       onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                       className={`w-full px-3 py-2 border ${formErrors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white`}
+                      aria-required="true"
+                      aria-invalid={!!formErrors.name}
+                      aria-describedby={formErrors.name ? "guest-name-error" : undefined}
                     />
                     {formErrors.name && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.name}</p>
+                      <p id="guest-name-error" className="text-red-500 text-xs mt-1" role="alert">{formErrors.name}</p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Email *
+                    <label htmlFor="guest-email-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Email <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="guest-email-input"
                       type="email"
                       value={editForm.email || ''}
                       onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                       className={`w-full px-3 py-2 border ${formErrors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white`}
+                      aria-required="true"
+                      aria-invalid={!!formErrors.email}
+                      aria-describedby={formErrors.email ? "guest-email-error" : undefined}
                     />
                     {formErrors.email && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>
+                      <p id="guest-email-error" className="text-red-500 text-xs mt-1" role="alert">{formErrors.email}</p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label htmlFor="guest-phone-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Téléphone
                     </label>
                     <input
+                      id="guest-phone-input"
                       type="tel"
                       value={editForm.phone || ''}
                       onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
@@ -1212,10 +1256,11 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label htmlFor="guest-language-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Langue
                     </label>
                     <select
+                      id="guest-language-select"
                       value={editForm.language || 'fr'}
                       onChange={(e) => setEditForm({ ...editForm, language: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
@@ -1227,10 +1272,11 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label htmlFor="guest-nationality-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Nationalité
                     </label>
                     <select
+                      id="guest-nationality-select"
                       value={editForm.nationality || ''}
                       onChange={(e) => setEditForm({ ...editForm, nationality: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
@@ -1243,10 +1289,11 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label htmlFor="guest-status-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Statut
                     </label>
                     <select
+                      id="guest-status-select"
                       value={editForm.status || 'active'}
                       onChange={(e) => setEditForm({ ...editForm, status: e.target.value as GuestStatus })}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
