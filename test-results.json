@@ -1,0 +1,1996 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\claus\\BNBGEST\\playwright.config.ts",
+    "rootDir": "C:/Users/claus/BNBGEST/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/claus/BNBGEST/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Users/claus/BNBGEST/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Users/claus/BNBGEST/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "C:/Users/claus/BNBGEST/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Users/claus/BNBGEST/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "C:/Users/claus/BNBGEST/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.59.1",
+    "workers": 4,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:3000",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "accessibility\\a11y-modals.spec.ts",
+      "file": "accessibility/a11y-modals.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Accessibility - BookingManager Modals",
+          "file": "accessibility/a11y-modals.spec.ts",
+          "line": 12,
+          "column": 6,
+          "specs": [
+            {
+              "title": "New booking modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-7206d4529ab9f06d4ff0",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "New booking modal should auto-focus on first input",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-b8ce67e9a251c788b92a",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 45,
+              "column": 7
+            },
+            {
+              "title": "ESC key should close new booking modal",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-7dfc2b7fc612639766e6",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 58,
+              "column": 7
+            },
+            {
+              "title": "New booking modal should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-a2b197c418968fd60982",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 71,
+              "column": 7
+            },
+            {
+              "title": "Form inputs should have correct accessibility attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-2343f4868a66043fc634",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 83,
+              "column": 7
+            },
+            {
+              "title": "Required fields should have aria-required attribute",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-0f7ea1eefb959cd87748",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 111,
+              "column": 7
+            },
+            {
+              "title": "New booking modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-291508e141ff9e90af90",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "New booking modal should auto-focus on first input",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-91132c580adb698386aa",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 45,
+              "column": 7
+            },
+            {
+              "title": "ESC key should close new booking modal",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-69219a04e92aa3270a1b",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 58,
+              "column": 7
+            },
+            {
+              "title": "New booking modal should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-0aeef84f4c76f10bcd22",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 71,
+              "column": 7
+            },
+            {
+              "title": "Form inputs should have correct accessibility attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-77d2304ae27d262426d7",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 83,
+              "column": 7
+            },
+            {
+              "title": "Required fields should have aria-required attribute",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-3ecce9db8642e6f20b8d",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 111,
+              "column": 7
+            },
+            {
+              "title": "New booking modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-129696e22a0c7d520984",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "New booking modal should auto-focus on first input",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-af731cc11b9f6c8752a8",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 45,
+              "column": 7
+            },
+            {
+              "title": "ESC key should close new booking modal",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-2a7a3e162adfe2ad8618",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 58,
+              "column": 7
+            },
+            {
+              "title": "New booking modal should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-ba4e9672695b87c28e78",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 71,
+              "column": 7
+            },
+            {
+              "title": "Form inputs should have correct accessibility attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-fd5cc1b307a1166e8a77",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 83,
+              "column": 7
+            },
+            {
+              "title": "Required fields should have aria-required attribute",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-f1166fb3cd7fb9a0c339",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 111,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Accessibility - GuestManager Modals",
+          "file": "accessibility/a11y-modals.spec.ts",
+          "line": 128,
+          "column": 6,
+          "specs": [
+            {
+              "title": "New guest modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-31bd2e67f9cf1f85f33e",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 135,
+              "column": 7
+            },
+            {
+              "title": "New guest modal should auto-focus and close with ESC",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-7d0f581fc4d136cedfdb",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 148,
+              "column": 7
+            },
+            {
+              "title": "New guest modal should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-9efc0aed7aa81a8946ad",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 162,
+              "column": 7
+            },
+            {
+              "title": "New guest modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-9b30380943495700306d",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 135,
+              "column": 7
+            },
+            {
+              "title": "New guest modal should auto-focus and close with ESC",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-77aad36c912db3605b0c",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 148,
+              "column": 7
+            },
+            {
+              "title": "New guest modal should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-79a465e1925a4210516d",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 162,
+              "column": 7
+            },
+            {
+              "title": "New guest modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-db4597386964d0965e5f",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 135,
+              "column": 7
+            },
+            {
+              "title": "New guest modal should auto-focus and close with ESC",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-1dc6598b81592db2bfcd",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 148,
+              "column": 7
+            },
+            {
+              "title": "New guest modal should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-52323a8d11db49679f14",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 162,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Accessibility - MaintenanceManager Modal",
+          "file": "accessibility/a11y-modals.spec.ts",
+          "line": 174,
+          "column": 6,
+          "specs": [
+            {
+              "title": "New task modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-b2aed84f16179a795461",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 181,
+              "column": 7
+            },
+            {
+              "title": "New task modal should auto-focus and close with ESC",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-d06e7723878cca035356",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 191,
+              "column": 7
+            },
+            {
+              "title": "New task modal should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-66a497e5b0dfc765942b",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 205,
+              "column": 7
+            },
+            {
+              "title": "New task modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-9cfd21b899b9f7709b69",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 181,
+              "column": 7
+            },
+            {
+              "title": "New task modal should auto-focus and close with ESC",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-9b689a955727b16c6540",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 191,
+              "column": 7
+            },
+            {
+              "title": "New task modal should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-be6da312f1358b54c034",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 205,
+              "column": 7
+            },
+            {
+              "title": "New task modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-2b7337fc011ba5038832",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 181,
+              "column": 7
+            },
+            {
+              "title": "New task modal should auto-focus and close with ESC",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-ded5b1d01a10c85a274a",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 191,
+              "column": 7
+            },
+            {
+              "title": "New task modal should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-be462aa66033ee800c0d",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 205,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Accessibility - InventoryManager Modal",
+          "file": "accessibility/a11y-modals.spec.ts",
+          "line": 217,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Add item modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-72cfafc66a8e87fc33e0",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 224,
+              "column": 7
+            },
+            {
+              "title": "Add item modal should auto-focus and close with ESC",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-209a31d2400747f6153e",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 234,
+              "column": 7
+            },
+            {
+              "title": "Add item modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-5258bf320a554093a635",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 224,
+              "column": 7
+            },
+            {
+              "title": "Add item modal should auto-focus and close with ESC",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-ff929eb32fc49a51d11e",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 234,
+              "column": 7
+            },
+            {
+              "title": "Add item modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-e63176b07f6fc56fb442",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 224,
+              "column": 7
+            },
+            {
+              "title": "Add item modal should auto-focus and close with ESC",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-e64a3a3771531779c45e",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 234,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Accessibility - ContractGenerator Modal",
+          "file": "accessibility/a11y-modals.spec.ts",
+          "line": 247,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Template modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-cc2b45c5b82819a7dcaf",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 254,
+              "column": 7
+            },
+            {
+              "title": "Template modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-991f70113ceb9a4fb321",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 254,
+              "column": 7
+            },
+            {
+              "title": "Template modal should have correct ARIA attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-fc15c5ab1a0896d1597d",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 254,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Accessibility - Keyboard Navigation All Modals",
+          "file": "accessibility/a11y-modals.spec.ts",
+          "line": 270,
+          "column": 6,
+          "specs": [
+            {
+              "title": "All modals should close with ESC key consistently",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-6297d7ec662adc1666d1",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 271,
+              "column": 7
+            },
+            {
+              "title": "All modals should auto-focus on first input consistently",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-b0f784486bc9e67b2bc0",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 301,
+              "column": 7
+            },
+            {
+              "title": "All modals should close with ESC key consistently",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-f81c99e37f64a2eb1547",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 271,
+              "column": 7
+            },
+            {
+              "title": "All modals should auto-focus on first input consistently",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-8c78ad422af8ade2c744",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 301,
+              "column": 7
+            },
+            {
+              "title": "All modals should close with ESC key consistently",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-dc011ef9b242b40b54b3",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 271,
+              "column": 7
+            },
+            {
+              "title": "All modals should auto-focus on first input consistently",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-c15bb612e31b55a89602",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 301,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Accessibility - Full Page Axe Scan",
+          "file": "accessibility/a11y-modals.spec.ts",
+          "line": 330,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Admin dashboard should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-1818764ed8fa284817b2",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 331,
+              "column": 7
+            },
+            {
+              "title": "Each tab should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-e59cb0828c47119b31f0",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 341,
+              "column": 7
+            },
+            {
+              "title": "Admin dashboard should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-b675399f40c26eebd335",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 331,
+              "column": 7
+            },
+            {
+              "title": "Each tab should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-7f5fcf99f8cbb27c31eb",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 341,
+              "column": 7
+            },
+            {
+              "title": "Admin dashboard should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-560224d76cd92b17f968",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 331,
+              "column": 7
+            },
+            {
+              "title": "Each tab should have no axe violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "cdf1766c6dbe6922b024-15f689e25ed5d2463ced",
+              "file": "accessibility/a11y-modals.spec.ts",
+              "line": 341,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "accessibility\\a11y-navigation.spec.ts",
+      "file": "accessibility/a11y-navigation.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Accessibility - Navigation Structure",
+          "file": "accessibility/a11y-navigation.spec.ts",
+          "line": 12,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Skip link should be functional and keyboard accessible",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-f6727cfbce425d14f262",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 18,
+              "column": 7
+            },
+            {
+              "title": "Main landmark should exist with correct attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-f1f6673980f5886fcc08",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 43,
+              "column": 7
+            },
+            {
+              "title": "Header banner should exist with correct role",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-1656ea8ac7e2bd110a5b",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 55,
+              "column": 7
+            },
+            {
+              "title": "Breadcrumbs navigation should have correct ARIA",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-d9cba72b713a54e05179",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 64,
+              "column": 7
+            },
+            {
+              "title": "Breadcrumbs should update dynamically on tab change",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-45015cbfb7322f4c88dc",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 86,
+              "column": 7
+            },
+            {
+              "title": "Focus visible CSS should be applied on keyboard navigation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-52f6ffb1d2ef36167dae",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 106,
+              "column": 7
+            },
+            {
+              "title": "Page should have all semantic landmarks",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-2350b57b03fa557ee016",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 126,
+              "column": 7
+            },
+            {
+              "title": "Page should have no axe accessibility violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-26c388a00976dc021377",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 137,
+              "column": 7
+            },
+            {
+              "title": "Navigation landmarks should be accessible to screen readers",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-9c644327a50d54a61794",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 147,
+              "column": 7
+            },
+            {
+              "title": "Skip link should be functional and keyboard accessible",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-97219af03a71a0f1a822",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 18,
+              "column": 7
+            },
+            {
+              "title": "Main landmark should exist with correct attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-201202f997be47b74c1d",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 43,
+              "column": 7
+            },
+            {
+              "title": "Header banner should exist with correct role",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-f809b826dec7227f65b0",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 55,
+              "column": 7
+            },
+            {
+              "title": "Breadcrumbs navigation should have correct ARIA",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-9adde094f817a3a6b422",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 64,
+              "column": 7
+            },
+            {
+              "title": "Breadcrumbs should update dynamically on tab change",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-3adde3d66fe8856afdd1",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 86,
+              "column": 7
+            },
+            {
+              "title": "Focus visible CSS should be applied on keyboard navigation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-a3d6f7f91cc462173a7f",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 106,
+              "column": 7
+            },
+            {
+              "title": "Page should have all semantic landmarks",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-847d18a614d3a1171f82",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 126,
+              "column": 7
+            },
+            {
+              "title": "Page should have no axe accessibility violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-3ff5d2fb5bb5640fc784",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 137,
+              "column": 7
+            },
+            {
+              "title": "Navigation landmarks should be accessible to screen readers",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-68690cc7069bd6714709",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 147,
+              "column": 7
+            },
+            {
+              "title": "Skip link should be functional and keyboard accessible",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-a07f70d6cd00fa22cc25",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 18,
+              "column": 7
+            },
+            {
+              "title": "Main landmark should exist with correct attributes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-f5cbf748e209c82689ad",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 43,
+              "column": 7
+            },
+            {
+              "title": "Header banner should exist with correct role",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-c316f62eaf92ed35b2a7",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 55,
+              "column": 7
+            },
+            {
+              "title": "Breadcrumbs navigation should have correct ARIA",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-ef2680c9c584cfc39b91",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 64,
+              "column": 7
+            },
+            {
+              "title": "Breadcrumbs should update dynamically on tab change",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-414d5e7e6bd7cbc25360",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 86,
+              "column": 7
+            },
+            {
+              "title": "Focus visible CSS should be applied on keyboard navigation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-8bfebcbf09cc91a58d8c",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 106,
+              "column": 7
+            },
+            {
+              "title": "Page should have all semantic landmarks",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-5f66946fd662d48f8195",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 126,
+              "column": 7
+            },
+            {
+              "title": "Page should have no axe accessibility violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-ad31ca2473a676998048",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 137,
+              "column": 7
+            },
+            {
+              "title": "Navigation landmarks should be accessible to screen readers",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-4f850266a01f8790c648",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 147,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Accessibility - Dark Mode Navigation",
+          "file": "accessibility/a11y-navigation.spec.ts",
+          "line": 161,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Skip link should adapt to dark mode",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-f495e380ec55d8a5a0b4",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 166,
+              "column": 7
+            },
+            {
+              "title": "Focus visible should use accent color in dark mode",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-6c872e66915b65bd7810",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 198,
+              "column": 7
+            },
+            {
+              "title": "Skip link should adapt to dark mode",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-b9598ef6fc479fae3259",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 166,
+              "column": 7
+            },
+            {
+              "title": "Focus visible should use accent color in dark mode",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-dd7a64512537cb6fb06c",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 198,
+              "column": 7
+            },
+            {
+              "title": "Skip link should adapt to dark mode",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-de2e6c53e4825dd471f7",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 166,
+              "column": 7
+            },
+            {
+              "title": "Focus visible should use accent color in dark mode",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "3d3c0a943aaff2d0b4f6-3146d59db5feff0d8879",
+              "file": "accessibility/a11y-navigation.spec.ts",
+              "line": 198,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-04-08T19:47:53.094Z",
+    "duration": 284.7160000000001,
+    "expected": 0,
+    "skipped": 90,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
