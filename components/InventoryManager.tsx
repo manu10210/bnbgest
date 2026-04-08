@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useBNB, InventoryItem } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Card } from './ui/Card';
@@ -79,6 +79,36 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
     supplier: '',
     propertyId: propertyId || 1
   });
+
+  // Focus management pour les modals (accessibilité)
+  useEffect(() => {
+    if (showAddModal || showEditModal) {
+      const timer = setTimeout(() => {
+        const modalSelector = `[aria-labelledby$="-modal-title"]`;
+        const firstInput = document.querySelector<HTMLInputElement>(
+          `${modalSelector} input:not([disabled])`
+        );
+        const firstButton = document.querySelector<HTMLButtonElement>(
+          `${modalSelector} button:not([disabled])`
+        );
+        // Form modals: input prioritaire
+        (firstInput || firstButton)?.focus();
+      }, 150);
+      
+      const handleEsc = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setShowAddModal(false);
+          setShowEditModal(false);
+        }
+      };
+      document.addEventListener('keydown', handleEsc);
+      
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('keydown', handleEsc);
+      };
+    }
+  }, [showAddModal, showEditModal]);
 
   const filteredInventory = useMemo(() => {
     let filtered = inventory;
@@ -750,32 +780,42 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
 
       {/* Modal ajout */}
       {showAddModal && (
-        <div className='fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50'>
+        <div 
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="inventory-add-modal-title"
+          aria-describedby="inventory-add-modal-desc"
+          className='fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50'
+        >
           <div className='relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white'>
             <div className='mt-3'>
-              <h3 className='text-lg font-medium text-gray-900 mb-4'>Ajouter un article</h3>
+              <h3 id="inventory-add-modal-title" className='text-lg font-medium text-gray-900 mb-4'>Ajouter un article</h3>
 
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              <div id="inventory-add-modal-desc" className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                 <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>
+                  <label htmlFor="inventory-name-input" className='block text-sm font-medium text-gray-700 mb-1'>
                     Nom *
                   </label>
                   <input
+                    id="inventory-name-input"
                     type='text'
                     value={newItem.name}
                     onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                    aria-required="true"
                     className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                     placeholder='Ex: Draps queen size'
                   />
                 </div>
 
                 <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>
+                  <label htmlFor="inventory-category-select" className='block text-sm font-medium text-gray-700 mb-1'>
                     Catégorie *
                   </label>
                   <select
+                    id="inventory-category-select"
                     value={newItem.category}
                     onChange={(e) => setNewItem({ ...newItem, category: e.target.value as InventoryItem['category'] })}
+                    aria-required="true"
                     className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                   >
                     <option value=''>Sélectionner une catégorie</option>
@@ -788,10 +828,11 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
                 </div>
 
                 <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>
+                  <label htmlFor="inventory-quantity-input" className='block text-sm font-medium text-gray-700 mb-1'>
                     Quantité
                   </label>
                   <input
+                    id="inventory-quantity-input"
                     type='number'
                     value={newItem.quantity}
                     onChange={(e) => setNewItem({ ...newItem, quantity: Number(e.target.value) })}
@@ -801,10 +842,11 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
                 </div>
 
                 <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>
+                  <label htmlFor="inventory-min-quantity-input" className='block text-sm font-medium text-gray-700 mb-1'>
                     Seuil minimum
                   </label>
                   <input
+                    id="inventory-min-quantity-input"
                     type='number'
                     value={newItem.minimumQuantity}
                     onChange={(e) => setNewItem({ ...newItem, minimumQuantity: Number(e.target.value) })}
@@ -814,10 +856,11 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
                 </div>
 
                 <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>
+                  <label htmlFor="inventory-unit-input" className='block text-sm font-medium text-gray-700 mb-1'>
                     Unité
                   </label>
                   <input
+                    id="inventory-unit-input"
                     type='text'
                     value={newItem.unit}
                     onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
@@ -827,10 +870,11 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
                 </div>
 
                 <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>
+                  <label htmlFor="inventory-location-input" className='block text-sm font-medium text-gray-700 mb-1'>
                     Emplacement
                   </label>
                   <input
+                    id="inventory-location-input"
                     type='text'
                     value={newItem.location}
                     onChange={(e) => setNewItem({ ...newItem, location: e.target.value })}
@@ -840,10 +884,11 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
                 </div>
 
                 <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>
+                  <label htmlFor="inventory-supplier-input" className='block text-sm font-medium text-gray-700 mb-1'>
                     Fournisseur
                   </label>
                   <input
+                    id="inventory-supplier-input"
                     type='text'
                     value={newItem.supplier}
                     onChange={(e) => setNewItem({ ...newItem, supplier: e.target.value })}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useBNB, Booking, Property } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -182,6 +182,35 @@ export default function ContractGenerator() {
     instructions: false,
     advanced: false,
   });
+
+  // Focus management pour le modal Template (accessibilité)
+  useEffect(() => {
+    if (showTemplateModal) {
+      const timer = setTimeout(() => {
+        const modalSelector = `[aria-labelledby$="-modal-title"]`;
+        const firstInput = document.querySelector<HTMLInputElement>(
+          `${modalSelector} input:not([disabled])`
+        );
+        const firstButton = document.querySelector<HTMLButtonElement>(
+          `${modalSelector} button:not([disabled])`
+        );
+        // Form modal: input prioritaire
+        (firstInput || firstButton)?.focus();
+      }, 150);
+      
+      const handleEsc = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setShowTemplateModal(false);
+        }
+      };
+      document.addEventListener('keydown', handleEsc);
+      
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('keydown', handleEsc);
+      };
+    }
+  }, [showTemplateModal]);
 
   React.useEffect(() => {
     saveContractConfig(config);
@@ -842,23 +871,36 @@ export default function ContractGenerator() {
       {/* Modal Sauvegarder modèle */}
       <AnimatePresence>
         {showTemplateModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowTemplateModal(false)} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            onClick={() => setShowTemplateModal(false)} 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contract-template-modal-title"
+            aria-describedby="contract-template-modal-desc"
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          >
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} onClick={(e) => e.stopPropagation()} className={`${cardClass} border rounded-2xl p-6 max-w-md w-full`}>
-              <h3 className={`text-xl font-bold mb-4 ${textClass}`}>Sauvegarder comme modèle</h3>
-              <div className="space-y-4">
+              <h3 id="contract-template-modal-title" className={`text-xl font-bold mb-4 ${textClass}`}>Sauvegarder comme modèle</h3>
+              <div id="contract-template-modal-desc" className="space-y-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${labelClass}`}>Nom du modèle</label>
+                  <label htmlFor="template-name-input" className={`block text-sm font-medium mb-2 ${labelClass}`}>Nom du modèle</label>
                   <input
+                    id="template-name-input"
                     type="text"
                     value={newTemplateName}
                     onChange={(e) => setNewTemplateName(e.target.value)}
                     placeholder="Ex: Contrat Standard"
+                    aria-required="true"
                     className={`w-full border rounded-lg px-3 py-2 ${inputClass}`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${labelClass}`}>Description</label>
+                  <label htmlFor="template-desc-input" className={`block text-sm font-medium mb-2 ${labelClass}`}>Description</label>
                   <textarea
+                    id="template-desc-input"
                     value={newTemplateDesc}
                     onChange={(e) => setNewTemplateDesc(e.target.value)}
                     placeholder="Brève description..."

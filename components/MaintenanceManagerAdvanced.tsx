@@ -154,6 +154,38 @@ export default function MaintenanceManagerAdvanced() {
     estimatedDuration: 0,
     checklistItems: []
   });
+
+  // Focus management pour les modals (accessibilité)
+  useEffect(() => {
+    if (showNewTaskModal || showEditTaskModal || showNewSupplierModal || showNewTemplateModal) {
+      const timer = setTimeout(() => {
+        const modalSelector = `[aria-labelledby$="-modal-title"]`;
+        const firstInput = document.querySelector<HTMLInputElement>(
+          `${modalSelector} input:not([disabled])`
+        );
+        const firstButton = document.querySelector<HTMLButtonElement>(
+          `${modalSelector} button:not([disabled])`
+        );
+        // Form modals: input prioritaire
+        (firstInput || firstButton)?.focus();
+      }, 150);
+      
+      const handleEsc = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setShowNewTaskModal(false);
+          setShowEditTaskModal(false);
+          setShowNewSupplierModal(false);
+          setShowNewTemplateModal(false);
+        }
+      };
+      document.addEventListener('keydown', handleEsc);
+      
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('keydown', handleEsc);
+      };
+    }
+  }, [showNewTaskModal, showEditTaskModal, showNewSupplierModal, showNewTemplateModal]);
   
   // Filtres
   const [filters, setFilters] = useState({
@@ -936,6 +968,10 @@ export default function MaintenanceManagerAdvanced() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="new-task-modal-title"
+              aria-describedby="new-task-modal-desc"
               className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
               onClick={() => setShowNewTaskModal(false)}
             >
@@ -949,19 +985,21 @@ export default function MaintenanceManagerAdvanced() {
                 } rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto`}
               >
                 <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                  <h3 className="text-2xl font-bold">Nouvelle tâche de maintenance</h3>
+                  <h3 id="new-task-modal-title" className="text-2xl font-bold">Nouvelle tâche de maintenance</h3>
                 </div>
 
-                <div className="p-6 space-y-4">
+                <div id="new-task-modal-desc" className="p-6 space-y-4">
                   {/* Titre */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <label htmlFor="task-title-input" className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                       Titre <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="task-title-input"
                       type="text"
                       value={newTask.title}
                       onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                      aria-required="true"
                       className={`w-full px-4 py-2 rounded-lg border ${
                         isDark
                           ? 'bg-gray-700 border-gray-600 text-white'
@@ -973,10 +1011,11 @@ export default function MaintenanceManagerAdvanced() {
 
                   {/* Description */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <label htmlFor="task-description-input" className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                       Description
                     </label>
                     <textarea
+                      id="task-description-input"
                       value={newTask.description}
                       onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                       rows={3}
@@ -991,12 +1030,14 @@ export default function MaintenanceManagerAdvanced() {
 
                   {/* Propriété */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <label htmlFor="task-property-select" className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                       Propriété <span className="text-red-500">*</span>
                     </label>
                     <select
+                      id="task-property-select"
                       value={newTask.propertyId}
                       onChange={(e) => setNewTask({ ...newTask, propertyId: parseInt(e.target.value) })}
+                      aria-required="true"
                       className={`w-full px-4 py-2 rounded-lg border ${
                         isDark
                           ? 'bg-gray-700 border-gray-600 text-white'
@@ -1013,10 +1054,11 @@ export default function MaintenanceManagerAdvanced() {
                   <div className="grid grid-cols-2 gap-4">
                     {/* Catégorie */}
                     <div>
-                      <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <label htmlFor="task-category-select" className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                         Catégorie
                       </label>
                       <select
+                        id="task-category-select"
                         value={newTask.category}
                         onChange={(e) => setNewTask({ ...newTask, category: e.target.value as MaintenanceTask['category'] })}
                         className={`w-full px-4 py-2 rounded-lg border ${
@@ -1035,10 +1077,11 @@ export default function MaintenanceManagerAdvanced() {
 
                     {/* Priorité */}
                     <div>
-                      <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <label htmlFor="task-priority-select" className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                         Priorité
                       </label>
                       <select
+                        id="task-priority-select"
                         value={newTask.priority}
                         onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as MaintenanceTask['priority'] })}
                         className={`w-full px-4 py-2 rounded-lg border ${
