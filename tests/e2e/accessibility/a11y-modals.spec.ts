@@ -15,13 +15,13 @@ test.describe('Accessibility - BookingManager Modals', () => {
     await setupAuth(page);
     
     // Navigate to Réservations tab
-    await page.click('text=Réservations');
-    await page.waitForTimeout(500);
+    await page.click('[data-testid="bookings-tab"]');
+    await page.waitForTimeout(1000);
   });
 
   test('New booking modal should have correct ARIA attributes', async ({ page }) => {
     // Click "Nouvelle Réservation" button
-    await page.click('button:has-text("Nouvelle Réservation")');
+    await page.click('[data-testid="new-booking-button"]');
     
     // Wait for modal to appear
     const modal = page.locator('[role="dialog"]');
@@ -129,8 +129,8 @@ test.describe('Accessibility - BookingManager Modals', () => {
 test.describe('Accessibility - GuestManager Modals', () => {
   test.beforeEach(async ({ page }) => {
     await setupAuth(page);
-    await page.click('text=Voyageurs');
-    await page.waitForTimeout(500);
+    await page.click('[data-testid="guests-tab"]');
+    await page.waitForTimeout(1000);
   });
 
   test('New guest modal should have correct ARIA attributes', async ({ page }) => {
@@ -175,8 +175,8 @@ test.describe('Accessibility - GuestManager Modals', () => {
 test.describe('Accessibility - MaintenanceManager Modal', () => {
   test.beforeEach(async ({ page }) => {
     await setupAuth(page);
-    await page.click('text=Maintenance');
-    await page.waitForTimeout(500);
+    await page.click('[data-testid="maintenance-tab"]');
+    await page.waitForTimeout(1000);
   });
 
   test('New task modal should have correct ARIA attributes', async ({ page }) => {
@@ -218,8 +218,8 @@ test.describe('Accessibility - MaintenanceManager Modal', () => {
 test.describe('Accessibility - InventoryManager Modal', () => {
   test.beforeEach(async ({ page }) => {
     await setupAuth(page);
-    await page.click('text=Inventaire');
-    await page.waitForTimeout(500);
+    await page.click('[data-testid="inventory-tab"]');
+    await page.waitForTimeout(1000);
   });
 
   test('Add item modal should have correct ARIA attributes', async ({ page }) => {
@@ -248,8 +248,8 @@ test.describe('Accessibility - InventoryManager Modal', () => {
 test.describe('Accessibility - ContractGenerator Modal', () => {
   test.beforeEach(async ({ page }) => {
     await setupAuth(page);
-    await page.click('text=Générateur de Contrats');
-    await page.waitForTimeout(500);
+    await page.click('[data-testid="contract-tab"]');
+    await page.waitForTimeout(1000);
   });
 
   test('Template modal should have correct ARIA attributes', async ({ page }) => {
@@ -272,24 +272,24 @@ test.describe('Accessibility - Keyboard Navigation All Modals', () => {
   test('All modals should close with ESC key consistently', async ({ page }) => {
     await setupAuth(page);
     
-    // Test cases: [tab name, button text]
-    const modalTests = [
-      ['Réservations', 'Nouvelle Réservation'],
-      ['Voyageurs', 'Nouveau Voyageur'],
-      ['Maintenance', 'Nouvelle Tâche'],
-      ['Inventaire', 'Ajouter un Équipement'],
+    // Test cases: [tab data-testid, button data-testid]
+    const modalTests: Array<[string, string]> = [
+      ['bookings-tab', 'new-booking-button'],
+      ['guests-tab', 'new-guest-button'],
+      ['maintenance-tab', 'new-maintenance-button'],
+      ['inventory-tab', 'add-inventory-button'],
     ];
     
-    for (const [tabName, buttonText] of modalTests) {
+    for (const [tabId, buttonId] of modalTests) {
       // Navigate to tab
-      await page.click(`text=${tabName}`);
-      await page.waitForTimeout(300);
+      await page.click(`[data-testid="${tabId}"]`);
+      await page.waitForTimeout(1000);
       
       // Open modal
-      await page.click(`button:has-text("${buttonText}")`);
+      await page.click(`[data-testid="${buttonId}"]`);
       
       // Verify modal open
-      await expect(page.locator('[role="dialog"]')).toBeVisible();
+      await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 10000 });
       
       // Press ESC
       await page.keyboard.press('Escape');
@@ -302,18 +302,18 @@ test.describe('Accessibility - Keyboard Navigation All Modals', () => {
   test('All modals should auto-focus on first input consistently', async ({ page }) => {
     await setupAuth(page);
     
-    const modalTests = [
-      ['Réservations', 'Nouvelle Réservation'],
-      ['Voyageurs', 'Nouveau Voyageur'],
-      ['Maintenance', 'Nouvelle Tâche'],
-      ['Inventaire', 'Ajouter un Équipement'],
+    const modalTests: Array<[string, string]> = [
+      ['bookings-tab', 'new-booking-button'],
+      ['guests-tab', 'new-guest-button'],
+      ['maintenance-tab', 'new-maintenance-button'],
+      ['inventory-tab', 'add-inventory-button'],
     ];
-    
-    for (const [tabName, buttonText] of modalTests) {
-      await page.click(`text=${tabName}`);
-      await page.waitForTimeout(300);
-      
-      await page.click(`button:has-text("${buttonText}")`);
+
+    for (const [tabId, buttonId] of modalTests) {
+      await page.click(`[data-testid="${tabId}"]`);
+      await page.waitForTimeout(1000);
+
+      await page.click(`[data-testid="${buttonId}"]`);
       await page.waitForTimeout(200); // useEffect delay
       
       // Verify first focusable element is focused
@@ -343,16 +343,16 @@ test.describe('Accessibility - Full Page Axe Scan', () => {
     await setupAuth(page);
     
     const tabs = [
-      'Réservations',
-      'Voyageurs',
-      'Maintenance',
-      'Inventaire',
-      'Paramètres',
+      'bookings-tab',
+      'guests-tab',
+      'maintenance-tab',
+      'inventory-tab',
+      'settings-tab',
     ];
     
-    for (const tabName of tabs) {
-      await page.click(`text=${tabName}`);
-      await page.waitForTimeout(500);
+    for (const tabId of tabs) {
+      await page.click(`[data-testid="${tabId}"]`);
+      await page.waitForTimeout(1500);
       
       const accessibilityScanResults = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa'])
@@ -360,7 +360,7 @@ test.describe('Accessibility - Full Page Axe Scan', () => {
       
       // Log violations if any for debugging
       if (accessibilityScanResults.violations.length > 0) {
-        console.log(`Violations in ${tabName}:`, accessibilityScanResults.violations);
+        console.log(`Violations in ${tabId}:`, accessibilityScanResults.violations);
       }
       
       expect(accessibilityScanResults.violations).toEqual([]);

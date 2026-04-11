@@ -833,6 +833,7 @@ export default function MaintenanceManagerAdvanced() {
             <Button
               variant="primary"
               icon={Wrench}
+              data-testid="new-maintenance-button"
               onClick={() => setShowNewTaskModal(true)}
             >
               Nouvelle tâche

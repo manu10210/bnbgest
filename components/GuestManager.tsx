@@ -442,6 +442,7 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
           </div>
           <div className="flex gap-2">
             <button
+              data-testid="new-guest-button"
               onClick={() => {
                 setEditForm({});
                 setSelectedGuest(null);

@@ -9,65 +9,76 @@ import { Page } from '@playwright/test';
 
 export const testCredentials = {
   email: process.env.TEST_USER_EMAIL || 'demo@bnbgest.com',
-  password: process.env.TEST_USER_PASSWORD || 'demo123',
+  password: process.env.TEST_USER_PASSWORD || 'Demo1234!',
 };
 
 /**
- * Login to the application
+ * Login to the application using NextAuth
  * Handles the full login flow and waits for redirect to /admin
  */
 export async function login(page: Page, email?: string, password?: string) {
   const loginEmail = email || testCredentials.email;
   const loginPassword = password || testCredentials.password;
 
-  // Go to admin page (will redirect to login if not authenticated)
-  await page.goto('/admin');
+  // Navigate to NextAuth signin page
+  await page.goto('/api/auth/signin');
   
-  // Check if we're on login page
-  const isLoginPage = page.url().includes('login') || page.url().includes('signin') || page.url().includes('auth');
+  // Wait for signin form to load
+  await page.waitForSelector('input[name="email"]', { timeout: 10000 });
   
-  if (isLoginPage || await page.locator('[name="email"]').count() > 0) {
-    // Fill login form
-    await page.fill('[name="email"]', loginEmail);
-    await page.fill('[name="password"]', loginPassword);
-    
-    // Submit form
-    await page.click('button[type="submit"]');
-    
-    // Wait for navigation to /admin
-    await page.waitForURL(/\/admin/, { timeout: 10000 });
-    
-    // Wait for page to be fully loaded
-    await page.waitForLoadState('networkidle');
-  } else {
-    // Already authenticated, just wait for load
-    await page.waitForLoadState('networkidle');
-  }
+  // Fill credentials
+  await page.fill('input[name="email"]', loginEmail);
+  await page.fill('input[name="password"]', loginPassword);
+  
+  // Submit form and wait for navigation
+  await Promise.all([
+    page.waitForNavigation({ timeout: 15000 }),
+    page.click('button[type="submit"]'),
+  ]);
+  
+  // Wait for redirect to /admin
+  await page.waitForURL('**/admin', { timeout: 15000 });
+  
+  // Wait for page to be fully loaded
+  await page.waitForLoadState('networkidle');
 }
 
 /**
  * Logout from the application
  */
 export async function logout(page: Page) {
-  // Look for logout button/link (adjust selector based on actual UI)
-  const logoutButton = page.locator('[aria-label="Déconnexion"], button:has-text("Déconnexion"), a:has-text("Déconnexion")').first();
+  // Navigate to NextAuth signout page
+  await page.goto('/api/auth/signout');
   
-  if (await logoutButton.count() > 0) {
-    await logoutButton.click();
-    await page.waitForURL(/\/|login|signin/, { timeout: 5000 });
-  }
+  // Wait for signout form
+  await page.waitForSelector('form', { timeout: 5000 });
+  
+  // Click signout button
+  await page.click('form button');
+  
+  // Wait for redirect to home
+  await page.waitForURL('/', { timeout: 5000 });
 }
 
 /**
  * Check if user is authenticated
  */
 export async function isAuthenticated(page: Page): Promise<boolean> {
-  await page.goto('/admin');
-  await page.waitForLoadState('networkidle');
-  
-  // Check if we're on /admin (authenticated) or login page (not authenticated)
-  const currentUrl = page.url();
-  return currentUrl.includes('/admin') && !currentUrl.includes('login') && !currentUrl.includes('signin');
+  try {
+    const url = page.url();
+    
+    // Must be on /admin URL
+    if (!url.includes('/admin')) {
+      return false;
+    }
+    
+    // Wait for AdminSidebar to be present
+    await page.waitForSelector('[data-testid="admin-sidebar"]', { timeout: 5000 });
+    
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -76,6 +87,15 @@ export async function isAuthenticated(page: Page): Promise<boolean> {
  */
 export async function setupAuth(page: Page) {
   await login(page);
+  
+  // Wait for AdminSidebar to be fully rendered with data-testid
+  await page.waitForSelector('[data-testid="admin-sidebar"]', { timeout: 15000 });
+  
+  // Wait for at least one tab to be present
+  await page.waitForSelector('[data-testid="bookings-tab"]', { timeout: 10000 });
+  
+  // Additional wait for React hydration
+  await page.waitForTimeout(500);
   
   // Verify we're authenticated
   const authenticated = await isAuthenticated(page);

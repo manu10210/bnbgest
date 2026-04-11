@@ -617,6 +617,7 @@ export default function EquipmentVideoQR() {
             <Smartphone className="w-4 h-4" /> Upload Mobile
           </button>
           <button
+            data-testid="add-guide-button"
             onClick={() => { resetForm(); setShowForm(true); }}
             className="flex items-center gap-2 bg-gradient-to-r from-[#FF385C] to-[#E31C5F] text-white px-5 py-2.5 rounded-xl hover:from-[#E31C5F] hover:to-[#C8184F] transition-all shadow-lg hover:shadow-xl transform hover:scale-105 text-sm font-semibold"
           >

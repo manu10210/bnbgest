@@ -679,6 +679,7 @@ export default function ContractGenerator() {
                 </button>
 
                 <button
+                  data-testid="save-template-button"
                   onClick={() => setShowTemplateModal(true)}
                   className="px-6 py-3 rounded-xl font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-all flex items-center gap-2"
                 >

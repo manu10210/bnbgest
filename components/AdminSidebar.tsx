@@ -186,6 +186,7 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
       {/* Sidebar — desktop: sticky | mobile: slide-over */}
       <AnimatePresence>
       <motion.aside
+        data-testid="admin-sidebar"
         initial={{ width: isCollapsed ? 80 : 280, x: 0 }}
         animate={{
           width: isCollapsed ? 80 : 280,
@@ -292,6 +293,7 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
                 return (
                   <button
                     key={item.id}
+                    data-testid={`${item.id}-tab`}
                     onClick={() => safeSetActiveTab(item.id as TabType)}
                     title={isCollapsed ? item.label : undefined}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${

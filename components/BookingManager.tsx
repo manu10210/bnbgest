@@ -533,6 +533,7 @@ export default function BookingManager({ propertyId, showFilters = true }: Booki
           </div>
           <div className="flex gap-2">
             <button
+              data-testid="new-booking-button"
               onClick={() => {
                 setEditForm({});
                 setShowModal('new');

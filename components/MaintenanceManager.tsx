@@ -296,7 +296,11 @@ export default function MaintenanceManager({ propertyId, showFilters = true }: M
             {statInProgress > 0 && <span className="text-blue-500 font-medium"> · {statInProgress} en cours</span>}
           </p>
         </div>
-        <button onClick={() => setShowAddTask(true)} className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-5 py-2.5 rounded-xl font-medium shadow hover:from-blue-600 hover:to-blue-700 transition-all flex items-center gap-2">
+        <button
+          data-testid="new-task-button"
+          onClick={() => setShowAddTask(true)}
+          className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-5 py-2.5 rounded-xl font-medium shadow hover:from-blue-600 hover:to-blue-700 transition-all flex items-center gap-2"
+        >
           <span className="text-lg leading-none">+</span> Nouvelle tâche
         </button>
       </div>

@@ -12,10 +12,10 @@
 # Error details
 
 ```
-Error: expect(received).toBeGreaterThanOrEqual(expected)
+TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator('[data-testid$="-tab"]') to be visible
 
-Expected: >= 3
-Received:    0
 ```
 
 # Page snapshot
@@ -27,177 +27,98 @@ Received:    0
 # Test source
 
 ```ts
-  53  |     await expect(mainContent).toHaveAttribute('id', 'main-content');
-  54  |   });
-  55  | 
-  56  |   test('Header banner should exist with correct role', async ({ page }) => {
-  57  |     // Verify header element exists
-  58  |     const header = page.locator('header[role="banner"]');
-  59  |     await expect(header).toBeVisible();
-  60  |     
-  61  |     // Verify header has role="banner"
-  62  |     await expect(header).toHaveAttribute('role', 'banner');
-  63  |   });
-  64  | 
-  65  |   test('Breadcrumbs navigation should have correct ARIA', async ({ page }) => {
-  66  |     // Verify breadcrumbs nav exists
-  67  |     const breadcrumbNav = page.locator('nav[aria-label="Fil d\'Ariane"]');
-  68  |     await expect(breadcrumbNav).toBeVisible();
-  69  |     
-  70  |     // Verify nav has aria-label
-  71  |     await expect(breadcrumbNav).toHaveAttribute('aria-label', 'Fil d\'Ariane');
-  72  |     
-  73  |     // Verify ordered list structure
-  74  |     const breadcrumbList = breadcrumbNav.locator('ol');
-  75  |     await expect(breadcrumbList).toBeVisible();
-  76  |     
-  77  |     // Verify home link exists
-  78  |     const homeLink = breadcrumbNav.locator('a[href="/admin"]');
-  79  |     await expect(homeLink).toBeVisible();
-  80  |     await expect(homeLink).toHaveText('Accueil');
-  81  |     
-  82  |     // Verify current page has aria-current="page"
-  83  |     const currentPage = breadcrumbNav.locator('[aria-current="page"]');
-  84  |     await expect(currentPage).toBeVisible();
-  85  |   });
-  86  | 
-  87  |   test('Breadcrumbs should update dynamically on tab change', async ({ page }) => {
-  88  |     // Default tab: Tableau de bord
-  89  |     let currentPage = page.locator('[aria-current="page"]');
-  90  |     await expect(currentPage).toContainText('Tableau de bord');
-  91  |     
-  92  |     // Click "Réservations" tab
-  93  |     await page.click('text=Réservations');
-  94  |     
-  95  |     // Verify breadcrumb updated
-  96  |     currentPage = page.locator('[aria-current="page"]');
-  97  |     await expect(currentPage).toContainText('Réservations');
-  98  |     
-  99  |     // Click "Voyageurs" tab
-  100 |     await page.click('text=Voyageurs');
-  101 |     
-  102 |     // Verify breadcrumb updated again
-  103 |     currentPage = page.locator('[aria-current="page"]');
-  104 |     await expect(currentPage).toContainText('Voyageurs');
-  105 |   });
-  106 | 
-  107 |   test('Focus visible CSS should be applied on keyboard navigation', async ({ page }) => {
-  108 |     // Tab through interactive elements
-  109 |     await page.keyboard.press('Tab'); // Skip link
-  110 |     await page.keyboard.press('Tab'); // Next element
-  111 |     
-  112 |     // Get focused element
-  113 |     const focusedElement = await page.locator(':focus-visible');
-  114 |     
-  115 |     // Verify focus-visible is active
-  116 |     await expect(focusedElement).toBeVisible();
-  117 |     
-  118 |     // Verify outline exists (CSS applied)
-  119 |     const outlineColor = await focusedElement.evaluate((el) => {
-  120 |       return window.getComputedStyle(el).outlineColor;
-  121 |     });
-  122 |     
-  123 |     // Verify outline is not "none" (should be rgb color)
-  124 |     expect(outlineColor).not.toBe('none');
-  125 |   });
-  126 | 
-  127 |   test('Page should have all semantic landmarks', async ({ page }) => {
-  128 |     // Verify main landmark
-  129 |     await expect(page.locator('main[role="main"]')).toBeVisible();
-  130 |     
-  131 |     // Verify banner landmark
-  132 |     await expect(page.locator('header[role="banner"]')).toBeVisible();
-  133 |     
-  134 |     // Verify navigation landmark (breadcrumbs)
-  135 |     await expect(page.locator('nav[aria-label="Fil d\'Ariane"]')).toBeVisible();
-  136 |   });
-  137 | 
-  138 |   test('Page should have no axe accessibility violations', async ({ page }) => {
-  139 |     // Run full page scan with axe-core
-  140 |     const accessibilityScanResults = await new AxeBuilder({ page })
-  141 |       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-  142 |       .analyze();
-  143 |     
-  144 |     // Verify no violations
-  145 |     expect(accessibilityScanResults.violations).toEqual([]);
-  146 |   });
-  147 | 
-  148 |   test('Navigation landmarks should be accessible to screen readers', async ({ page }) => {
-  149 |     // Get all landmarks
-  150 |     const landmarks = await page.locator('[role="banner"], [role="main"], nav[aria-label]').all();
-  151 |     
-  152 |     // Verify at least 3 landmarks (banner, main, breadcrumbs nav)
-> 153 |     expect(landmarks.length).toBeGreaterThanOrEqual(3);
-      |                              ^ Error: expect(received).toBeGreaterThanOrEqual(expected)
-  154 |     
-  155 |     // Verify all landmarks are visible
-  156 |     for (const landmark of landmarks) {
-  157 |       await expect(landmark).toBeVisible();
-  158 |     }
-  159 |   });
-  160 | });
-  161 | 
-  162 | test.describe('Accessibility - Dark Mode Navigation', () => {
-  163 |   test.beforeEach(async ({ page }) => {
-  164 |     await setupAuth(page);
-  165 |   });
-  166 | 
-  167 |   test('Skip link should adapt to dark mode', async ({ page }) => {
-  168 |     // Toggle dark mode
-  169 |     const themeToggle = page.locator('[aria-label*="theme"], [aria-label*="thème"]').first();
-  170 |     await themeToggle.click();
-  171 |     
-  172 |     // Wait for theme change
-  173 |     await page.waitForTimeout(300);
-  174 |     
-  175 |     // Tab to skip link
-  176 |     await page.keyboard.press('Tab');
-  177 |     
-  178 |     // Verify skip link visible in dark mode
-  179 |     const skipLink = page.locator('.skip-link');
-  180 |     await expect(skipLink).toBeVisible();
-  181 |     
-  182 |     // Verify dark mode class applied to body/html
-  183 |     const isDarkMode = await page.evaluate(() => {
-  184 |       return document.documentElement.classList.contains('dark') || 
-  185 |              document.body.classList.contains('dark');
-  186 |     });
-  187 |     
-  188 |     if (isDarkMode) {
-  189 |       // Verify outline color adapted (should be #FF385C in dark mode)
-  190 |       const outlineColor = await skipLink.evaluate((el) => {
-  191 |         return window.getComputedStyle(el).outlineColor;
-  192 |       });
-  193 |       
-  194 |       // Outline should exist
-  195 |       expect(outlineColor).not.toBe('none');
-  196 |     }
-  197 |   });
-  198 | 
-  199 |   test('Focus visible should use accent color in dark mode', async ({ page }) => {
-  200 |     // Toggle dark mode
-  201 |     const themeToggle = page.locator('[aria-label*="theme"], [aria-label*="thème"]').first();
-  202 |     await themeToggle.click();
-  203 |     
-  204 |     await page.waitForTimeout(300);
-  205 |     
-  206 |     // Focus on interactive element
-  207 |     await page.keyboard.press('Tab');
-  208 |     await page.keyboard.press('Tab');
-  209 |     
-  210 |     const focusedElement = await page.locator(':focus-visible');
-  211 |     
-  212 |     // Verify element is focused
-  213 |     await expect(focusedElement).toBeVisible();
-  214 |     
-  215 |     // Verify dark mode class
-  216 |     const isDarkMode = await page.evaluate(() => {
-  217 |       return document.documentElement.classList.contains('dark') || 
-  218 |              document.body.classList.contains('dark');
-  219 |     });
-  220 |     
-  221 |     expect(isDarkMode).toBeTruthy();
-  222 |   });
-  223 | });
-  224 | 
+  1  | import { Page } from '@playwright/test';
+  2  | 
+  3  | /**
+  4  |  * Helper functions for authentication in Playwright tests
+  5  |  * 
+  6  |  * IMPORTANT: Ces tests utilisent l'environnement local.
+  7  |  * Pour CI/CD, configurer TEST_USER_EMAIL et TEST_USER_PASSWORD dans secrets GitHub.
+  8  |  */
+  9  | 
+  10 | export const testCredentials = {
+  11 |   email: process.env.TEST_USER_EMAIL || 'demo@bnbgest.com',
+  12 |   password: process.env.TEST_USER_PASSWORD || 'demo123',
+  13 | };
+  14 | 
+  15 | /**
+  16 |  * Login to the application
+  17 |  * Handles the full login flow and waits for redirect to /admin
+  18 |  */
+  19 | export async function login(page: Page, email?: string, password?: string) {
+  20 |   const loginEmail = email || testCredentials.email;
+  21 |   const loginPassword = password || testCredentials.password;
+  22 | 
+  23 |   // Go to admin page (will redirect to login if not authenticated)
+  24 |   await page.goto('/admin');
+  25 |   
+  26 |   // Check if we're on login page
+  27 |   const isLoginPage = page.url().includes('login') || page.url().includes('signin') || page.url().includes('auth');
+  28 |   
+  29 |   if (isLoginPage || await page.locator('[name="email"]').count() > 0) {
+  30 |     // Fill login form
+  31 |     await page.fill('[name="email"]', loginEmail);
+  32 |     await page.fill('[name="password"]', loginPassword);
+  33 |     
+  34 |     // Submit form
+  35 |     await page.click('button[type="submit"]');
+  36 |     
+  37 |     // Wait for navigation to /admin
+  38 |     await page.waitForURL(/\/admin/, { timeout: 10000 });
+  39 |     
+  40 |     // Wait for page to be fully loaded
+  41 |     await page.waitForLoadState('networkidle');
+  42 |   } else {
+  43 |     // Already authenticated, just wait for load
+  44 |     await page.waitForLoadState('networkidle');
+  45 |   }
+  46 | }
+  47 | 
+  48 | /**
+  49 |  * Logout from the application
+  50 |  */
+  51 | export async function logout(page: Page) {
+  52 |   // Look for logout button/link (adjust selector based on actual UI)
+  53 |   const logoutButton = page.locator('[aria-label="Déconnexion"], button:has-text("Déconnexion"), a:has-text("Déconnexion")').first();
+  54 |   
+  55 |   if (await logoutButton.count() > 0) {
+  56 |     await logoutButton.click();
+  57 |     await page.waitForURL(/\/|login|signin/, { timeout: 5000 });
+  58 |   }
+  59 | }
+  60 | 
+  61 | /**
+  62 |  * Check if user is authenticated
+  63 |  */
+  64 | export async function isAuthenticated(page: Page): Promise<boolean> {
+  65 |   await page.goto('/admin');
+  66 |   await page.waitForLoadState('networkidle');
+  67 |   
+  68 |   // Check if we're on /admin (authenticated) or login page (not authenticated)
+  69 |   const currentUrl = page.url();
+  70 |   return currentUrl.includes('/admin') && !currentUrl.includes('login') && !currentUrl.includes('signin');
+  71 | }
+  72 | 
+  73 | /**
+  74 |  * Setup authentication state for tests
+  75 |  * This should be called in test.beforeAll or test.beforeEach
+  76 |  */
+  77 | export async function setupAuth(page: Page) {
+  78 |   await login(page);
+  79 |   
+  80 |   // Verify we're authenticated
+  81 |   const authenticated = await isAuthenticated(page);
+  82 |   if (!authenticated) {
+  83 |     throw new Error('Failed to authenticate user');
+  84 |   }
+  85 |   
+  86 |   // Wait for AdminSidebar to be fully rendered
+  87 |   // Verify that at least one tab button is present
+> 88 |   await page.waitForSelector('[data-testid$="-tab"]', { timeout: 10000 });
+     |              ^ TimeoutError: page.waitForSelector: Timeout 10000ms exceeded.
+  89 |   
+  90 |   // Additional wait for React hydration
+  91 |   await page.waitForTimeout(500);
+  92 | }
+  93 | 
 ```

@@ -398,6 +398,7 @@ export default function InventoryManager({ propertyId }: InventoryManagerProps) 
             </Button>
           )}
           <Button
+            data-testid="add-inventory-button"
             onClick={() => setShowAddModal(true)}
             icon={Plus}
             className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
