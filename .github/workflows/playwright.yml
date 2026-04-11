@@ -92,6 +92,24 @@ jobs:
           path: test-results/
           retention-days: 30
 
+      # Session 20: Upload screenshots for visual regression comparison
+      - name: Upload Screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: test-results/**/*.png
+          retention-days: 30
+
+      # Session 20: Upload baseline screenshots (main branch only)
+      - name: Upload Baseline Screenshots
+        uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main' && success()
+        with:
+          name: baseline-screenshots
+          path: tests/**/*-snapshots/**/*.png
+          retention-days: 90
+
       - name: Comment PR with Results
         uses: daun/playwright-report-comment@v3
         if: github.event_name == 'pull_request' && always()

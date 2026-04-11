@@ -9,6 +9,11 @@ import { defineConfig, devices } from '@playwright/test';
  * - 3 workers (parallel by browser, sequential within)
  * - Reduced motion for faster animations
  * - Optimized timeouts
+ * 
+ * Session 20 Additions:
+ * - Visual regression testing (screenshots)
+ * - Mobile device testing (Pixel 5, iPhone 12, iPad)
+ * - Snapshot comparison settings
  */
 export default defineConfig({
   testDir: './tests/e2e',
@@ -54,6 +59,15 @@ export default defineConfig({
     navigationTimeout: 15000,   // Reduced from 30s
   },
 
+  /* Session 20: Visual regression snapshot settings */
+  expect: {
+    toMatchSnapshot: {
+      maxDiffPixels: 100,        // Allow 100 pixels difference
+      maxDiffPixelRatio: 0.01,   // Allow 1% difference
+      threshold: 0.2,            // Color threshold (0-1)
+    },
+  },
+
   /* Configure projects for major browsers */
   projects: [
     {
@@ -89,15 +103,31 @@ export default defineConfig({
       },
     },
 
-    /* Test against mobile viewports */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
+    /* Session 20: Mobile device testing */
+    {
+      name: 'Mobile Chrome',
+      use: { 
+        ...devices['Pixel 5'],
+        /* Reuse authenticated state */
+        storageState: 'playwright/.auth/user.json',
+      },
+    },
+    {
+      name: 'Mobile Safari',
+      use: { 
+        ...devices['iPhone 12'],
+        /* Reuse authenticated state */
+        storageState: 'playwright/.auth/user.json',
+      },
+    },
+    {
+      name: 'Tablet',
+      use: { 
+        ...devices['iPad (gen 7)'],
+        /* Reuse authenticated state */
+        storageState: 'playwright/.auth/user.json',
+      },
+    },
   ],
 
   /* Run your local dev server before starting the tests */

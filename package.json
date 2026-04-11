@@ -28,7 +28,13 @@
     "test:report": "playwright show-report",
     "test:seed": "tsx tests/helpers/seed-test-user.ts",
     "test:setup": "npm run test:seed && prisma db push",
-    "test:auth": "tsx tests/auth-setup.ts"
+    "test:auth": "tsx tests/auth-setup.ts",
+    "test:visual": "playwright test tests/visual",
+    "test:visual:update": "playwright test tests/visual --update-snapshots",
+    "test:mobile": "playwright test tests/e2e/mobile",
+    "test:mobile-chrome": "playwright test --project=\"Mobile Chrome\"",
+    "test:mobile-safari": "playwright test --project=\"Mobile Safari\"",
+    "test:tablet": "playwright test --project=\"Tablet\""
   },
   "prisma": {
     "seed": "node prisma/seed.js"
