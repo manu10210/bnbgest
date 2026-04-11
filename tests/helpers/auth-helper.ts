@@ -3,6 +3,11 @@ import { Page } from '@playwright/test';
 /**
  * Helper functions for authentication in Playwright tests
  * 
+ * Session 19: Storage state optimization
+ * - Tests now reuse authenticated session (no repeated logins)
+ * - setupAuth() simplified (just verification, login already done)
+ * - Fallback to manual login if storage state fails
+ * 
  * IMPORTANT: Ces tests utilisent l'environnement local.
  * Pour CI/CD, configurer TEST_USER_EMAIL et TEST_USER_PASSWORD dans secrets GitHub.
  */
@@ -83,19 +88,32 @@ export async function isAuthenticated(page: Page): Promise<boolean> {
 
 /**
  * Setup authentication state for tests
- * This should be called in test.beforeAll or test.beforeEach
+ * 
+ * Session 19: With storage state, authentication is already done globally.
+ * This function now just navigates to /admin and verifies auth works.
+ * If storage state fails, falls back to manual login.
  */
 export async function setupAuth(page: Page) {
-  await login(page);
+  // Navigate to admin page (should be already authenticated via storage state)
+  await page.goto('/admin');
+  
+  // Check if authentication works
+  const isAuth = await isAuthenticated(page);
+  
+  if (!isAuth) {
+    // Fallback: storage state failed, manual login required
+    console.warn('⚠️  Storage state authentication failed, falling back to manual login...');
+    await login(page);
+  }
   
   // Wait for AdminSidebar to be fully rendered with data-testid
-  await page.waitForSelector('[data-testid="admin-sidebar"]', { timeout: 15000 });
+  await page.waitForSelector('[data-testid="admin-sidebar"]', { timeout: 10000 });
   
   // Wait for at least one tab to be present
-  await page.waitForSelector('[data-testid="bookings-tab"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="bookings-tab"]', { timeout: 5000 });
   
-  // Additional wait for React hydration
-  await page.waitForTimeout(500);
+  // Reduced hydration wait (Session 19 optimization)
+  await page.waitForTimeout(200);
   
   // Verify we're authenticated
   const authenticated = await isAuthenticated(page);

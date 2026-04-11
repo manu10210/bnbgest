@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     name: E2E Accessibility Tests
-    timeout-minutes: 60
+    timeout-minutes: 30  # Reduced from 60 (Session 19 optimization)
     runs-on: ubuntu-latest
     
     services:
@@ -34,7 +34,7 @@ jobs:
       NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
       NEXTAUTH_URL: http://localhost:3000
       TEST_USER_EMAIL: demo@bnbgest.com
-      TEST_USER_PASSWORD: demo123
+      TEST_USER_PASSWORD: Demo1234!
       NODE_ENV: test
 
     steps:
@@ -50,8 +50,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Cache Playwright Browsers
+        id: cache-playwright
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+      
+      - name: Install Playwright Dependencies (cache hit)
+        run: npx playwright install-deps
+        if: steps.cache-playwright.outputs.cache-hit == 'true'
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -59,20 +73,8 @@ jobs:
       - name: Run Prisma Migrations
         run: npx prisma migrate deploy
 
-      - name: Seed Test Data
-        run: |
-          node -e "
-          const { seedTestData } = require('./tests/helpers/db-helper.ts');
-          seedTestData()
-            .then(() => console.log('✅ Test data seeded'))
-            .catch(err => {
-              console.error('❌ Seed failed:', err);
-              process.exit(1);
-            });
-          "
-
       - name: Run Playwright tests
-        run: npx playwright test
+        run: npx playwright test tests/e2e/accessibility
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4

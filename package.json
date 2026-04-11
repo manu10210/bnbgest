@@ -27,7 +27,8 @@
     "test:a11y": "playwright test tests/e2e/accessibility",
     "test:report": "playwright show-report",
     "test:seed": "tsx tests/helpers/seed-test-user.ts",
-    "test:setup": "npm run test:seed && prisma db push"
+    "test:setup": "npm run test:seed && prisma db push",
+    "test:auth": "tsx tests/auth-setup.ts"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
