@@ -1,5 +1,7 @@
 import { chromium, FullConfig } from '@playwright/test';
 import { seedTestUser } from './helpers/seed-test-user';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Global authentication setup for Playwright tests
@@ -9,6 +11,15 @@ import { seedTestUser } from './helpers/seed-test-user';
  */
 async function globalAuthSetup(config: FullConfig) {
   console.log('\n🔐 Setting up authentication state...\n');
+
+  const storageStatePath = 'playwright/.auth/user.json';
+
+  // Check if storage state already exists
+  if (fs.existsSync(storageStatePath)) {
+    console.log('✅ Storage state already exists, skipping authentication setup');
+    console.log('💾 Using existing: playwright/.auth/user.json\n');
+    return;
+  }
 
   try {
     // Ensure test user exists (should be done by global-setup, but double-check)

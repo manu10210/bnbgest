@@ -16,10 +16,10 @@ import { defineConfig, devices } from '@playwright/test';
  * - Snapshot comparison settings
  */
 export default defineConfig({
-  testDir: './tests/e2e',
+  testDir: './tests',
   
-  /* Global setup to seed database and authenticate before all tests */
-  globalSetup: require.resolve('./tests/auth-setup.ts'),
+  /* Global setup temporarily disabled for Session 20 troubleshooting */
+  // globalSetup: require.resolve('./tests/auth-setup.ts'),
   
   /* Run tests sequentially WITHIN each browser project to avoid DB conflicts */
   fullyParallel: false,
@@ -74,10 +74,12 @@ export default defineConfig({
       name: 'chromium',
       use: { 
         ...devices['Desktop Chrome'],
-        /* Reuse authenticated state (Session 19) */
-        storageState: 'playwright/.auth/user.json',
+        /* Storage state temporarily disabled for Session 20 troubleshooting */
+        // storageState: 'playwright/.auth/user.json',
         /* Reduce animations for faster tests (Session 19) */
         colorScheme: 'light',
+        /* Headless mode disabled for Session 20 troubleshooting */
+        headless: false,
       },
     },
 
@@ -85,8 +87,8 @@ export default defineConfig({
       name: 'firefox',
       use: { 
         ...devices['Desktop Firefox'],
-        /* Reuse authenticated state (Session 19) */
-        storageState: 'playwright/.auth/user.json',
+        /* Storage state temporarily disabled for Session 20 troubleshooting */
+        // storageState: 'playwright/.auth/user.json',
         /* Reduce animations for faster tests (Session 19) */
         colorScheme: 'light',
       },
@@ -96,8 +98,8 @@ export default defineConfig({
       name: 'webkit',
       use: { 
         ...devices['Desktop Safari'],
-        /* Reuse authenticated state (Session 19) */
-        storageState: 'playwright/.auth/user.json',
+        /* Storage state temporarily disabled for Session 20 troubleshooting */
+        // storageState: 'playwright/.auth/user.json',
         /* Reduce animations for faster tests (Session 19) */
         colorScheme: 'light',
       },
@@ -108,24 +110,24 @@ export default defineConfig({
       name: 'Mobile Chrome',
       use: { 
         ...devices['Pixel 5'],
-        /* Reuse authenticated state */
-        storageState: 'playwright/.auth/user.json',
+        /* Storage state temporarily disabled for Session 20 troubleshooting */
+        // storageState: 'playwright/.auth/user.json',
       },
     },
     {
       name: 'Mobile Safari',
       use: { 
         ...devices['iPhone 12'],
-        /* Reuse authenticated state */
-        storageState: 'playwright/.auth/user.json',
+        /* Storage state temporarily disabled for Session 20 troubleshooting */
+        // storageState: 'playwright/.auth/user.json',
       },
     },
     {
       name: 'Tablet',
       use: { 
         ...devices['iPad (gen 7)'],
-        /* Reuse authenticated state */
-        storageState: 'playwright/.auth/user.json',
+        /* Storage state temporarily disabled for Session 20 troubleshooting */
+        // storageState: 'playwright/.auth/user.json',
       },
     },
   ],

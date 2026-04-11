@@ -25,24 +25,19 @@ export async function login(page: Page, email?: string, password?: string) {
   const loginEmail = email || testCredentials.email;
   const loginPassword = password || testCredentials.password;
 
-  // Navigate to NextAuth signin page
-  await page.goto('/api/auth/signin');
+  // Navigate to login page directly
+  await page.goto('http://localhost:3000/login');
   
-  // Wait for signin form to load
-  await page.waitForSelector('input[name="email"]', { timeout: 10000 });
+  // Wait for login form to load
+  await page.waitForSelector('#email', { timeout: 10000 });
   
   // Fill credentials
-  await page.fill('input[name="email"]', loginEmail);
-  await page.fill('input[name="password"]', loginPassword);
+  await page.fill('#email', loginEmail);
+  await page.fill('#password', loginPassword);
   
-  // Submit form and wait for navigation
-  await Promise.all([
-    page.waitForNavigation({ timeout: 15000 }),
-    page.click('button[type="submit"]'),
-  ]);
-  
-  // Wait for redirect to /admin
-  await page.waitForURL('**/admin', { timeout: 15000 });
+  // Submit and wait for redirect
+  await page.click('button[type="submit"]');
+  await page.waitForURL('**/admin**', { timeout: 20000 });
   
   // Wait for page to be fully loaded
   await page.waitForLoadState('networkidle');
@@ -89,30 +84,30 @@ export async function isAuthenticated(page: Page): Promise<boolean> {
 /**
  * Setup authentication state for tests
  * 
- * Session 19: With storage state, authentication is already done globally.
- * This function now just navigates to /admin and verifies auth works.
- * If storage state fails, falls back to manual login.
+ * Session 20: Temporary workaround - always login manually
+ * TODO: Fix storage state generation issue
  */
 export async function setupAuth(page: Page) {
-  // Navigate to admin page (should be already authenticated via storage state)
-  await page.goto('/admin');
+  // Always do manual login for now
+  console.log('🔐 Logging in...');
+  await login(page);
   
-  // Check if authentication works
-  const isAuth = await isAuthenticated(page);
+  console.log('✅ Login complete, waiting for sidebar...');
   
-  if (!isAuth) {
-    // Fallback: storage state failed, manual login required
-    console.warn('⚠️  Storage state authentication failed, falling back to manual login...');
-    await login(page);
-  }
+  // Give the page a moment to hydrate
+  await page.waitForTimeout(1000);
   
-  // Wait for AdminSidebar to be fully rendered with data-testid
-  await page.waitForSelector('[data-testid="admin-sidebar"]', { timeout: 10000 });
+  // Wait for AdminSidebar to be fully rendered
+  await page.waitForSelector('[data-testid="admin-sidebar"]', { timeout: 15000 });
+  
+  console.log('✅ Sidebar found!');
   
   // Wait for at least one tab to be present
-  await page.waitForSelector('[data-testid="bookings-tab"]', { timeout: 5000 });
+  await page.waitForSelector('[data-testid="bookings-tab"]', { timeout: 10000 });
   
-  // Reduced hydration wait (Session 19 optimization)
+  console.log('✅ Tabs loaded!');
+  
+  // Small hydration wait
   await page.waitForTimeout(200);
   
   // Verify we're authenticated
@@ -120,4 +115,6 @@ export async function setupAuth(page: Page) {
   if (!authenticated) {
     throw new Error('Failed to authenticate user');
   }
+  
+  console.log('✅ Authenticated successfully');
 }
