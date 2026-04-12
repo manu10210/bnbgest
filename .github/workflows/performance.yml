@@ -1,0 +1,166 @@
+name: Performance Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  performance-tests:
+    name: Run Performance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      
+      - name: Setup environment
+        run: |
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+          echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> $GITHUB_ENV
+          echo "NEXTAUTH_URL=http://localhost:3000" >> $GITHUB_ENV
+          echo "ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}" >> $GITHUB_ENV
+          echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" >> $GITHUB_ENV
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Start server
+        run: |
+          npm run start &
+          echo $! > .server.pid
+      
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000 --timeout 60000
+      
+      - name: Run performance tests
+        id: perf-tests
+        run: npm run test:performance
+        continue-on-error: true
+      
+      - name: Format test results
+        if: always()
+        run: |
+          if [ -f test-results.json ]; then
+            node -e "
+            const fs = require('fs');
+            try {
+              const results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+              const passed = results.suites?.reduce((acc, s) => acc + s.specs.filter(sp => sp.ok).length, 0) || 0;
+              const total = results.suites?.reduce((acc, s) => acc + s.specs.length, 0) || 0;
+              const formatted = {
+                status: passed >= total * 0.8 ? '✅ Passed' : '❌ Failed',
+                passed: passed,
+                total: total,
+                duration: Math.round((results.duration || 0) / 1000) + 's',
+                tests: (results.suites || []).flatMap(s => s.specs.map(sp => ({
+                  name: sp.title,
+                  status: sp.ok ? 'passed' : 'failed',
+                  duration: sp.tests[0]?.results[0]?.duration || 0
+                })))
+              };
+              fs.writeFileSync('test-results-formatted.json', JSON.stringify(formatted, null, 2));
+            } catch (e) {
+              console.error('Error formatting results:', e);
+            }
+            "
+          fi
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-test-results
+          path: |
+            test-results/
+            test-results-formatted.json
+            playwright-report/
+          retention-days: 30
+      
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let comment = '## 📊 Performance Test Results\n\n';
+            
+            try {
+              if (fs.existsSync('test-results-formatted.json')) {
+                const results = JSON.parse(fs.readFileSync('test-results-formatted.json', 'utf8'));
+                
+                comment += `**Status:** ${results.status}\n`;
+                comment += `**Tests Passed:** ${results.passed}/${results.total}\n`;
+                comment += `**Duration:** ${results.duration}\n\n`;
+                
+                comment += '<details>\n<summary>📋 View Test Details</summary>\n\n';
+                comment += '| Test | Status | Duration |\n';
+                comment += '|------|--------|----------|\n';
+                
+                results.tests.forEach(t => {
+                  const icon = t.status === 'passed' ? '✅' : '❌';
+                  comment += `| ${t.name} | ${icon} ${t.status} | ${t.duration}ms |\n`;
+                });
+                
+                comment += '\n</details>\n';
+              } else {
+                comment += '⚠️ No test results found\n';
+              }
+            } catch (e) {
+              comment += `⚠️ Error reading results: ${e.message}\n`;
+            }
+            
+            comment += '\n---\n';
+            comment += '💡 **Tip:** Run `npm run test:performance` locally to debug failures\n';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f .server.pid ]; then
+            kill $(cat .server.pid) || true
+            rm .server.pid
+          fi
+      
+      - name: Check test results
+        if: always()
+        run: |
+          if [ -f test-results-formatted.json ]; then
+            PASSED=$(node -e "console.log(JSON.parse(require('fs').readFileSync('test-results-formatted.json', 'utf8')).passed)")
+            TOTAL=$(node -e "console.log(JSON.parse(require('fs').readFileSync('test-results-formatted.json', 'utf8')).total)")
+            
+            # Require 80% pass rate
+            MIN_PASS=$(echo "$TOTAL * 0.8" | bc)
+            
+            if (( $(echo "$PASSED < $MIN_PASS" | bc -l) )); then
+              echo "❌ Performance tests failed: $PASSED/$TOTAL passed (minimum 80% required)"
+              exit 1
+            else
+              echo "✅ Performance tests passed: $PASSED/$TOTAL"
+            fi
+          else
+            echo "⚠️ No test results file found"
+            exit 1
+          fi

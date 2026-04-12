@@ -39,8 +39,23 @@
     "test:mobile-safari": "playwright test --project=\"Mobile Safari\"",
     "test:tablet": "playwright test --project=\"Tablet\"",
     "test:performance": "playwright test tests/performance",
-    "test:perf": "playwright test tests/performance --project=chromium"
+    "test:perf": "playwright test tests/performance --project=chromium",
+    "test:api": "playwright test tests/api-performance.spec.ts"
   },
+  "bundlesize": [
+    {
+      "path": ".next/static/chunks/main-*.js",
+      "maxSize": "200 KB"
+    },
+    {
+      "path": ".next/static/chunks/vendor-*.js",
+      "maxSize": "500 KB"
+    },
+    {
+      "path": ".next/static/chunks/app/**/*.js",
+      "maxSize": "2 MB"
+    }
+  ],
   "prisma": {
     "seed": "node prisma/seed.js"
   },

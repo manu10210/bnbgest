@@ -1,0 +1,125 @@
+name: Lighthouse CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lighthouse:
+    name: Lighthouse Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Setup environment
+        run: |
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+          echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> $GITHUB_ENV
+          echo "NEXTAUTH_URL=http://localhost:3000" >> $GITHUB_ENV
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Start server
+        run: |
+          npm run start &
+          echo $! > .server.pid
+      
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000 --timeout 60000
+      
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.13.x
+      
+      - name: Run Lighthouse CI
+        run: lhci autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+      
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-results
+          path: .lighthouseci/
+          retention-days: 30
+      
+      - name: Comment PR with Lighthouse scores
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            let comment = '## 🔦 Lighthouse CI Results\n\n';
+            
+            try {
+              const resultsPath = '.lighthouseci';
+              
+              if (fs.existsSync(resultsPath)) {
+                const manifestPath = path.join(resultsPath, 'manifest.json');
+                
+                if (fs.existsSync(manifestPath)) {
+                  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+                  
+                  comment += '| URL | Performance | Accessibility | Best Practices | SEO |\n';
+                  comment += '|-----|-------------|---------------|----------------|-----|\n';
+                  
+                  for (const result of manifest) {
+                    const reportPath = path.join(resultsPath, result.jsonPath);
+                    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+                    
+                    const perf = Math.round(report.categories.performance.score * 100);
+                    const a11y = Math.round(report.categories.accessibility.score * 100);
+                    const bp = Math.round(report.categories['best-practices'].score * 100);
+                    const seo = Math.round(report.categories.seo.score * 100);
+                    
+                    const perfBadge = perf >= 90 ? '🟢' : perf >= 50 ? '🟡' : '🔴';
+                    const a11yBadge = a11y >= 90 ? '🟢' : a11y >= 50 ? '🟡' : '🔴';
+                    const bpBadge = bp >= 90 ? '🟢' : bp >= 50 ? '🟡' : '🔴';
+                    const seoBadge = seo >= 90 ? '🟢' : seo >= 50 ? '🟡' : '🔴';
+                    
+                    const url = new URL(result.url).pathname || '/';
+                    comment += `| ${url} | ${perfBadge} ${perf} | ${a11yBadge} ${a11y} | ${bpBadge} ${bp} | ${seoBadge} ${seo} |\n`;
+                  }
+                  
+                  comment += '\n---\n';
+                  comment += '**Legend:** 🟢 ≥90 | 🟡 50-89 | 🔴 <50\n';
+                }
+              } else {
+                comment += '⚠️ No Lighthouse results found\n';
+              }
+            } catch (e) {
+              comment += `⚠️ Error reading Lighthouse results: ${e.message}\n`;
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f .server.pid ]; then
+            kill $(cat .server.pid) || true
+            rm .server.pid
+          fi

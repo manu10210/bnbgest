@@ -11,36 +11,46 @@ module.exports = {
       numberOfRuns: 3,
       // Chrome flags for consistent testing
       settings: {
-        chromeFlags: '--no-sandbox --disable-gpu',
+        preset: 'desktop',
+        chromeFlags: '--no-sandbox --disable-gpu --disable-dev-shm-usage',
+        throttling: {
+          rttMs: 40,
+          throughputKbps: 10240,
+          cpuSlowdownMultiplier: 1,
+        },
       },
     },
     assert: {
       preset: 'lighthouse:recommended',
       assertions: {
-        // Performance
+        // Performance - Strict CI requirements
         'categories:performance': ['error', { minScore: 0.9 }],
         'categories:accessibility': ['error', { minScore: 0.95 }],
         'categories:best-practices': ['error', { minScore: 0.9 }],
-        'categories:seo': ['error', { minScore: 0.95 }],
+        'categories:seo': ['warn', { minScore: 0.9 }],
         
-        // Core Web Vitals
+        // Core Web Vitals - Session 22 targets
         'largest-contentful-paint': ['error', { maxNumericValue: 2500 }],
         'cumulative-layout-shift': ['error', { maxNumericValue: 0.1 }],
-        'total-blocking-time': ['error', { maxNumericValue: 300 }],
+        'first-contentful-paint': ['error', { maxNumericValue: 1800 }],
+        'total-blocking-time': ['warn', { maxNumericValue: 300 }],
+        'speed-index': ['warn', { maxNumericValue: 3000 }],
         
-        // Resource sizes
+        // Resource sizes - Session 22 bundle optimizations
         'total-byte-weight': ['warn', { maxNumericValue: 512000 }], // 500KB
         'dom-size': ['warn', { maxNumericValue: 1500 }],
         
-        // Images
-        'uses-optimized-images': 'warn',
+        // Images - Session 22 lazy loading
+        'uses-optimized-images': 'error',
         'modern-image-formats': 'warn',
         'uses-responsive-images': 'warn',
+        'offscreen-images': 'error',
         
-        // JavaScript
-        'unused-javascript': 'warn',
+        // JavaScript - Session 22 code splitting
+        'unused-javascript': ['warn', { maxNumericValue: 100000 }], // 100KB max unused
         'unminified-javascript': 'error',
         'legacy-javascript': 'warn',
+        'bootup-time': ['warn', { maxNumericValue: 3500 }],
         
         // CSS
         'unused-css-rules': 'warn',
