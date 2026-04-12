@@ -61,12 +61,21 @@ const confidenceColor = (c: number) =>
 // Retourne le score de similarité entre un nom d'email et un nom de propriété (0-100)
 
 // Table d'aliases : noms extraits des emails Airbnb → nom réel de la propriété
-// Renseignez ici si un email utilise un titre différent de votre annonce BNBGest
+// Clés en minuscules sans accents (normalizeForMatch est appliqué avant lookup).
+// Valeurs = nom exact tel qu'il apparaît dans BNBGest (accents conservés).
 const PROPERTY_ALIASES: Record<string, string> = {
-  'maison de ville avec petite terrasse couverte': 'maisonnette t2 quartier calme',
-  'maison de ville':                               'maisonnette t2 quartier calme',
-  'maison de ville avec terrasse':                 'maisonnette t2 quartier calme',
-  'petite terrasse couverte':                      'maisonnette t2 quartier calme',
+  // ── Maisonnette T2 quartier calme ─────────────────────────────────────────
+  'maison de ville avec petite terrasse couverte': 'Maisonnette T2 quartier calme',
+  'maison de ville':                               'Maisonnette T2 quartier calme',
+  'maison de ville avec terrasse':                 'Maisonnette T2 quartier calme',
+  'petite terrasse couverte':                      'Maisonnette T2 quartier calme',
+  'maisonnette t2 quartier calme':                 'Maisonnette T2 quartier calme',
+  // ── Maison T3/Climatisée/ terrasse privée ─────────────────────────────────
+  'maison t3 climatisee terrasse privee':          'Maison T3/Climatisée/ terrasse privée',
+  'maison t3':                                     'Maison T3/Climatisée/ terrasse privée',
+  'maison climatisee terrasse privee':             'Maison T3/Climatisée/ terrasse privée',
+  'maison avec terrasse privee':                   'Maison T3/Climatisée/ terrasse privée',
+  't3 climatise terrasse privee':                  'Maison T3/Climatisée/ terrasse privée',
 };
 
 function normalizeForMatch(s: string): string {
