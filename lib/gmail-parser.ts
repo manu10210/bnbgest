@@ -446,9 +446,10 @@ function extractConfirmationCode(text: string): string | undefined {
 }
 
 function extractPropertyName(text: string, subject?: string): string | undefined {
-  // ── Pour les emails de versement : pas de nom de logement dans le corps ───
+  // ── Pour les emails de versement : pas de nom de logement ─────────────────
   // Évite que "Nous avons envoyé un versement de X €" soit capturé comme nom
-  const isPayoutText = /nous\s+avons\s+envoy[eé]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout/i.test(text.slice(0, 300));
+  const PAYOUT_RE = /nous\s+avons\s+envoy[eé]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout|versement\s+de\s+[\d,.\s]+[€$]?|your\s+payout\s+of/i;
+  const isPayoutText = PAYOUT_RE.test(text.slice(0, 500)) || (subject ? PAYOUT_RE.test(subject) : false);
   if (isPayoutText) return undefined;
 
   // ── Patterns dans le corps du mail ────────────────────────────────────────

@@ -281,10 +281,12 @@ export default function GmailImporter() {
 
       // ── 1. Trouver le logement ────────────────────────────────────────────
       //   Matching robuste (score ≥ 40) ou fallback sur le 1er logement.
+      //   Pour les versements (payout) : pas de fallback — pas de propertyName attendu.
       //   Si aucune propriété → on marque "skipped" sauf pour cancel/payout
-      let property = findMatchingProperty(b.propertyName, properties, defaultProperty);
+      const useFallback = b.bookingType !== 'payout';
+      let property = findMatchingProperty(b.propertyName, properties, useFallback ? defaultProperty : undefined);
 
-      if (!property && b.bookingType !== 'cancelled') {
+      if (!property && b.bookingType !== 'cancelled' && b.bookingType !== 'payout') {
         summary.skipped++;
         summary.skippedNoProperty++;
         continue;
