@@ -90,7 +90,7 @@ export default function GmailImporter() {
   const [imported, setImported] = useState<string[]>([]);
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
   const [gmailEmail, setGmailEmail] = useState<string>('');
-  const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; tasksCreated: number; reviewsImported: number } | null>(null);
+  const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; skippedDuplicate: number; skippedNoProperty: number; tasksCreated: number; reviewsImported: number } | null>(null);
 
   // ── Détection nouveaux logements ──────────────────────────────────────────
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
@@ -174,20 +174,28 @@ export default function GmailImporter() {
   const importSelected = useCallback(() => {
     const toImport = bookings.filter(b => selected.has(b.messageId));
     const defaultProperty = properties[0];
-    const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, tasksCreated: 0, reviewsImported: 0 };
+    const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, tasksCreated: 0, reviewsImported: 0 };
 
     for (const b of toImport) {
 
-      // ── 1. Trouver ou créer le logement ──────────────────────────────────
-      const property = b.propertyName
-        ? properties.find(p =>
-            p.name.toLowerCase().includes(b.propertyName!.toLowerCase().slice(0, 6)) ||
-            b.propertyName!.toLowerCase().includes(p.name.toLowerCase().slice(0, 6))
-          ) ?? defaultProperty
+      // ── 1. Trouver le logement ────────────────────────────────────────────
+      //   Matching sur le nom (6 premiers caractères) ou fallback sur le 1er logement.
+      //   Si aucune propriété → on marque "skipped" seulement pour 'new' (pas cancel/review)
+      let property = b.propertyName
+        ? properties.find(p => {
+            const pn = p.name.toLowerCase();
+            const bn = b.propertyName!.toLowerCase();
+            // Correspondance sur 6 chars, ou sur mots communs (3+ chars)
+            if (pn.includes(bn.slice(0, 6)) || bn.includes(pn.slice(0, 6))) return true;
+            const pWords = pn.split(/\s+/).filter(w => w.length >= 3);
+            const bWords = bn.split(/\s+/).filter(w => w.length >= 3);
+            return pWords.some(w => bWords.includes(w));
+          }) ?? defaultProperty
         : defaultProperty;
 
       if (!property && b.bookingType !== 'cancelled') {
         summary.skipped++;
+        summary.skippedNoProperty++;
         continue;
       }
 
@@ -196,20 +204,18 @@ export default function GmailImporter() {
       if (b.guestName && b.guestName !== 'Voyageur Airbnb') {
         const existing = guests.find(g =>
           g.name.toLowerCase() === b.guestName.toLowerCase() ||
-          (b.guestEmail && g.email.toLowerCase() === b.guestEmail.toLowerCase())
+          (b.guestEmail && g.email && g.email.toLowerCase() === b.guestEmail.toLowerCase())
         );
 
         if (existing) {
-          // Mettre à jour les infos manquantes
           const updates: Partial<typeof existing> = {};
           if (b.guestEmail && !existing.email) updates.email = b.guestEmail;
           if (b.guestPhone && !existing.phone) updates.phone = b.guestPhone;
-          if (b.totalPrice > 0) updates.totalSpent = existing.totalSpent + b.totalPrice;
+          if (b.totalPrice > 0) updates.totalSpent = (existing.totalSpent || 0) + b.totalPrice;
           if (Object.keys(updates).length) updateGuest(existing.id, updates);
           guestId = existing.id;
           summary.guestsUpdated++;
         } else if (b.bookingType === 'new') {
-          // Créer le voyageur
           addGuest({
             name: b.guestName,
             email: b.guestEmail || '',
@@ -220,19 +226,29 @@ export default function GmailImporter() {
             lastBooking: b.checkIn,
             preferences: { smoking: false, pets: false, parties: false, preferredAmenities: [] },
           });
-          // L'ID sera auto-assigné, on le retrouve juste après
           const created = guests[guests.length - 1];
           guestId = created?.id ?? 0;
           summary.guestsCreated++;
         }
       }
 
-      // ── 3. Vérifier doublon sur code de confirmation ──────────────────────
+      // ── 3. Vérifier doublon ───────────────────────────────────────────────
+      // a) Par code de confirmation (fiable)
       if (b.confirmationCode) {
         const alreadyExists = existingBookings.some(eb =>
           eb.specialRequests?.includes(b.confirmationCode!)
         );
-        if (alreadyExists) { summary.skipped++; continue; }
+        if (alreadyExists) { summary.skipped++; summary.skippedDuplicate++; continue; }
+      }
+      // b) Par dates + voyageur + logement (pour emails sans confirmationCode)
+      if (!b.confirmationCode && property && b.bookingType === 'new') {
+        const alreadyExists = existingBookings.some(eb =>
+          eb.propertyId === property!.id &&
+          eb.checkIn === b.checkIn &&
+          eb.checkOut === b.checkOut &&
+          eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase()
+        );
+        if (alreadyExists) { summary.skipped++; summary.skippedDuplicate++; continue; }
       }
 
       const notes = [
@@ -431,11 +447,25 @@ export default function GmailImporter() {
     setSelected(new Set());
 
     // ── 5. Détecter les nouveaux logements inconnus ───────────────────────
+    // On inclut aussi les emails skippés pour "sans logement" avec un propertyName
     const newBookingsOnly = toImport.filter(b => b.bookingType === 'new');
-    const newNames = findNewPropertyNames(
-      newBookingsOnly.map(b => b.propertyName ?? ''),
-      properties
+    const skippedWithName = toImport.filter(b =>
+      b.bookingType !== 'cancelled' &&
+      b.propertyName &&
+      !properties.find(p => {
+        const pn = p.name.toLowerCase();
+        const bn = b.propertyName!.toLowerCase();
+        if (pn.includes(bn.slice(0, 6)) || bn.includes(pn.slice(0, 6))) return true;
+        const pWords = pn.split(/\s+/).filter(w => w.length >= 3);
+        const bWords = bn.split(/\s+/).filter(w => w.length >= 3);
+        return pWords.some(w => bWords.includes(w));
+      })
     );
+    const allNamesForWizard = [
+      ...newBookingsOnly.map(b => b.propertyName ?? ''),
+      ...skippedWithName.map(b => b.propertyName ?? ''),
+    ];
+    const newNames = findNewPropertyNames(allNamesForWizard, properties);
     if (newNames.length > 0) {
       const queue = newNames.map(n => analyzeAirbnbTitle(n));
       setPropertyQueue(queue.slice(1));
@@ -558,6 +588,22 @@ export default function GmailImporter() {
             )}
           </div>
 
+          {/* ── Avertissement : aucun logement configuré ── */}
+          {properties.length === 0 && bookings.length > 0 && (
+            <div className={`border rounded-xl p-3 flex items-start gap-3 ${isDark ? 'bg-orange-900/30 border-orange-700' : 'bg-orange-50 border-orange-300'}`}>
+              <span className="text-xl">🏠</span>
+              <div>
+                <p className={`font-semibold text-sm ${isDark ? 'text-orange-300' : 'text-orange-800'}`}>
+                  Aucun logement configuré
+                </p>
+                <p className={`text-xs mt-0.5 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
+                  Les emails détectés ne peuvent pas être associés à un logement.
+                  Créez au moins un logement dans <strong>Propriétés</strong> avant d&apos;importer — ou laissez le wizard automatique créer les logements depuis les noms détectés dans vos emails.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* ── Succès import ── */}
           {imported.length > 0 && importSummary && (
             <div className={`border rounded-xl p-4 space-y-2 ${isDark ? 'bg-green-900/30 border-green-700' : 'bg-green-50 border-green-200'}`}>
@@ -588,9 +634,14 @@ export default function GmailImporter() {
                     🔄 {importSummary.guestsUpdated} voyageur{importSummary.guestsUpdated > 1 ? 's' : ''} mis à jour
                   </span>
                 )}
-                {importSummary.skipped > 0 && (
+                {importSummary.skippedDuplicate > 0 && (
                   <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
-                    ⏭️ {importSummary.skipped} ignoré{importSummary.skipped > 1 ? 's' : ''} (doublon/sans logement)
+                    ⏭️ {importSummary.skippedDuplicate} doublon{importSummary.skippedDuplicate > 1 ? 's' : ''} ignoré{importSummary.skippedDuplicate > 1 ? 's' : ''}
+                  </span>
+                )}
+                {importSummary.skippedNoProperty > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-orange-800 text-orange-200' : 'bg-orange-100 text-orange-700'}`}>
+                    🏠 {importSummary.skippedNoProperty} sans logement — <span className="underline cursor-pointer">créez vos logements d&apos;abord</span>
                   </span>
                 )}
                 {importSummary.tasksCreated > 0 && (
@@ -735,6 +786,23 @@ export default function GmailImporter() {
                             <div className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                               Email reçu le {fmt(booking.receivedAt)} • {booking.subject.slice(0, 80)}
                             </div>
+                            {/* ── Avertissement : aucun logement correspondant ── */}
+                            {booking.bookingType !== 'cancelled' && properties.length > 0 && booking.propertyName && !properties.find(p => {
+                              const pn = p.name.toLowerCase(); const bn = booking.propertyName!.toLowerCase();
+                              if (pn.includes(bn.slice(0, 6)) || bn.includes(pn.slice(0, 6))) return true;
+                              return pn.split(/\s+/).filter(w => w.length >= 3).some(w => bn.split(/\s+/).filter(w2 => w2.length >= 3).includes(w));
+                            }) && (
+                              <div className={`mt-1 text-xs flex items-center gap-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
+                                <span>⚠️</span>
+                                <span>Logement &quot;{booking.propertyName.slice(0, 40)}&quot; non trouvé — sera associé à <strong>{properties[0]?.name ?? '—'}</strong> (premier par défaut)</span>
+                              </div>
+                            )}
+                            {booking.bookingType !== 'cancelled' && properties.length === 0 && (
+                              <div className={`mt-1 text-xs flex items-center gap-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
+                                <span>⚠️</span>
+                                <span>Aucun logement configuré — cet email sera ignoré</span>
+                              </div>
+                            )}
                           </div>
 
                           <button onClick={() => toggleExpand(booking.messageId)}
