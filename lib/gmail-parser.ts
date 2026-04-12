@@ -52,12 +52,19 @@ const SUBJECT_PATTERNS = {
     /nouvelle r[eé]servation/i,
     /r[eé]servation confirm[eé]e/i,
     /vous avez une nouvelle r[eé]servation/i,
+    /votre r[eé]servation est confirm[eé]e/i,
+    /r[eé]servation accept[eé]e/i,
+    /demande de r[eé]servation accept[eé]e/i,
+    /f[eé]licitations.*r[eé]servation/i,
   ],
   new_en: [
     /reservation confirmed/i,
     /new reservation/i,
     /booking confirmation/i,
     /you have a new reservation/i,
+    /booking confirmed/i,
+    /reservation request accepted/i,
+    /congratulations.*reservation/i,
   ],
   cancelled: [
     /annul[eé]/i, /cancelled/i, /cancellation/i,
@@ -452,7 +459,14 @@ export function parseAirbnbEmail(
 
   // 2. Déterminer le type de mail
   let bookingType: ParsedBooking['bookingType'] = 'new';
-  if (SUBJECT_PATTERNS.cancelled.some(p => p.test(subject))) bookingType = 'cancelled';
+  // Priorité : new > cancelled > modified > checkout > reminder > review > payout
+  // On teste new_fr/new_en EN PREMIER pour éviter qu'un email de confirmation
+  // soit mal classé (ex: sujet contenant "annulé" dans une autre langue)
+  if (
+    SUBJECT_PATTERNS.new_fr.some(p => p.test(subject)) ||
+    SUBJECT_PATTERNS.new_en.some(p => p.test(subject))
+  ) bookingType = 'new';
+  else if (SUBJECT_PATTERNS.cancelled.some(p => p.test(subject))) bookingType = 'cancelled';
   else if (SUBJECT_PATTERNS.modified.some(p => p.test(subject))) bookingType = 'modified';
   else if (SUBJECT_PATTERNS.checkout.some(p => p.test(subject))) bookingType = 'checkout';
   else if (SUBJECT_PATTERNS.reminder.some(p => p.test(subject))) bookingType = 'reminder';
