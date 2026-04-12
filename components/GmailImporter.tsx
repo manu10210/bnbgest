@@ -992,14 +992,21 @@ export default function GmailImporter() {
                             </div>
 
                             <div className={`flex flex-wrap gap-4 mt-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3.5 h-3.5" />
-                                {fmt(booking.checkIn)} → {fmt(booking.checkOut)}
-                                <span className={`ml-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>({booking.nights}n)</span>
-                              </span>
+                              {/* Dates — masquées pour les versements (pas de dates séjour) */}
+                              {booking.bookingType !== 'payout' && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  {fmt(booking.checkIn)} → {fmt(booking.checkOut)}
+                                  <span className={`ml-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>({booking.nights}n)</span>
+                                </span>
+                              )}
                               <span className="flex items-center gap-1">
                                 <Users className="w-3.5 h-3.5" />
-                                {booking.guests} voyageur{booking.guests > 1 ? 's' : ''}
+                                {/* Nom du voyageur si disponible, sinon nb voyageurs */}
+                                {booking.guestName && booking.guestName !== 'Voyageur Airbnb'
+                                  ? <span className="font-medium">{booking.guestName}</span>
+                                  : <>{booking.guests} voyageur{booking.guests > 1 ? 's' : ''}</>
+                                }
                               </span>
                               {booking.totalPrice > 0 && (
                                 <span className="flex items-center gap-1 font-medium text-green-500">
@@ -1018,8 +1025,8 @@ export default function GmailImporter() {
                             <div className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                               Email reçu le {fmt(booking.receivedAt)} • {booking.subject.slice(0, 80)}
                             </div>
-                            {/* ── Avertissement : aucun logement correspondant ── */}
-                            {booking.bookingType !== 'cancelled' && properties.length > 0 && booking.propertyName && !findMatchingProperty(booking.propertyName, properties) && (
+                            {/* ── Avertissement : aucun logement correspondant (pas pour versements) ── */}
+                            {booking.bookingType !== 'cancelled' && booking.bookingType !== 'payout' && properties.length > 0 && booking.propertyName && !findMatchingProperty(booking.propertyName, properties) && (
                               <div className={`mt-1 text-xs flex items-center gap-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
                                 <span>⚠️</span>
                                 <span>Logement &quot;{booking.propertyName.slice(0, 40)}&quot; non reconnu — sera associé à <strong>{properties[0]?.name ?? '—'}</strong> (premier par défaut)</span>
