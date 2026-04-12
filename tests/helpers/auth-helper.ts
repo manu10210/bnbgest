@@ -25,15 +25,22 @@ export async function login(page: Page, email?: string, password?: string) {
   const loginEmail = email || testCredentials.email;
   const loginPassword = password || testCredentials.password;
 
-  // Navigate to login page directly
-  await page.goto('http://localhost:3000/login');
+  // Navigate to login page directly with absolute URL
+  await page.goto('http://localhost:3000/login', { waitUntil: 'domcontentloaded' });
   
-  // Wait for login form to load
-  await page.waitForSelector('#email', { timeout: 10000 });
+  // Wait for login form to be interactive
+  await page.waitForSelector('#email', { state: 'visible', timeout: 10000 });
+  await page.waitForSelector('#password', { state: 'visible', timeout: 10000 });
   
-  // Fill credentials
-  await page.fill('#email', loginEmail);
-  await page.fill('#password', loginPassword);
+  // Small delay to ensure React hydration is complete
+  await page.waitForTimeout(500);
+  
+  // Fill credentials with force option to bypass any overlays
+  await page.fill('#email', loginEmail, { force: true });
+  await page.fill('#password', loginPassword, { force: true });
+  
+  // Wait a moment for React state to update
+  await page.waitForTimeout(300);
   
   // Submit and wait for redirect
   await page.click('button[type="submit"]');

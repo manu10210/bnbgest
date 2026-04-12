@@ -1,5 +1,6 @@
 import { test as base } from '@playwright/test';
 import { login } from '../helpers/auth-helper';
+import type { Page } from '@playwright/test';
 
 /**
  * Extended Playwright test with automatic authentication
@@ -14,11 +15,11 @@ import { login } from '../helpers/auth-helper';
  */
 
 type AuthenticatedTestFixtures = {
-  authenticatedPage: typeof base.prototype.page;
+  authenticatedPage: Page;
 };
 
 export const test = base.extend<AuthenticatedTestFixtures>({
-  authenticatedPage: async ({ page }, use) => {
+  authenticatedPage: async ({ page }: { page: Page }, use) => {
     // Perform authentication before each test
     await login(page);
     

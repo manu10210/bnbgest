@@ -9,6 +9,7 @@ import { LanguageProvider } from "../contexts/LanguageContext";
 import ThemeWrapper from "../components/ThemeWrapper";
 import AuthSessionProvider from "../components/AuthSessionProvider";
 import AnalyticsWrapper from "../components/AnalyticsWrapper";
+import { WebVitalsReporter } from "../components/WebVitalsReporter";
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Toaster } from 'sonner';
@@ -139,6 +140,7 @@ export default function RootLayout({
                   <BNBProvider>
                     <ThemeWrapper>
                       <AnalyticsWrapper>
+                        <WebVitalsReporter />
                         {children}
                         <Analytics />
                         <SpeedInsights />

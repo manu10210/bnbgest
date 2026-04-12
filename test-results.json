@@ -29,7 +29,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 90000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/Users/claus/BNBGEST/test-results",
@@ -45,7 +45,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 90000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/Users/claus/BNBGEST/test-results",
@@ -61,7 +61,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 90000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/Users/claus/BNBGEST/test-results",
@@ -77,7 +77,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 90000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/Users/claus/BNBGEST/test-results",
@@ -93,7 +93,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 90000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/Users/claus/BNBGEST/test-results",
@@ -109,7 +109,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 90000
+        "timeout": 30000
       }
     ],
     "quiet": false,
@@ -140,7 +140,7 @@
     "updateSnapshots": "missing",
     "updateSourceMethod": "patch",
     "version": "1.59.1",
-    "workers": 1,
+    "workers": 3,
     "webServer": {
       "command": "npm run dev",
       "url": "http://localhost:3000",
@@ -150,25 +150,25 @@
   },
   "suites": [
     {
-      "title": "visual\\visual-regression.spec.ts",
-      "file": "visual/visual-regression.spec.ts",
+      "title": "simple-login-test.spec.ts",
+      "file": "simple-login-test.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Visual Regression - Main Pages",
-          "file": "visual/visual-regression.spec.ts",
-          "line": 5,
+          "title": "Simple Login Test",
+          "file": "simple-login-test.spec.ts",
+          "line": 3,
           "column": 6,
           "specs": [
             {
-              "title": "Dashboard - Full page",
-              "ok": false,
+              "title": "Can login to admin",
+              "ok": true,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 90000,
+                  "timeout": 30000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium",
@@ -177,75 +177,42 @@
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 34645,
-                      "error": {
-                        "message": "TimeoutError: page.waitForSelector: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"admin-sidebar\"]') to be visible\u001b[22m\n",
-                        "stack": "TimeoutError: page.waitForSelector: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"admin-sidebar\"]') to be visible\u001b[22m\n\n    at setupAuth (C:\\Users\\claus\\BNBGEST\\tests\\helpers\\auth-helper.ts:101:14)\n    at C:\\Users\\claus\\BNBGEST\\tests\\visual\\visual-regression.spec.ts:7:5",
-                        "location": {
-                          "file": "C:\\Users\\claus\\BNBGEST\\tests\\helpers\\auth-helper.ts",
-                          "column": 14,
-                          "line": 101
-                        },
-                        "snippet": "\u001b[90m   at \u001b[39mhelpers\\auth-helper.ts:101\n\n\u001b[0m \u001b[90m  99 |\u001b[39m   \n \u001b[90m 100 |\u001b[39m   \u001b[90m// Wait for AdminSidebar to be fully rendered\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 101 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForSelector(\u001b[32m'[data-testid=\"admin-sidebar\"]'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 102 |\u001b[39m   \n \u001b[90m 103 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'✅ Sidebar found!'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 104 |\u001b[39m   \u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "C:\\Users\\claus\\BNBGEST\\tests\\helpers\\auth-helper.ts",
-                            "column": 14,
-                            "line": 101
-                          },
-                          "message": "TimeoutError: page.waitForSelector: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"admin-sidebar\"]') to be visible\u001b[22m\n\n\n\u001b[90m   at \u001b[39mhelpers\\auth-helper.ts:101\n\n\u001b[0m \u001b[90m  99 |\u001b[39m   \n \u001b[90m 100 |\u001b[39m   \u001b[90m// Wait for AdminSidebar to be fully rendered\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 101 |\u001b[39m   \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForSelector(\u001b[32m'[data-testid=\"admin-sidebar\"]'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m15000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m              \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 102 |\u001b[39m   \n \u001b[90m 103 |\u001b[39m   console\u001b[33m.\u001b[39mlog(\u001b[32m'✅ Sidebar found!'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 104 |\u001b[39m   \u001b[0m\n\u001b[2m    at setupAuth (C:\\Users\\claus\\BNBGEST\\tests\\helpers\\auth-helper.ts:101:14)\u001b[22m\n\u001b[2m    at C:\\Users\\claus\\BNBGEST\\tests\\visual\\visual-regression.spec.ts:7:5\u001b[22m"
-                        }
-                      ],
+                      "status": "passed",
+                      "duration": 15051,
+                      "errors": [],
                       "stdout": [
                         {
-                          "text": "🔐 Logging in...\n"
+                          "text": "🌐 Navigating to login page...\n"
                         },
                         {
-                          "text": "✅ Login complete, waiting for sidebar...\n"
+                          "text": "✍️ Filling credentials...\n"
+                        },
+                        {
+                          "text": "🚀 Submitting...\n"
+                        },
+                        {
+                          "text": "⏳ Waiting for redirect...\n"
+                        },
+                        {
+                          "text": "✅ On admin page: http://localhost:3000/admin\n"
+                        },
+                        {
+                          "text": "🎉 Test passed!\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-04-11T17:59:30.587Z",
+                      "startTime": "2026-04-12T08:09:02.482Z",
                       "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\visual-visual-regression-V-407a1-Pages-Dashboard---Full-page-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\visual-visual-regression-V-407a1-Pages-Dashboard---Full-page-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\visual-visual-regression-V-407a1-Pages-Dashboard---Full-page-chromium\\error-context.md"
-                        },
-                        {
-                          "name": "trace",
-                          "contentType": "application/zip",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\visual-visual-regression-V-407a1-Pages-Dashboard---Full-page-chromium\\trace.zip"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "C:\\Users\\claus\\BNBGEST\\tests\\helpers\\auth-helper.ts",
-                        "column": 14,
-                        "line": 101
-                      }
+                      "attachments": []
                     }
                   ],
-                  "status": "unexpected"
+                  "status": "expected"
                 }
               ],
-              "id": "402dc9c5fe5b3f39a9f9-241e3752d2852a4e329f",
-              "file": "visual/visual-regression.spec.ts",
-              "line": 10,
+              "id": "a646f40163bab44e9cdb-d3fab4b36ba8d6fc6c6e",
+              "file": "simple-login-test.spec.ts",
+              "line": 4,
               "column": 7
             }
           ]
@@ -255,11 +222,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-04-11T17:59:27.924Z",
-    "duration": 40379.175,
-    "expected": 0,
+    "startTime": "2026-04-12T08:08:59.717Z",
+    "duration": 19088.298,
+    "expected": 1,
     "skipped": 0,
-    "unexpected": 1,
+    "unexpected": 0,
     "flaky": 0
   }
 }
