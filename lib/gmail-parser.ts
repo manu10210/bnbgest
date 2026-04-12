@@ -408,6 +408,23 @@ function extractPropertyName(text: string, subject?: string): string | undefined
         if (candidate.length >= 5) return candidate;
       }
     }
+
+    // ── Dernier recours : sujet entier nettoyé comme nom candidat ────────────
+    // Supprime les mots génériques Airbnb pour isoler le nom du logement
+    const cleaned = subject
+      .replace(/airbnb/gi, '')
+      .replace(/r[eé]servation\s+(confirm[eé]e?|accept[eé]e?|re[cç]ue?)/gi, '')
+      .replace(/booking\s+(confirmed?|received?)/gi, '')
+      .replace(/nouvelle?\s+r[eé]servation/gi, '')
+      .replace(/rappel\s+d[e']?\s*arriv[eé]e?/gi, '')
+      .replace(/rappel\s+check.?in/gi, '')
+      .replace(/check.?(?:in|out)/gi, '')
+      .replace(/confirmation\s+de\s+s[eé]jour/gi, '')
+      .replace(/\[|\]/g, '')
+      .replace(/[–\-:]/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    if (cleaned.length >= 5) return cleaned.slice(0, 80);
   }
 
   return undefined;

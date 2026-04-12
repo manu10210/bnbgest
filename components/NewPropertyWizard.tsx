@@ -38,24 +38,35 @@ interface Props {
 export function analyzeAirbnbTitle(title: string): DetectedPropertyInfo {
   const t = title.toLowerCase();
 
+  // ── Type de logement ──────────────────────────────────────────────────────
   let guessedType: Property['type'] = 'apartment';
-  if (/maison|house|pavillon|villa/.test(t)) guessedType = 'house';
+  if (/villa/.test(t)) guessedType = 'villa';
+  else if (/maison|house|pavillon|maisonnette|chalet|gîte|gite|fermette|longère|bastide/.test(t)) guessedType = 'house';
   else if (/studio|studette/.test(t)) guessedType = 'studio';
   else if (/chambre|room/.test(t)) guessedType = 'room';
-  else if (/villa/.test(t)) guessedType = 'villa';
+  // Indicateurs d'appartement atypique (mansarde, combles, etc.) → apartment
+  else if (/toits?|combles?|mansarde|duplex|loft|cocon|nid|pied.?[àa].?terre/.test(t)) guessedType = 'apartment';
 
+  // ── Nombre de chambres ────────────────────────────────────────────────────
   let guessedBedrooms = 1;
-  const m = t.match(/t(\d)|(\d)\s*(chambre|bedroom|pi[eè]ce)/);
-  if (m) {
-    const n = parseInt(m[1] || m[2]);
+  // T2, F3, 2 chambres, 3 bedrooms, 3 pièces
+  const mType = t.match(/[tf](\d)\b|(\d)\s*(?:chambre|bedroom|pi[eè]ce)/);
+  if (mType) {
+    const n = parseInt(mType[1] || mType[2]);
     if (n >= 1 && n <= 8) guessedBedrooms = n;
   }
+
+  // ── Capacité estimée ──────────────────────────────────────────────────────
+  let guessedMaxGuests = Math.min(guessedBedrooms * 2, 10);
+  // "4 personnes", "jusqu'à 6 voyageurs"
+  const mGuests = t.match(/(\d+)\s*(?:personne|voyageur|guest)/);
+  if (mGuests) guessedMaxGuests = Math.min(parseInt(mGuests[1]), 16);
 
   return {
     rawName: title,
     guessedType,
     guessedBedrooms,
-    guessedMaxGuests: Math.min(guessedBedrooms * 2, 10),
+    guessedMaxGuests,
     guessedPricePerNight: 0,
   };
 }
