@@ -37,7 +37,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         params: {
           prompt: 'consent',
           access_type: 'offline',
-          response_type: 'code'
+          response_type: 'code',
+          scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly',
         }
       }
     }),
@@ -95,6 +96,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       if (account) {
         token.provider = account.provider;
+        // Stocker les tokens Google pour Gmail API
+        if (account.provider === 'google') {
+          token.accessToken = account.access_token;
+          token.refreshToken = account.refresh_token;
+          token.expiresAt = account.expires_at;
+        }
       }
       return token;
     },
@@ -104,6 +111,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string;
         session.user.provider = token.provider as string;
       }
+      // Exposer l'access token dans la session (lecture côté API routes)
+      (session as { accessToken?: unknown }).accessToken = token.accessToken;
       return session;
     }
   },

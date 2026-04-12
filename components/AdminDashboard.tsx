@@ -33,6 +33,7 @@ const DashboardOverview = dynamic(() => import('./DashboardOverview'), { ssr: fa
 const LiveRevenueTracker = dynamic(() => import('./LiveRevenueTracker'), { ssr: false });
 const GuestMessagingHub = dynamic(() => import('./GuestMessagingHub'), { ssr: false });
 const OccupancyOptimizer = dynamic(() => import('./OccupancyOptimizer'), { ssr: false });
+const GmailImporter = dynamic(() => import('./GmailImporter'), { ssr: false });
 import LanguageSelector from './LanguageSelector';
 import { useBNB, Booking, Guest, Review } from '../contexts/BNBContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -85,7 +86,7 @@ import {
 import ThemeToggle from './ThemeToggle';
 import { useTheme } from '../contexts/ThemeContext';
 
-export type TabType = 'overview' | 'bookings' | 'maintenance' | 'inventory' | 'financial' | 'guests' | 'reviews' | 'welcome' | 'properties' | 'settings' | 'qrcheckin' | 'contract' | 'cleaning' | 'pricing' | 'notifications' | 'cleaningGallery' | 'shareLinks' | 'forecasting' | 'videoguides' | 'reviewsmanager' | 'invoice' | 'intelligence' | 'assistant' | 'autopilot' | 'revenue-live' | 'messaging' | 'occupancy';
+export type TabType = 'overview' | 'bookings' | 'maintenance' | 'inventory' | 'financial' | 'guests' | 'reviews' | 'welcome' | 'properties' | 'settings' | 'qrcheckin' | 'contract' | 'cleaning' | 'pricing' | 'notifications' | 'cleaningGallery' | 'shareLinks' | 'forecasting' | 'videoguides' | 'reviewsmanager' | 'invoice' | 'intelligence' | 'assistant' | 'autopilot' | 'revenue-live' | 'messaging' | 'occupancy' | 'gmail-import';
 
 export default function AdminDashboard() {
   const {
@@ -355,6 +356,10 @@ export default function AdminDashboard() {
                    intelligence:   '🧠 IA Propriétés',
                    assistant:      '💬 Assistant IA',
                    autopilot:      '🤖 Autopilot',
+                   'revenue-live': '📊 Revenus Live',
+                   messaging:      '💬 Messagerie Hub',
+                   occupancy:      "🎯 Optimiseur d'Occupation",
+                   'gmail-import': '📧 Import Gmail',
                  } as Record<string, string>)[activeTab] ?? activeTab}
                </h1>
                <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
@@ -473,6 +478,7 @@ export default function AdminDashboard() {
                 'revenue-live': '📊 Revenus Live',
                 messaging:      '💬 Messagerie Hub',
                 occupancy:      '🎯 Optimiseur d\'Occupation',
+                'gmail-import': '📧 Import Gmail',
               } as Record<string, string>)[activeTab] ?? activeTab}
             </li>
           </ol>
@@ -851,6 +857,7 @@ export default function AdminDashboard() {
             {activeTab === 'revenue-live' && <LiveRevenueTracker />}
             {activeTab === 'messaging' && <GuestMessagingHub />}
             {activeTab === 'occupancy' && <OccupancyOptimizer />}
+            {activeTab === 'gmail-import' && <GmailImporter />}
           </div>
 
           </div>

@@ -37,6 +37,7 @@ import {
   LineChart,
   MessageCircle,
   Target,
+  Mail,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
@@ -152,9 +153,10 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
     {
       title: '✨ Nouvelles Fonctions',
       items: [
-        { id: 'revenue-live',    label: '📊 Revenus Live',       icon: LineChart,      badge: 0 },
-        { id: 'messaging',       label: '💬 Messagerie Hub',      icon: MessageCircle,  badge: 0 },
-        { id: 'occupancy',       label: '🎯 Optimiseur Occupation',icon: Target,        badge: 0 },
+        { id: 'revenue-live',    label: '📊 Revenus Live',        icon: LineChart,      badge: 0 },
+        { id: 'messaging',       label: '💬 Messagerie Hub',       icon: MessageCircle,  badge: 0 },
+        { id: 'occupancy',       label: '🎯 Optimiseur Occupation', icon: Target,        badge: 0 },
+        { id: 'gmail-import',    label: '📧 Import Gmail',          icon: Mail,          badge: 0 },
       ]
     },
     {
