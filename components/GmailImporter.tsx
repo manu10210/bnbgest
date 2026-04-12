@@ -57,6 +57,52 @@ const fmt = (d: string) =>
 const confidenceColor = (c: number) =>
   c >= 80 ? 'text-green-500' : c >= 60 ? 'text-amber-400' : 'text-orange-400';
 
+// ─── Matching logement robuste ────────────────────────────────────────────────
+// Retourne le score de similarité entre un nom d'email et un nom de propriété (0-100)
+function propertyMatchScore(emailName: string, propName: string): number {
+  const e = emailName.toLowerCase().trim();
+  const p = propName.toLowerCase().trim();
+  if (!e || !p) return 0;
+
+  // Correspondance exacte
+  if (e === p) return 100;
+
+  // L'un contient l'autre entièrement
+  if (p.includes(e) || e.includes(p)) return 90;
+
+  // Préfixes (6 premiers chars)
+  const ePrefix = e.replace(/[^a-z0-9]/g, '').slice(0, 8);
+  const pPrefix = p.replace(/[^a-z0-9]/g, '').slice(0, 8);
+  if (ePrefix.length >= 4 && pPrefix.includes(ePrefix)) return 80;
+  if (pPrefix.length >= 4 && ePrefix.includes(pPrefix)) return 80;
+
+  // Mots significatifs en commun (3+ chars, hors mots vides)
+  const stopWords = new Set(['les','des','une','pour','avec','sur','sous','dans','par','qui','que','aux','son','ses','nos','vos','leur','leurs','cette','cela','plus','mais','car','voir','chez','vers','ici','là','très','bien','tout','tous']);
+  const eWords = e.split(/\s+/).filter(w => w.length >= 3 && !stopWords.has(w));
+  const pWords = p.split(/\s+/).filter(w => w.length >= 3 && !stopWords.has(w));
+  const common = eWords.filter(w => pWords.some(pw => pw.includes(w) || w.includes(pw)));
+  if (common.length === 0) return 0;
+  // Score proportionnel au nombre de mots communs / total de mots
+  const score = (common.length * 2) / (eWords.length + pWords.length) * 100;
+  return Math.round(score);
+}
+
+// Trouve la meilleure propriété correspondante (score ≥ 40)
+function findMatchingProperty<T extends { name: string }>(
+  emailPropertyName: string | undefined,
+  properties: T[],
+  fallback?: T
+): T | undefined {
+  if (!emailPropertyName?.trim()) return fallback;
+  let best: T | undefined;
+  let bestScore = 0;
+  for (const p of properties) {
+    const score = propertyMatchScore(emailPropertyName, p.name);
+    if (score > bestScore) { best = p; bestScore = score; }
+  }
+  return bestScore >= 40 ? best : fallback;
+}
+
 const bookingTypeLabel: Record<ParsedBooking['bookingType'], { label: string; color: string }> = {
   new:       { label: 'Nouvelle',    color: 'bg-green-100 text-green-700' },
   cancelled: { label: 'Annulée',     color: 'bg-red-100 text-red-700' },
@@ -201,19 +247,9 @@ export default function GmailImporter() {
     for (const b of toImport) {
 
       // ── 1. Trouver le logement ────────────────────────────────────────────
-      //   Matching sur le nom (6 premiers caractères) ou fallback sur le 1er logement.
-      //   Si aucune propriété → on marque "skipped" seulement pour 'new' (pas cancel/review)
-      let property = b.propertyName
-        ? properties.find(p => {
-            const pn = p.name.toLowerCase();
-            const bn = b.propertyName!.toLowerCase();
-            // Correspondance sur 6 chars, ou sur mots communs (3+ chars)
-            if (pn.includes(bn.slice(0, 6)) || bn.includes(pn.slice(0, 6))) return true;
-            const pWords = pn.split(/\s+/).filter(w => w.length >= 3);
-            const bWords = bn.split(/\s+/).filter(w => w.length >= 3);
-            return pWords.some(w => bWords.includes(w));
-          }) ?? defaultProperty
-        : defaultProperty;
+      //   Matching robuste (score ≥ 40) ou fallback sur le 1er logement.
+      //   Si aucune propriété → on marque "skipped" sauf pour cancel/payout
+      let property = findMatchingProperty(b.propertyName, properties, defaultProperty);
 
       if (!property && b.bookingType !== 'cancelled') {
         summary.skipped++;
@@ -587,14 +623,7 @@ export default function GmailImporter() {
     // Tous les emails (importés ou non) avec un propertyName qui ne correspond
     // à aucun logement existant → proposer le wizard de création.
     const isKnownProperty = (name: string) =>
-      !!properties.find(p => {
-        const pn = p.name.toLowerCase();
-        const bn = name.toLowerCase();
-        if (pn.includes(bn.slice(0, 6)) || bn.includes(pn.slice(0, 6))) return true;
-        const pWords = pn.split(/\s+/).filter(w => w.length >= 3);
-        const bWords = bn.split(/\s+/).filter(w => w.length >= 3);
-        return pWords.some(w => bWords.includes(w));
-      });
+      findMatchingProperty(name, properties) !== undefined;
 
     // On prend TOUS les bookings importés (toImport) avec
     // un propertyName détecté mais inconnu — pour ne rater aucun nouveau logement
@@ -957,14 +986,10 @@ export default function GmailImporter() {
                               Email reçu le {fmt(booking.receivedAt)} • {booking.subject.slice(0, 80)}
                             </div>
                             {/* ── Avertissement : aucun logement correspondant ── */}
-                            {booking.bookingType !== 'cancelled' && properties.length > 0 && booking.propertyName && !properties.find(p => {
-                              const pn = p.name.toLowerCase(); const bn = booking.propertyName!.toLowerCase();
-                              if (pn.includes(bn.slice(0, 6)) || bn.includes(pn.slice(0, 6))) return true;
-                              return pn.split(/\s+/).filter(w => w.length >= 3).some(w => bn.split(/\s+/).filter(w2 => w2.length >= 3).includes(w));
-                            }) && (
+                            {booking.bookingType !== 'cancelled' && properties.length > 0 && booking.propertyName && !findMatchingProperty(booking.propertyName, properties) && (
                               <div className={`mt-1 text-xs flex items-center gap-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
                                 <span>⚠️</span>
-                                <span>Logement &quot;{booking.propertyName.slice(0, 40)}&quot; non trouvé — sera associé à <strong>{properties[0]?.name ?? '—'}</strong> (premier par défaut)</span>
+                                <span>Logement &quot;{booking.propertyName.slice(0, 40)}&quot; non reconnu — sera associé à <strong>{properties[0]?.name ?? '—'}</strong> (premier par défaut)</span>
                               </div>
                             )}
                             {booking.bookingType !== 'cancelled' && properties.length === 0 && (
