@@ -37,7 +37,9 @@
     "test:mobile": "playwright test tests/e2e/mobile",
     "test:mobile-chrome": "playwright test --project=\"Mobile Chrome\"",
     "test:mobile-safari": "playwright test --project=\"Mobile Safari\"",
-    "test:tablet": "playwright test --project=\"Tablet\""
+    "test:tablet": "playwright test --project=\"Tablet\"",
+    "test:performance": "playwright test tests/performance",
+    "test:perf": "playwright test tests/performance --project=chromium"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
