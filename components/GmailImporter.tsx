@@ -40,8 +40,10 @@ interface ParsedBooking {
   hostPayout?: number;
   propertyName?: string;
   confirmationCode?: string;
-  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout';
+  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review';
   confidence: number;
+  reviewRating?: number;
+  reviewComment?: string;
 }
 
 type SyncStatus = 'idle' | 'checking' | 'syncing' | 'done' | 'error';
@@ -61,6 +63,7 @@ const bookingTypeLabel: Record<ParsedBooking['bookingType'], { label: string; co
   modified:  { label: 'Modifiée',  color: 'bg-blue-100 text-blue-700' },
   reminder:  { label: 'Rappel',    color: 'bg-gray-200 text-gray-700' },
   checkout:  { label: 'Départ',    color: 'bg-amber-100 text-amber-700' },
+  review:    { label: 'Avis ⭐',   color: 'bg-purple-100 text-purple-700' },
 };
 
 // ─── Composant principal ──────────────────────────────────────────────────────
@@ -71,6 +74,7 @@ export default function GmailImporter() {
     addBooking, updateBooking, cancelBooking,
     addGuest, updateGuest, guests,
     addMaintenanceTask,
+    addReview,
     properties,
     bookings: existingBookings,
   } = useBNB();
@@ -86,7 +90,7 @@ export default function GmailImporter() {
   const [imported, setImported] = useState<string[]>([]);
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
   const [gmailEmail, setGmailEmail] = useState<string>('');
-  const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; tasksCreated: number } | null>(null);
+  const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; tasksCreated: number; reviewsImported: number } | null>(null);
 
   // ── Détection nouveaux logements ──────────────────────────────────────────
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
@@ -150,11 +154,13 @@ export default function GmailImporter() {
 
       allBookings.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
       setBookings(allBookings);
-      // Auto-sélectionner : nouvelles (confiance ≥70%) + annulations/modifications (toujours)
+      // Auto-sélectionner : nouvelles (confiance ≥70%) + annulations/modifications/avis/départs (toujours)
       setSelected(new Set(allBookings.filter(b =>
         (b.bookingType === 'new' && b.confidence >= 70) ||
         b.bookingType === 'cancelled' ||
-        b.bookingType === 'modified'
+        b.bookingType === 'modified' ||
+        b.bookingType === 'checkout' ||
+        b.bookingType === 'review'
       ).map(b => b.messageId)));
       setStatus('done');
     } catch (e) {
@@ -168,7 +174,7 @@ export default function GmailImporter() {
   const importSelected = useCallback(() => {
     const toImport = bookings.filter(b => selected.has(b.messageId));
     const defaultProperty = properties[0];
-    const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, tasksCreated: 0 };
+    const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, tasksCreated: 0, reviewsImported: 0 };
 
     for (const b of toImport) {
 
@@ -389,6 +395,35 @@ export default function GmailImporter() {
         });
         summary.tasksCreated++;
       }
+
+      // ── 4f. Avis (review) → créer un avis dans BNBContext ────────────────
+      if (b.bookingType === 'review' && property) {
+        // Retrouver la réservation et l'ID du voyageur correspondants
+        const matchedBooking = b.confirmationCode
+          ? existingBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
+          : existingBookings.find(eb =>
+              eb.propertyId === property.id &&
+              (eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase() ||
+               eb.checkOut === b.checkOut)
+            );
+
+        const rating = b.reviewRating ?? 5; // défaut 5 étoiles si non extrait
+        addReview({
+          propertyId: property.id,
+          bookingId: matchedBooking?.id ?? 0,
+          guestId: guestId,
+          rating,
+          title: `Avis ${rating}★ — ${b.guestName}`,
+          comment: b.reviewComment || `Avis importé automatiquement depuis Gmail (${fmt(b.receivedAt)}).`,
+        });
+
+        // Si la réservation correspondante n'est pas déjà "completed", la marquer
+        if (matchedBooking && matchedBooking.status !== 'completed' && matchedBooking.status !== 'cancelled') {
+          updateBooking(matchedBooking.id, { status: 'completed' });
+        }
+
+        summary.reviewsImported++;
+      }
     }
 
     setImported(toImport.map(b => b.messageId));
@@ -406,7 +441,7 @@ export default function GmailImporter() {
       setPropertyQueue(queue.slice(1));
       setCurrentWizard(queue[0]);
     }
-  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask]);
+  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview]);
 
   // ─── Avancer dans la file de nouveaux logements ───────────────────────────
 
@@ -561,6 +596,11 @@ export default function GmailImporter() {
                 {importSummary.tasksCreated > 0 && (
                   <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-amber-800 text-amber-200' : 'bg-amber-100 text-amber-700'}`}>
                     🧹 {importSummary.tasksCreated} tâche{importSummary.tasksCreated > 1 ? 's' : ''} créée{importSummary.tasksCreated > 1 ? 's' : ''} (ménage/préparation)
+                  </span>
+                )}
+                {importSummary.reviewsImported > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-purple-800 text-purple-200' : 'bg-purple-100 text-purple-700'}`}>
+                    ⭐ {importSummary.reviewsImported} avis importé{importSummary.reviewsImported > 1 ? 's' : ''}
                   </span>
                 )}
               </div>

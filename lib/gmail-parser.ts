@@ -29,8 +29,11 @@ export interface ParsedBooking {
   propertyName?: string;
   confirmationCode?: string;
   // Statut
-  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout';
+  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review';
   confidence: number;      // 0-100%
+  // Champs spécifiques aux avis
+  reviewRating?: number;   // 1-5 étoiles
+  reviewComment?: string;  // Commentaire du voyageur
 }
 
 // ─── Patterns de détection des emails Airbnb ───────────────────────────────
@@ -69,6 +72,11 @@ const SUBJECT_PATTERNS = {
   reminder: [
     /rappel/i, /reminder/i, /dans\s+\d+\s+jour/i, /in\s+\d+\s+day/i,
     /pr[eé]par[e]z/i, /proch[ae]in[e]?\s+(arr[iî]v[eé]e?|s[eé]jour)/i,
+  ],
+  review: [
+    /nouvel?\s+avis/i, /new\s+review/i, /a\s+laiss[eé]\s+un\s+avis/i,
+    /left\s+you\s+a\s+review/i, /[eé]valuation/i, /avis\s+re[cç]u/i,
+    /review\s+received/i, /[eé]toile[s]?/i, /rated\s+you/i, /vous\s+a\s+not[eé]/i,
   ],
 };
 
@@ -214,6 +222,67 @@ function extractGuestPhone(text: string): string | undefined {
   return undefined;
 }
 
+function extractGuestEmail(text: string): string | undefined {
+  // Chercher une adresse email de voyageur (pas airbnb)
+  const patterns = [
+    /e-?mail\s+voyageur\s*[:\s]+([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
+    /guest\s+e-?mail\s*[:\s]+([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
+    /contact\s*[:\s]+([a-zA-Z0-9._%+\-]+@(?!airbnb)[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
+    /(?:^|\s)([a-zA-Z0-9._%+\-]+@(?!airbnb)[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})(?:\s|$)/m,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const email = m[1].trim().toLowerCase();
+      if (!email.includes('airbnb') && !email.includes('noreply') && !email.includes('automated')) {
+        return email;
+      }
+    }
+  }
+  return undefined;
+}
+
+function extractReviewRating(text: string): number | undefined {
+  // Chercher une note 1-5 étoiles dans le corps de l'email
+  const patterns = [
+    /(\d)\s*[\/\sur]\s*5\s*[eé]toile/i,
+    /(\d)\s*star[s]?\s*out\s*of\s*5/i,
+    /note\s*(?:globale)?\s*[:\-]\s*(\d)/i,
+    /overall\s+rating\s*[:\-]\s*(\d)/i,
+    /[eé]toile[s]?\s*[:\-]\s*(\d)/i,
+    /rated?\s*(\d)\s*[eé]toile/i,
+    /rated?\s*(\d)\s*star/i,
+    /(\d)\s*[★⭐]/,
+    /[★⭐]\s*(\d)/,
+    /(\d)\s*\/\s*5/,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const rating = parseInt(m[1]);
+      if (rating >= 1 && rating <= 5) return rating;
+    }
+  }
+  return undefined;
+}
+
+function extractReviewComment(text: string): string | undefined {
+  // Extraire le commentaire laissé par le voyageur
+  const patterns = [
+    /(?:commentaire|comment|avis|review)\s*[:\-]\s*"([^"]{10,500})"/i,
+    /(?:ils?\s+ont?\s+(?:dit|[eé]crit)|they\s+(?:said|wrote))\s*[:\-]?\s*"([^"]{10,500})"/i,
+    /(?:a\s+(?:laiss[eé]|[eé]crit)|wrote)\s*:\s*"([^"]{10,500})"/i,
+    /"([^"]{20,400})"/,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      return m[1].trim().slice(0, 500);
+    }
+  }
+  return undefined;
+}
+
 function extractGuests(text: string): number {
   const patterns = [
     /(\d+)\s*voyageur[s]?/i,
@@ -305,6 +374,7 @@ export function parseAirbnbEmail(
   else if (SUBJECT_PATTERNS.modified.some(p => p.test(subject))) bookingType = 'modified';
   else if (SUBJECT_PATTERNS.checkout.some(p => p.test(subject))) bookingType = 'checkout';
   else if (SUBJECT_PATTERNS.reminder.some(p => p.test(subject))) bookingType = 'reminder';
+  else if (SUBJECT_PATTERNS.review.some(p => p.test(subject))) bookingType = 'review';
 
   // 3. Nettoyer le HTML si présent
   const text = body
@@ -360,6 +430,7 @@ export function parseAirbnbEmail(
     subject: subject.slice(0, 200),
     receivedAt,
     guestName: extractGuestName(text),
+    guestEmail: extractGuestEmail(text),
     guestPhone: extractGuestPhone(text),
     guests: extractGuests(text),
     checkIn,
@@ -374,6 +445,8 @@ export function parseAirbnbEmail(
     confirmationCode,
     bookingType,
     confidence: Math.min(100, confidence),
+    reviewRating: bookingType === 'review' ? extractReviewRating(text) : undefined,
+    reviewComment: bookingType === 'review' ? extractReviewComment(text) : undefined,
   };
 }
 
