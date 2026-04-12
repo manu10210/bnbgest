@@ -29,7 +29,7 @@ export interface ParsedBooking {
   propertyName?: string;
   confirmationCode?: string;
   // Statut
-  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review';
+  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review' | 'payout';
   confidence: number;      // 0-100%
   // Champs spécifiques aux avis
   reviewRating?: number;   // 1-5 étoiles
@@ -77,6 +77,12 @@ const SUBJECT_PATTERNS = {
     /nouvel?\s+avis/i, /new\s+review/i, /a\s+laiss[eé]\s+un\s+avis/i,
     /left\s+you\s+a\s+review/i, /[eé]valuation/i, /avis\s+re[cç]u/i,
     /review\s+received/i, /[eé]toile[s]?/i, /rated\s+you/i, /vous\s+a\s+not[eé]/i,
+  ],
+  payout: [
+    /versement/i, /virement/i, /payout/i, /nous\s+vous\s+avons\s+envoy[eé]/i,
+    /nous\s+avons\s+envoy[eé]\s+un\s+versement/i, /payment\s+sent/i,
+    /votre\s+paiement/i, /your\s+payout/i, /r[eè]glement\s+effectu[eé]/i,
+    /vir[eé]\s+sur\s+votre\s+compte/i, /transfer[eé]\s+vers/i,
   ],
 };
 
@@ -451,6 +457,10 @@ export function parseAirbnbEmail(
   else if (SUBJECT_PATTERNS.checkout.some(p => p.test(subject))) bookingType = 'checkout';
   else if (SUBJECT_PATTERNS.reminder.some(p => p.test(subject))) bookingType = 'reminder';
   else if (SUBJECT_PATTERNS.review.some(p => p.test(subject))) bookingType = 'review';
+  else if (
+    SUBJECT_PATTERNS.payout.some(p => p.test(subject)) ||
+    SUBJECT_PATTERNS.payout.some(p => p.test(body.slice(0, 500)))
+  ) bookingType = 'payout';
 
   // 3. Nettoyer le HTML si présent
   const text = body
@@ -484,12 +494,15 @@ export function parseAirbnbEmail(
     }
   }
 
-  if (!checkIn || !checkOut) return null;  // Pas de dates = email non parsable
+  // Les emails de versement n'ont pas forcément de dates de séjour → on les accepte quand même
+  if (!checkIn || !checkOut) {
+    if (bookingType !== 'payout') return null;  // Pas de dates = email non parsable (sauf payout)
+  }
 
   // 5. Calculer les nuits
-  const nights = Math.max(1, Math.ceil(
+  const nights = (checkIn && checkOut) ? Math.max(1, Math.ceil(
     (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
-  ));
+  )) : 0;
 
   // 6. Calculer la confiance
   let confidence = 50;
@@ -509,8 +522,8 @@ export function parseAirbnbEmail(
     guestEmail: extractGuestEmail(text),
     guestPhone: extractGuestPhone(text),
     guests: extractGuests(text),
-    checkIn,
-    checkOut,
+    checkIn: checkIn ?? receivedAt.split('T')[0],
+    checkOut: checkOut ?? receivedAt.split('T')[0],
     nights,
     totalPrice: price,
     currency: text.includes('€') ? 'EUR' : text.includes('£') ? 'GBP' : 'USD',

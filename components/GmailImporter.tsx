@@ -40,7 +40,7 @@ interface ParsedBooking {
   hostPayout?: number;
   propertyName?: string;
   confirmationCode?: string;
-  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review';
+  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review' | 'payout';
   confidence: number;
   reviewRating?: number;
   reviewComment?: string;
@@ -58,12 +58,13 @@ const confidenceColor = (c: number) =>
   c >= 80 ? 'text-green-500' : c >= 60 ? 'text-amber-400' : 'text-orange-400';
 
 const bookingTypeLabel: Record<ParsedBooking['bookingType'], { label: string; color: string }> = {
-  new:       { label: 'Nouvelle',  color: 'bg-green-100 text-green-700' },
-  cancelled: { label: 'Annulée',   color: 'bg-red-100 text-red-700' },
-  modified:  { label: 'Modifiée',  color: 'bg-blue-100 text-blue-700' },
-  reminder:  { label: 'Rappel',    color: 'bg-gray-200 text-gray-700' },
-  checkout:  { label: 'Départ',    color: 'bg-amber-100 text-amber-700' },
-  review:    { label: 'Avis ⭐',   color: 'bg-purple-100 text-purple-700' },
+  new:       { label: 'Nouvelle',    color: 'bg-green-100 text-green-700' },
+  cancelled: { label: 'Annulée',     color: 'bg-red-100 text-red-700' },
+  modified:  { label: 'Modifiée',    color: 'bg-blue-100 text-blue-700' },
+  reminder:  { label: 'Rappel',      color: 'bg-gray-200 text-gray-700' },
+  checkout:  { label: 'Départ',      color: 'bg-amber-100 text-amber-700' },
+  review:    { label: 'Avis ⭐',     color: 'bg-purple-100 text-purple-700' },
+  payout:    { label: 'Versement 💶', color: 'bg-emerald-100 text-emerald-700' },
 };
 
 // ─── Composant principal ──────────────────────────────────────────────────────
@@ -515,7 +516,68 @@ export default function GmailImporter() {
 
         summary.reviewsImported++;
       }
-    }
+
+      // ── 4g. Versement (payout) → enrichir la réservation avec données financières ──
+      if (b.bookingType === 'payout') {
+        // Retrouver la réservation liée (par code de confirmation ou voyageur)
+        const payoutBooking = b.confirmationCode
+          ? existingBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
+          : property
+            ? existingBookings.find(eb =>
+                eb.propertyId === property.id &&
+                eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase()
+              )
+            : undefined;
+
+        const payoutAmount = b.hostPayout || b.totalPrice || 0;
+        const payoutDateStr = b.receivedAt?.split('T')[0] ?? new Date().toISOString().split('T')[0];
+
+        if (payoutBooking) {
+          // Mettre à jour la réservation existante avec les infos financières
+          updateBooking(payoutBooking.id, {
+            paymentStatus: 'paid',
+            hostPayout: payoutAmount,
+            ...(b.cleaningFee ? { cleaningFee: b.cleaningFee } : {}),
+            ...(b.serviceFee  ? { serviceFee:  b.serviceFee  } : {}),
+            payoutDate: payoutDateStr,
+            payoutConfirmed: true,
+            specialRequests: [
+              payoutBooking.specialRequests || '',
+              `[VERSEMENT ${payoutAmount}€ le ${payoutDateStr}]`,
+            ].filter(Boolean).join(' | '),
+          });
+          summary.created++; // compté comme une action réalisée
+        } else if (payoutAmount > 0) {
+          // Aucune réservation trouvée → créer une réservation "fantôme" financière
+          // pour tracer le versement dans les données
+          const pid = property?.id ?? (properties[0]?.id ?? 0);
+          if (pid) {
+            addBooking({
+              propertyId: pid,
+              guestId: guestId || 0,
+              checkIn: b.checkIn,
+              checkOut: b.checkOut,
+              guests: b.guests || 1,
+              totalPrice: payoutAmount,
+              status: 'completed',
+              paymentStatus: 'paid',
+              hostPayout: payoutAmount,
+              ...(b.cleaningFee ? { cleaningFee: b.cleaningFee } : {}),
+              ...(b.serviceFee  ? { serviceFee:  b.serviceFee  } : {}),
+              payoutDate: payoutDateStr,
+              payoutConfirmed: true,
+              specialRequests: [
+                b.confirmationCode ? `Code Airbnb: ${b.confirmationCode}` : '',
+                `Versement Airbnb ${payoutAmount}€ — importé Gmail (${fmt(b.receivedAt)})`,
+                b.propertyName ? `Logement: ${b.propertyName}` : '',
+              ].filter(Boolean).join(' | '),
+              guestInfo: { name: b.guestName || 'Airbnb Payout', email: b.guestEmail || '', phone: '' },
+            });
+            summary.created++;
+          }
+        }
+      }
+    } // fin boucle for
 
     setImported(toImport.map(b => b.messageId));
     setImportSummary(summary);

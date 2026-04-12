@@ -67,6 +67,12 @@ export interface Booking {
     transactionId: string;
     amount: number;
   };
+  // Données financières détaillées (depuis emails Airbnb)
+  hostPayout?: number;       // Virement reçu de Airbnb
+  cleaningFee?: number;      // Frais de ménage facturés
+  serviceFee?: number;       // Commission Airbnb
+  payoutDate?: string;       // Date du virement (YYYY-MM-DD)
+  payoutConfirmed?: boolean; // true = virement confirmé par email
 }
 
 export interface Guest {
