@@ -4,10 +4,14 @@ import { requireAuth, requireRole } from '@/lib/auth-middleware';
 import { rateLimit } from '@/lib/rate-limit';
 import { PropertySchema, validateRequest } from '@/lib/validations';
 
+// Enable ISR with 60 seconds revalidation
+export const revalidate = 60;
+
 /**
  * GET /api/properties
  * Récupère toutes les propriétés avec leurs relations
  * ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)
+ * ✅ Cached: 60s revalidation
  */
 export async function GET(request: Request) {
   // 1. Rate limiting
@@ -71,11 +75,18 @@ export async function GET(request: Request) {
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      count: properties.length,
-      properties,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        count: properties.length,
+        properties,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
+      }
+    );
   } catch (error) {
     console.error('GET /api/properties error:', error);
     return NextResponse.json(

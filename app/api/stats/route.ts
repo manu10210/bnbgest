@@ -1,12 +1,16 @@
 /**
  * 📈 Stats API - Global metrics and analytics
  * ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)
+ * ✅ Cached: 120s revalidation (stats change less frequently)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-middleware';
 import { rateLimit } from '@/lib/rate-limit';
+
+// Enable ISR with 2 minutes revalidation (stats don't need real-time updates)
+export const revalidate = 120;
 
 // GET /api/stats - Statistiques et métriques globales du dashboard
 export async function GET(request: NextRequest) {
@@ -234,28 +238,35 @@ export async function GET(request: NextRequest) {
     }
 
     // === RESPONSE ===
-    return NextResponse.json({
-      success: true,
-      period: {
-        start: start.toISOString(),
-        end: end.toISOString(),
-        days: totalDays
+    return NextResponse.json(
+      {
+        success: true,
+        period: {
+          start: start.toISOString(),
+          end: end.toISOString(),
+          days: totalDays
+        },
+        bookings: bookingsStats,
+        properties: propertiesStats,
+        reviews: reviewsStats,
+        maintenance: maintenanceStats,
+        cleanings: cleaningsStats,
+        occupancy: {
+          rate: Math.round(occupancyRate * 100) / 100,
+          bookedNights,
+          availableNights: totalDays * properties.length,
+          properties: properties.length
+        },
+        trends: {
+          weeklyRevenue
+        }
       },
-      bookings: bookingsStats,
-      properties: propertiesStats,
-      reviews: reviewsStats,
-      maintenance: maintenanceStats,
-      cleanings: cleaningsStats,
-      occupancy: {
-        rate: Math.round(occupancyRate * 100) / 100,
-        bookedNights,
-        availableNights: totalDays * properties.length,
-        properties: properties.length
-      },
-      trends: {
-        weeklyRevenue
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=240',
+        },
       }
-    });
+    );
   } catch (error) {
     console.error('Error fetching stats:', error);
     return NextResponse.json(
