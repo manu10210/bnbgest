@@ -522,24 +522,24 @@ export default function GmailImporter() {
     setSelected(new Set());
 
     // ── 5. Détecter les nouveaux logements inconnus ───────────────────────
-    // On inclut aussi les emails skippés pour "sans logement" avec un propertyName
-    const newBookingsOnly = toImport.filter(b => b.bookingType === 'new');
-    const skippedWithName = toImport.filter(b =>
-      b.bookingType !== 'cancelled' &&
-      b.propertyName &&
-      !properties.find(p => {
+    // Tous les emails (importés ou non) avec un propertyName qui ne correspond
+    // à aucun logement existant → proposer le wizard de création.
+    const isKnownProperty = (name: string) =>
+      !!properties.find(p => {
         const pn = p.name.toLowerCase();
-        const bn = b.propertyName!.toLowerCase();
+        const bn = name.toLowerCase();
         if (pn.includes(bn.slice(0, 6)) || bn.includes(pn.slice(0, 6))) return true;
         const pWords = pn.split(/\s+/).filter(w => w.length >= 3);
         const bWords = bn.split(/\s+/).filter(w => w.length >= 3);
         return pWords.some(w => bWords.includes(w));
-      })
-    );
-    const allNamesForWizard = [
-      ...newBookingsOnly.map(b => b.propertyName ?? ''),
-      ...skippedWithName.map(b => b.propertyName ?? ''),
-    ];
+      });
+
+    // On prend TOUS les bookings importés (toImport) avec
+    // un propertyName détecté mais inconnu — pour ne rater aucun nouveau logement
+    const allCandidates = toImport
+      .filter(b => b.propertyName?.trim() && !isKnownProperty(b.propertyName));
+
+    const allNamesForWizard = allCandidates.map(b => b.propertyName!.trim());
     const newNames = findNewPropertyNames(allNamesForWizard, properties);
     if (newNames.length > 0) {
       const queue = newNames.map(n => analyzeAirbnbTitle(n));
