@@ -153,6 +153,17 @@ function extractPrice(text: string): number {
     /vous gagnez\s*([€$£]?\s*[\d\s.,]+)/i,
     /you earn\s*([€$£]?\s*[\d\s.,]+)/i,
     /payout\s*[:\s]\s*([€$£]?\s*[\d\s.,]+)/i,
+    // Revenus hôte Airbnb (format notification de réservation)
+    /vos\s+revenus\s+pour\s+ce\s+s[eé]jour\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /votre\s+revenu\s+estim[eé]\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /votre\s+revenu\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /revenu\s+de\s+l[''`]h[oô]te\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /revenus?\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /host\s+earnings?\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /earnings?\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /montant\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /prix\s+total\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /prix\s+de\s+la\s+nuit[eé]e?\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
     /([€$£]\s*[\d\s.,]+)/,
   ];
   for (const p of patterns) {
@@ -313,15 +324,38 @@ function extractGuests(text: string): number {
   return 1;
 }
 
-function extractGuestName(text: string): string {
+function extractGuestName(text: string, subject?: string): string {
+  // ── Depuis le sujet (emails hôte Airbnb: "Prénom a réservé votre logement") ──
+  if (subject) {
+    const subjectPatterns = [
+      /^([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)\s+a\s+r[eé]serv[eé]/,
+      /^([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)\s+souhaite\s+r[eé]server/,
+      /^([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+has\s+(?:booked|reserved)/,
+      /^([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+wants\s+to\s+book/,
+    ];
+    for (const p of subjectPatterns) {
+      const m = subject.match(p);
+      if (m) {
+        const name = m[1].trim().slice(0, 60);
+        if (name.length >= 2 && !/airbnb/i.test(name)) return name;
+      }
+    }
+  }
+
+  // ── Depuis le corps du mail ────────────────────────────────────────────────
   const patterns = [
-    // FR
-    /([A-ZÀÂÉÈÊËÎÏÔÙÛÜ][a-zàâéèêëîïôùûü]+(?:\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ][a-zàâéèêëîïôùûü]+){0,2})\s+a\s+r[eé]serv[eé]/,
-    /r[eé]servation\s+de\s+([A-ZÀÂÉÈÊËÎÏÔÙÛÜ][a-zàâéèêëîïôùûü]+(?:\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ][a-zàâéèêëîïôùûü]+){0,2})/i,
+    // FR — format hôte Airbnb
+    /([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+){0,2})\s+a\s+r[eé]serv[eé]/,
+    /([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+){0,2})\s+souhaite\s+r[eé]server/,
+    /nouveau\s+voyageur\s*:\s*([^\n\r<]{2,60})/i,
+    /r[eé]servation\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+){0,2})/i,
     /voyageur[s]?\s*:\s*([^\n\r<]+)/i,
+    /nom\s+du\s+voyageur\s*:\s*([^\n\r<]+)/i,
     /nom\s*:\s*([^\n\r<]+)/i,
-    // EN
-    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+has\s+booked/,
+    // EN — format hôte Airbnb
+    /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+){0,2})\s+has\s+(?:booked|reserved)/,
+    /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+){0,2})\s+wants\s+to\s+book/,
+    /new\s+guest\s*:\s*([^\n\r<]{2,60})/i,
     /guest\s*:\s*([^\n\r<]+)/i,
     /name\s*:\s*([^\n\r<]+)/i,
   ];
@@ -532,7 +566,7 @@ export function parseAirbnbEmail(
     messageId,
     subject: subject.slice(0, 200),
     receivedAt,
-    guestName: extractGuestName(text),
+    guestName: extractGuestName(text, subject),
     guestEmail: extractGuestEmail(text),
     guestPhone: extractGuestPhone(text),
     guests: extractGuests(text),
