@@ -119,14 +119,55 @@ function normalizeDate(raw: string): string {
   if (ymd) return `${ymd[1]}-${ymd[2].padStart(2, '0')}-${ymd[3].padStart(2, '0')}`;
 
   // Format textuel français: "12 avril 2025", "lundi 14 avril"
+  // (normalisation: accents retirés, points retirés avant lookup)
   const monthsFr: Record<string, string> = {
-    janvier:'01', février:'02', fevrier:'02', mars:'03', avril:'04',
-    mai:'05', juin:'06', juillet:'07', août:'08', aout:'08',
-    septembre:'09', octobre:'10', novembre:'11', décembre:'12', decembre:'12',
+    janvier:'01', fevrier:'02', mars:'03', avril:'04',
+    mai:'05', juin:'06', juillet:'07', aout:'08',
+    septembre:'09', octobre:'10', novembre:'11', decembre:'12',
+    // Abréviations
+    janv:'01', fevr:'02', avr:'04', juil:'07', sept:'09', oct:'10', nov:'11', dec:'12',
   };
-  const textFr = raw.match(/(\d{1,2})\s+([\wéèûî]+)\s+(\d{4})/i);
-  if (textFr && monthsFr[textFr[2].toLowerCase()]) {
-    return `${textFr[3]}-${monthsFr[textFr[2].toLowerCase()]}-${textFr[1].padStart(2, '0')}`;
+  const normStr = (s: string) => s.toLowerCase().replace(/\./g, '')
+    .replace(/[éèêë]/g, 'e').replace(/[àâä]/g, 'a').replace(/[ùûü]/g, 'u')
+    .replace(/[îï]/g, 'i').replace(/[ôö]/g, 'o').replace(/ç/g, 'c');
+  const textFr = raw.match(/(\d{1,2})\s+([\wéèûîà]+\.?)\s+(\d{4})/i);
+  if (textFr && monthsFr[normStr(textFr[2])]) {
+    return `${textFr[3]}-${monthsFr[normStr(textFr[2])]}-${textFr[1].padStart(2, '0')}`;
+  }
+
+  // Format Airbnb SANS année : "10 avr." / "10 avr" / "13 avril"
+  // → on déduit l'année courante (ou prochaine si la date est déjà passée de > 6 mois)
+  const monthsFrShort: Record<string, string> = {
+    jan:'01', janv:'01',
+    fev:'02', fevr:'02',
+    mars:'03',
+    avr:'04', avril:'04',
+    mai:'05',
+    juin:'06',
+    juil:'07', juillet:'07',
+    aout:'08',
+    sept:'09', septembre:'09',
+    oct:'10', octobre:'10',
+    nov:'11', novembre:'11',
+    dec:'12', decembre:'12',
+  };
+  const textNoYear = raw.match(/^(\d{1,2})\s+([\wéèûîàâ]+\.?)$/i);
+  if (textNoYear) {
+    // Normaliser: enlever points, déaccenter (é→e, û→u, etc.)
+    const normalize = (s: string) => s.toLowerCase().replace(/\./g, '')
+      .replace(/[éèêë]/g, 'e').replace(/[àâä]/g, 'a').replace(/[ùûü]/g, 'u')
+      .replace(/[îï]/g, 'i').replace(/[ôö]/g, 'o').replace(/ç/g, 'c');
+    const key = normalize(textNoYear[2]);
+    const monthNum = monthsFrShort[key];
+    if (monthNum) {
+      const now = new Date();
+      const year = now.getFullYear();
+      const candidate = `${year}-${monthNum}-${textNoYear[1].padStart(2, '0')}`;
+      // Si la date candidate est déjà passée de plus de 6 mois, utiliser année+1
+      const diff = (new Date(candidate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      if (diff < -180) return `${year + 1}-${monthNum}-${textNoYear[1].padStart(2, '0')}`;
+      return candidate;
+    }
   }
 
   // Format textuel anglais: "April 12, 2025" ou "Apr 12, 2025"
@@ -523,11 +564,17 @@ export function parseAirbnbEmail(
     /(?:arriv[eé]e?|check.?in|entr[eé]e?)\s*[:\-–]\s*([\d\w\/\.\s,àáâãäåèéêëìíîïòóôõöùúûü]+(?:\d{4}))/i,
     /du\s+([\d]{1,2}[\s\/\-\.]([\d]{1,2}|[\wéèûî]+)[\s\/\-\.][\d]{4})/i,
     /from\s+([\w\s,]+\d{4})/i,
+    // Airbnb sans année: "Arrivée : 10 avr." / "10 avr. – 13 avr."
+    /(?:arriv[eé]e?|check.?in|entr[eé]e?)\s*[:\-–]\s*(\d{1,2}\s+[a-zà-ÿ]{3,10}\.?)\b/i,
+    /\b(\d{1,2}\s+(?:janv?|févr?|mars|avr\.?|mai|juin|juil\.?|août|sept?|oct\.?|nov\.?|déc\.?)\b)\s*[–\-]/i,
   ];
   const checkOutPatterns = [
     /(?:d[eé]part|check.?out|sortie)\s*[:\-–]\s*([\d\w\/\.\s,àáâãäåèéêëìíîïòóôõöùúûü]+(?:\d{4}))/i,
     /au\s+([\d]{1,2}[\s\/\-\.]([\d]{1,2}|[\wéèûî]+)[\s\/\-\.][\d]{4})/i,
     /to\s+([\w\s,]+\d{4})/i,
+    // Airbnb sans année: "Départ : 13 avr." / "10 avr. – 13 avr."
+    /(?:d[eé]part|check.?out|sortie)\s*[:\-–]\s*(\d{1,2}\s+[a-zà-ÿ]{3,10}\.?)\b/i,
+    /[–\-]\s*(\d{1,2}\s+(?:janv?|févr?|mars|avr\.?|mai|juin|juil\.?|août|sept?|oct\.?|nov\.?|déc\.?)\b)/i,
   ];
 
   let checkIn = extractDate(text, checkInPatterns);
