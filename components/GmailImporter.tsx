@@ -59,10 +59,32 @@ const confidenceColor = (c: number) =>
 
 // ─── Matching logement robuste ────────────────────────────────────────────────
 // Retourne le score de similarité entre un nom d'email et un nom de propriété (0-100)
+
+// Table d'aliases : noms extraits des emails Airbnb → nom réel de la propriété
+// Renseignez ici si un email utilise un titre différent de votre annonce BNBGest
+const PROPERTY_ALIASES: Record<string, string> = {
+  'maison de ville avec petite terrasse couverte': 'maisonnette t2 quartier calme',
+  'maison de ville':                               'maisonnette t2 quartier calme',
+  'maison de ville avec terrasse':                 'maisonnette t2 quartier calme',
+  'petite terrasse couverte':                      'maisonnette t2 quartier calme',
+};
+
+function normalizeForMatch(s: string): string {
+  return s.toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // désaccentuer
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function propertyMatchScore(emailName: string, propName: string): number {
-  const e = emailName.toLowerCase().trim();
-  const p = propName.toLowerCase().trim();
+  const e = normalizeForMatch(emailName);
+  const p = normalizeForMatch(propName);
   if (!e || !p) return 0;
+
+  // ── Vérifier les aliases en priorité ─────────────────────────────────────
+  const aliasTarget = PROPERTY_ALIASES[e] ?? PROPERTY_ALIASES[emailName.toLowerCase().trim()];
+  if (aliasTarget && normalizeForMatch(aliasTarget) === p) return 95;
 
   // Correspondance exacte
   if (e === p) return 100;
@@ -77,7 +99,7 @@ function propertyMatchScore(emailName: string, propName: string): number {
   if (pPrefix.length >= 4 && ePrefix.includes(pPrefix)) return 80;
 
   // Mots significatifs en commun (3+ chars, hors mots vides)
-  const stopWords = new Set(['les','des','une','pour','avec','sur','sous','dans','par','qui','que','aux','son','ses','nos','vos','leur','leurs','cette','cela','plus','mais','car','voir','chez','vers','ici','là','très','bien','tout','tous']);
+  const stopWords = new Set(['les','des','une','pour','avec','sur','sous','dans','par','qui','que','aux','son','ses','nos','vos','leur','leurs','cette','cela','plus','mais','car','voir','chez','vers','ici','là','tres','bien','tout','tous']);
   const eWords = e.split(/\s+/).filter(w => w.length >= 3 && !stopWords.has(w));
   const pWords = p.split(/\s+/).filter(w => w.length >= 3 && !stopWords.has(w));
   const common = eWords.filter(w => pWords.some(pw => pw.includes(w) || w.includes(pw)));
