@@ -15,7 +15,8 @@ import {
 } from '@/lib/gmail-parser';
 
 const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1/users/me';
-const MAX_RESULTS = 50;
+const MAX_RESULTS = 500;       // max autorisé par Gmail API par page
+const MAX_PAGES   = 10;        // max 10 pages = 5 000 messages par requête
 
 // ─── Types Gmail API ─────────────────────────────────────────────────────────
 
@@ -74,32 +75,41 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const maxResults = parseInt(searchParams.get('max') ?? String(MAX_RESULTS));
+  const maxPerPage = Math.min(parseInt(searchParams.get('max') ?? String(MAX_RESULTS)), MAX_RESULTS);
   const query = searchParams.get('q') ?? 'from:automated@airbnb.com';
 
   try {
-    // 3. Lister les emails Airbnb
-    const listRes = await gmailFetch(
-      `/messages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`,
-      accessToken
-    );
+    // 3. Lister TOUS les emails Airbnb (avec pagination)
+    const messages: GmailMessage[] = [];
+    let pageToken: string | undefined;
+    let pages = 0;
 
-    if (!listRes.ok) {
-      const error = await listRes.json().catch(() => ({}));
-      if (listRes.status === 401) {
+    do {
+      const pageParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+      const listRes = await gmailFetch(
+        `/messages?q=${encodeURIComponent(query)}&maxResults=${maxPerPage}${pageParam}`,
+        accessToken
+      );
+
+      if (!listRes.ok) {
+        const error = await listRes.json().catch(() => ({}));
+        if (listRes.status === 401) {
+          return NextResponse.json(
+            { error: 'Token expiré', action: 'reconnect' },
+            { status: 401 }
+          );
+        }
         return NextResponse.json(
-          { error: 'Token expiré', action: 'reconnect' },
-          { status: 401 }
+          { error: 'Erreur Gmail API', details: error },
+          { status: listRes.status }
         );
       }
-      return NextResponse.json(
-        { error: 'Erreur Gmail API', details: error },
-        { status: listRes.status }
-      );
-    }
 
-    const listData = await listRes.json();
-    const messages: GmailMessage[] = listData.messages ?? [];
+      const listData = await listRes.json();
+      if (listData.messages) messages.push(...listData.messages);
+      pageToken = listData.nextPageToken;
+      pages++;
+    } while (pageToken && pages < MAX_PAGES);
 
     if (messages.length === 0) {
       return NextResponse.json({
