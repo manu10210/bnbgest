@@ -75,6 +75,7 @@ export default function GmailImporter() {
     addGuest, updateGuest, guests,
     addMaintenanceTask,
     addReview,
+    inventory, updateInventoryItem, getLowStockItems,
     properties,
     bookings: existingBookings,
   } = useBNB();
@@ -167,6 +168,26 @@ export default function GmailImporter() {
       setError(String(e));
       setStatus('error');
     }
+  }, []);
+
+  // ─── Notification email (fire-and-forget, côté serveur) ─────────────────
+  const notifyEmail = useCallback((payload: {
+    type: 'booking_confirmation' | 'checkin_reminder';
+    guestName: string;
+    guestEmail: string;
+    checkIn: string;
+    checkOut?: string;
+    guests?: number;
+    totalPrice?: number;
+    bookingId?: number;
+    property: { name: string; address?: string; city?: string };
+  }) => {
+    if (!payload.guestEmail || payload.guestEmail.includes('@example') || payload.guestEmail === '') return;
+    fetch('/api/gmail-import/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => { /* silencieux — non bloquant */ });
   }, []);
 
   // ─── Importer les réservations sélectionnées ──────────────────────────────
@@ -280,6 +301,30 @@ export default function GmailImporter() {
           } : {}),
         });
         summary.created++;
+
+        // Incrémenter le compteur de réservations du voyageur
+        if (guestId) {
+          const g = guests.find(gg => gg.id === guestId);
+          if (g) updateGuest(guestId, {
+            totalBookings: (g.totalBookings || 0) + 1,
+            totalSpent: (g.totalSpent || 0) + (b.totalPrice || 0),
+            lastBooking: b.checkIn,
+          });
+        }
+
+        // Email de confirmation au voyageur (fire-and-forget)
+        if (b.guestEmail && property) {
+          notifyEmail({
+            type: 'booking_confirmation',
+            guestName: b.guestName,
+            guestEmail: b.guestEmail,
+            checkIn: b.checkIn,
+            checkOut: b.checkOut,
+            guests: b.guests,
+            totalPrice: b.totalPrice,
+            property: { name: property.name },
+          });
+        }
       }
 
       // ── 4b. Annulation → retrouver et annuler la réservation existante ────
@@ -384,6 +429,25 @@ export default function GmailImporter() {
             scheduledDate: cleaningDate,
           });
           summary.tasksCreated++;
+
+          // Décrémenter l'inventaire consommables (ménage/literie/linge) du logement
+          const consumables = inventory.filter(i =>
+            i.propertyId === property.id &&
+            (['cleaning', 'bedding', 'towels'] as string[]).includes(i.category) &&
+            i.quantity > 0
+          );
+          for (const item of consumables) {
+            const newQty = Math.max(0, item.quantity - 1);
+            updateInventoryItem(item.id, {
+              quantity: newQty,
+              status: newQty === 0 ? 'out_of_stock' : newQty <= item.minimumQuantity ? 'low_stock' : 'in_stock',
+            });
+          }
+          // getLowStockItems() → NotificationCenter auto-génère les alertes stock bas
+          const lowStock = getLowStockItems().filter(i => i.propertyId === property.id);
+          if (lowStock.length > 0) {
+            summary.tasksCreated++; // comptabilise l'alerte stock bas comme action
+          }
         }
       }
 
@@ -410,6 +474,17 @@ export default function GmailImporter() {
           scheduledDate: prepDateStr,
         });
         summary.tasksCreated++;
+
+        // Email de rappel check-in au voyageur (fire-and-forget)
+        if (b.guestEmail) {
+          notifyEmail({
+            type: 'checkin_reminder',
+            guestName: b.guestName,
+            guestEmail: b.guestEmail,
+            checkIn: b.checkIn,
+            property: { name: property.name },
+          });
+        }
       }
 
       // ── 4f. Avis (review) → créer un avis dans BNBContext ────────────────
@@ -471,7 +546,7 @@ export default function GmailImporter() {
       setPropertyQueue(queue.slice(1));
       setCurrentWizard(queue[0]);
     }
-  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview]);
+  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems]);
 
   // ─── Avancer dans la file de nouveaux logements ───────────────────────────
 
