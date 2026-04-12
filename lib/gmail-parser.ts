@@ -79,11 +79,25 @@ const SUBJECT_PATTERNS = {
   reminder: [
     /rappel/i, /reminder/i, /dans\s+\d+\s+jour/i, /in\s+\d+\s+day/i,
     /pr[eé]par[e]z/i, /proch[ae]in[e]?\s+(arr[iî]v[eé]e?|s[eé]jour)/i,
+    // Rappels d'évaluation hôte (hôte doit noter le voyageur, pas avis reçu)
+    /attendent?\s+votre\s+commentaire/i,
+    /attendent?\s+votre\s+[eé]valuation/i,
+    /\d+\s+voyageurs?\s+attendent/i,
+    /voyageurs?\s+attend(?:ent)?\s+votre/i,
+    /laissez\s+(?:un\s+)?(?:avis|commentaire|[eé]valuation)\s+(?:sur|pour|[àa])\s+(?:votre\s+)?voyageur/i,
+    /[eé]valuez\s+(?:votre\s+)?voyageur/i,
+    /notez\s+(?:votre\s+)?voyageur/i,
+    /rate\s+your\s+guest/i,
   ],
   review: [
     /nouvel?\s+avis/i, /new\s+review/i, /a\s+laiss[eé]\s+un\s+avis/i,
     /left\s+you\s+a\s+review/i, /[eé]valuation/i, /avis\s+re[cç]u/i,
     /review\s+received/i, /[eé]toile[s]?/i, /rated\s+you/i, /vous\s+a\s+not[eé]/i,
+    // Avis reçu d'un voyageur (pas rappel hôte)
+    /laissez\s+(?:un\s+)?(?:avis|commentaire)\s*$/i,
+    /donnez\s+votre\s+avis/i,
+    /write\s+a\s+review/i,
+    /leave\s+a\s+review/i,
   ],
   payout: [
     /versement/i, /virement/i, /payout/i, /nous\s+vous\s+avons\s+envoy[eé]/i,
@@ -544,7 +558,7 @@ export function parseAirbnbEmail(
   else if (SUBJECT_PATTERNS.cancelled.some(p => p.test(subject))) bookingType = 'cancelled';
   else if (SUBJECT_PATTERNS.modified.some(p => p.test(subject))) bookingType = 'modified';
   else if (SUBJECT_PATTERNS.checkout.some(p => p.test(subject))) bookingType = 'checkout';
-  else if (SUBJECT_PATTERNS.reminder.some(p => p.test(subject))) bookingType = 'reminder';
+  else if (SUBJECT_PATTERNS.reminder.some(p => p.test(subject))) bookingType = 'reminder';  // reminder AVANT review (rappels hôte d'évaluer classés reminder)
   else if (SUBJECT_PATTERNS.review.some(p => p.test(subject))) bookingType = 'review';
   else if (
     SUBJECT_PATTERNS.payout.some(p => p.test(subject)) ||
