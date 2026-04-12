@@ -11,8 +11,13 @@ import { useTheme } from '../contexts/ThemeContext';
 import {
   Mail, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
   ChevronDown, ChevronUp, Download, Search, Calendar,
-  Users, DollarSign, Home, Zap, Filter, Info,
+  Users, DollarSign, Home, Zap, Filter, Info, Sparkles,
 } from 'lucide-react';
+import NewPropertyWizard, {
+  analyzeAirbnbTitle,
+  findNewPropertyNames,
+  type DetectedPropertyInfo,
+} from './NewPropertyWizard';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -70,6 +75,10 @@ export default function GmailImporter() {
   const [imported, setImported] = useState<string[]>([]);
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
   const [gmailEmail, setGmailEmail] = useState<string>('');
+
+  // ── Détection nouveaux logements ──────────────────────────────────────────
+  const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
+  const [currentWizard, setCurrentWizard] = useState<DetectedPropertyInfo | null>(null);
 
   const isGoogleUser = (session as { user?: { provider?: string } })?.user?.provider === 'google';
 
@@ -168,7 +177,28 @@ export default function GmailImporter() {
     }
     setImported(toImport.map(b => b.messageId));
     setSelected(new Set());
+
+    // ── Détection nouveaux logements ────────────────────────────────────────
+    const newNames = findNewPropertyNames(
+      toImport.map(b => b.propertyName ?? ''),
+      properties
+    );
+    if (newNames.length > 0) {
+      const queue = newNames.map(n => analyzeAirbnbTitle(n));
+      setPropertyQueue(queue.slice(1));
+      setCurrentWizard(queue[0]);
+    }
   }, [bookings, selected, properties, addBooking]);
+
+  // ─── Avancer dans la file de nouveaux logements ───────────────────────────
+
+  const advanceQueue = useCallback(() => {
+    setPropertyQueue(prev => {
+      const next = prev.slice(1);
+      setCurrentWizard(next[0] ?? null);
+      return next;
+    });
+  }, []);
 
   // ─── UI Helpers ───────────────────────────────────────────────────────────
 
@@ -281,6 +311,24 @@ export default function GmailImporter() {
               <span className={`font-medium ${isDark ? 'text-green-300' : 'text-green-800'}`}>
                 ✅ {imported.length} réservation{imported.length > 1 ? 's importées' : ' importée'} !
               </span>
+            </div>
+          )}
+
+          {/* ── Nouveaux logements en attente de configuration ── */}
+          {propertyQueue.length > 0 && !currentWizard && (
+            <div className={`border-2 rounded-xl p-4 flex items-center justify-between gap-3 ${isDark ? 'bg-violet-900/30 border-violet-600' : 'bg-violet-50 border-violet-300'}`}>
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-5 h-5 text-violet-500 flex-shrink-0" />
+                <span className={`font-semibold text-sm ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>
+                  🏠 {propertyQueue.length} logement{propertyQueue.length > 1 ? 's' : ''} à configurer
+                </span>
+              </div>
+              <button
+                onClick={() => { setCurrentWizard(propertyQueue[0]); setPropertyQueue(p => p.slice(1)); }}
+                className="px-4 py-1.5 bg-violet-600 text-white rounded-xl text-sm font-semibold hover:bg-violet-700"
+              >
+                Configurer →
+              </button>
             </div>
           )}
 
@@ -440,6 +488,18 @@ export default function GmailImporter() {
             </div>
           )}
         </>
+      )}
+
+      {/* ── 🏠 Wizard nouveau logement ── */}
+      {currentWizard && (
+        <NewPropertyWizard
+          detected={currentWizard}
+          onClose={advanceQueue}
+          onCreated={(name) => {
+            advanceQueue();
+            setImported(prev => [...prev, `__property__${name}`]);
+          }}
+        />
       )}
     </div>
   );
