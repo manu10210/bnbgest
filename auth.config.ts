@@ -38,14 +38,18 @@ export const authConfig = {
     async signIn({ user, account }) {
       // Si connexion via Google, vérifier si l'email est autorisé
       if (account?.provider === 'google') {
-        return AUTHORIZED_ADMINS.includes(user.email || '');
+        const email = (user.email || '').toLowerCase().trim();
+        const allowed = AUTHORIZED_ADMINS.map(e => e.toLowerCase().trim());
+        const isAllowed = allowed.includes(email);
+        console.log(`[Auth] Google signIn: ${email} → ${isAllowed ? 'AUTORISÉ' : 'REFUSÉ'}`);
+        return isAllowed;
       }
       // Si connexion via credentials, toujours autoriser (déjà vérifié dans authorize de auth.ts)
       return true;
     },
     async jwt({ token, user, account }) {
       if (user) {
-        token.role = (user as { role?: string }).role || 'client';
+        token.role = (user as { role?: string }).role || 'admin';
         token.id = user.id;
       }
       if (account) {
@@ -55,6 +59,8 @@ export const authConfig = {
           token.accessToken = account.access_token;
           token.refreshToken = account.refresh_token;
           token.expiresAt = account.expires_at;
+          // L'utilisateur Google est toujours admin s'il a passé signIn
+          token.role = 'admin';
         }
       }
       return token;

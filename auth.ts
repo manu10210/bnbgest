@@ -85,13 +85,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === 'google') {
-        return AUTHORIZED_ADMINS.includes(user.email || '');
+        const email = (user.email || '').toLowerCase().trim();
+        const allowed = AUTHORIZED_ADMINS.map(e => e.toLowerCase().trim());
+        const isAllowed = allowed.includes(email);
+        console.log(`[Auth] Google signIn: ${email} → ${isAllowed ? 'AUTORISÉ' : 'REFUSÉ'}`);
+        return isAllowed;
       }
       return true;
     },
     async jwt({ token, user, account }) {
       if (user) {
-        token.role = (user as { role?: string }).role || 'client';
+        token.role = (user as { role?: string }).role || 'admin';
         token.id = user.id;
       }
       if (account) {
@@ -101,6 +105,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.accessToken = account.access_token;
           token.refreshToken = account.refresh_token;
           token.expiresAt = account.expires_at;
+          token.role = 'admin';
         }
       }
       return token;
