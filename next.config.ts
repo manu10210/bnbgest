@@ -38,11 +38,78 @@ const nextConfig: NextConfig = {
   
   // Optimisations de bundle
   experimental: {
-    optimizePackageImports: ['lucide-react', 'framer-motion'],
+    optimizePackageImports: ['lucide-react', 'framer-motion', 'date-fns'],
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
   },
   
   // Packages externes pour server components
   serverExternalPackages: ['ical', 'xml2js'],
+  
+  // React optimizations
+  reactStrictMode: true,
+  swcMinify: true,
+  
+  // Webpack optimizations
+  webpack: (config, { dev, isServer }) => {
+    // Tree shaking optimizations
+    config.optimization = {
+      ...config.optimization,
+      usedExports: true,
+      sideEffects: false,
+    };
+
+    // Advanced code splitting for client bundles only
+    if (!isServer && !dev) {
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        cacheGroups: {
+          default: false,
+          vendors: false,
+          
+          // Main vendor chunk
+          vendor: {
+            name: 'vendor',
+            chunks: 'all',
+            test: /node_modules/,
+            priority: 20,
+            enforce: true,
+          },
+          
+          // Common components shared across pages
+          common: {
+            name: 'common',
+            minChunks: 2,
+            chunks: 'async',
+            priority: 10,
+            reuseExistingChunk: true,
+          },
+          
+          // Heavy date-fns library (if needed)
+          datefns: {
+            test: /[\\/]node_modules[\\/]date-fns/,
+            name: 'datefns',
+            chunks: 'all',
+            priority: 30,
+          },
+          
+          // Framer Motion animations
+          framermotion: {
+            test: /[\\/]node_modules[\\/]framer-motion/,
+            name: 'framermotion',
+            chunks: 'async',
+            priority: 30,
+          },
+        },
+      };
+      
+      // Minimize bundle size
+      config.optimization.minimize = true;
+    }
+
+    return config;
+  },
   
   // Redirections automatiques
   async redirects() {
