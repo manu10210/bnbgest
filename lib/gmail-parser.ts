@@ -383,11 +383,28 @@ function extractPropertyName(text: string, subject?: string): string | undefined
       /check.?(?:in|out)\s*[–\-:]\s*(.{5,60})/i,
       // "Demande de réservation – NomLogement"
       /demande\s+de\s+r[eé]servation\s*[–\-:]\s*(.{5,60})/i,
+      // "[Airbnb] NomLogement – …"  ou  "Airbnb – NomLogement"
+      /\[airbnb\]\s*(.{5,60}?)(?:\s*[–\-]|$)/i,
+      /airbnb\s*[–\-]\s*(.{5,60})/i,
+      // "NomVoyageur arrive chez NomLogement"
+      /(?:arrive|s['']installe)\s+(?:chez|[àa])\s+(.{5,60})/i,
+      // "Votre annonce NomLogement a reçu…"
+      /(?:votre\s+annonce|your\s+listing)\s+(.{5,60?})\s+(?:a\s+re[cç]u|has)/i,
+      // "Réservation pour NomLogement"
+      /r[eé]servation\s+pour\s+(.{5,60})/i,
+      // "NomLogement – confirmation de séjour" (nom en début de sujet avant tiret)
+      /^(.{5,60}?)\s*[–\-]\s*(?:r[eé]servation|confirm|rappel|check|s[eé]jour|arriv)/i,
     ];
     for (const p of subjectPatterns) {
       const m = subject.match(p);
       if (m) {
-        const candidate = m[1].trim().replace(/\s*\|.*$/, '').replace(/\s*-\s*Airbnb.*$/i, '').slice(0, 80);
+        const candidate = m[1].trim()
+          .replace(/\s*\|.*$/, '')
+          .replace(/\s*-\s*Airbnb.*$/i, '')
+          .replace(/\s*–\s*Airbnb.*$/i, '')
+          .replace(/\.$/, '')
+          .trim()
+          .slice(0, 80);
         if (candidate.length >= 5) return candidate;
       }
     }
