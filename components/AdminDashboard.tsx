@@ -30,6 +30,9 @@ const GlobalSearch = dynamic(() => import('./GlobalSearch'), { ssr: false });
 const DataExportImportAdvanced = dynamic(() => import('./DataExportImportAdvanced'), { ssr: false });
 const AdminSidebar = dynamic(() => import('./AdminSidebar'), { ssr: false });
 const DashboardOverview = dynamic(() => import('./DashboardOverview'), { ssr: false });
+const LiveRevenueTracker = dynamic(() => import('./LiveRevenueTracker'), { ssr: false });
+const GuestMessagingHub = dynamic(() => import('./GuestMessagingHub'), { ssr: false });
+const OccupancyOptimizer = dynamic(() => import('./OccupancyOptimizer'), { ssr: false });
 import LanguageSelector from './LanguageSelector';
 import { useBNB, Booking, Guest, Review } from '../contexts/BNBContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -82,7 +85,7 @@ import {
 import ThemeToggle from './ThemeToggle';
 import { useTheme } from '../contexts/ThemeContext';
 
-export type TabType = 'overview' | 'bookings' | 'maintenance' | 'inventory' | 'financial' | 'guests' | 'reviews' | 'welcome' | 'properties' | 'settings' | 'qrcheckin' | 'contract' | 'cleaning' | 'pricing' | 'notifications' | 'cleaningGallery' | 'shareLinks' | 'forecasting' | 'videoguides' | 'reviewsmanager' | 'invoice' | 'intelligence' | 'assistant' | 'autopilot';
+export type TabType = 'overview' | 'bookings' | 'maintenance' | 'inventory' | 'financial' | 'guests' | 'reviews' | 'welcome' | 'properties' | 'settings' | 'qrcheckin' | 'contract' | 'cleaning' | 'pricing' | 'notifications' | 'cleaningGallery' | 'shareLinks' | 'forecasting' | 'videoguides' | 'reviewsmanager' | 'invoice' | 'intelligence' | 'assistant' | 'autopilot' | 'revenue-live' | 'messaging' | 'occupancy';
 
 export default function AdminDashboard() {
   const {
@@ -467,6 +470,9 @@ export default function AdminDashboard() {
                 intelligence:   '🧠 IA Propriétés',
                 assistant:      '💬 Assistant IA',
                 autopilot:      '🤖 Autopilot',
+                'revenue-live': '📊 Revenus Live',
+                messaging:      '💬 Messagerie Hub',
+                occupancy:      '🎯 Optimiseur d\'Occupation',
               } as Record<string, string>)[activeTab] ?? activeTab}
             </li>
           </ol>
@@ -840,6 +846,11 @@ export default function AdminDashboard() {
             {activeTab === 'intelligence' && <SmartPropertyIntelligence />}
             {activeTab === 'assistant' && <SmartChatAssistant />}
             {activeTab === 'autopilot' && <RevenueAutopilot />}
+
+            {/* ===== NOUVELLES FONCTIONS ===== */}
+            {activeTab === 'revenue-live' && <LiveRevenueTracker />}
+            {activeTab === 'messaging' && <GuestMessagingHub />}
+            {activeTab === 'occupancy' && <OccupancyOptimizer />}
           </div>
 
           </div>

@@ -34,6 +34,9 @@ import {
   KeyRound,
   Inbox,
   ExternalLink,
+  LineChart,
+  MessageCircle,
+  Target,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
@@ -144,6 +147,14 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
         { id: 'intelligence',    label: '🧠 IA Propriétés',icon: Brain,       badge: 0 },
         { id: 'assistant',       label: '💬 Assistant IA', icon: MessageSquare, badge: 0 },
         { id: 'autopilot',       label: '🤖 Autopilot',    icon: Zap,         badge: 0 },
+      ]
+    },
+    {
+      title: '✨ Nouvelles Fonctions',
+      items: [
+        { id: 'revenue-live',    label: '📊 Revenus Live',       icon: LineChart,      badge: 0 },
+        { id: 'messaging',       label: '💬 Messagerie Hub',      icon: MessageCircle,  badge: 0 },
+        { id: 'occupancy',       label: '🎯 Optimiseur Occupation',icon: Target,        badge: 0 },
       ]
     },
     {
