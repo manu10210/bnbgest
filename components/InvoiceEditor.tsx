@@ -509,7 +509,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
                 <div className="flex items-start gap-4">
                   {invoice.issuerLogo
                     // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={invoice.issuerLogo} alt="logo" className="h-12 w-auto object-contain rounded-lg bg-white/20 p-1" />
+                    ? <img src={invoice.issuerLogo} alt="logo" loading="lazy" className="h-12 w-auto object-contain rounded-lg bg-white/20 p-1" />
                     : <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-xl font-black text-white">
                         {invoice.issuerName.charAt(0).toUpperCase()}
                       </div>
@@ -540,7 +540,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
                 <div className="flex items-start gap-5">
                   {invoice.issuerLogo ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={invoice.issuerLogo} alt="logo" className="h-14 w-auto object-contain rounded-lg" />
+                    <img src={invoice.issuerLogo} alt="logo" loading="lazy" className="h-14 w-auto object-contain rounded-lg" />
                   ) : (
                     <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-black text-white"
                       style={{ background: invoice.accentColor }}>
@@ -1827,7 +1827,7 @@ export default function InvoiceEditor() {
                   <div className="flex justify-between items-start mb-6">
                     <div>
                       {editing.issuerLogo
-                        ? <img src={editing.issuerLogo} alt="logo" className="h-10 object-contain mb-2" />
+                        ? <img src={editing.issuerLogo} alt="logo" loading="lazy" className="h-10 object-contain mb-2" />
                         : <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-base mb-2"
                             style={{ background: editing.accentColor }}>
                             {(editing.issuerName || 'M').charAt(0).toUpperCase()}
