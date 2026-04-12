@@ -787,3 +787,23 @@ model Message {
   @@index([threadId])
   @@map("messages")
 }
+
+// ==========================================
+// PERFORMANCE MONITORING (Session 24)
+// ==========================================
+
+model WebVital {
+  id         String   @id @default(cuid())
+  name       String   // LCP, FCP, CLS, INP, TTFB
+  value      Float
+  rating     String   // good, needs-improvement, poor
+  page       String?
+  userId     String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+
+  @@index([name])
+  @@index([timestamp])
+  @@index([page])
+  @@map("web_vitals")
+}
