@@ -24,11 +24,12 @@ export interface ParsedBooking {
   currency: string;
   cleaningFee?: number;
   serviceFee?: number;
+  hostPayout?: number;     // Ce que l'hôte reçoit réellement
   // Propriété
   propertyName?: string;
   confirmationCode?: string;
   // Statut
-  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder';
+  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout';
   confidence: number;      // 0-100%
 }
 
@@ -60,6 +61,14 @@ const SUBJECT_PATTERNS = {
   ],
   modified: [
     /modifi[eé]/i, /modified/i, /updated/i, /mis à jour/i,
+  ],
+  checkout: [
+    /d[eé]part/i, /checkout/i, /check-out/i, /voyage termin[eé]/i, /s[eé]jour termin[eé]/i,
+    /trip completed/i, /stay completed/i,
+  ],
+  reminder: [
+    /rappel/i, /reminder/i, /dans\s+\d+\s+jour/i, /in\s+\d+\s+day/i,
+    /pr[eé]par[e]z/i, /proch[ae]in[e]?\s+(arr[iî]v[eé]e?|s[eé]jour)/i,
   ],
 };
 
@@ -134,6 +143,75 @@ function extractPrice(text: string): number {
     }
   }
   return 0;
+}
+
+function extractCleaningFee(text: string): number | undefined {
+  const patterns = [
+    /frais\s+(?:de\s+)?m[eé]nage\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /cleaning\s+fee\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /frais\s+nettoyage\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const clean = m[1].replace(/[€$£\s]/g, '').replace(',', '.');
+      const val = parseFloat(clean);
+      if (!isNaN(val) && val >= 0) return val;
+    }
+  }
+  return undefined;
+}
+
+function extractServiceFee(text: string): number | undefined {
+  const patterns = [
+    /frais\s+de\s+service\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /service\s+fee\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /commission\s+airbnb\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const clean = m[1].replace(/[€$£\s]/g, '').replace(',', '.');
+      const val = parseFloat(clean);
+      if (!isNaN(val) && val >= 0) return val;
+    }
+  }
+  return undefined;
+}
+
+function extractHostPayout(text: string): number | undefined {
+  const patterns = [
+    /versement\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /vous\s+recevrez?\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /host\s+payout\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /r[eé]mun[eé]ration\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const clean = m[1].replace(/[€$£\s]/g, '').replace(',', '.');
+      const val = parseFloat(clean);
+      if (!isNaN(val) && val > 0) return val;
+    }
+  }
+  return undefined;
+}
+
+function extractGuestPhone(text: string): string | undefined {
+  const patterns = [
+    /t[eé]l[eé]phone?\s*[:\s]+([+\d\s\-\(\)]{8,20})/i,
+    /phone\s*[:\s]+([+\d\s\-\(\)]{8,20})/i,
+    /mobile\s*[:\s]+([+\d\s\-\(\)]{8,20})/i,
+    /\b(\+?[0-9]{1,3}[\s\-]?(?:\([0-9]{1,4}\)[\s\-]?)?[0-9]{6,10})\b/,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const phone = m[1].trim().replace(/\s+/g, ' ').slice(0, 20);
+      if (phone.replace(/\D/g, '').length >= 8) return phone;
+    }
+  }
+  return undefined;
 }
 
 function extractGuests(text: string): number {
@@ -225,6 +303,8 @@ export function parseAirbnbEmail(
   let bookingType: ParsedBooking['bookingType'] = 'new';
   if (SUBJECT_PATTERNS.cancelled.some(p => p.test(subject))) bookingType = 'cancelled';
   else if (SUBJECT_PATTERNS.modified.some(p => p.test(subject))) bookingType = 'modified';
+  else if (SUBJECT_PATTERNS.checkout.some(p => p.test(subject))) bookingType = 'checkout';
+  else if (SUBJECT_PATTERNS.reminder.some(p => p.test(subject))) bookingType = 'reminder';
 
   // 3. Nettoyer le HTML si présent
   const text = body
@@ -280,12 +360,16 @@ export function parseAirbnbEmail(
     subject: subject.slice(0, 200),
     receivedAt,
     guestName: extractGuestName(text),
+    guestPhone: extractGuestPhone(text),
     guests: extractGuests(text),
     checkIn,
     checkOut,
     nights,
     totalPrice: price,
     currency: text.includes('€') ? 'EUR' : text.includes('£') ? 'GBP' : 'USD',
+    cleaningFee: extractCleaningFee(text),
+    serviceFee: extractServiceFee(text),
+    hostPayout: extractHostPayout(text),
     propertyName: extractPropertyName(text),
     confirmationCode,
     bookingType,

@@ -37,9 +37,10 @@ interface ParsedBooking {
   currency: string;
   cleaningFee?: number;
   serviceFee?: number;
+  hostPayout?: number;
   propertyName?: string;
   confirmationCode?: string;
-  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder';
+  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout';
   confidence: number;
 }
 
@@ -59,6 +60,7 @@ const bookingTypeLabel: Record<ParsedBooking['bookingType'], { label: string; co
   cancelled: { label: 'Annulée',   color: 'bg-red-100 text-red-700' },
   modified:  { label: 'Modifiée',  color: 'bg-blue-100 text-blue-700' },
   reminder:  { label: 'Rappel',    color: 'bg-gray-200 text-gray-700' },
+  checkout:  { label: 'Départ',    color: 'bg-amber-100 text-amber-700' },
 };
 
 // ─── Composant principal ──────────────────────────────────────────────────────
@@ -68,6 +70,7 @@ export default function GmailImporter() {
   const {
     addBooking, updateBooking, cancelBooking,
     addGuest, updateGuest, guests,
+    addMaintenanceTask,
     properties,
     bookings: existingBookings,
   } = useBNB();
@@ -83,7 +86,7 @@ export default function GmailImporter() {
   const [imported, setImported] = useState<string[]>([]);
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
   const [gmailEmail, setGmailEmail] = useState<string>('');
-  const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number } | null>(null);
+  const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; tasksCreated: number } | null>(null);
 
   // ── Détection nouveaux logements ──────────────────────────────────────────
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
@@ -165,7 +168,7 @@ export default function GmailImporter() {
   const importSelected = useCallback(() => {
     const toImport = bookings.filter(b => selected.has(b.messageId));
     const defaultProperty = properties[0];
-    const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0 };
+    const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, tasksCreated: 0 };
 
     for (const b of toImport) {
 
@@ -298,9 +301,8 @@ export default function GmailImporter() {
             totalPrice: b.totalPrice || match.totalPrice,
             specialRequests: `[MODIFIÉ] ${notes}`,
           });
-          summary.created++; // compte comme "traité"
+          summary.created++;
         } else {
-          // Pas trouvé → créer comme nouvelle réservation
           addBooking({
             propertyId: property.id,
             guestId,
@@ -315,6 +317,77 @@ export default function GmailImporter() {
           });
           summary.created++;
         }
+      }
+
+      // ── 4d. Départ (checkout) → marquer réservation "completed" + créer tâche ménage ──
+      if (b.bookingType === 'checkout' && property) {
+        // Retrouver la réservation correspondante
+        const match = b.confirmationCode
+          ? existingBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
+          : existingBookings.find(eb =>
+              eb.propertyId === property.id &&
+              eb.checkOut === b.checkOut &&
+              (eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase() ||
+               eb.guestId === guestId)
+            );
+
+        if (match && match.status !== 'completed' && match.status !== 'cancelled') {
+          // Marquer comme terminée + montant réel reçu (hostPayout si dispo)
+          updateBooking(match.id, {
+            status: 'completed',
+            paymentStatus: 'paid',
+            totalPrice: b.hostPayout || b.totalPrice || match.totalPrice,
+            specialRequests: `${match.specialRequests || ''} | [TERMINÉ] Départ confirmé Gmail`,
+          });
+          summary.created++;
+        }
+
+        // Créer automatiquement une tâche de ménage post-départ
+        const cleaningDate = b.checkOut; // jour du départ
+        const alreadyHasCleaning = false; // simplifié — on crée toujours
+        if (!alreadyHasCleaning) {
+          addMaintenanceTask({
+            propertyId: property.id,
+            title: `🧹 Ménage post-départ — ${b.guestName}`,
+            description: [
+              `Nettoyage complet après séjour du ${fmt(b.checkIn)} au ${fmt(b.checkOut)}.`,
+              b.guests > 1 ? `${b.guests} voyageurs.` : '',
+              b.cleaningFee ? `Frais ménage prévus : ${b.cleaningFee}${b.currency === 'EUR' ? '€' : b.currency}.` : '',
+              notes,
+            ].filter(Boolean).join(' '),
+            priority: 'high',
+            status: 'pending',
+            category: 'cleaning',
+            estimatedCost: b.cleaningFee || 0,
+            scheduledDate: cleaningDate,
+          });
+          summary.tasksCreated++;
+        }
+      }
+
+      // ── 4e. Rappel (reminder) → créer tâche de préparation J-1 ──────────
+      if (b.bookingType === 'reminder' && property) {
+        // Créer une tâche d'inspection/préparation J-1
+        const prepDate = new Date(b.checkIn);
+        prepDate.setDate(prepDate.getDate() - 1);
+        const prepDateStr = prepDate.toISOString().split('T')[0];
+
+        addMaintenanceTask({
+          propertyId: property.id,
+          title: `🔍 Préparation J-1 — ${b.guestName}`,
+          description: [
+            `Vérification avant arrivée le ${fmt(b.checkIn)} (${b.nights} nuit${b.nights > 1 ? 's' : ''}).`,
+            `Voyageurs : ${b.guests}.`,
+            b.confirmationCode ? `Réservation : ${b.confirmationCode}.` : '',
+            'Vérifier : linge propre, ménage, équipements, codes d\'accès.',
+          ].filter(Boolean).join(' '),
+          priority: 'medium',
+          status: 'pending',
+          category: 'inspection',
+          estimatedCost: 0,
+          scheduledDate: prepDateStr,
+        });
+        summary.tasksCreated++;
       }
     }
 
@@ -333,7 +406,7 @@ export default function GmailImporter() {
       setPropertyQueue(queue.slice(1));
       setCurrentWizard(queue[0]);
     }
-  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest]);
+  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask]);
 
   // ─── Avancer dans la file de nouveaux logements ───────────────────────────
 
@@ -483,6 +556,11 @@ export default function GmailImporter() {
                 {importSummary.skipped > 0 && (
                   <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
                     ⏭️ {importSummary.skipped} ignoré{importSummary.skipped > 1 ? 's' : ''} (doublon/sans logement)
+                  </span>
+                )}
+                {importSummary.tasksCreated > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-amber-800 text-amber-200' : 'bg-amber-100 text-amber-700'}`}>
+                    🧹 {importSummary.tasksCreated} tâche{importSummary.tasksCreated > 1 ? 's' : ''} créée{importSummary.tasksCreated > 1 ? 's' : ''} (ménage/préparation)
                   </span>
                 )}
               </div>
