@@ -42,16 +42,13 @@ import { usePathname } from 'next/navigation';
 import type { TabType } from './AdminDashboard';
 
 // Routes that open dedicated pages instead of in-dashboard tabs
+// NOTE: Seulement les pages qui ont vraiment besoin d'une route dédiée
 const EXTERNAL_ROUTES: Record<string, { href: string; color: string }> = {
   settings:       { href: '/settings',       color: 'text-gray-400 group-hover:text-white' },
   expenses:       { href: '/expenses',       color: 'text-rose-400 group-hover:text-rose-300' },
-  planning:       { href: '/planning',       color: 'text-indigo-400 group-hover:text-indigo-300' },
-  inspections:    { href: '/inspections',    color: 'text-amber-400 group-hover:text-amber-300' },
-  'access-codes': { href: '/access-codes',   color: 'text-pink-400 group-hover:text-pink-300' },
-  messages:       { href: '/messages',       color: 'text-teal-400 group-hover:text-teal-300' },
   notifications:  { href: '/notifications',  color: 'text-amber-400 group-hover:text-amber-300' },
-  rentabilite:    { href: '/rentabilite',    color: 'text-emerald-400 group-hover:text-emerald-300' },
-  'rapports-fiscaux': { href: '/rapports-fiscaux', color: 'text-violet-400 group-hover:text-violet-300' },
+  // Les éléments suivants sont désormais des onglets internes au dashboard
+  // planning, inspections, access-codes, messages, rentabilite, rapports-fiscaux
 };
 
 interface AdminSidebarProps {
