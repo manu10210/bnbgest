@@ -338,19 +338,61 @@ function extractConfirmationCode(text: string): string | undefined {
   return undefined;
 }
 
-function extractPropertyName(text: string): string | undefined {
-  const patterns = [
+function extractPropertyName(text: string, subject?: string): string | undefined {
+  // ── Patterns dans le corps du mail ────────────────────────────────────────
+  const bodyPatterns = [
     /logement\s*:\s*([^\n\r<]{5,80})/i,
     /propriété\s*:\s*([^\n\r<]{5,80})/i,
     /listing\s*:\s*([^\n\r<]{5,80})/i,
     /property\s*:\s*([^\n\r<]{5,80})/i,
     /vous\s+restez\s+à\s*:\s*([^\n\r<]{5,80})/i,
     /staying\s+at\s*:\s*([^\n\r<]{5,80})/i,
+    // Patterns réels emails Airbnb (hôte/voyageur)
+    /votre\s+logement\s+:\s*([^\n\r<]{5,80})/i,
+    /votre\s+annonce\s+:\s*([^\n\r<]{5,80})/i,
+    /annonce\s*:\s*([^\n\r<]{5,80})/i,
+    /titre\s+de\s+l['']annonce\s*:\s*([^\n\r<]{5,80})/i,
+    /r[eé]servation\s+(?:pour|de|à)\s+([^\n\r<,\.]{5,60})\s+(?:du|pour)/i,
+    /a\s+r[eé]serv[eé]\s+(?:votre\s+logement\s+)?([^\n\r<,\.]{5,60})\s+(?:du|pour)/i,
+    /your\s+listing\s*:\s*([^\n\r<]{5,80})/i,
+    /your\s+place\s*:\s*([^\n\r<]{5,80})/i,
+    /reservation\s+at\s+([^\n\r<,\.]{5,60})/i,
+    /confirmed\s+at\s+([^\n\r<,\.]{5,60})/i,
+    /trip\s+to\s+([^\n\r<,\.]{5,60})/i,
+    /voyage\s+[àa]\s+([^\n\r<,\.]{5,60})/i,
   ];
-  for (const p of patterns) {
+  for (const p of bodyPatterns) {
     const m = text.match(p);
     if (m) return m[1].trim().replace(/<[^>]*>/g, '').slice(0, 80);
   }
+
+  // ── Extraction depuis le sujet de l'email ─────────────────────────────────
+  if (subject) {
+    const subjectPatterns = [
+      // "Réservation confirmée – NomLogement"  /  "Booking confirmed – NomLogement"
+      /(?:r[eé]servation\s+(?:confirm[eé]e?|accept[eé]e?)|booking\s+confirmed?)\s*[–\-:]\s*(.{5,60})/i,
+      // "Rappel : NomLogement"
+      /rappel\s*[–\-:]\s*(.{5,60})/i,
+      // "Votre voyage à/chez NomLogement"
+      /voyage\s+(?:[àa]|chez|pour)\s+(.{5,60})/i,
+      // "Votre séjour à NomLogement"
+      /s[eé]jour\s+(?:[àa]|chez)\s+(.{5,60})/i,
+      // "Nouveau message de NomVoyageur concernant NomLogement"
+      /concernant\s+(.{5,60})/i,
+      // "Check-in – NomLogement"
+      /check.?(?:in|out)\s*[–\-:]\s*(.{5,60})/i,
+      // "Demande de réservation – NomLogement"
+      /demande\s+de\s+r[eé]servation\s*[–\-:]\s*(.{5,60})/i,
+    ];
+    for (const p of subjectPatterns) {
+      const m = subject.match(p);
+      if (m) {
+        const candidate = m[1].trim().replace(/\s*\|.*$/, '').replace(/\s*-\s*Airbnb.*$/i, '').slice(0, 80);
+        if (candidate.length >= 5) return candidate;
+      }
+    }
+  }
+
   return undefined;
 }
 
@@ -441,7 +483,7 @@ export function parseAirbnbEmail(
     cleaningFee: extractCleaningFee(text),
     serviceFee: extractServiceFee(text),
     hostPayout: extractHostPayout(text),
-    propertyName: extractPropertyName(text),
+    propertyName: extractPropertyName(text, subject),
     confirmationCode,
     bookingType,
     confidence: Math.min(100, confidence),

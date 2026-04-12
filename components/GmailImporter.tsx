@@ -540,6 +540,39 @@ export default function GmailImporter() {
       .filter(b => b.propertyName?.trim() && !isKnownProperty(b.propertyName));
 
     const allNamesForWizard = allCandidates.map(b => b.propertyName!.trim());
+
+    // Cas aucun logement configuré : si aucun nom extrait mais des emails sans logement,
+    // proposer le wizard avec les noms uniques trouvés dans les sujets des emails
+    if (allNamesForWizard.length === 0 && summary.skippedNoProperty > 0) {
+      // Extraire les noms uniques depuis les sujets des emails skippés
+      const fallbackNames = Array.from(new Set(
+        toImport
+          .filter(b => !b.propertyName?.trim())
+          .map(b => {
+            // Nettoyer le sujet pour en faire un nom de logement candidat
+            return b.subject
+              ?.replace(/airbnb/gi, '')
+              .replace(/r[eé]servation\s+(confirm[eé]e?|accept[eé]e?)/gi, '')
+              .replace(/booking\s+confirmed?/gi, '')
+              .replace(/rappel|reminder/gi, '')
+              .replace(/[–\-:|]/g, ' ')
+              .replace(/\s{2,}/g, ' ')
+              .trim()
+              .slice(0, 60) || '';
+          })
+          .filter(n => n.length >= 5)
+      ));
+      if (fallbackNames.length > 0) {
+        const queue = fallbackNames.map(n => analyzeAirbnbTitle(n));
+        setPropertyQueue(queue.slice(1));
+        setCurrentWizard(queue[0]);
+        return;
+      }
+      // Dernier recours : ouvrir le wizard avec un nom vide pour que l'utilisateur saisisse
+      setCurrentWizard(analyzeAirbnbTitle('Mon logement'));
+      return;
+    }
+
     const newNames = findNewPropertyNames(allNamesForWizard, properties);
     if (newNames.length > 0) {
       const queue = newNames.map(n => analyzeAirbnbTitle(n));
