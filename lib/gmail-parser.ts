@@ -1328,8 +1328,10 @@ function extractPropertyName(text: string, subject?: string): string | undefined
       // "Check-in – NomLogement" ou "Départ – NomLogement"
       /check.?(?:in|out)\s*[–\-:]\s*([^,\n\r]{5,60})/i,
       /d[eé]part\s*[–\-:]\s*([^,\n\r]{5,60})/i,
-      // "Rappel : NomLogement" (rappels hôte)
-      /rappel\s*[–\-:]\s*([^,\n\r]{5,60})/i,
+      // "Rappel : NomLogement" (rappels hôte) — SEULEMENT si ce qui suit n'est pas un prénom+verbe
+      // Exclure "Rappel : Marie arrive demain" → "Marie arrive demain" n'est pas un logement
+      // Le nom du logement ne commence pas par un prénom suivi d'un verbe
+      /rappel\s*[–\-:]\s*(?![A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-z]+\s+(?:arrive|part|s[eé]jour|est|a\s))([^,\n\r]{5,60})/i,
       // "Demande de réservation – NomLogement"
       /demande\s+de\s+r[eé]servation\s*[–\-:]\s*([^,\n\r]{5,60})/i,
       // "Votre annonce NomLogement a reçu…"
@@ -1338,8 +1340,9 @@ function extractPropertyName(text: string, subject?: string): string | undefined
       /\[airbnb\]\s+([^–\-\n\r]{5,60})(?:\s*[–\-]|$)/i,
       // "Airbnb – NomLogement"
       /\bairbnb\s*[–\-]\s*([^,\n\r]{5,60})/i,
-      // Format "NomLogement – Rappel" (nom en tête)
-      /^([^–\-\n\r]{5,60}?)\s*[–\-]\s*(?:rappel|check|s[eé]jour|d[eé]part|arriv|confirm)/i,
+      // Format "NomLogement – Rappel" (nom en tête) — exclure si la partie gauche ressemble
+      // à un prénom+verbe ("Marie arrive – ...") ou un fragment de phrase
+      /^((?!.*\b(?:arrive|part|est\s+l[àa]|demain|aujourd)\b)[^–\-\n\r]{5,60}?)\s*[–\-]\s*(?:rappel|check|s[eé]jour|d[eé]part|arriv|confirm)/i,
       // Concernant un logement
       /concernant\s+(?:votre\s+logement\s+)?([^,\n\r]{5,60})/i,
     ];
@@ -1353,7 +1356,7 @@ function extractPropertyName(text: string, subject?: string): string | undefined
 
     // ── 3. DERNIER RECOURS : nettoyer le sujet entier ────────────────────────
     // Uniquement si le sujet ne ressemble PAS à un payout ou un nom de voyageur
-    const isPersonSubject = /^[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-z]+\s+[a-z]+\s+(r[eé]serv|annul|modifi|laiss|part\s)/i.test(subject);
+    const isPersonSubject = /^[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-z]+\s+[a-z]+\s+(r[eé]serv|annul|modifi|laiss|part\s|arrive)/i.test(subject);
     if (!isPersonSubject) {
       const cleaned = subject
         .replace(/airbnb/gi, '')
@@ -1362,15 +1365,28 @@ function extractPropertyName(text: string, subject?: string): string | undefined
         .replace(/booking\s+(confirmed?|received?)/gi, '')
         .replace(/rappel\s+(?:d['e]?\s*)?arriv[eé]e?/gi, '')
         .replace(/rappel\s+check.?in/gi, '')
+        .replace(/rappel\s*[:\-–]/gi, '')
         .replace(/check.?(?:in|out)/gi, '')
         .replace(/confirmation\s+de\s+s[eé]jour/gi, '')
         .replace(/votre\s+(?:voyage|s[eé]jour)\s+[àa]/gi, '')
+        // Supprimer les fragments "arrive le/demain/aujourd'hui/dans N jours"
+        .replace(/arrive\s+(?:le|demain|aujourd['']hui|dans\s+\d)/gi, '')
+        // Supprimer "part aujourd'hui" / "part demain"
+        .replace(/part\s+(?:aujourd['']hui|demain)/gi, '')
+        // Supprimer "dans N jours" / "dans N nuits"
+        .replace(/dans\s+\d+\s+(?:jours?|nuits?)/gi, '')
+        // Supprimer les prénoms isolés (Prénom + verbe de rappel)
+        .replace(/[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+(?:arrive|part|est\s+l[àa]|a\s+laiss[eé])/gi, '')
         .replace(/\[|\]/g, '')
-        .replace(/[–\-:,]/g, ' ')
+        .replace(/[–\-:,!?]/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
       const fc = cleanCandidate(cleaned);
-      if (fc.length >= 5 && !/versement|payout|virement|envoy[eé]|^\d+[,.]?\d*\s*[€$]/i.test(fc)) {
+      // Rejeter si le résultat est trop court, un verbe seul, ou du bruit pur
+      if (fc.length >= 5
+        && !/versement|payout|virement|envoy[eé]|^\d+[,.]?\d*\s*[€$]/i.test(fc)
+        && !/^(demain|aujourd|hier|arrive|part|s[eé]jour|rappel|check|confirmat)$/i.test(fc.split(' ')[0])
+      ) {
         return fc.slice(0, 80);
       }
     }
