@@ -225,17 +225,30 @@ const SUBJECT_PATTERNS = {
   ],
   review: [
     // Avis REÇU d'un voyageur (pas rappel hôte)
+    // Formats réels Airbnb FR observés :
+    // "Mélody a laissé une évaluation 4 étoiles"
+    // "Mélody a laissé un avis"
+    // "Mélody a évalué votre logement"
+    /a\s+laiss[eé]\s+une?\s+[eé]valuation/i,
+    /a\s+[eé]valu[eé]\s+votre\s+(?:logement|s[eé]jour|annonce)/i,
+    /a\s+not[eé]\s+votre\s+(?:logement|s[eé]jour|annonce)/i,
     /a\s+laiss[eé]\s+(?:un\s+)?avis/i,
     /vous\s+a\s+(?:laiss[eé]\s+un\s+avis|not[eé])/i,
     /nouvel?\s+avis/i,
+    /nouvelle?\s+[eé]valuation/i,
     /new\s+review/i,
     /left\s+you\s+a\s+review/i,
+    /left\s+(?:an?\s+)?evaluation/i,
     /avis\s+re[cç]u/i,
     /review\s+received/i,
     /rated\s+you/i,
+    /rated?\s+your\s+(?:place|listing|home)/i,
     /vous\s+a\s+not[eé]/i,
     /a\s+[eé]valu[eé]\s+votre\s+s[eé]jour/i,
     /reviewed\s+their\s+stay/i,
+    // Note explicite dans le sujet : "... 4 étoiles", "... 5 stars"
+    /\d\s*[eé]toiles?\s*$/i,
+    /\d\s*stars?\s*$/i,
   ],
   payout: [
     // Format exact Airbnb: "Nous avons envoyé un versement de 63,62 €"
@@ -511,8 +524,16 @@ function extractGuestEmail(text: string): string | undefined {
   return undefined;
 }
 
-function extractReviewRating(text: string): number | undefined {
-  // Chercher une note 1-5 étoiles dans le corps de l'email
+function extractReviewRating(text: string, subject?: string): number | undefined {
+  // Chercher la note dans le sujet EN PREMIER (très fiable : "Mélody a laissé une évaluation 4 étoiles")
+  if (subject) {
+    const subjectMatch = subject.match(/(\d)\s*[eé]toiles?/i) || subject.match(/(\d)\s*stars?/i);
+    if (subjectMatch) {
+      const rating = parseInt(subjectMatch[1]);
+      if (rating >= 1 && rating <= 5) return rating;
+    }
+  }
+  // Puis chercher dans le corps de l'email
   const patterns = [
     /(\d)\s*[\/\sur]\s*5\s*[eé]toile/i,
     /(\d)\s*star[s]?\s*out\s*of\s*5/i,
@@ -524,6 +545,8 @@ function extractReviewRating(text: string): number | undefined {
     /(\d)\s*[★⭐]/,
     /[★⭐]\s*(\d)/,
     /(\d)\s*\/\s*5/,
+    /(\d)\s*[eé]toiles?/i,
+    /(\d)\s*stars?/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
@@ -1001,7 +1024,7 @@ export function parseAirbnbEmail(
     confirmationCode,
     bookingType,
     confidence: Math.min(100, confidence),
-    reviewRating: bookingType === 'review' ? extractReviewRating(text) : undefined,
+    reviewRating: bookingType === 'review' ? extractReviewRating(text, subject) : undefined,
     reviewComment: bookingType === 'review' ? extractReviewComment(text) : undefined,
   };
 }
