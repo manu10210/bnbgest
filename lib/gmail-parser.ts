@@ -98,18 +98,19 @@
  *
  * 🔴 'cancelled' → guestName, checkIn, checkOut, confirmationCode, propertyName,
  *                  cancellationPolicy, totalPrice, nightlyRate, cleaningFee,
- *                  serviceFee, taxAmount, guestLanguage
+ *                  serviceFee, taxAmount, guestLanguage, guestCountry
  *
  * 🟡 'modified'  → guestName, checkIn, checkOut (dates ACTUELLES),
  *                  modifiedCheckIn, modifiedCheckOut (NOUVELLES dates proposées),
  *                  checkInTime, checkOutTime, nightlyRate, cleaningFee, serviceFee,
- *                  taxAmount, totalPrice, confirmationCode, propertyName, guestLanguage
+ *                  taxAmount, totalPrice, confirmationCode, propertyName,
+ *                  guestLanguage, cancellationPolicy
  *
  * 🔔 'reminder'  → guestName, checkIn, checkOut, checkInTime, checkOutTime,
  *                  confirmationCode, propertyName, guests, guestCountry, guestLanguage
  *
  * 🟤 'checkout'  → guestName, checkIn, checkOut, totalPrice, confirmationCode,
- *                  propertyName, guestLanguage
+ *                  propertyName, checkOutTime, guestLanguage, guestCountry
  *
  * ⭐ 'review'    → guestName (ou "Voyageur Airbnb" si anonymisé), reviewRating (1-5),
  *                  reviewComment
@@ -1454,9 +1455,14 @@ export function parseAirbnbEmail(
       new RegExp(`entr[eé]e?\\s*[:\\-–]\\s*(?:${JOUR_RE}\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       // Dates avec année : "du 10/04/2026" ou "10/04/2026"
       /(?:du\s+|from\s+)?(\d{1,2}[\s\/\-](?:\d{1,2}|[a-zàâéèêëîïôùûü]+)[\s\/\-]\d{4})/i,
-      /from\s+([\w\s,]+\d{4})/i,
+      // EN "from April 10, 2026" / "from Apr 10 2026"
+      /from\s+([A-Za-z]+\.?\s+\d{1,2},?\s+\d{4})/i,
+      /from\s+(\d{1,2}\s+[A-Za-z]+\.?\s+\d{4})/i,
       // Plage "10 avr. – 13 avr." → prendre la PREMIÈRE date
       new RegExp(`(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*[–\\-]`, 'i'),
+      // Plage EN "Apr 10 – Apr 13, 2026" ou "April 10–13, 2026" → première partie
+      /([A-Za-z]+\.?\s+\d{1,2},?\s+\d{4})/i,
+      /([A-Za-z]+\.?\s+\d{1,2})(?:\s*[–\-]\s*(?:\d{1,2}|[A-Za-z]+\.?\s+\d{1,2}),?\s+\d{4})/i,
     ];
     const checkOutPatterns = [
       // "Départ : mar. 13 avr." / "Départ : 13 avr."
@@ -1467,30 +1473,70 @@ export function parseAirbnbEmail(
       new RegExp(`sortie\\s*[:\\-–]\\s*(?:${JOUR_RE}\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       // Dates avec année : "au 13/04/2026"
       /(?:au\s+|to\s+)(\d{1,2}[\s\/\-](?:\d{1,2}|[a-zàâéèêëîïôùûü]+)[\s\/\-]\d{4})/i,
-      /to\s+([\w\s,]+\d{4})/i,
+      // EN "to April 13, 2026" / "to Apr 13 2026"
+      /to\s+([A-Za-z]+\.?\s+\d{1,2},?\s+\d{4})/i,
+      /to\s+(\d{1,2}\s+[A-Za-z]+\.?\s+\d{4})/i,
       // Plage "10 avr. – 13 avr." → prendre la DEUXIÈME date (après le tiret)
       new RegExp(`[–\\-]\\s*(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // Plage EN "April 10–13, 2026" → second number with reconstructed month+year from context
+      // Handled via the noYear fallback below
     ];
 
-    checkIn = extractDate(text, checkInPatterns);
-    checkOut = extractDate(text, checkOutPatterns);
+    // Chercher d'abord dans le corps, puis dans le sujet comme fallback
+    checkIn = extractDate(text, checkInPatterns) || extractDate(subject, checkInPatterns);
+    checkOut = extractDate(text, checkOutPatterns) || extractDate(subject, checkOutPatterns);
 
-    // Fallback : chercher deux dates proches dans le texte (avec ou sans année)
+    // Fallback : chercher dates avec ou sans année dans texte + sujet combinés
     if (!checkIn || !checkOut) {
-      const allDates = [...text.matchAll(/\b(\d{1,2}[\s\/\-](?:\d{1,2}|[a-zàâéèêëîïôùûü]+)[\s\/\-]\d{4})\b/gi)]
+      const combinedText = text + ' ' + subject;
+      // Dates AVEC année
+      const datesWithYear = [...combinedText.matchAll(/\b(\d{1,2}[\s\/\-](?:\d{1,2}|[a-zàâéèêëîïôùûü]+)[\s\/\-]\d{4})\b/gi)]
         .map(m => normalizeDate(m[1]))
         .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
-      if (allDates.length >= 2) {
-        checkIn  = checkIn  || allDates[0];
-        checkOut = checkOut || allDates[1];
+      if (datesWithYear.length >= 2) {
+        checkIn  = checkIn  || datesWithYear[0];
+        checkOut = checkOut || datesWithYear[1];
+      }
+      // Dates SANS année — textuelles FR/EN (ex: "10 avr.", "Apr 10")
+      if (!checkIn || !checkOut) {
+        const MOIS_BOTH = `(?:janv?|f[eé]vr?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?|oct\\.?|nov\\.?|d[eé]c\\.?|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|dec)`;
+        const noYearRe = new RegExp(`\\b(\\d{1,2}\\s+${MOIS_BOTH}|${MOIS_BOTH}\\s+\\d{1,2})\\b`, 'gi');
+        const datesNoYear = [...combinedText.matchAll(noYearRe)]
+          .map(m => normalizeDate(m[1]))
+          .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
+        if (datesNoYear.length >= 2) {
+          checkIn  = checkIn  || datesNoYear[0];
+          checkOut = checkOut || datesNoYear[1];
+        } else if (datesNoYear.length === 1 && !checkIn) {
+          checkIn = datesNoYear[0];
+        }
+      }
+      // EN compact range "April 10–13, 2026" / "Apr 10-13 2026"
+      if (!checkOut && checkIn) {
+        const compactRe = /([A-Za-z]+)\.?\s+(\d{1,2})\s*[–\-]\s*(\d{1,2}),?\s+(\d{4})/;
+        const cr = combinedText.match(compactRe);
+        if (cr) {
+          const monthsEn: Record<string, string> = {
+            january:'01', jan:'01', february:'02', feb:'02', march:'03', mar:'03',
+            april:'04', apr:'04', may:'05', june:'06', jun:'06', july:'07', jul:'07',
+            august:'08', aug:'08', september:'09', sep:'09', october:'10', oct:'10',
+            november:'11', nov:'11', december:'12', dec:'12',
+          };
+          const mo = monthsEn[cr[1].toLowerCase()];
+          if (mo) {
+            checkIn  = checkIn  || `${cr[4]}-${mo}-${cr[2].padStart(2, '0')}`;
+            checkOut = checkOut || `${cr[4]}-${mo}-${cr[3].padStart(2, '0')}`;
+          }
+        }
       }
     }
   }
 
-  // Pas de dates = email non parsable (sauf payout/reminder/review/modified/cancelled qui n'ont pas forcément de dates)
+  // Pas de dates = email non parsable (sauf types qui n'ont pas forcément de dates)
   if (!checkIn || !checkOut) {
     if (bookingType !== 'payout' && bookingType !== 'reminder' && bookingType !== 'review'
-        && bookingType !== 'modified' && bookingType !== 'cancelled') return null;
+        && bookingType !== 'modified' && bookingType !== 'cancelled'
+        && bookingType !== 'checkout') return null;
   }
 
   // 5. Calculer les nuits
@@ -1499,8 +1545,8 @@ export function parseAirbnbEmail(
   )) : 0;
 
   // 6. Extraire tous les champs enrichis selon le type d'email
-  const price               = extractPrice(text);
-  const confirmationCode    = extractConfirmationCode(text);
+  const price               = extractPrice(text) || extractPrice(subject);
+  const confirmationCode    = extractConfirmationCode(text) || extractConfirmationCode(subject);
   const guestNameExtracted  = extractGuestName(text, subject);
   const propertyNameExtracted = extractPropertyName(text, subject);
   const guestCountry        = extractGuestCountry(text);
@@ -1516,15 +1562,15 @@ export function parseAirbnbEmail(
   const cleaningFee  = isFinanceType ? extractCleaningFee(text) : undefined;
   const serviceFee   = isFinanceType ? extractServiceFee(text) : undefined;
   const taxAmount    = isFinanceType ? extractTaxAmount(text) : undefined;
-  const hostPayout   = bookingType === 'payout' ? extractHostPayout(text) : undefined;
+  const hostPayout   = bookingType === 'payout' ? (extractHostPayout(text) || extractHostPayout(subject)) : undefined;
 
   // ── Horaires check-in/check-out : seulement pour new/modified/reminder/checkout ─
   const needsTimes = bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder' || bookingType === 'checkout';
   const checkInTime  = (bookingType !== 'checkout') && needsTimes ? extractCheckInTime(text) : undefined;
   const checkOutTime = needsTimes ? extractCheckOutTime(text) : undefined;
 
-  // ── Politique annulation : new + cancelled uniquement ───────────────────
-  const cancellationPolicy  = (bookingType === 'new' || bookingType === 'cancelled')
+  // ── Politique annulation : new + cancelled + modified ───────────────────
+  const cancellationPolicy  = (bookingType === 'new' || bookingType === 'cancelled' || bookingType === 'modified')
                                 ? extractCancellationPolicy(text) : undefined;
   // ── Réservation instantanée : new uniquement ─────────────────────────────
   const isInstantBook       = bookingType === 'new'
@@ -1644,7 +1690,10 @@ export function parseAirbnbEmail(
     receivedAt,
 
     // ── Voyageur ────────────────────────────────────────────────────────────
-    guestName: guestNameExtracted,
+    // Pour payout : le nom voyageur n'est pas toujours dans le corps → garder undefined si générique
+    guestName: (bookingType === 'payout' && guestNameExtracted === 'Voyageur Airbnb')
+                 ? 'Voyageur Airbnb'  // on garde le placeholder pour les payout sans nom
+                 : guestNameExtracted,
     // Email/téléphone : uniquement si l'email est explicitement dans le corps
     // (pas extrait pour payout où le corps ne contient pas les infos voyageur)
     guestEmail: bookingType !== 'payout' ? extractGuestEmail(text) : undefined,
@@ -1665,9 +1714,9 @@ export function parseAirbnbEmail(
 
     // ── Finance ─────────────────────────────────────────────────────────────
     // totalPrice : pertinent pour new/modified/cancelled/checkout/reminder
-    // Pour review/payout, mettre 0 (pas de prix séjour dans ces emails)
-    totalPrice: (bookingType === 'review') ? 0 : price,
-    currency:   text.includes('€') ? 'EUR' : text.includes('£') ? 'GBP' : 'USD',
+    // Pour review/payout, mettre 0 (pas de prix séjour dans ces emails — utiliser hostPayout pour payout)
+    totalPrice: (bookingType === 'review' || bookingType === 'payout') ? 0 : price,
+    currency:   (text + subject).includes('€') ? 'EUR' : (text + subject).includes('£') ? 'GBP' : 'USD',
     nightlyRate,
     cleaningFee,
     serviceFee,
