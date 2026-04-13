@@ -156,6 +156,7 @@ export default function GmailImporter() {
     inventory, updateInventoryItem, getLowStockItems,
     properties,
     bookings: existingBookings,
+    purgeGmailImports,
   } = useBNB();
   const { isDark } = useTheme();
 
@@ -170,6 +171,8 @@ export default function GmailImporter() {
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
   const [gmailEmail, setGmailEmail] = useState<string>('');
   const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; skippedDuplicate: number; skippedNoProperty: number; tasksCreated: number; reviewsImported: number } | null>(null);
+  const [purgeResult, setPurgeResult] = useState<{ bookings: number; guests: number } | null>(null);
+  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
 
   // ── Détection nouveaux logements ──────────────────────────────────────────
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
@@ -707,6 +710,21 @@ export default function GmailImporter() {
     }
   }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems]);
 
+  // ─── Purge des données importées depuis Gmail ─────────────────────────────
+  // Supprime TOUTES les réservations créées via l'import Gmail.
+  // Utile pendant le développement du parser pour repartir de zéro.
+  const handlePurge = useCallback(() => {
+    const result = purgeGmailImports();
+    setPurgeResult(result);
+    setShowPurgeConfirm(false);
+    // Réinitialiser aussi les états locaux de l'importer
+    setImported([]);
+    setImportSummary(null);
+    setBookings([]);
+    setSelected(new Set());
+    setStats(null);
+  }, [purgeGmailImports]);
+
   // ─── Avancer dans la file de nouveaux logements ───────────────────────────
 
   const advanceQueue = useCallback(() => {
@@ -820,7 +838,52 @@ export default function GmailImporter() {
                 <Download className="w-4 h-4" /> Traiter {selectedNew} email{selectedNew > 1 ? 's' : ''}
               </button>
             )}
+
+            {/* ── Bouton PURGE (dev) ── */}
+            {existingBookings.some(b => b.specialRequests?.includes('Importé depuis Gmail')) && (
+              !showPurgeConfirm ? (
+                <button
+                  onClick={() => { setShowPurgeConfirm(true); setPurgeResult(null); }}
+                  title="Supprimer toutes les réservations importées depuis Gmail (remise à zéro pour tests)"
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm border transition-colors ${
+                    isDark
+                      ? 'border-red-700 text-red-400 hover:bg-red-900/40 bg-transparent'
+                      : 'border-red-300 text-red-600 hover:bg-red-50 bg-transparent'
+                  }`}
+                >
+                  🗑️ Purger les imports Gmail
+                </button>
+              ) : (
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${isDark ? 'border-red-700 bg-red-900/30' : 'border-red-300 bg-red-50'}`}>
+                  <span className={isDark ? 'text-red-300' : 'text-red-700'}>⚠️ Confirmer la suppression ?</span>
+                  <button
+                    onClick={handlePurge}
+                    className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-xs"
+                  >
+                    Oui, tout supprimer
+                  </button>
+                  <button
+                    onClick={() => setShowPurgeConfirm(false)}
+                    className={`px-3 py-1 rounded-lg font-semibold text-xs ${isDark ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                  >
+                    Annuler
+                  </button>
+                </div>
+              )
+            )}
           </div>
+
+          {/* ── Résultat purge ── */}
+          {purgeResult && (
+            <div className={`border rounded-xl p-3 flex items-center gap-3 text-sm ${isDark ? 'bg-orange-900/30 border-orange-700 text-orange-300' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+              <span className="text-lg">🗑️</span>
+              <span>
+                Purge terminée — <strong>{purgeResult.bookings}</strong> réservation{purgeResult.bookings > 1 ? 's' : ''} supprimée{purgeResult.bookings > 1 ? 's' : ''}
+                {purgeResult.guests > 0 && <>, <strong>{purgeResult.guests}</strong> voyageur{purgeResult.guests > 1 ? 's' : ''} orphelin{purgeResult.guests > 1 ? 's' : ''} supprimé{purgeResult.guests > 1 ? 's' : ''}</>}
+              </span>
+              <button onClick={() => setPurgeResult(null)} className="ml-auto text-lg leading-none opacity-60 hover:opacity-100">×</button>
+            </div>
+          )}
 
           {/* ── Avertissement : aucun logement configuré ── */}
           {properties.length === 0 && bookings.length > 0 && (

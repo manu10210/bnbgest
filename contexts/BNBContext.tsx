@@ -223,6 +223,9 @@ interface BNBContextType {
   importData: (type: string, data: unknown[]) => void;
   searchProperties: (query: string) => Property[];
   searchGuests: (query: string) => Guest[];
+
+  // Gmail — Purge des données importées
+  purgeGmailImports: () => { bookings: number; guests: number };
 }
 
 const BNBContext = createContext<BNBContextType | undefined>(undefined);
@@ -543,6 +546,49 @@ export function BNBProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  // ─── Purge des données importées depuis Gmail ────────────────────────────
+  // Supprime toutes les réservations (et voyageurs orphelins) créés par
+  // l'import Gmail, identifiés par "Importé depuis Gmail" dans specialRequests.
+  // Utilisé pendant la phase de développement du parser pour repartir de zéro.
+  const purgeGmailImports = (): { bookings: number; guests: number } => {
+    // 1. Identifier les bookings importés depuis Gmail
+    const gmailBookingIds = new Set(
+      bookings
+        .filter(b => b.specialRequests?.includes('Importé depuis Gmail'))
+        .map(b => b.id)
+    );
+
+    if (gmailBookingIds.size === 0) return { bookings: 0, guests: 0 };
+
+    // 2. Identifier les guestIds concernés par ces bookings
+    const gmailGuestIds = new Set(
+      bookings
+        .filter(b => gmailBookingIds.has(b.id))
+        .map(b => b.guestId)
+        .filter(id => id > 0)
+    );
+
+    // 3. Supprimer les bookings Gmail
+    setBookings(prev => prev.filter(b => !gmailBookingIds.has(b.id)));
+
+    // 4. Supprimer les voyageurs qui n'ont PLUS aucune autre réservation non-Gmail
+    const remainingBookingsAfterPurge = bookings.filter(b => !gmailBookingIds.has(b.id));
+    const guestIdsWithOtherBookings = new Set(
+      remainingBookingsAfterPurge.map(b => b.guestId)
+    );
+    const orphanGuestIds = [...gmailGuestIds].filter(id => !guestIdsWithOtherBookings.has(id));
+    let removedGuests = 0;
+    if (orphanGuestIds.length > 0) {
+      setGuests(prev => {
+        const filtered = prev.filter(g => !orphanGuestIds.includes(g.id));
+        removedGuests = prev.length - filtered.length;
+        return filtered;
+      });
+    }
+
+    return { bookings: gmailBookingIds.size, guests: orphanGuestIds.length };
+  };
+
   const value = {
     // Properties
     properties,
@@ -597,7 +643,10 @@ export function BNBProvider({ children }: { children: ReactNode }) {
     exportData,
     importData,
     searchProperties,
-    searchGuests
+    searchGuests,
+
+    // Gmail — Purge
+    purgeGmailImports,
   };
 
   return (
