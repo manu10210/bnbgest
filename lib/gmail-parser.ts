@@ -130,6 +130,14 @@ const IGNORED_PATTERNS = [
   /offered\s+a\s+different\s+amount/i,
   /submitted\s+a\s+reimbursement/i,
   /dispute\s+(?:opened|submitted|filed)/i,
+  // Notifications de paiement voyageur (pas un versement hôte, pas une réservation à importer)
+  /paiement\s+effectu[eé]\s+(?:pour|de)\s+(?:la\s+)?r[eé]servation/i,
+  /paiement\s+re[cç]u\s+(?:pour|de)\s+(?:la\s+)?r[eé]servation/i,
+  /confirmation\s+de\s+paiement/i,
+  /votre\s+paiement\s+(?:a\s+[eé]t[eé]\s+)?(?:effectu[eé]|re[cç]u|valid[eé])/i,
+  /paiement\s+valid[eé]/i,
+  /payment\s+(?:received|confirmed|processed)\s+for/i,
+  /your\s+payment\s+(?:has\s+been\s+)?(?:received|confirmed|processed)/i,
   // Rappels d'évaluation HÔTE (Airbnb demande à l'hôte de noter son voyageur)
   // Ces emails n'ont pas de réservation à importer
   /attendent?\s+votre\s+(?:commentaire|[eé]valuation|avis)/i,
