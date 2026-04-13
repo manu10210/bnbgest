@@ -519,6 +519,7 @@ function normalizeDate(raw: string): string {
 
   // Format textuel FR avec année : "12 avril 2026", "sam. 12 avr. 2026", "lundi 14 avril 2026"
   // Capture: (jour_semaine optionnel) jour mois année
+  // Accepte aussi le mois avec point final collé ("avr." avant l'année)
   const withYear = s.match(/(?:(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\.?\s+)?(\d{1,2})\s+([\wéèûîàâ]+\.?)\s+(\d{4})/i);
   if (withYear) {
     const key = norm(withYear[2]);
@@ -630,8 +631,10 @@ function extractPrice(text: string): number {
     /montant\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
     /payout\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
     /prix\s+(?:de\s+la\s+)?nuit[eé]e?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
-    // 🔚 Dernier recours : premier montant en euros trouvé dans le texte (limité à 10 chiffres)
-    /([€$£]\s*[\d\s\xa0]{1,10}[,.]?\d{0,2})(?!\d)/,
+    // 🔚 Dernier recours : premier montant en euros trouvé dans le texte
+    // Guard renforcé : min 1 chiffre, max 8 chiffres avant virgule, pas suivi d'autres chiffres
+    // Évite les faux positifs sur numéros de téléphone (ex: "0612345678")
+    /(?<![0-9])([€$£]\s*[\d\s\xa0]{1,8}[,.]?\d{0,2})(?![0-9])/,
   ];
 
   for (const p of patterns) {
@@ -781,7 +784,7 @@ function extractNightlyRate(text: string): number | undefined {
   // Formats Airbnb observés :
   //   "89 € par nuit" / "Prix par nuit : 89 €"
   //   "Tarif nuitée : 89,00 €" / "89 €/nuit"
-  //   "$89 per night" / "89 € x 3 nuits"
+  //   "$89 per night" / "89 € x 3 nuits" / "89 € × 3 nuits"
   const parseAmt = (s: string) => {
     const n = parseFloat(s.replace(/[€$£\s\xa0\u202f]/g, '').replace(',', '.'));
     return !isNaN(n) && n > 0 && n < 10000 ? n : 0;
@@ -793,8 +796,10 @@ function extractNightlyRate(text: string): number | undefined {
     /[€$£]\s*([\d\s\xa0\u202f]*[,.]?\d+)\s*(?:par\s+nuit|\/nuit)/i,
     /prix\s+(?:de\s+la\s+)?nuit[eé]e?\s*[:\-–]\s*[€$£]?\s*([\d\s\xa0\u202f]*[,.]?\d+)/i,
     /tarif\s+(?:de\s+la\s+)?nuit[eé]e?\s*[:\-–]\s*[€$£]?\s*([\d\s\xa0\u202f]*[,.]?\d+)/i,
-    // "89 € x 3 nuits" — nombre avant le "x N nuits"
-    /(\d[\d\s\xa0\u202f]*[,.]?\d*)\s*[€$£]?\s*[×x]\s*\d+\s*nuits?/i,
+    // "89 € x 3 nuits" ou "89 € × 3 nuits" (× Unicode U+00D7 ou × en entité HTML)
+    /(\d[\d\s\xa0\u202f]*[,.]?\d*)\s*[€$£]?\s*[×x×]\s*\d+\s*nuits?/i,
+    // "89 € / nuit × 3 nuits" — format récapitulatif Airbnb
+    /(\d[\d\s\xa0\u202f]*[,.]?\d*)\s*[€$£]\s*\/\s*nuit/i,
     // "$89 per night"
     /[€$£]\s*([\d\s\xa0\u202f]*[,.]?\d+)\s*per\s+night/i,
     /([\d\s\xa0\u202f]*[,.]?\d+)\s*[€$£]?\s*per\s+night/i,
@@ -875,18 +880,18 @@ function extractCancellationPolicy(text: string): string | undefined {
   // "Politique d'annulation : Flexible" / "Annulation flexible" / "Politique stricte"
   // "Cancellation policy: Flexible" / "Moderate" / "Strict"
   // ── 1. Avec label explicite (le plus fiable) ──────────────────────────────
-  const labelFR = text.match(/politique\s+d[''e]annulation\s*[:\-–]\s*(flexible|mod[eé]r[eé]e?|stricte?|super\s+strict|non\s+remboursable|remboursable)/i);
+  const labelFR = text.match(/politique\s+d[''e]annulation\s*[:\-–]\s*(flexible|mod[eé]r[eé]e?|stricte?|super\s+strict|non\s+remboursable|remboursable|24\s+heures?)/i);
   if (labelFR) return normalizePoliceName(labelFR[1]);
 
-  const labelEN = text.match(/cancellation\s+policy\s*[:\-–]\s*(flexible|moderate|strict|super\s+strict|non.refundable|refundable)/i);
+  const labelEN = text.match(/cancellation\s+policy\s*[:\-–]\s*(flexible|moderate|strict|super\s+strict|non.refundable|refundable|24.hour)/i);
   if (labelEN) return normalizePoliceName(labelEN[1]);
 
   // ── 2. Sections dédiées annulation (contexte fort) ────────────────────────
   // "annulation flexible" / "politique flexible" / "flexible cancellation"
-  const sectionFR = text.match(/(?:politique|conditions?|type)\s+(?:d[''e]\s*)?(?:annulation|remboursement)\s*[:\-–]?\s*(flexible|mod[eé]r[eé]e?|stricte?)/i);
+  const sectionFR = text.match(/(?:politique|conditions?|type)\s+(?:d[''e]\s*)?(?:annulation|remboursement)\s*[:\-–]?\s*(flexible|mod[eé]r[eé]e?|stricte?|24\s+heures?)/i);
   if (sectionFR) return normalizePoliceName(sectionFR[1]);
 
-  const sectionEN = text.match(/(?:cancellation|refund)\s+(?:policy|type|conditions?)\s*[:\-–]?\s*(flexible|moderate|strict)/i);
+  const sectionEN = text.match(/(?:cancellation|refund)\s+(?:policy|type|conditions?)\s*[:\-–]?\s*(flexible|moderate|strict|24.hour)/i);
   if (sectionEN) return normalizePoliceName(sectionEN[1]);
 
   // ── 3. Mots-clés UNIQUEMENT si contexte annulation présent dans la même phrase ──
@@ -898,6 +903,7 @@ function extractCancellationPolicy(text: string): string | undefined {
     if (/\bflexible\b/i.test(line)) return 'Flexible';
     if (/mod[eé]r[eé]e?\b/i.test(line)) return 'Modérée';
     if (/\bstricte?\b/i.test(line)) return 'Stricte';
+    if (/24\s*h(?:eures?)?/i.test(line)) return 'Flexible (24h)';
   }
   return undefined;
 }
@@ -905,6 +911,7 @@ function extractCancellationPolicy(text: string): string | undefined {
 function normalizePoliceName(raw: string): string {
   const s = raw.trim().toLowerCase();
   if (/flex/i.test(s)) return 'Flexible';
+  if (/24.?h/i.test(s)) return 'Flexible (24h)';
   if (/mod/i.test(s)) return 'Modérée';
   if (/strict|super/i.test(s)) return 'Stricte';
   if (/no.refund|non.refund/i.test(s)) return 'Non remboursable';
@@ -918,8 +925,12 @@ function extractGuestCountry(text: string): string | undefined {
     /pays\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
     /country\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
     /nationalit[eé]\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
-    /from\s+([A-Z][a-z]{2,20})/,
     /lieu\s+de\s+r[eé]sidence\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
+    // "Localisation : Paris, France" → extraire "France" après la virgule
+    /localisation\s*[:\-–]\s*[^,\n\r]+,\s*([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]{3,30})/i,
+    // "Lives in France" / "from France"
+    /\blives?\s+in\s+([A-Z][a-z]{2,30})\b/,
+    /\bfrom\s+([A-Z][a-z]{2,30})\b/,
   ];
   for (const p of patterns) {
     const m = text.match(p);
@@ -1042,15 +1053,19 @@ function extractReviewComment(text: string): string | undefined {
   return undefined;
 }
 
-function extractGuests(text: string): number {
-  // Cherche le nombre total de voyageurs — additionne adultes+enfants si présents,
+function extractGuests(text: string, subject?: string): number {
+  // Cherche le nombre total de voyageurs — additionne adultes+enfants+bébés si présents,
   // sinon prend le premier chiffre voyageur/guest/personne trouvé.
-  const adultsM = text.match(/(\d+)\s*adultes?/i);
-  const childM  = text.match(/(\d+)\s*(?:enfants?|enfant[s]?|child(?:ren)?)/i);
+  // Chercher dans le corps ET dans le sujet
+  const combined = text + (subject ? ' ' + subject : '');
+  const adultsM = combined.match(/(\d+)\s*adultes?/i);
+  const childM  = combined.match(/(\d+)\s*(?:enfants?|child(?:ren)?)/i);
+  const babyM   = combined.match(/(\d+)\s*(?:b[eé]b[eé]s?|infant[s]?|nourrisson[s]?)/i);
   if (adultsM) {
-    const adults = parseInt(adultsM[1]);
-    const children = childM ? parseInt(childM[1]) : 0;
-    const total = adults + children;
+    const adults   = parseInt(adultsM[1]);
+    const children = childM  ? parseInt(childM[1])  : 0;
+    const babies   = babyM   ? parseInt(babyM[1])   : 0;
+    const total = adults + children + babies;
     if (total >= 1 && total <= 20) return total;
   }
   const patterns: Array<[RegExp, number]> = [
@@ -1060,9 +1075,11 @@ function extractGuests(text: string): number {
     [/(\d+)\s*person[s]?/i, 1],
     [/nombre\s+de\s+voyageurs?\s*[:\-]\s*(\d+)/i, 2],
     [/number\s+of\s+guests?\s*[:\-]\s*(\d+)/i, 2],
+    // "pour N personnes" dans le sujet
+    [/pour\s+(\d+)\s*(?:voyageur[s]?|personne[s]?|guest[s]?)/i, 1],
   ];
   for (const [p, idx] of patterns) {
-    const m = text.match(p);
+    const m = combined.match(p);
     if (m) {
       const v = parseInt(m[idx]);
       if (v >= 1 && v <= 20) return v;
@@ -1178,8 +1195,8 @@ function extractConfirmationCode(text: string): string | undefined {
     /r[eé]f[eé]rence\s*[:\s]+([A-Z0-9]{6,12})/i,
     /n[°o]\.?\s*(?:de\s+)?r[eé]servation\s*[:\s]+([A-Z0-9]{6,12})/i,
     /booking\s+(?:reference|id|code|#)\s*[:\s]*([A-Z0-9]{6,12})/i,
-    // Code Airbnb natif: "HM" suivi de chiffres (ex: HM1234567890)
-    /\b(HM[A-Z0-9]{6,10})\b/,
+    // Code Airbnb natif: "HM" suivi de lettres+chiffres (ex: HM1234567890, HMABCD123)
+    /\b(HM[A-Z0-9]{6,10})\b/i,
     // Code type HMXXXXX — 2-3 lettres + 5-9 chiffres (ex: AB12345)
     /\b([A-Z]{2,3}[0-9]{5,9})\b/,
     // Générique: séquence mixte lettres+chiffres UNIQUEMENT si précédée d'un contexte clair
@@ -1458,9 +1475,11 @@ export function parseAirbnbEmail(
       // EN "from April 10, 2026" / "from Apr 10 2026"
       /from\s+([A-Za-z]+\.?\s+\d{1,2},?\s+\d{4})/i,
       /from\s+(\d{1,2}\s+[A-Za-z]+\.?\s+\d{4})/i,
-      // Plage "10 avr. – 13 avr." → prendre la PREMIÈRE date
+      // Plage FR "10 avr. – 13 avr." → prendre la PREMIÈRE date
       new RegExp(`(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*[–\\-]`, 'i'),
-      // Plage EN "Apr 10 – Apr 13, 2026" ou "April 10–13, 2026" → première partie
+      // Plage FR compacte "10–13 avr. 2026" → premier nombre (checkIn)
+      new RegExp(`(\\d{1,2})\\s*[–\\-]\\s*\\d{1,2}\\s+(${MOIS_RE})(?:\\s+(\\d{4}))?`, 'i'),
+      // Plage EN "April 10–13, 2026" ou "Apr 10 – Apr 13, 2026" → première partie
       /([A-Za-z]+\.?\s+\d{1,2},?\s+\d{4})/i,
       /([A-Za-z]+\.?\s+\d{1,2})(?:\s*[–\-]\s*(?:\d{1,2}|[A-Za-z]+\.?\s+\d{1,2}),?\s+\d{4})/i,
     ];
@@ -1478,13 +1497,31 @@ export function parseAirbnbEmail(
       /to\s+(\d{1,2}\s+[A-Za-z]+\.?\s+\d{4})/i,
       // Plage "10 avr. – 13 avr." → prendre la DEUXIÈME date (après le tiret)
       new RegExp(`[–\\-]\\s*(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // Plage EN "April 10–13, 2026" → second number with reconstructed month+year from context
-      // Handled via the noYear fallback below
+      // Plage FR compacte "10–13 avr. 2026" → second nombre + mois + année
+      new RegExp(`\\d{1,2}\\s*[–\\-]\\s*(\\d{1,2})\\s+(${MOIS_RE})(?:\\s+(\\d{4}))?`, 'i'),
     ];
 
     // Chercher d'abord dans le corps, puis dans le sujet comme fallback
     checkIn = extractDate(text, checkInPatterns) || extractDate(subject, checkInPatterns);
     checkOut = extractDate(text, checkOutPatterns) || extractDate(subject, checkOutPatterns);
+
+    // ── Post-traitement : plage FR compacte "10–13 avr. 2026" ────────────────
+    // Les patterns avec 3 groupes capturés (jour1, mois, année) ne sont pas gérés
+    // par extractDate (qui lit seulement match[1]). On les traite ici.
+    if (!checkIn || !checkOut) {
+      const combinedSrc = text + ' ' + subject;
+      // "10–13 avr. 2026" / "10-13 avr. 2026" / "10 – 13 avril 2026"
+      const MOIS_BOTH2 = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?\\.?|oct\\.?|octobre?|nov\\.?|d[eé]c\\.?|d[eé]cembre?)`;
+      const frCompact = new RegExp(`(\\d{1,2})\\s*[–\\-]\\s*(\\d{1,2})\\s+(${MOIS_BOTH2}(?:\\.?))(?:\\s+(\\d{4}))?`, 'i');
+      const fcm = combinedSrc.match(frCompact);
+      if (fcm) {
+        const day1 = fcm[1]; const day2 = fcm[2]; const mon = fcm[3]; const yr = fcm[4] || '';
+        const d1 = normalizeDate(`${day1} ${mon}${yr ? ' ' + yr : ''}`);
+        const d2 = normalizeDate(`${day2} ${mon}${yr ? ' ' + yr : ''}`);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d1)) checkIn  = checkIn  || d1;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d2)) checkOut = checkOut || d2;
+      }
+    }
 
     // Fallback : chercher dates avec ou sans année dans texte + sujet combinés
     if (!checkIn || !checkOut) {
@@ -1671,7 +1708,9 @@ export function parseAirbnbEmail(
   if (bookingType === 'review') {
     confidence = Math.max(confidence, isAirbnbSender ? 65 : 55);
     const rating = extractReviewRating(text, subject);
-    if (rating) confidence = Math.min(100, confidence + 5);
+    if (rating) confidence = Math.min(100, confidence + 10);
+    // Note trouvée dans le sujet = très fiable
+    if (rating && subject.match(/\d\s*[eé]toiles?|\d\s*stars?/i)) confidence = Math.min(100, confidence + 5);
   }
   // Annulation : confiance légèrement réduite si pas de code confirmation
   if (bookingType === 'cancelled' && !confirmationCode) confidence = Math.max(50, confidence - 5);
@@ -1698,16 +1737,17 @@ export function parseAirbnbEmail(
     // (pas extrait pour payout où le corps ne contient pas les infos voyageur)
     guestEmail: bookingType !== 'payout' ? extractGuestEmail(text) : undefined,
     guestPhone: bookingType !== 'payout' ? extractGuestPhone(text) : undefined,
-    guests:     bookingType !== 'payout' ? extractGuests(text) : 0,
-    // Pays/langue : utile pour new, modified, reminder, cancelled
-    guestCountry:  (bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder' || bookingType === 'cancelled')
+    guests:     bookingType !== 'payout' ? extractGuests(text, subject) : 0,
+    // Pays/langue : utile pour new, modified, reminder, cancelled, checkout
+    guestCountry:  (bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder' || bookingType === 'cancelled' || bookingType === 'checkout')
                      ? guestCountry : undefined,
-    guestLanguage: (bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder' || bookingType === 'cancelled')
+    guestLanguage: (bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder' || bookingType === 'cancelled' || bookingType === 'checkout')
                      ? guestLanguage : undefined,
 
     // ── Séjour ──────────────────────────────────────────────────────────────
     checkIn:  checkIn  ?? receivedAt.split('T')[0],
     checkOut: checkOut ?? receivedAt.split('T')[0],
+    // Nuits : calculer même pour checkout/reminder si les dates sont disponibles
     nights:   (bookingType === 'payout' && !checkIn) ? 0 : nights,
     checkInTime,
     checkOutTime,
@@ -1716,7 +1756,11 @@ export function parseAirbnbEmail(
     // totalPrice : pertinent pour new/modified/cancelled/checkout/reminder
     // Pour review/payout, mettre 0 (pas de prix séjour dans ces emails — utiliser hostPayout pour payout)
     totalPrice: (bookingType === 'review' || bookingType === 'payout') ? 0 : price,
-    currency:   (text + subject).includes('€') ? 'EUR' : (text + subject).includes('£') ? 'GBP' : 'USD',
+    // Devise : chercher dans le corps HTML-strippé + sujet, priorité EUR > GBP > CHF > USD
+    currency:  /CHF|Fr\./i.test(text + subject) ? 'CHF'
+               : (text + subject).includes('£') ? 'GBP'
+               : (text + subject).includes('€') || /EUR/i.test(text + subject) ? 'EUR'
+               : 'USD',
     nightlyRate,
     cleaningFee,
     serviceFee,
