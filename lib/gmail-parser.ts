@@ -366,7 +366,10 @@ const SUBJECT_PATTERNS = {
     /modification\s+de\s+r[eé]servation/i,
     /changement\s+de\s+r[eé]servation/i,
     /modifi[eé]e?\s*:/i,
-    /modified/i, /updated/i, /mis\s+[àa]\s+jour/i,
+    // "modified" ou "updated" uniquement si contexte réservation dans le sujet
+    /r[eé]servation\s+(?:modifi[eé]e?|updated?)/i,
+    /booking\s+(?:modified|updated)/i,
+    /mis\s+[àa]\s+jour\s+[:\-–]/i,
     /alteration\s+request/i,
     // "Marie wants to change their booking"
     /wants?\s+to\s+change\s+(?:their\s+)?(?:reservation|booking)/i,
@@ -386,8 +389,8 @@ const SUBJECT_PATTERNS = {
   reminder: [
     // Rappels d'arrivée imminente UNIQUEMENT (liés à une réservation existante)
     // Les rappels d'évaluation hôte sont dans IGNORED_PATTERNS
-    // "Rappel : Marie arrive dans 2 jours"
-    /rappel\s*[:\–-]/i,
+    // "Rappel : Marie arrive dans 2 jours" — exclure "Rappel : annulation" etc.
+    /rappel\s*[:\–-]\s*(?!annul|cancel|modif|politique)[^\n]{0,40}(?:arriv|s[eé]jour|check|voyage)/i,
     /dans\s+\d+\s+jours?/i,
     /in\s+\d+\s+days?/i,
     // "Marie arrive demain !"
@@ -444,8 +447,10 @@ const SUBJECT_PATTERNS = {
     // "Your payout of $X has been sent"
     /your\s+payout\s+of/i,
     /payout\s+(?:sent|of)\s+/i,
-    // Mots-clés seuls (moins précis, en dernier recours)
-    /versement/i, /virement\b/i, /\bpayout\b/i,
+    // Mots-clés seuls (moins précis, en dernier recours) — avec contexte montant pour éviter faux positifs
+    /\bversement\s+(?:de|du|pour|pr[eé]vu)\b/i,
+    /\bvirement\s+(?:de|du|bancaire|effectu[eé]|envoy[eé])\b/i,
+    /\bpayout\b/i,
   ],
 };
 
@@ -554,6 +559,30 @@ function normalizeDate(raw: string): string {
     return `${textEnRev[3]}-${monthsEn[textEnRev[2].toLowerCase()]}-${textEnRev[1].padStart(2, '0')}`;
   }
 
+  // Format textuel anglais SANS année : "Apr 10" / "April 10" / "Apr. 10"
+  // → même logique d'inférence d'année que le français
+  const textEnNoYear = s.match(/([a-z]+)\.?\s+(\d{1,2})$/i);
+  if (textEnNoYear && monthsEn[textEnNoYear[1].toLowerCase()]) {
+    const monthNum = monthsEn[textEnNoYear[1].toLowerCase()];
+    const now = new Date();
+    const year = now.getFullYear();
+    const candidate = `${year}-${monthNum}-${textEnNoYear[2].padStart(2, '0')}`;
+    const diff = (new Date(candidate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    if (diff < -180) return `${year + 1}-${monthNum}-${textEnNoYear[2].padStart(2, '0')}`;
+    return candidate;
+  }
+  // "10 Apr" / "10 April" (jour avant mois EN, sans année)
+  const textEnNoYearRev = s.match(/(\d{1,2})\s+([a-z]+)\.?$/i);
+  if (textEnNoYearRev && monthsEn[textEnNoYearRev[2].toLowerCase()]) {
+    const monthNum = monthsEn[textEnNoYearRev[2].toLowerCase()];
+    const now = new Date();
+    const year = now.getFullYear();
+    const candidate = `${year}-${monthNum}-${textEnNoYearRev[1].padStart(2, '0')}`;
+    const diff = (new Date(candidate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    if (diff < -180) return `${year + 1}-${monthNum}-${textEnNoYearRev[1].padStart(2, '0')}`;
+    return candidate;
+  }
+
   return s; // retourner tel quel si aucun format reconnu
 }
 
@@ -600,8 +629,8 @@ function extractPrice(text: string): number {
     /montant\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
     /payout\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
     /prix\s+(?:de\s+la\s+)?nuit[eé]e?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
-    // 🔚 Dernier recours : premier montant en euros trouvé dans le texte
-    /([€$£]\s*[\d\s\xa0.,]+)/,
+    // 🔚 Dernier recours : premier montant en euros trouvé dans le texte (limité à 10 chiffres)
+    /([€$£]\s*[\d\s\xa0]{1,10}[,.]?\d{0,2})(?!\d)/,
   ];
 
   for (const p of patterns) {
@@ -906,10 +935,10 @@ function detectGuestLanguage(text: string, subject: string): string | undefined 
   // Un email Airbnb est envoyé dans la langue du voyageur
   // Analyser 3000 chars pour couvrir le corps complet (au lieu de 500)
   const combined = (subject + ' ' + text.slice(0, 3000)).toLowerCase();
-  // Indices français — mots fréquents dans les emails Airbnb FR
-  const frScore = (combined.match(/\b(votre|vous|r[eé]servation|voyageur|bienvenue|merci|arriv[eé]e?|d[eé]part|nuit|logement|h[oô]te|s[eé]jour|annonce|lundi|mardi|prix)\b/g) || []).length;
-  // Indices anglais — mots fréquents dans les emails Airbnb EN
-  const enScore = (combined.match(/\b(your|you|reservation|guest|welcome|thank|arrival|departure|night|listing|booking|check|host|stay|monday|tuesday|price|total)\b/g) || []).length;
+  // Indices français — mots DISTINCTIFS (pas de faux positifs EN)
+  const frScore = (combined.match(/\b(votre|vous|r[eé]servation|voyageur|bienvenue|merci|arriv[eé]e?|d[eé]part|nuit[eé]e?|logement|h[oô]te|s[eé]jour|annonce|lundi|mardi|vendredi|dimanche|pr[eé]nom)\b/g) || []).length;
+  // Indices anglais — mots DISTINCTIFS (éviter "night", "booking", "host" qui apparaissent dans des emails FR)
+  const enScore = (combined.match(/\b(your|you(?:'re|r)?|guest|welcome|thank\s+you|arrival|departure|listing|check.?in|check.?out|stay|monday|tuesday|friday|sunday|tonight|tomorrow)\b/g) || []).length;
   // Indices allemand
   const deScore = (combined.match(/\b(ihre|sie|buchung|gast|willkommen|danke|ankunft|abreise|nacht|unterkunft|gastgeber|aufenthalt|montag|dienstag)\b/g) || []).length;
   // Indices espagnol
@@ -1023,18 +1052,18 @@ function extractGuests(text: string): number {
     const total = adults + children;
     if (total >= 1 && total <= 20) return total;
   }
-  const patterns = [
-    /(\d+)\s*voyageur[s]?/i,
-    /(\d+)\s*guest[s]?/i,
-    /(\d+)\s*personne[s]?/i,
-    /(\d+)\s*person[s]?/i,
-    /nombre\s+de\s+voyageurs?\s*[:\-]\s*(\d+)/i,
-    /number\s+of\s+guests?\s*[:\-]\s*(\d+)/i,
+  const patterns: Array<[RegExp, number]> = [
+    [/(\d+)\s*voyageur[s]?/i, 1],
+    [/(\d+)\s*guest[s]?/i, 1],
+    [/(\d+)\s*personne[s]?/i, 1],
+    [/(\d+)\s*person[s]?/i, 1],
+    [/nombre\s+de\s+voyageurs?\s*[:\-]\s*(\d+)/i, 2],
+    [/number\s+of\s+guests?\s*[:\-]\s*(\d+)/i, 2],
   ];
-  for (const p of patterns) {
+  for (const [p, idx] of patterns) {
     const m = text.match(p);
     if (m) {
-      const v = parseInt(m[1] || m[2]);
+      const v = parseInt(m[idx]);
       if (v >= 1 && v <= 20) return v;
     }
   }
@@ -1150,10 +1179,10 @@ function extractConfirmationCode(text: string): string | undefined {
     /booking\s+(?:reference|id|code|#)\s*[:\s]*([A-Z0-9]{6,12})/i,
     // Code Airbnb natif: "HM" suivi de chiffres (ex: HM1234567890)
     /\b(HM[A-Z0-9]{6,10})\b/,
-    // Code type HMXXXXX
+    // Code type HMXXXXX — 2-3 lettres + 5-9 chiffres (ex: AB12345)
     /\b([A-Z]{2,3}[0-9]{5,9})\b/,
-    // Générique: séquence mixte lettres+chiffres en majuscules — uniquement si contexte clair
-    /\b([A-Z]{2,4}[0-9]{4,8})\b/,
+    // Générique: séquence mixte lettres+chiffres UNIQUEMENT si précédée d'un contexte clair
+    /(?:code|ref(?:[eé]rence)?|n[°o])\s*[:\s#]+([A-Z]{2,4}[0-9]{4,8})\b/i,
   ];
 
   // Mots à blacklister (faux positifs fréquents)
@@ -1356,7 +1385,9 @@ export function parseAirbnbEmail(
   else if (SUBJECT_PATTERNS.review.some(p => p.test(subject))) bookingType = 'review';
   else if (
     SUBJECT_PATTERNS.payout.some(p => p.test(subject)) ||
-    SUBJECT_PATTERNS.payout.some(p => p.test(body.slice(0, 500)))
+    SUBJECT_PATTERNS.payout.some(p => p.test(body.slice(0, 500))) ||
+    // Versement standalone dans le corps (ex: "Nous avons envoyé un versement")
+    /nous\s+avons\s+envoy[eé]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout/i.test(body.slice(0, 600))
   ) bookingType = 'payout';
   else {
     // ─── Fallback : déduire le type depuis les slugs URL du corps ────────────
@@ -1487,9 +1518,9 @@ export function parseAirbnbEmail(
   const taxAmount    = isFinanceType ? extractTaxAmount(text) : undefined;
   const hostPayout   = bookingType === 'payout' ? extractHostPayout(text) : undefined;
 
-  // ── Horaires check-in/check-out : seulement pour new/modified/reminder ───
-  const needsTimes = bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder';
-  const checkInTime  = needsTimes ? extractCheckInTime(text) : undefined;
+  // ── Horaires check-in/check-out : seulement pour new/modified/reminder/checkout ─
+  const needsTimes = bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder' || bookingType === 'checkout';
+  const checkInTime  = (bookingType !== 'checkout') && needsTimes ? extractCheckInTime(text) : undefined;
   const checkOutTime = needsTimes ? extractCheckOutTime(text) : undefined;
 
   // ── Politique annulation : new + cancelled uniquement ───────────────────
@@ -1598,6 +1629,9 @@ export function parseAirbnbEmail(
   }
   // Annulation : confiance légèrement réduite si pas de code confirmation
   if (bookingType === 'cancelled' && !confirmationCode) confidence = Math.max(50, confidence - 5);
+  // Modification : confiance réduite si pas de nouvelles dates trouvées
+  if (bookingType === 'modified' && !modifiedCheckIn) confidence = Math.max(50, confidence - 5);
+  if (bookingType === 'modified' && modifiedCheckIn) confidence = Math.min(100, confidence + 5);
   // Rappel/checkout : confiance modérée si pas de dates
   if ((bookingType === 'reminder' || bookingType === 'checkout') && (!checkIn || !checkOut)) {
     confidence = Math.min(confidence, 65);
@@ -1616,10 +1650,10 @@ export function parseAirbnbEmail(
     guestEmail: bookingType !== 'payout' ? extractGuestEmail(text) : undefined,
     guestPhone: bookingType !== 'payout' ? extractGuestPhone(text) : undefined,
     guests:     bookingType !== 'payout' ? extractGuests(text) : 0,
-    // Pays/langue : utile pour new, modified, reminder
-    guestCountry:  (bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder')
+    // Pays/langue : utile pour new, modified, reminder, cancelled
+    guestCountry:  (bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder' || bookingType === 'cancelled')
                      ? guestCountry : undefined,
-    guestLanguage: (bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder')
+    guestLanguage: (bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder' || bookingType === 'cancelled')
                      ? guestLanguage : undefined,
 
     // ── Séjour ──────────────────────────────────────────────────────────────
