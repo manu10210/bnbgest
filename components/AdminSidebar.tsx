@@ -66,9 +66,18 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
   const { bookings, maintenanceTasks, reviews } = useBNB();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openCategories, setOpenCategories] = useState<string[]>(['Tableau de bord', 'Gestion']);
   const [currentTime, setCurrentTime] = useState('');
   const [currentDate, setCurrentDate] = useState('');
   const pathname = usePathname();
+
+  const toggleCategory = (title: string) => {
+    setOpenCategories(prev =>
+      prev.includes(title)
+        ? prev.filter(t => t !== title)
+        : [...prev, title]
+    );
+  };
 
   // Live clock
   useEffect(() => {
@@ -106,21 +115,23 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
       title: 'Gestion',
       items: [
         { id: 'bookings', label: 'Réservations', icon: Calendar, badge: badges.pendingBookings },
+        { id: 'planning', label: 'Planning', icon: CalendarDays, badge: 0 },
         { id: 'properties', label: 'Propriétés', icon: Building2, badge: 0 },
         { id: 'guests', label: 'Voyageurs', icon: Users, badge: badges.checkinsToday },
         { id: 'contract', label: 'Contrats', icon: FileText, badge: 0 },
+        { id: 'gmail-import', label: '📧 Import Gmail', icon: Mail, badge: 0 },
+        { id: 'occupancy', label: '🎯 Optimiseur Occupation', icon: Target, badge: 0 },
       ]
     },
     {
       title: 'Opérations',
       items: [
         { id: 'maintenance', label: 'Maintenance', icon: Wrench, badge: badges.urgentMaintenance },
-        { id: 'cleaning', label: 'Ménage', icon: Sparkles, badge: 0 },
+        { id: 'cleaning', label: 'Ménage & Inspections', icon: Sparkles, badge: 0 },
         { id: 'cleaningGallery', label: 'Galerie Ménage', icon: Sparkles, badge: 0 },
         { id: 'inventory', label: 'Inventaire', icon: ClipboardList, badge: 0 },
         { id: 'qrcheckin', label: 'QR Check-in', icon: QrCode, badge: 0 },
         { id: 'videoguides', label: 'Guides Vidéo', icon: Video, badge: 0 },
-        { id: 'planning', label: 'Planning', icon: CalendarDays, badge: 0 },
         { id: 'inspections', label: 'États des lieux', icon: ClipboardCheck, badge: 0 },
         { id: 'access-codes', label: 'Codes d\'accès', icon: KeyRound, badge: 0 },
       ]
@@ -128,35 +139,27 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
     {
       title: 'Marketing & Client',
       items: [
-        { id: 'reviews', label: 'Avis & Notes', icon: Star, badge: badges.pendingReviews },
-        { id: 'reviewsmanager', label: 'Gestion Avis', icon: MessageSquare, badge: 0 },
+        { id: 'reviewsmanager', label: 'Avis Voyageurs', icon: MessageSquare, badge: badges.pendingReviews },
         { id: 'messages', label: 'Messagerie', icon: Inbox, badge: 0 },
+        { id: 'messaging', label: '💬 Messagerie Hub', icon: MessageCircle, badge: 0 },
         { id: 'welcome', label: 'Livret d\'accueil', icon: BookOpen, badge: 0 },
         { id: 'shareLinks', label: 'Liens de partage', icon: Share2, badge: 0 },
       ]
     },
     {
-      title: 'Finance',
+      title: 'Finance & IA',
       items: [
-        { id: 'financial',       label: 'Rapports',        icon: BarChart3,   badge: 0 },
-        { id: 'rentabilite',     label: 'Rentabilité',     icon: TrendingUp,  badge: 0 },
-        { id: 'rapports-fiscaux',label: 'Rapports fiscaux',icon: FileText,    badge: 0 },
-        { id: 'forecasting',     label: 'Prévisionnel',    icon: TrendingUp,  badge: 0 },
-        { id: 'pricing',         label: 'Moteur de prix',  icon: Tags,        badge: 0 },
-        { id: 'invoice',         label: 'Factures',        icon: Receipt,     badge: 0 },
-        { id: 'expenses',        label: 'Dépenses',        icon: TrendingDown, badge: 0 },
-        { id: 'intelligence',    label: '🧠 IA Propriétés',icon: Brain,       badge: 0 },
+        { id: 'financial',       label: 'Rapports & Revenus', icon: BarChart3, badge: 0 },
+        { id: 'revenue-live',    label: '📊 Revenus Live', icon: LineChart, badge: 0 },
+        { id: 'rentabilite',     label: 'Rentabilité', icon: TrendingUp, badge: 0 },
+        { id: 'rapports-fiscaux',label: 'Rapports fiscaux',icon: FileText, badge: 0 },
+        { id: 'forecasting',     label: 'Prévisionnel', icon: TrendingUp, badge: 0 },
+        { id: 'pricing',         label: 'Moteur de prix', icon: Tags, badge: 0 },
+        { id: 'invoice',         label: 'Factures', icon: Receipt, badge: 0 },
+        { id: 'expenses',        label: 'Dépenses', icon: TrendingDown, badge: 0 },
+        { id: 'intelligence',    label: '🧠 IA Propriétés',icon: Brain, badge: 0 },
         { id: 'assistant',       label: '💬 Assistant IA', icon: MessageSquare, badge: 0 },
-        { id: 'autopilot',       label: '🤖 Autopilot',    icon: Zap,         badge: 0 },
-      ]
-    },
-    {
-      title: '✨ Nouvelles Fonctions',
-      items: [
-        { id: 'revenue-live',    label: '📊 Revenus Live',        icon: LineChart,      badge: 0 },
-        { id: 'messaging',       label: '💬 Messagerie Hub',       icon: MessageCircle,  badge: 0 },
-        { id: 'occupancy',       label: '🎯 Optimiseur Occupation', icon: Target,        badge: 0 },
-        { id: 'gmail-import',    label: '📧 Import Gmail',          icon: Mail,          badge: 0 },
+        { id: 'autopilot',       label: '🤖 Autopilot', icon: Zap, badge: 0 },
       ]
     },
     {
