@@ -101,6 +101,23 @@ const IGNORED_PATTERNS = [
   /new\s+message\s+from/i,
   /replied\s+to\s+your\s+message/i,
   /sent\s+you\s+a\s+message/i,
+  // Sinistres / Remboursements / AirCover / Réclamations financières
+  /vous\s+avez\s+demand[eé]\s+de\s+l[''']argent/i,
+  /a\s+demand[eé]\s+de\s+l[''']argent/i,
+  /demande\s+de\s+remboursement/i,
+  /remboursement\s+demand[eé]/i,
+  /r[eé]clamation\s+(?:soumise|envoy[eé]e?|en\s+cours)/i,
+  /sinistre\s+(?:signal[eé]|ouvert|soumis)/i,
+  /aircover/i,
+  /protection\s+h[oô]te/i,
+  /dommage[s]?\s+signal[eé][s]?/i,
+  /signaler\s+(?:un\s+)?(?:dommage|probl[eè]me|sinistre)/i,
+  /you\s+requested\s+money\s+from/i,
+  /money\s+request/i,
+  /reimbursement\s+request/i,
+  /damage\s+claim/i,
+  /resolution\s+center/i,
+  /centre\s+de\s+r[eé]solution/i,
 ];
 //
 // 🔵 NOUVELLE RÉSERVATION
