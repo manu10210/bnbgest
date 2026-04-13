@@ -69,6 +69,11 @@ const PROPERTY_ALIASES: Record<string, string> = {
   'appart bleu relax':                             'APPARTEMENT BLEU RELAX',
   'appartement bleu':                              'APPARTEMENT BLEU RELAX',
   'bleu relax':                                    'APPARTEMENT BLEU RELAX',
+  // ── APPARTEMENT LES CIGOGNES ──────────────────────────────────────────────
+  'appartement les cigognes':                      'APPARTEMENT LES CIGOGNES',
+  'appart les cigognes':                           'APPARTEMENT LES CIGOGNES',
+  'les cigognes':                                  'APPARTEMENT LES CIGOGNES',
+  'cigognes':                                      'APPARTEMENT LES CIGOGNES',
   // ── Maisonnette T2 quartier calme ─────────────────────────────────────────
   'maison de ville avec petite terrasse couverte': 'Maisonnette T2 quartier calme',
   'maison de ville':                               'Maisonnette T2 quartier calme',
