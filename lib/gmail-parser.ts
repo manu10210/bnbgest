@@ -219,112 +219,145 @@ function extractDate(text: string, patterns: RegExp[]): string | null {
 }
 
 function normalizeDate(raw: string): string {
-  // Format ISO déjà OK
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  // Nettoyer les espaces insécables (\xa0), tabs, espaces multiples
+  const s = raw.replace(/[\xa0\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
 
-  // Format DD/MM/YYYY ou DD-MM-YYYY
-  const dmy = raw.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
+  // Format ISO déjà OK
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // Format DD/MM/YYYY ou DD-MM-YYYY ou DD.MM.YYYY
+  const dmy = s.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
   if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
 
-  // Format YYYY/MM/DD
-  const ymd = raw.match(/(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/);
+  // Format YYYY/MM/DD ou YYYY-MM-DD
+  const ymd = s.match(/(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/);
   if (ymd) return `${ymd[1]}-${ymd[2].padStart(2, '0')}-${ymd[3].padStart(2, '0')}`;
 
-  // Format textuel français: "12 avril 2025", "lundi 14 avril"
-  // (normalisation: accents retirés, points retirés avant lookup)
+  // Helper normalisation : enlève accents et ponctuation pour le lookup
+  const norm = (x: string) => x.toLowerCase()
+    .replace(/\./g, '')
+    .replace(/[éèêë]/g, 'e').replace(/[àâä]/g, 'a').replace(/[ùûü]/g, 'u')
+    .replace(/[îï]/g, 'i').replace(/[ôö]/g, 'o').replace(/ç/g, 'c')
+    .trim();
+
   const monthsFr: Record<string, string> = {
+    // Noms complets
     janvier:'01', fevrier:'02', mars:'03', avril:'04',
     mai:'05', juin:'06', juillet:'07', aout:'08',
     septembre:'09', octobre:'10', novembre:'11', decembre:'12',
-    // Abréviations
-    janv:'01', fevr:'02', avr:'04', juil:'07', sept:'09', oct:'10', nov:'11', dec:'12',
+    // Abréviations Airbnb (avec ou sans point)
+    janv:'01', jan:'01',
+    fevr:'02', fev:'02', feb:'02',
+    // mars = mars
+    avr:'04',
+    // mai = mai
+    // juin = juin
+    juil:'07', jul:'07',
+    aou:'08',
+    sept:'09', sep:'09',
+    oct:'10',
+    nov:'11',
+    dec:'12',
   };
-  const normStr = (s: string) => s.toLowerCase().replace(/\./g, '')
-    .replace(/[éèêë]/g, 'e').replace(/[àâä]/g, 'a').replace(/[ùûü]/g, 'u')
-    .replace(/[îï]/g, 'i').replace(/[ôö]/g, 'o').replace(/ç/g, 'c');
-  const textFr = raw.match(/(\d{1,2})\s+([\wéèûîà]+\.?)\s+(\d{4})/i);
-  if (textFr && monthsFr[normStr(textFr[2])]) {
-    return `${textFr[3]}-${monthsFr[normStr(textFr[2])]}-${textFr[1].padStart(2, '0')}`;
+
+  // Format textuel FR avec année : "12 avril 2026", "sam. 12 avr. 2026", "lundi 14 avril 2026"
+  // Capture: (jour_semaine optionnel) jour mois année
+  const withYear = s.match(/(?:(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\.?\s+)?(\d{1,2})\s+([\wéèûîàâ]+\.?)\s+(\d{4})/i);
+  if (withYear) {
+    const key = norm(withYear[2]);
+    if (monthsFr[key]) {
+      return `${withYear[3]}-${monthsFr[key]}-${withYear[1].padStart(2, '0')}`;
+    }
   }
 
-  // Format Airbnb SANS année : "10 avr." / "10 avr" / "13 avril"
-  // → on déduit l'année courante (ou prochaine si la date est déjà passée de > 6 mois)
-  const monthsFrShort: Record<string, string> = {
-    jan:'01', janv:'01',
-    fev:'02', fevr:'02',
-    mars:'03',
-    avr:'04', avril:'04',
-    mai:'05',
-    juin:'06',
-    juil:'07', juillet:'07',
-    aout:'08',
-    sept:'09', septembre:'09',
-    oct:'10', octobre:'10',
-    nov:'11', novembre:'11',
-    dec:'12', decembre:'12',
-  };
-  const textNoYear = raw.match(/^(\d{1,2})\s+([\wéèûîàâ]+\.?)$/i);
-  if (textNoYear) {
-    // Normaliser: enlever points, déaccenter (é→e, û→u, etc.)
-    const normalize = (s: string) => s.toLowerCase().replace(/\./g, '')
-      .replace(/[éèêë]/g, 'e').replace(/[àâä]/g, 'a').replace(/[ùûü]/g, 'u')
-      .replace(/[îï]/g, 'i').replace(/[ôö]/g, 'o').replace(/ç/g, 'c');
-    const key = normalize(textNoYear[2]);
-    const monthNum = monthsFrShort[key];
+  // Format textuel FR SANS année : "10 avr." / "10 avr" / "10 avril" / "sam. 10 avr."
+  // → déduire l'année courante (ou N+1 si date passée de > 180j)
+  const noYear = s.match(/(?:(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\.?\s+)?(\d{1,2})\s+([\wéèûîàâ]+\.?)$/i);
+  if (noYear) {
+    const key = norm(noYear[2]);
+    const monthNum = monthsFr[key];
     if (monthNum) {
       const now = new Date();
       const year = now.getFullYear();
-      const candidate = `${year}-${monthNum}-${textNoYear[1].padStart(2, '0')}`;
-      // Si la date candidate est déjà passée de plus de 6 mois, utiliser année+1
+      const candidate = `${year}-${monthNum}-${noYear[1].padStart(2, '0')}`;
       const diff = (new Date(candidate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-      if (diff < -180) return `${year + 1}-${monthNum}-${textNoYear[1].padStart(2, '0')}`;
+      if (diff < -180) return `${year + 1}-${monthNum}-${noYear[1].padStart(2, '0')}`;
       return candidate;
     }
   }
 
-  // Format textuel anglais: "April 12, 2025" ou "Apr 12, 2025"
+  // Format textuel anglais avec année : "April 12, 2026" / "Apr 12, 2026"
   const monthsEn: Record<string, string> = {
     january:'01', jan:'01', february:'02', feb:'02', march:'03', mar:'03',
     april:'04', apr:'04', may:'05', june:'06', jun:'06', july:'07', jul:'07',
     august:'08', aug:'08', september:'09', sep:'09', october:'10', oct:'10',
     november:'11', nov:'11', december:'12', dec:'12',
   };
-  const textEn = raw.match(/([\w]+)\s+(\d{1,2}),?\s+(\d{4})/i);
+  const textEn = s.match(/([a-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})/i);
   if (textEn && monthsEn[textEn[1].toLowerCase()]) {
     return `${textEn[3]}-${monthsEn[textEn[1].toLowerCase()]}-${textEn[2].padStart(2, '0')}`;
   }
+  // "12 April 2026" (jour avant mois EN)
+  const textEnRev = s.match(/(\d{1,2})\s+([a-z]+)\.?\s+(\d{4})/i);
+  if (textEnRev && monthsEn[textEnRev[2].toLowerCase()]) {
+    return `${textEnRev[3]}-${monthsEn[textEnRev[2].toLowerCase()]}-${textEnRev[1].padStart(2, '0')}`;
+  }
 
-  return raw;
+  return s; // retourner tel quel si aucun format reconnu
 }
 
 function extractPrice(text: string): number {
-  // Cherche montant total — ordre de priorité
-  const patterns = [
-    /total\s*[:\s]\s*([€$£]?\s*[\d\s.,]+)/i,
-    /montant total\s*[:\s]\s*([€$£]?\s*[\d\s.,]+)/i,
-    /total amount\s*[:\s]\s*([€$£]?\s*[\d\s.,]+)/i,
-    /vous gagnez\s*([€$£]?\s*[\d\s.,]+)/i,
-    /you earn\s*([€$£]?\s*[\d\s.,]+)/i,
-    /payout\s*[:\s]\s*([€$£]?\s*[\d\s.,]+)/i,
-    // Revenus hôte Airbnb (format notification de réservation)
-    /vos\s+revenus\s+pour\s+ce\s+s[eé]jour\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /votre\s+revenu\s+estim[eé]\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /votre\s+revenu\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /revenu\s+de\s+l[''`]h[oô]te\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /revenus?\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /host\s+earnings?\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /earnings?\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /montant\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /prix\s+total\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /prix\s+de\s+la\s+nuit[eé]e?\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /([€$£]\s*[\d\s.,]+)/,
+  // Vrais formats Airbnb hôte observés :
+  //   "Revenus : 178 €"              (email nouvelle réservation hôte)
+  //   "Vos revenus pour ce séjour : 154,00 €"
+  //   "Votre revenu estimé : 154 €"
+  //   "Votre revenu : 154 €"
+  //   "Total : 210,00 €"             (récapitulatif voyageur)
+  //   "Montant total : 210 €"
+  //   "Prix total : 210 €"
+  //   "Vous gagnez 178 €"
+  //   "178 €" (montant seul sur une ligne)
+  //
+  // IMPORTANT : on cherche le montant le plus pertinent dans cet ordre de priorité.
+  // Un helper pour extraire un nombre depuis une chaîne capturée
+  const parseAmount = (s: string): number => {
+    // Supporte "178,34" / "178.34" / "1 234,56" / "1 234.56"
+    const clean = s.replace(/[€$£\s]/g, '').replace(/\s/g, '');
+    // Format FR : "1 234,56" → supprimer espaces puis remplacer virgule
+    const normalized = clean.replace(/(\d)\s(\d)/g, '$1$2').replace(',', '.');
+    const val = parseFloat(normalized);
+    return (!isNaN(val) && val > 0 && val < 100000) ? val : 0;
+  };
+
+  const patterns: RegExp[] = [
+    // 🥇 Revenus hôte (priorité maximale — c'est ce que l'hôte reçoit)
+    /vos\s+revenus\s+pour\s+ce\s+s[eé]jour\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /votre\s+revenu\s+estim[eé]\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /votre\s+revenu\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /revenus?\s+de\s+l[''`]h[oô]te\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /revenus?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /host\s+earnings?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /vous\s+gagnez\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /you\s+earn\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /earnings?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    // 🥈 Total général
+    /montant\s+total\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /total\s+amount\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /prix\s+total\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /total\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    // 🥉 Montant générique
+    /montant\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /payout\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /prix\s+(?:de\s+la\s+)?nuit[eé]e?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    // 🔚 Dernier recours : premier montant en euros trouvé dans le texte
+    /([€$£]\s*[\d\s\xa0.,]+)/,
   ];
+
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const clean = m[1].replace(/[€$£\s]/g, '').replace(',', '.');
-      const val = parseFloat(clean);
-      if (!isNaN(val) && val > 0) return val;
+      const val = parseAmount(m[1]);
+      if (val > 0) return val;
     }
   }
   return 0;
@@ -332,14 +365,14 @@ function extractPrice(text: string): number {
 
 function extractCleaningFee(text: string): number | undefined {
   const patterns = [
-    /frais\s+(?:de\s+)?m[eé]nage\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /cleaning\s+fee\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /frais\s+nettoyage\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /frais\s+(?:de\s+)?m[eé]nage\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /nettoyage\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /cleaning\s+fee\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const clean = m[1].replace(/[€$£\s]/g, '').replace(',', '.');
+      const clean = m[1].replace(/[€$£\s\xa0]/g, '').replace(',', '.');
       const val = parseFloat(clean);
       if (!isNaN(val) && val >= 0) return val;
     }
@@ -349,14 +382,14 @@ function extractCleaningFee(text: string): number | undefined {
 
 function extractServiceFee(text: string): number | undefined {
   const patterns = [
-    /frais\s+de\s+service\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /service\s+fee\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /commission\s+airbnb\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    /frais\s+de\s+service\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /commission\s+(?:airbnb|de\s+service)\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /service\s+fee\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const clean = m[1].replace(/[€$£\s]/g, '').replace(',', '.');
+      const clean = m[1].replace(/[€$£\s\xa0]/g, '').replace(',', '.');
       const val = parseFloat(clean);
       if (!isNaN(val) && val >= 0) return val;
     }
@@ -365,16 +398,26 @@ function extractServiceFee(text: string): number | undefined {
 }
 
 function extractHostPayout(text: string): number | undefined {
+  // Vrais formats Airbnb versement :
+  //   "Nous avons envoyé un versement de 178,34 €"
+  //   "Montant versé : 178,34 €"
+  //   "Vous recevrez : 178,34 €"
+  //   "Votre versement : 178,34 €"
   const patterns = [
-    /versement\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /vous\s+recevrez?\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /host\s+payout\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
-    /r[eé]mun[eé]ration\s*[:\s]+([€$£]?\s*[\d\s.,]+)/i,
+    // Format exact sujet/corps versement Airbnb
+    /nous\s+avons\s+envoy[eé]\s+un\s+versement\s+de\s+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /versement\s+de\s+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /votre\s+versement\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /montant\s+vers[eé]\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /vous\s+recevrez?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /host\s+payout\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /r[eé]mun[eé]ration\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /payout\s+(?:amount|total)\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const clean = m[1].replace(/[€$£\s]/g, '').replace(',', '.');
+      const clean = m[1].replace(/[€$£\s\xa0]/g, '').replace(',', '.');
       const val = parseFloat(clean);
       if (!isNaN(val) && val > 0) return val;
     }
