@@ -1336,42 +1336,58 @@ export default function GmailImporter() {
                             <div className={`font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                               🔍 Résultat du parse
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-                              {/* Identification */}
-                              <ParseField label="Type" value={booking.bookingType} badge={bookingTypeLabel[booking.bookingType]} isDark={isDark} />
-                              <ParseField label="Confiance" value={`${booking.confidence}%`} isDark={isDark} highlight={booking.confidence >= 80 ? 'green' : booking.confidence >= 60 ? 'amber' : 'red'} />
-                              <ParseField label="Code réservation" value={booking.confirmationCode} isDark={isDark} mono />
-                              <ParseField label="Message ID" value={booking.messageId.slice(0, 22) + '…'} isDark={isDark} mono />
-                              {/* Voyageur */}
-                              <ParseField label="Voyageur" value={booking.guestName} isDark={isDark} />
-                              <ParseField label="Voyageurs" value={booking.guests > 0 ? `${booking.guests} personne${booking.guests > 1 ? 's' : ''}` : undefined} isDark={isDark} />
-                              <ParseField label="Email voyageur" value={booking.guestEmail} isDark={isDark} />
-                              <ParseField label="Téléphone" value={booking.guestPhone} isDark={isDark} />
-                              <ParseField label="Pays" value={booking.guestCountry} isDark={isDark} />
-                              <ParseField label="Langue" value={booking.guestLanguage} isDark={isDark} />
-                              {/* Séjour */}
-                              <ParseField label="Arrivée" value={booking.checkIn ? fmt(booking.checkIn) : undefined} isDark={isDark} />
-                              <ParseField label="Départ" value={booking.checkOut ? fmt(booking.checkOut) : undefined} isDark={isDark} />
-                              <ParseField label="Nuits" value={booking.nights > 0 ? `${booking.nights} nuit${booking.nights > 1 ? 's' : ''}` : undefined} isDark={isDark} />
-                              <ParseField label="Heure arrivée" value={booking.checkInTime} isDark={isDark} />
-                              <ParseField label="Heure départ" value={booking.checkOutTime} isDark={isDark} />
-                              {/* Logement */}
-                              <ParseField label="Logement détecté" value={booking.propertyName} isDark={isDark} highlight={booking.propertyName ? 'blue' : undefined} />
-                              {/* Finance */}
-                              <ParseField label="Prix total" value={booking.totalPrice > 0 ? `${booking.totalPrice} ${booking.currency}` : undefined} isDark={isDark} highlight="green" />
-                              <ParseField label="Prix / nuit" value={booking.nightlyRate ? `${booking.nightlyRate} ${booking.currency}` : undefined} isDark={isDark} />
-                              <ParseField label="Frais ménage" value={booking.cleaningFee ? `${booking.cleaningFee} ${booking.currency}` : undefined} isDark={isDark} />
-                              <ParseField label="Frais service" value={booking.serviceFee ? `${booking.serviceFee} ${booking.currency}` : undefined} isDark={isDark} />
-                              <ParseField label="Taxes" value={booking.taxAmount ? `${booking.taxAmount} ${booking.currency}` : undefined} isDark={isDark} />
-                              <ParseField label="Versement hôte" value={booking.hostPayout ? `${booking.hostPayout} ${booking.currency}` : undefined} isDark={isDark} highlight="green" />
-                              <ParseField label="Devise" value={booking.currency} isDark={isDark} />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                              {/* ── Section: Identification ── */}
+                              <div className="space-y-1">
+                                <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 border-b pb-1 ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'}`}>Général</h4>
+                                <ParseField label="Type" value={booking.bookingType} badge={bookingTypeLabel[booking.bookingType]} isDark={isDark} />
+                                <ParseField label="Confiance" value={`${booking.confidence}%`} isDark={isDark} highlight={booking.confidence >= 80 ? 'green' : booking.confidence >= 60 ? 'amber' : 'red'} />
+                                <ParseField label="Code réservation" value={booking.confirmationCode} isDark={isDark} mono />
+                                <ParseField label="Message ID" value={booking.messageId.slice(0, 22) + '…'} isDark={isDark} mono />
+                              </div>
+                              {/* ── Section: Voyageur ── */}
+                              <div className="space-y-1">
+                                <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 border-b pb-1 ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'}`}>Voyageur</h4>
+                                <ParseField label="Voyageur" value={booking.guestName} isDark={isDark} />
+                                <ParseField label="Voyageurs" value={booking.guests > 0 ? `${booking.guests} personne${booking.guests > 1 ? 's' : ''}` : undefined} isDark={isDark} />
+                                <ParseField label="Email voyageur" value={booking.guestEmail} isDark={isDark} />
+                                <ParseField label="Téléphone" value={booking.guestPhone} isDark={isDark} />
+                                <ParseField label="Pays" value={booking.guestCountry} isDark={isDark} />
+                                <ParseField label="Langue" value={booking.guestLanguage} isDark={isDark} />
+                              </div>
+                              {/* ── Section: Séjour ── */}
+                              <div className="space-y-1">
+                                <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 border-b pb-1 ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'}`}>Séjour</h4>
+                                <ParseField label="Logement" value={booking.propertyName} isDark={isDark} highlight={booking.propertyName ? 'blue' : undefined} />
+                                <ParseField label="Arrivée" value={booking.checkIn ? fmt(booking.checkIn) : undefined} isDark={isDark} />
+                                <ParseField label="Départ" value={booking.checkOut ? fmt(booking.checkOut) : undefined} isDark={isDark} />
+                                <ParseField label="Nuits" value={booking.nights > 0 ? `${booking.nights} nuit${booking.nights > 1 ? 's' : ''}` : undefined} isDark={isDark} />
+                                <ParseField label="Heure arrivée" value={booking.checkInTime} isDark={isDark} />
+                                <ParseField label="Heure départ" value={booking.checkOutTime} isDark={isDark} />
+                              </div>
+                              {/* ── Section: Finance ── */}
+                              <div className="space-y-1">
+                                <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 border-b pb-1 ${isDark ? 'text-gray-400 border-gray-700' : 'text-gray-500 border-gray-200'}`}>Finances</h4>
+                                <ParseField label="Prix total" value={booking.totalPrice > 0 ? `${booking.totalPrice} ${booking.currency}` : undefined} isDark={isDark} highlight="green" />
+                                <ParseField label="Prix / nuit" value={booking.nightlyRate ? `${booking.nightlyRate} ${booking.currency}` : undefined} isDark={isDark} />
+                                <ParseField label="Frais ménage" value={booking.cleaningFee ? `${booking.cleaningFee} ${booking.currency}` : undefined} isDark={isDark} />
+                                <ParseField label="Frais service" value={booking.serviceFee ? `${booking.serviceFee} ${booking.currency}` : undefined} isDark={isDark} />
+                                <ParseField label="Taxes" value={booking.taxAmount ? `${booking.taxAmount} ${booking.currency}` : undefined} isDark={isDark} />
+                                <ParseField label="Versement hôte" value={booking.hostPayout ? `${booking.hostPayout} ${booking.currency}` : undefined} isDark={isDark} highlight="green" />
+                                <ParseField label="Devise" value={booking.currency} isDark={isDark} />
+                              </div>
+                            </div>
+                            
+                            <div className="mt-4">
                               {/* Avis */}
                               {booking.bookingType === 'review' && (
-                                <ParseField label="Note" value={booking.reviewRating ? `${'★'.repeat(booking.reviewRating)}${'☆'.repeat(5 - booking.reviewRating)} (${booking.reviewRating}/5)` : undefined} isDark={isDark} highlight="amber" />
-                              )}
-                              {booking.bookingType === 'review' && booking.reviewComment && (
-                                <div className="col-span-2">
-                                  <ParseField label="Commentaire" value={booking.reviewComment.slice(0, 200)} isDark={isDark} />
+                                <div className="space-y-1">
+                                  <ParseField label="Note" value={booking.reviewRating ? `${'★'.repeat(booking.reviewRating)}${'☆'.repeat(5 - booking.reviewRating)} (${booking.reviewRating}/5)` : undefined} isDark={isDark} highlight="amber" />
+                                  {booking.reviewComment && (
+                                    <div className="col-span-2">
+                                      <ParseField label="Commentaire" value={booking.reviewComment.slice(0, 200)} isDark={isDark} />
+                                    </div>
+                                  )}
                                 </div>
                               )}
                               {/* Sujet */}
