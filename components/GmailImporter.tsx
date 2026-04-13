@@ -1259,7 +1259,7 @@ export default function GmailImporter() {
                       </div>
                       <div className={`rounded-lg p-2 text-center ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
                         <div className={`text-lg font-bold ${withProperty > 0 ? 'text-blue-500' : 'text-gray-400'}`}>{withProperty}</div>
-                        <div className={isDark ? 'text-gray-400' : 'text-gray-500'}>Logement détecté</div>
+                        <div className={isDark ? 'text-gray-400' : 'text-gray-500'}>Logements lus rattachés</div>
                       </div>
                       <div className={`rounded-lg p-2 text-center ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
                         <div className={`text-lg font-bold ${withCode > 0 ? 'text-violet-500' : 'text-gray-400'}`}>{withCode}</div>
