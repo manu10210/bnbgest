@@ -130,6 +130,20 @@ const IGNORED_PATTERNS = [
   /offered\s+a\s+different\s+amount/i,
   /submitted\s+a\s+reimbursement/i,
   /dispute\s+(?:opened|submitted|filed)/i,
+  // Rappels d'évaluation HÔTE (Airbnb demande à l'hôte de noter son voyageur)
+  // Ces emails n'ont pas de réservation à importer
+  /attendent?\s+votre\s+(?:commentaire|[eé]valuation|avis)/i,
+  /\d+\s+voyageurs?\s+attendent/i,
+  /voyageurs?\s+attendent?\s+votre/i,
+  /n[''']oubliez\s+pas\s+de\s+(?:noter|[eé]valuer)/i,
+  /[eé]valuez\s+(?:votre\s+)?voyageur/i,
+  /notez\s+(?:votre\s+)?voyageur/i,
+  /laissez\s+(?:un\s+)?commentaire\s+(?:pour|[àa])/i,
+  /donnez\s+votre\s+avis\s+(?:sur|pour)/i,
+  /rate\s+your\s+guest/i,
+  /don[''']t\s+forget\s+to\s+review/i,
+  /leave\s+a\s+review\s+for\s+your\s+guest/i,
+  /write\s+a\s+review/i,
   // Sujets corrompus / URLs de tracking Airbnb encodées (base64, paramètres URL)
   // Ex: "661?c=.pi80.pkaG9tZV9yZXZpZXdzL2VtcGF0aGV0aWNfaG9zdF9yZXZpZXdfcmVjZWl2ZWQ%3D&eu"
   /^[\w\d]+\?c=/,           // sujet qui commence par un identifiant puis "?c="
@@ -246,16 +260,7 @@ const SUBJECT_PATTERNS = {
     /prochaine?\s+s[eé]jour/i,
     /reminder\s*:/i,
     /arriving\s+(?:tomorrow|today|in\s+\d)/i,
-    // Rappels d'évaluation HÔTE (demande à l'hôte de noter son voyageur)
-    /attendent?\s+votre\s+(?:commentaire|[eé]valuation|avis)/i,
-    /\d+\s+voyageurs?\s+attendent/i,
-    /voyageurs?\s+attendent?\s+votre/i,
-    /n['']oubliez\s+pas\s+de\s+noter/i,
-    /[eé]valuez\s+(?:votre\s+)?voyageur/i,
-    /notez\s+(?:votre\s+)?voyageur/i,
-    /rate\s+your\s+guest/i,
-    /don[''']t\s+forget\s+to\s+review/i,
-    /leave\s+a\s+review\s+for\s+your\s+guest/i,
+    // Rappels d'évaluation HÔTE — retirés ici, gérés dans IGNORED_PATTERNS
   ],
   review: [
     // Avis REÇU d'un voyageur (pas rappel hôte)
