@@ -30,6 +30,8 @@ interface ParsedBooking {
   guestEmail?: string;
   guestPhone?: string;
   guests: number;
+  guestCountry?: string;
+  guestLanguage?: string;
   checkIn: string;
   checkOut: string;
   nights: number;
@@ -52,6 +54,40 @@ interface ParsedBooking {
 
 type SyncStatus = 'idle' | 'checking' | 'syncing' | 'done' | 'error';
 type FilterType = 'all' | 'new' | 'cancelled';
+
+// ─── Composant ParseField — affiche un champ extrait par le parser ────────────
+// Affiche uniquement si value est défini et non vide.
+// highlight : couleur du badge de valeur (green, amber, red, blue)
+// mono      : police monospace (pour codes, IDs)
+// badge     : pour les types (bookingType)
+function ParseField({ label, value, isDark, highlight, mono, badge }: {
+  label: string;
+  value: string | undefined | null;
+  isDark: boolean;
+  highlight?: 'green' | 'amber' | 'red' | 'blue';
+  mono?: boolean;
+  badge?: { label: string; color: string };
+}) {
+  if (value === undefined || value === null || value === '') return null;
+  const labelCls = isDark ? 'text-gray-500' : 'text-gray-400';
+  const valueCls = mono
+    ? (isDark ? 'text-gray-300 font-mono' : 'text-gray-700 font-mono')
+    : highlight === 'green'  ? 'text-green-500 font-semibold'
+    : highlight === 'amber'  ? (isDark ? 'text-amber-300 font-semibold' : 'text-amber-600 font-semibold')
+    : highlight === 'red'    ? 'text-red-500 font-semibold'
+    : highlight === 'blue'   ? (isDark ? 'text-blue-300 font-semibold' : 'text-blue-600 font-semibold')
+    : (isDark ? 'text-gray-200' : 'text-gray-700');
+  return (
+    <div className="flex items-baseline gap-1.5 min-w-0 py-0.5 border-b border-dashed border-gray-100/20">
+      <span className={`shrink-0 ${labelCls}`}>{label} :</span>
+      {badge ? (
+        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${badge.color}`}>{badge.label}</span>
+      ) : (
+        <span className={`truncate ${valueCls}`}>{value}</span>
+      )}
+    </div>
+  );
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -852,8 +888,8 @@ export default function GmailImporter() {
 
   const filtered = bookings.filter(b => filter === 'all' ? true : filter === 'new' ? b.bookingType === 'new' : b.bookingType === 'cancelled');
   const newCount = bookings.filter(b => b.bookingType === 'new').length;
-  // Tout type sélectionnable (new, cancelled, modified) sauf reminder
-  const selectedNew = bookings.filter(b => selected.has(b.messageId) && b.bookingType !== 'reminder').length;
+  // Sélectionnable : tout type sauf review et payout (pas d'action réservation possible)
+  const selectedNew = bookings.filter(b => selected.has(b.messageId) && b.bookingType !== 'review' && b.bookingType !== 'payout').length;
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -1135,6 +1171,77 @@ export default function GmailImporter() {
                 </button>
               </div>
 
+              {/* ── Récapitulatif global du parse ─────────────────────────── */}
+              {(() => {
+                const byType = bookings.reduce((acc, b) => {
+                  acc[b.bookingType] = (acc[b.bookingType] || 0) + 1;
+                  return acc;
+                }, {} as Record<string, number>);
+                const withProperty    = bookings.filter(b => b.propertyName).length;
+                const withCode        = bookings.filter(b => b.confirmationCode).length;
+                const withPrice       = bookings.filter(b => b.totalPrice > 0).length;
+                const withDates       = bookings.filter(b => b.checkIn && b.checkIn !== b.receivedAt?.split('T')[0]).length;
+                const withGuests      = bookings.filter(b => b.guests > 0).length;
+                const highConf        = bookings.filter(b => b.confidence >= 80).length;
+                const lowConf         = bookings.filter(b => b.confidence < 60).length;
+                const unknownProp     = bookings.filter(b => b.propertyName && !findMatchingProperty(b.propertyName, properties)).length;
+                return (
+                  <div className={`rounded-xl border p-4 text-xs space-y-3 ${isDark ? 'bg-gray-800/60 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className={`font-semibold text-sm flex items-center gap-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                      🔍 Récapitulatif parse — {bookings.length} email{bookings.length > 1 ? 's' : ''} analysé{bookings.length > 1 ? 's' : ''}
+                    </div>
+                    {/* Répartition par type */}
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(byType).sort((a,b) => b[1]-a[1]).map(([type, count]) => (
+                        <span key={type} className={`px-2 py-1 rounded-lg font-medium flex items-center gap-1 ${bookingTypeLabel[type as keyof typeof bookingTypeLabel]?.color ?? 'bg-gray-100 text-gray-600'}`}>
+                          {bookingTypeLabel[type as keyof typeof bookingTypeLabel]?.label ?? type}
+                          <span className="font-bold">{count}</span>
+                        </span>
+                      ))}
+                    </div>
+                    {/* Qualité du parse */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className={`rounded-lg p-2 text-center ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
+                        <div className={`text-lg font-bold ${highConf === bookings.length ? 'text-green-500' : 'text-amber-500'}`}>{highConf}/{bookings.length}</div>
+                        <div className={isDark ? 'text-gray-400' : 'text-gray-500'}>Confiance ≥ 80%</div>
+                      </div>
+                      <div className={`rounded-lg p-2 text-center ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
+                        <div className={`text-lg font-bold ${withDates === bookings.filter(b=>b.bookingType!=='payout'&&b.bookingType!=='review').length ? 'text-green-500' : 'text-amber-500'}`}>{withDates}</div>
+                        <div className={isDark ? 'text-gray-400' : 'text-gray-500'}>Dates extraites</div>
+                      </div>
+                      <div className={`rounded-lg p-2 text-center ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
+                        <div className={`text-lg font-bold ${withProperty > 0 ? 'text-blue-500' : 'text-gray-400'}`}>{withProperty}</div>
+                        <div className={isDark ? 'text-gray-400' : 'text-gray-500'}>Logement détecté</div>
+                      </div>
+                      <div className={`rounded-lg p-2 text-center ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
+                        <div className={`text-lg font-bold ${withCode > 0 ? 'text-violet-500' : 'text-gray-400'}`}>{withCode}</div>
+                        <div className={isDark ? 'text-gray-400' : 'text-gray-500'}>Code réservation</div>
+                      </div>
+                      <div className={`rounded-lg p-2 text-center ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
+                        <div className={`text-lg font-bold ${withPrice > 0 ? 'text-green-500' : 'text-gray-400'}`}>{withPrice}</div>
+                        <div className={isDark ? 'text-gray-400' : 'text-gray-500'}>Prix extrait</div>
+                      </div>
+                      <div className={`rounded-lg p-2 text-center ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
+                        <div className={`text-lg font-bold ${withGuests > 0 ? 'text-blue-500' : 'text-gray-400'}`}>{withGuests}</div>
+                        <div className={isDark ? 'text-gray-400' : 'text-gray-500'}>Voyageurs extraits</div>
+                      </div>
+                      {lowConf > 0 && (
+                        <div className={`rounded-lg p-2 text-center ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
+                          <div className="text-lg font-bold text-red-500">{lowConf}</div>
+                          <div className={isDark ? 'text-gray-400' : 'text-gray-500'}>Confiance {'<'} 60%</div>
+                        </div>
+                      )}
+                      {unknownProp > 0 && (
+                        <div className={`rounded-lg p-2 text-center ${isDark ? 'bg-gray-700' : 'bg-white border border-gray-200'}`}>
+                          <div className="text-lg font-bold text-orange-500">{unknownProp}</div>
+                          <div className={isDark ? 'text-gray-400' : 'text-gray-500'}>Logement inconnu</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="space-y-3">
                 {filtered.map(booking => {
                   const isSel = selected.has(booking.messageId);
@@ -1145,7 +1252,7 @@ export default function GmailImporter() {
                     <div key={booking.messageId} className={`rounded-xl border-2 transition-all ${isImp ? cardImported : isSel ? cardSelected : card}`}>
                       <div className="p-4">
                         <div className="flex items-start gap-3">
-                          {!isImp && booking.bookingType === 'new' ? (
+                          {!isImp && booking.bookingType !== 'review' && booking.bookingType !== 'payout' ? (
                             <input type="checkbox" checked={isSel} onChange={() => toggleSelect(booking.messageId)}
                               className="mt-1 w-4 h-4 rounded text-violet-600 cursor-pointer flex-shrink-0" />
                           ) : (
@@ -1224,11 +1331,54 @@ export default function GmailImporter() {
                         </div>
 
                         {isExp && (
-                          <div className={`mt-3 pt-3 border-t grid grid-cols-2 gap-2 text-xs ${isDark ? 'border-gray-700 text-gray-400' : 'border-gray-100 text-gray-600'}`}>
-                            <div><span className="font-medium">Message ID :</span> {booking.messageId.slice(0, 20)}…</div>
-                            {booking.guestEmail && <div><span className="font-medium">Email :</span> {booking.guestEmail}</div>}
-                            <div><span className="font-medium">Devise :</span> {booking.currency}</div>
-                            <div><span className="font-medium">Confiance :</span> {booking.confidence}%</div>
+                          <div className={`mt-3 pt-3 border-t text-xs ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
+                            {/* ── Récapitulatif parse brut ──────────────────── */}
+                            <div className={`font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                              🔍 Résultat du parse
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                              {/* Identification */}
+                              <ParseField label="Type" value={booking.bookingType} badge={bookingTypeLabel[booking.bookingType]} isDark={isDark} />
+                              <ParseField label="Confiance" value={`${booking.confidence}%`} isDark={isDark} highlight={booking.confidence >= 80 ? 'green' : booking.confidence >= 60 ? 'amber' : 'red'} />
+                              <ParseField label="Code réservation" value={booking.confirmationCode} isDark={isDark} mono />
+                              <ParseField label="Message ID" value={booking.messageId.slice(0, 22) + '…'} isDark={isDark} mono />
+                              {/* Voyageur */}
+                              <ParseField label="Voyageur" value={booking.guestName} isDark={isDark} />
+                              <ParseField label="Voyageurs" value={booking.guests > 0 ? `${booking.guests} personne${booking.guests > 1 ? 's' : ''}` : undefined} isDark={isDark} />
+                              <ParseField label="Email voyageur" value={booking.guestEmail} isDark={isDark} />
+                              <ParseField label="Téléphone" value={booking.guestPhone} isDark={isDark} />
+                              <ParseField label="Pays" value={booking.guestCountry} isDark={isDark} />
+                              <ParseField label="Langue" value={booking.guestLanguage} isDark={isDark} />
+                              {/* Séjour */}
+                              <ParseField label="Arrivée" value={booking.checkIn ? fmt(booking.checkIn) : undefined} isDark={isDark} />
+                              <ParseField label="Départ" value={booking.checkOut ? fmt(booking.checkOut) : undefined} isDark={isDark} />
+                              <ParseField label="Nuits" value={booking.nights > 0 ? `${booking.nights} nuit${booking.nights > 1 ? 's' : ''}` : undefined} isDark={isDark} />
+                              <ParseField label="Heure arrivée" value={booking.checkInTime} isDark={isDark} />
+                              <ParseField label="Heure départ" value={booking.checkOutTime} isDark={isDark} />
+                              {/* Logement */}
+                              <ParseField label="Logement détecté" value={booking.propertyName} isDark={isDark} highlight={booking.propertyName ? 'blue' : undefined} />
+                              {/* Finance */}
+                              <ParseField label="Prix total" value={booking.totalPrice > 0 ? `${booking.totalPrice} ${booking.currency}` : undefined} isDark={isDark} highlight="green" />
+                              <ParseField label="Prix / nuit" value={booking.nightlyRate ? `${booking.nightlyRate} ${booking.currency}` : undefined} isDark={isDark} />
+                              <ParseField label="Frais ménage" value={booking.cleaningFee ? `${booking.cleaningFee} ${booking.currency}` : undefined} isDark={isDark} />
+                              <ParseField label="Frais service" value={booking.serviceFee ? `${booking.serviceFee} ${booking.currency}` : undefined} isDark={isDark} />
+                              <ParseField label="Taxes" value={booking.taxAmount ? `${booking.taxAmount} ${booking.currency}` : undefined} isDark={isDark} />
+                              <ParseField label="Versement hôte" value={booking.hostPayout ? `${booking.hostPayout} ${booking.currency}` : undefined} isDark={isDark} highlight="green" />
+                              <ParseField label="Devise" value={booking.currency} isDark={isDark} />
+                              {/* Avis */}
+                              {booking.bookingType === 'review' && (
+                                <ParseField label="Note" value={booking.reviewRating ? `${'★'.repeat(booking.reviewRating)}${'☆'.repeat(5 - booking.reviewRating)} (${booking.reviewRating}/5)` : undefined} isDark={isDark} highlight="amber" />
+                              )}
+                              {booking.bookingType === 'review' && booking.reviewComment && (
+                                <div className="col-span-2">
+                                  <ParseField label="Commentaire" value={booking.reviewComment.slice(0, 200)} isDark={isDark} />
+                                </div>
+                              )}
+                              {/* Sujet */}
+                              <div className="col-span-2">
+                                <ParseField label="Sujet email" value={booking.subject} isDark={isDark} mono />
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
