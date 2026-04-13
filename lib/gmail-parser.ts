@@ -118,6 +118,11 @@ const IGNORED_PATTERNS = [
   /damage\s+claim/i,
   /resolution\s+center/i,
   /centre\s+de\s+r[eé]solution/i,
+  // Sujets corrompus / URLs de tracking Airbnb encodées (base64, paramètres URL)
+  // Ex: "661?c=.pi80.pkaG9tZV9yZXZpZXdzL2VtcGF0aGV0aWNfaG9zdF9yZXZpZXdfcmVjZWl2ZWQ%3D&eu"
+  /^[\w\d]+\?c=/,           // sujet qui commence par un identifiant puis "?c="
+  /[A-Za-z0-9+/]{20,}={0,2}/, // longue chaîne base64 dans le sujet
+  /\?(?:c|eu|t|s|ref)=[A-Za-z0-9%_+/.-]{10,}/, // paramètre URL encodé
 ];
 //
 // 🔵 NOUVELLE RÉSERVATION
@@ -920,6 +925,31 @@ export function parseAirbnbEmail(
     SUBJECT_PATTERNS.payout.some(p => p.test(subject)) ||
     SUBJECT_PATTERNS.payout.some(p => p.test(body.slice(0, 500)))
   ) bookingType = 'payout';
+  else {
+    // ─── Fallback : déduire le type depuis le corps / URLs de tracking ───────
+    // Les emails Airbnb contiennent parfois des slugs dans les URLs de tracking
+    // Ex: "home_reviews/empathetic_host_review_received" → review
+    //     "reservation_confirmation" → new
+    //     "host_payout" → payout
+    const bodySnippet = body.slice(0, 2000).toLowerCase();
+    if (/home_reviews|review_received|guest.*review|avis.*re[cç]u/i.test(bodySnippet)) {
+      bookingType = 'review';
+    } else if (/reservation_confirmation|booking_confirmation|new_reservation/i.test(bodySnippet)) {
+      bookingType = 'new';
+    } else if (/cancellation|booking_cancelled|reservation_cancelled/i.test(bodySnippet)) {
+      bookingType = 'cancelled';
+    } else if (/host_payout|payout_sent|versement/i.test(bodySnippet)) {
+      bookingType = 'payout';
+    } else if (/checkout|check_out|séjour.*termin/i.test(bodySnippet)) {
+      bookingType = 'checkout';
+    } else if (/reminder|rappel.*arriv/i.test(bodySnippet)) {
+      bookingType = 'reminder';
+    }
+    // Si toujours aucun type détecté depuis le corps → email non reconnu, ignorer
+    else {
+      return null;
+    }
+  }
 
   // 3. Nettoyer le HTML si présent
   const text = body
