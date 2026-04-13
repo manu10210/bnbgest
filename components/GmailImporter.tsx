@@ -300,6 +300,31 @@ export default function GmailImporter() {
       const useFallback = b.bookingType !== 'payout';
       let property = findMatchingProperty(b.propertyName, properties, useFallback ? defaultProperty : undefined);
 
+      // ── 1b. Pour les avis (review) : retrouver le logement par recoupement ──
+      // L'email d'avis Airbnb ne contient pas le nom du logement.
+      // Stratégie : chercher la réservation la plus récente du voyageur dans les 30j
+      // avant la réception de l'email, puis utiliser son propertyId.
+      if (!property && b.bookingType === 'review') {
+        const reviewDate = new Date(b.receivedAt);
+        // Chercher une réservation récente du même voyageur (checkout dans les 30j précédents)
+        const recentBooking = existingBookings
+          .filter(eb => {
+            const checkOut = new Date(eb.checkOut);
+            const daysDiff = (reviewDate.getTime() - checkOut.getTime()) / (1000 * 60 * 60 * 24);
+            return daysDiff >= 0 && daysDiff <= 30
+              && (eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase()
+                  || (b.confirmationCode && eb.specialRequests?.includes(b.confirmationCode)));
+          })
+          .sort((a, z) => new Date(z.checkOut).getTime() - new Date(a.checkOut).getTime())[0];
+
+        if (recentBooking) {
+          property = properties.find(p => p.id === recentBooking.propertyId) ?? defaultProperty;
+        } else {
+          // Dernier recours : utiliser le logement par défaut (hôte gère 1 logement)
+          property = defaultProperty;
+        }
+      }
+
       if (!property && b.bookingType !== 'cancelled' && b.bookingType !== 'payout') {
         summary.skipped++;
         summary.skippedNoProperty++;

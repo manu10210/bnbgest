@@ -188,6 +188,9 @@ export interface ParsedBooking {
   // Champs spécifiques aux avis
   reviewRating?: number;    // 1-5 étoiles
   reviewComment?: string;   // Commentaire du voyageur
+  // Identifiant Airbnb de l'annonce (extrait des URLs /rooms/XXXXXXXX dans le corps)
+  // Utile pour retrouver le logement même quand le nom n'est pas dans l'email (ex: avis)
+  airbnbListingId?: string;
 }
 
 // ─── Expéditeurs connus Airbnb ──────────────────────────────────────────────
@@ -1053,6 +1056,26 @@ function extractReviewComment(text: string): string | undefined {
   return undefined;
 }
 
+function extractAirbnbListingId(rawBody: string): string | undefined {
+  // Airbnb encode l'ID de l'annonce dans les URLs du corps de l'email.
+  // Formats observés :
+  //   https://www.airbnb.com/rooms/12345678
+  //   https://www.airbnb.fr/rooms/12345678?...
+  //   /rooms/12345678
+  //   airbnb.com/rooms/12345678/reviews
+  // On cherche dans le corps HTML BRUT (avant le strip HTML) pour avoir toutes les URLs.
+  const patterns = [
+    /airbnb\.[a-z]{2,3}\/rooms\/(\d{6,12})/i,
+    /\/rooms\/(\d{6,12})/i,
+    // URL encodée base64 (tracking Airbnb) → on ne tente pas de décoder, trop complexe
+  ];
+  for (const p of patterns) {
+    const m = rawBody.match(p);
+    if (m) return m[1];
+  }
+  return undefined;
+}
+
 function extractGuests(text: string, subject?: string): number {
   // Cherche le nombre total de voyageurs — additionne adultes+enfants+bébés si présents,
   // sinon prend le premier chiffre voyageur/guest/personne trouvé.
@@ -1588,6 +1611,9 @@ export function parseAirbnbEmail(
   const propertyNameExtracted = extractPropertyName(text, subject);
   const guestCountry        = extractGuestCountry(text);
   const guestLanguage       = detectGuestLanguage(text, subject);
+  // Extraire l'ID Airbnb de l'annonce depuis le corps HTML brut (avant stripping)
+  // Utile pour les emails d'avis qui ne contiennent pas le nom du logement
+  const airbnbListingId     = extractAirbnbListingId(body);
 
   // ── Champs financiers : selon le type ────────────────────────────────────
   // new/modified/cancelled → détail complet des frais
@@ -1789,6 +1815,10 @@ export function parseAirbnbEmail(
     // ── Avis ────────────────────────────────────────────────────────────────
     reviewRating:  bookingType === 'review' ? extractReviewRating(text, subject) : undefined,
     reviewComment: bookingType === 'review' ? extractReviewComment(text) : undefined,
+
+    // ── ID annonce Airbnb (depuis URL /rooms/XXXXXXXX dans le corps HTML brut) ─
+    // Permet de retrouver le logement pour les avis qui ne contiennent pas le nom
+    airbnbListingId,
   };
 }
 
