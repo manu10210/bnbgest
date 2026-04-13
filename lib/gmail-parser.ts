@@ -263,6 +263,10 @@ const SUBJECT_PATTERNS = {
     // "Marie a réservé votre logement" / "Marie a réservé"
     /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+a\s+r[eé]serv[eé]\s+votre\s+logement/,
     /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+a\s+r[eé]serv[eé]/,
+    // "Marie a demandé à réserver" (réservation instantanée ou demande)
+    /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+a\s+demand[eé]\s+[àa]\s+r[eé]server/,
+    // "Réservation instantanée"
+    /r[eé]servation\s+instantan[eé]e?/i,
     // "Nouvelle réservation" / "Confirmation de réservation" / "Réservation confirmée"
     /nouvelle\s+r[eé]servation/i,
     /confirmation\s+de\s+r[eé]servation/i,
@@ -407,6 +411,13 @@ function normalizeDate(raw: string): string {
   // Format ISO déjà OK
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
 
+  // Format DD/MM/YY (année à 2 chiffres) → interprété comme 20YY
+  const dmy2 = s.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2})$/);
+  if (dmy2) {
+    const year = 2000 + parseInt(dmy2[3]);
+    return `${year}-${dmy2[2].padStart(2, '0')}-${dmy2[1].padStart(2, '0')}`;
+  }
+
   // Format DD/MM/YYYY ou DD-MM-YYYY ou DD.MM.YYYY
   const dmy = s.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
   if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
@@ -503,10 +514,10 @@ function extractPrice(text: string): number {
   // IMPORTANT : on cherche le montant le plus pertinent dans cet ordre de priorité.
   // Un helper pour extraire un nombre depuis une chaîne capturée
   const parseAmount = (s: string): number => {
-    // Supporte "178,34" / "178.34" / "1 234,56" / "1 234.56"
-    const clean = s.replace(/[€$£\s]/g, '').replace(/\s/g, '');
-    // Format FR : "1 234,56" → supprimer espaces puis remplacer virgule
-    const normalized = clean.replace(/(\d)\s(\d)/g, '$1$2').replace(',', '.');
+    // Supporte "178,34" / "178.34" / "1 234,56" / "1 234.56" / espaces insécables \xa0
+    const clean = s.replace(/[€$£]/g, '').replace(/[\s\xa0\u202f]+/g, ' ').trim();
+    // Format FR : "1 234,56" → supprimer espaces inter-chiffres, puis remplacer virgule
+    const normalized = clean.replace(/(\d)\s+(\d)/g, '$1$2').replace(',', '.');
     const val = parseFloat(normalized);
     return (!isNaN(val) && val > 0 && val < 100000) ? val : 0;
   };
@@ -696,16 +707,28 @@ function extractReviewComment(text: string): string | undefined {
 }
 
 function extractGuests(text: string): number {
+  // Cherche le nombre total de voyageurs — additionne adultes+enfants si présents,
+  // sinon prend le premier chiffre voyageur/guest/personne trouvé.
+  const adultsM = text.match(/(\d+)\s*adultes?/i);
+  const childM  = text.match(/(\d+)\s*(?:enfants?|enfant[s]?|child(?:ren)?)/i);
+  if (adultsM) {
+    const adults = parseInt(adultsM[1]);
+    const children = childM ? parseInt(childM[1]) : 0;
+    const total = adults + children;
+    if (total >= 1 && total <= 20) return total;
+  }
   const patterns = [
     /(\d+)\s*voyageur[s]?/i,
     /(\d+)\s*guest[s]?/i,
     /(\d+)\s*personne[s]?/i,
     /(\d+)\s*person[s]?/i,
+    /nombre\s+de\s+voyageurs?\s*[:\-]\s*(\d+)/i,
+    /number\s+of\s+guests?\s*[:\-]\s*(\d+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const v = parseInt(m[1]);
+      const v = parseInt(m[1] || m[2]);
       if (v >= 1 && v <= 20) return v;
     }
   }
@@ -725,6 +748,8 @@ function extractGuestName(text: string, subject?: string): string {
       // "Prénom a réservé votre logement"
       // "Marie a réservé votre logement"
       new RegExp(`^(${NAME})\\s+a\\s+r[eé]serv[eé](?:\\s+votre\\s+logement)?`, 'u'),
+      // "Marie a demandé à réserver"
+      new RegExp(`^(${NAME})\\s+a\\s+demand[eé]\\s+[àa]\\s+r[eé]server`, 'u'),
       // "Prénom souhaite réserver votre logement" (demande)
       new RegExp(`^(${NAME})\\s+souhaite\\s+r[eé]server`, 'u'),
       // "Nouvelle réservation de Prénom"
@@ -735,6 +760,9 @@ function extractGuestName(text: string, subject?: string): string {
       /new\s+reservation\s+from\s+([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)/i,
       // 🔴 ANNULATION — "Prénom a annulé sa réservation"
       new RegExp(`^(${NAME})\\s+a\\s+annul[eé]`, 'u'),
+      // 🟡 MODIFICATION — "Prénom a modifié / souhaite changer / souhaite modifier"
+      new RegExp(`^(${NAME})\\s+a\\s+modifi[eé]`, 'u'),
+      new RegExp(`^(${NAME})\\s+souhaite\\s+(?:changer|modifier)`, 'u'),
       // 🟤 DÉPART — "Le séjour de Prénom se termine"
       new RegExp(`s[eé]jour\\s+de\\s+(${NAME})\\s+se\\s+termine`, 'iu'),
       // "Prénom part aujourd'hui"
@@ -750,8 +778,6 @@ function extractGuestName(text: string, subject?: string): string {
       /^([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+left\s+you\s+a\s+review/,
       // 💶 VERSEMENT — "versement pour le séjour de Prénom"
       new RegExp(`s[eé]jour\\s+de\\s+(${NAME})`, 'iu'),
-      // Modification : "Prénom a modifié sa réservation"
-      new RegExp(`^(${NAME})\\s+a\\s+modifi[eé]`, 'u'),
     ];
     for (const p of subjectPatterns) {
       const m = subject.match(p);
@@ -820,15 +846,18 @@ function extractConfirmationCode(text: string): string | undefined {
     /\b(HM[A-Z0-9]{6,10})\b/,
     // Code type HMXXXXX
     /\b([A-Z]{2,3}[0-9]{5,9})\b/,
-    // Générique: séquence mixte lettres+chiffres en majuscules
+    // Générique: séquence mixte lettres+chiffres en majuscules — uniquement si contexte clair
     /\b([A-Z]{2,4}[0-9]{4,8})\b/,
   ];
+
+  // Mots à blacklister (faux positifs fréquents)
+  const BLACKLIST = /^(EUR|USD|GBP|JPY|CHF|CAD|AUD|TTC|TVA|HT|PDF|URL|API|HTML|SMS|WWW|HTTP|HTTPS|AIRBNB|IATA|ISBN|IBAN|BIC|SWIFT|VAT|REF|NO|NR|FR|EN|DE|ES|IT|PT|NL|PL|RU|ZH|JA|KO|AR|TR|ID|TH)$/;
+
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
       const code = m[1].toUpperCase();
-      // Filtrer les faux positifs courants
-      if (!/^(EUR|USD|GBP|JPY|CHF|CAD|AUD)$/.test(code)) return code;
+      if (!BLACKLIST.test(code)) return code;
     }
   }
   return undefined;
@@ -1121,9 +1150,10 @@ export function parseAirbnbEmail(
     }
   }
 
-  // Pas de dates = email non parsable (sauf payout/reminder/review qui n'ont pas de dates séjour)
+  // Pas de dates = email non parsable (sauf payout/reminder/review/modified/cancelled qui n'ont pas forcément de dates)
   if (!checkIn || !checkOut) {
-    if (bookingType !== 'payout' && bookingType !== 'reminder' && bookingType !== 'review') return null;
+    if (bookingType !== 'payout' && bookingType !== 'reminder' && bookingType !== 'review'
+        && bookingType !== 'modified' && bookingType !== 'cancelled') return null;
   }
 
   // 5. Calculer les nuits
@@ -1143,7 +1173,7 @@ export function parseAirbnbEmail(
     // Code HM au format Airbnb (HMXXXXXXXX) = très fiable
     if (/^HM[A-Z0-9]{8,}$/i.test(confirmationCode)) confidence += 5;
   }
-  // Nom d'hôte trouvé (pas le placeholder générique)
+  // Nom de voyageur réel trouvé (pas le placeholder générique)
   const guestNameExtracted = extractGuestName(text, subject);
   if (guestNameExtracted && guestNameExtracted !== 'Voyageur Airbnb') confidence += 5;
   // Logement identifié dans le texte
@@ -1151,6 +1181,8 @@ export function parseAirbnbEmail(
   if (propertyNameExtracted) confidence += 5;
   // Versement : confidence de base 80 (pas de dates = normal)
   if (bookingType === 'payout') confidence = Math.max(confidence, 80);
+  // Revue sans dates : confidence de base 60 si au moins expéditeur OK
+  if (bookingType === 'review' && isAirbnbSender) confidence = Math.max(confidence, 60);
 
   return {
     source: 'gmail',
@@ -1199,16 +1231,17 @@ export function extractBodyFromPayload(payload: GmailPayload): string {
   if (payload.mimeType === 'text/html' && payload.body?.data) {
     return decodeGmailBody(payload.body.data);
   }
-  if (payload.parts) {
-    // Préférer text/plain, sinon text/html
+  if (payload.parts && payload.parts.length > 0) {
+    // Pour multipart/alternative : préférer text/plain (plus fiable pour le parsing)
+    // puis text/html, puis récurse dans les sous-parties (ex: multipart/mixed → multipart/alternative)
     const plain = payload.parts.find(p => p.mimeType === 'text/plain');
     if (plain?.body?.data) return decodeGmailBody(plain.body.data);
     const html = payload.parts.find(p => p.mimeType === 'text/html');
     if (html?.body?.data) return decodeGmailBody(html.body.data);
-    // Récursif pour multipart
+    // Récursif pour multipart imbriqués (multipart/mixed, multipart/related, etc.)
     for (const part of payload.parts) {
-      const text = extractBodyFromPayload(part);
-      if (text) return text;
+      const result = extractBodyFromPayload(part);
+      if (result && result.trim().length > 10) return result;
     }
   }
   return '';
