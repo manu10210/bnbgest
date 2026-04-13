@@ -137,26 +137,21 @@ export interface ParsedBooking {
   reviewComment?: string;  // Commentaire du voyageur
 }
 
-// ─── Patterns de détection des emails Airbnb ───────────────────────────────
-
 // ─── Expéditeurs connus Airbnb ──────────────────────────────────────────────
-// Airbnb utilise plusieurs domaines : automated@, express@, no-reply@, reply@
-// Les notifications hôtes viennent principalement de automated@airbnb.com
+// automated@airbnb.com = notifications hôtes principales
+// express@, no-reply@, reply@, support@ = autres domaines Airbnb
 const AIRBNB_SENDERS = [
   'automated@airbnb.com',
   'express@airbnb.com',
   'no-reply@airbnb.com',
   'reply@airbnb.com',
   'support@airbnb.com',
-  'airbnb.com',  // domaine générique pour capturer toute adresse @airbnb.com
+  'airbnb.com',  // domaine générique → capture toute adresse @*.airbnb.com
 ];
 
-// ─── Patterns de sujets ─────────────────────────────────────────────────────
-// ORDRE CRITIQUE : new > cancelled > modified > checkout > reminder > review > payout
-// Basés sur les vrais sujets Airbnb observés 2024-2026 (FR + EN)
-
-// ─── Emails à IGNORER (informatifs, maintenance, marketing) ─────────────────
-// Ces emails ne correspondent à aucune réservation — retourner null immédiatement
+// ─── Emails à IGNORER ───────────────────────────────────────────────────────
+// Retourne null immédiatement — pas de réservation à importer.
+// Voir JSDoc en tête de fichier pour la liste complète par catégorie.
 const IGNORED_PATTERNS = [
   // Maintenance / Actions requises sur les annonces
   /plusieurs\s+annonces?\s+n[eé]cessitent?\s+votre\s+attention/i,
@@ -259,85 +254,10 @@ const IGNORED_PATTERNS = [
   /[A-Za-z0-9+/]{20,}={0,2}/, // longue chaîne base64 dans le sujet
   /\?(?:c|eu|t|s|ref)=[A-Za-z0-9%_+/.-]{10,}/, // paramètre URL encodé
 ];
-//
-// ════════════════════════════════════════════════════════════════════════════
-// FORMATS RÉELS D'EMAILS AIRBNB OBSERVÉS (hôte FR, 2024-2026)
-// ════════════════════════════════════════════════════════════════════════════
-//
-// 🔵 NOUVELLE RÉSERVATION
-//   FR: "Marie a réservé votre logement"
-//       "Félicitations ! Marie a réservé votre logement."
-//       "Nouvelle réservation de Marie"
-//       "Confirmation de réservation"
-//       "Réservation confirmée"
-//       "Demande de réservation de Marie acceptée"
-//       "Réservation pour Mon Logement, 10–13 avr."
-//   EN: "Marie has booked your place"
-//       "Reservation confirmed"
-//       "New reservation from Marie"
-//       "Booking confirmation"
-//
-// 🔴 ANNULATION
-//   FR: "Marie a annulé sa réservation"
-//       "Réservation annulée"
-//       "Annulation de réservation"
-//   EN: "Booking cancelled"
-//       "Cancellation"
-//
-// 🟡 MODIFICATION
-//   FR: "Marie a modifié sa réservation"
-//       "Marie souhaite changer sa réservation"   ← observé réel
-//       "Marie souhaite modifier sa réservation"
-//       "Marie a changé sa réservation"
-//       "Demande de modification"
-//       "Changement de réservation"
-//   EN: "Marie wants to change their booking"
-//       "Alteration request"
-//
-// 🟤 DÉPART / CHECKOUT
-//   FR: "Le séjour de Marie se termine aujourd'hui"
-//       "Marie part aujourd'hui"
-//       "Départ de Marie"
-//   EN: "Your guest is checking out today"
-//       "Checking out today"
-//
-// 🔔 RAPPEL D'ARRIVÉE (reminder — lié à une réservation existante)
-//   FR: "Rappel : Marie arrive dans 2 jours"
-//       "Marie arrive demain !"
-//       "Avez-vous tout préparé pour l'arrivée de Marie ?"
-//       "Prochaine arrivée"
-//   EN: "Reminder: Marie arrives in 2 days"
-//       "Marie arriving tomorrow"
-//
-// ⭐ AVIS REÇU D'UN VOYAGEUR (review)
-//   FR: "Marie a laissé une évaluation 4 étoiles"  ← observé réel
-//       "vous a laissé une évaluation 5 étoiles !" ← observé réel (prénom masqué)
-//       "Marie a laissé un avis"
-//       "Marie a évalué votre logement"
-//       "Marie a noté votre logement"
-//       "Nouvel avis"
-//       "Nouvelle évaluation"
-//   EN: "Marie left you a review"
-//       "New review"
-//       "Marie rated your place"
-//
-// 💶 VERSEMENT HÔTE (payout — Airbnb envoie de l'argent à l'hôte)
-//   FR: "Nous avons envoyé un versement de 63,62 €"  ← format exact Airbnb
-//       "Votre versement de X €"
-//   EN: "Your payout of $X has been sent"
-//
-// 🚫 IGNORÉS (pas de réservation à importer) — voir IGNORED_PATTERNS :
-//   • "Plusieurs annonces nécessitent votre attention"  (maintenance)
-//   • "Marie a laissé une évaluation 4 étoiles" → RAPPEL HÔTE d'évaluer = ignoré
-//     vs "Marie a laissé une évaluation" = AVIS REÇU = review ✅
-//   • "X attend votre commentaire" / "Notez votre voyageur"  (rappel évaluation hôte)
-//   • "Vous avez demandé de l'argent à X"  (litige/sinistre)
-//   • "Vous avez proposé un montant différent à X"  (litige)
-//   • "Paiement effectué pour la réservation"  (paiement voyageur, pas versement hôte)
-//   • "Vous avez un nouveau message"  (messagerie)
-//   • "AirCover", "Dommages signalés"  (sinistre)
-//   • Sujet encodé base64 / URL de tracking  (email corrompu)
-//
+
+// ─── Patterns de classification par type d'email ────────────────────────────
+// ORDRE DE PRIORITÉ : new > cancelled > modified > checkout > reminder > review > payout
+// (voir JSDoc en tête de fichier pour la liste complète des sujets observés)
 const SUBJECT_PATTERNS = {
   new_fr: [
     // "Marie a réservé votre logement" / "Marie a réservé"
@@ -1097,18 +1017,23 @@ export function parseAirbnbEmail(
   else if (SUBJECT_PATTERNS.cancelled.some(p => p.test(subject))) bookingType = 'cancelled';
   else if (SUBJECT_PATTERNS.modified.some(p => p.test(subject))) bookingType = 'modified';
   else if (SUBJECT_PATTERNS.checkout.some(p => p.test(subject))) bookingType = 'checkout';
-  else if (SUBJECT_PATTERNS.reminder.some(p => p.test(subject))) bookingType = 'reminder';  // reminder AVANT review (rappels hôte d'évaluer classés reminder)
+  else if (SUBJECT_PATTERNS.reminder.some(p => p.test(subject))) bookingType = 'reminder';
   else if (SUBJECT_PATTERNS.review.some(p => p.test(subject))) bookingType = 'review';
   else if (
     SUBJECT_PATTERNS.payout.some(p => p.test(subject)) ||
     SUBJECT_PATTERNS.payout.some(p => p.test(body.slice(0, 500)))
   ) bookingType = 'payout';
   else {
-    // ─── Fallback : déduire le type depuis le corps / URLs de tracking ───────
-    // Les emails Airbnb contiennent parfois des slugs dans les URLs de tracking
-    // Ex: "home_reviews/empathetic_host_review_received" → review
-    //     "reservation_confirmation" → new
-    //     "host_payout" → payout
+    // ─── Fallback : déduire le type depuis les slugs URL du corps ────────────
+    // Airbnb encode le type d'email dans les URLs de tracking (base64 ou slug).
+    // Observé réel : sujet corrompu "661?c=.pi80.pkaG9tZV9yZXZpZXdzL..."
+    //   → décodé : "home_reviews/empathetic_host_review_received" → 'review'
+    // Autres slugs connus :
+    //   reservation_confirmation → 'new'
+    //   booking_cancelled        → 'cancelled'
+    //   host_payout / payout_sent → 'payout'
+    //   checkout / check_out     → 'checkout'
+    //   reminder / rappel_arriv  → 'reminder'
     const bodySnippet = body.slice(0, 2000).toLowerCase();
     if (/home_reviews|review_received|guest.*review|avis.*re[cç]u/i.test(bodySnippet)) {
       bookingType = 'review';
@@ -1118,13 +1043,12 @@ export function parseAirbnbEmail(
       bookingType = 'cancelled';
     } else if (/host_payout|payout_sent|versement/i.test(bodySnippet)) {
       bookingType = 'payout';
-    } else if (/checkout|check_out|séjour.*termin/i.test(bodySnippet)) {
+    } else if (/checkout|check_out|s[eé]jour.*termin/i.test(bodySnippet)) {
       bookingType = 'checkout';
     } else if (/reminder|rappel.*arriv/i.test(bodySnippet)) {
       bookingType = 'reminder';
-    }
-    // Si toujours aucun type détecté depuis le corps → email non reconnu, ignorer
-    else {
+    } else {
+      // Aucun type détecté ni depuis le sujet ni depuis le corps → ignorer
       return null;
     }
   }
