@@ -1340,9 +1340,10 @@ function extractPropertyName(text: string, subject?: string): string | undefined
       /\[airbnb\]\s+([^–\-\n\r]{5,60})(?:\s*[–\-]|$)/i,
       // "Airbnb – NomLogement"
       /\bairbnb\s*[–\-]\s*([^,\n\r]{5,60})/i,
-      // Format "NomLogement – Rappel" (nom en tête) — exclure si la partie gauche ressemble
-      // à un prénom+verbe ("Marie arrive – ...") ou un fragment de phrase
-      /^((?!.*\b(?:arrive|part|est\s+l[àa]|demain|aujourd)\b)[^–\-\n\r]{5,60}?)\s*[–\-]\s*(?:rappel|check|s[eé]jour|d[eé]part|arriv|confirm)/i,
+      // Format "NomLogement – Rappel/Réservation/Check-in/…" (nom en tête)
+      // Exclure si la partie gauche ressemble à un prénom+verbe ("Marie arrive – ...")
+      // Ajout : r[eé]servation|annul|modifi|avis pour couvrir tous les sujets courants
+      /^((?!.*\b(?:arrive|part|est\s+l[àa]|demain|aujourd)\b)[^–\-\n\r]{5,60}?)\s*[–\-]\s*(?:rappel|check|s[eé]jour|d[eé]part|arriv|confirm|r[eé]servation|annul|modifi|avis|review|paiement|payment|message)/i,
       // Concernant un logement
       /concernant\s+(?:votre\s+logement\s+)?([^,\n\r]{5,60})/i,
     ];

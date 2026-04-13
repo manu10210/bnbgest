@@ -64,6 +64,11 @@ const confidenceColor = (c: number) =>
 // Clés en minuscules sans accents (normalizeForMatch est appliqué avant lookup).
 // Valeurs = nom exact tel qu'il apparaît dans BNBGest (accents conservés).
 const PROPERTY_ALIASES: Record<string, string> = {
+  // ── APPARTEMENT BLEU RELAX ────────────────────────────────────────────────
+  'appartement bleu relax':                        'APPARTEMENT BLEU RELAX',
+  'appart bleu relax':                             'APPARTEMENT BLEU RELAX',
+  'appartement bleu':                              'APPARTEMENT BLEU RELAX',
+  'bleu relax':                                    'APPARTEMENT BLEU RELAX',
   // ── Maisonnette T2 quartier calme ─────────────────────────────────────────
   'maison de ville avec petite terrasse couverte': 'Maisonnette T2 quartier calme',
   'maison de ville':                               'Maisonnette T2 quartier calme',
