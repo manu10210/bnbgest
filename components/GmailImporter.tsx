@@ -863,6 +863,10 @@ export default function GmailImporter() {
           toImport
             .filter(b => !b.propertyName?.trim())
             .map(b => {
+              // Si le sujet ressemble à "Prénom arrive le...", ce n'est pas un nom de logement (faux positif)
+              const isPersonSubject = /^[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive)/i.test(b.subject || '');
+              if (isPersonSubject) return '';
+
               // Nettoyer le sujet pour en faire un nom de logement candidat
               return b.subject
                 ?.replace(/airbnb/gi, '')
