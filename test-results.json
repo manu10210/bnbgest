@@ -10,18 +10,14 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {
-      "actualWorkers": 1
-    },
+    "metadata": {},
     "preserveOutput": "always",
     "projects": [
       {
         "outputDir": "C:/Users/claus/BNBGEST/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "chromium",
         "name": "chromium",
         "testDir": "C:/Users/claus/BNBGEST/tests",
@@ -29,15 +25,13 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/Users/claus/BNBGEST/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "firefox",
         "name": "firefox",
         "testDir": "C:/Users/claus/BNBGEST/tests",
@@ -45,15 +39,13 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/Users/claus/BNBGEST/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "webkit",
         "name": "webkit",
         "testDir": "C:/Users/claus/BNBGEST/tests",
@@ -61,15 +53,13 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/Users/claus/BNBGEST/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
         "testDir": "C:/Users/claus/BNBGEST/tests",
@@ -77,15 +67,13 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/Users/claus/BNBGEST/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "Mobile Safari",
         "name": "Mobile Safari",
         "testDir": "C:/Users/claus/BNBGEST/tests",
@@ -93,15 +81,13 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       },
       {
         "outputDir": "C:/Users/claus/BNBGEST/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "Tablet",
         "name": "Tablet",
         "testDir": "C:/Users/claus/BNBGEST/tests",
@@ -109,7 +95,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 60000
+        "timeout": 30000
       }
     ],
     "quiet": false,
@@ -148,657 +134,19 @@
       "timeout": 120000
     }
   },
-  "suites": [
+  "suites": [],
+  "errors": [
     {
-      "title": "performance\\core-vitals.spec.ts",
-      "file": "performance/core-vitals.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [],
-      "suites": [
-        {
-          "title": "Core Web Vitals - Homepage",
-          "file": "performance/core-vitals.spec.ts",
-          "line": 20,
-          "column": 6,
-          "specs": [
-            {
-              "title": "LCP should be under 2.5s",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 4118,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "📊 LCP: 2252ms\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-04-12T12:07:11.082Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "46e68afe3e36ec1cdb0f-43306e762bf8b57eeb68",
-              "file": "performance/core-vitals.spec.ts",
-              "line": 21,
-              "column": 7
-            },
-            {
-              "title": "FCP should be under 1.8s",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 18205,
-                      "error": {
-                        "message": "TimeoutError: page.goto: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/\", waiting until \"load\"\u001b[22m\n",
-                        "stack": "TimeoutError: page.goto: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/\", waiting until \"load\"\u001b[22m\n\n    at C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts:42:16",
-                        "location": {
-                          "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                          "column": 16,
-                          "line": 42
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 40 |\u001b[39m\n \u001b[90m 41 |\u001b[39m   test(\u001b[32m'FCP should be under 1.8s'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 42 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 43 |\u001b[39m     \n \u001b[90m 44 |\u001b[39m     \u001b[36mconst\u001b[39m fcp \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m {\n \u001b[90m 45 |\u001b[39m       \u001b[36mreturn\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mPromise\u001b[39m\u001b[33m<\u001b[39m\u001b[33mnumber\u001b[39m\u001b[33m>\u001b[39m((resolve) \u001b[33m=>\u001b[39m {\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                            "column": 16,
-                            "line": 42
-                          },
-                          "message": "TimeoutError: page.goto: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/\", waiting until \"load\"\u001b[22m\n\n\n\u001b[0m \u001b[90m 40 |\u001b[39m\n \u001b[90m 41 |\u001b[39m   test(\u001b[32m'FCP should be under 1.8s'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 42 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 43 |\u001b[39m     \n \u001b[90m 44 |\u001b[39m     \u001b[36mconst\u001b[39m fcp \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mevaluate(() \u001b[33m=>\u001b[39m {\n \u001b[90m 45 |\u001b[39m       \u001b[36mreturn\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mPromise\u001b[39m\u001b[33m<\u001b[39m\u001b[33mnumber\u001b[39m\u001b[33m>\u001b[39m((resolve) \u001b[33m=>\u001b[39m {\u001b[0m\n\u001b[2m    at C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts:42:16\u001b[22m"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-04-12T12:07:16.178Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-a65b8-ge-FCP-should-be-under-1-8s-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-a65b8-ge-FCP-should-be-under-1-8s-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-a65b8-ge-FCP-should-be-under-1-8s-chromium\\error-context.md"
-                        },
-                        {
-                          "name": "trace",
-                          "contentType": "application/zip",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-a65b8-ge-FCP-should-be-under-1-8s-chromium\\trace.zip"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                        "column": 16,
-                        "line": 42
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "46e68afe3e36ec1cdb0f-4e1e8493b9acae1ed2f7",
-              "file": "performance/core-vitals.spec.ts",
-              "line": 41,
-              "column": 7
-            },
-            {
-              "title": "TTFB should be under 800ms",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 7863,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m800\u001b[39m\nReceived:   \u001b[31m2982\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m800\u001b[39m\nReceived:   \u001b[31m2982\u001b[39m\n    at C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts:67:18",
-                        "location": {
-                          "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                          "column": 18,
-                          "line": 67
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 65 |\u001b[39m     console\u001b[33m.\u001b[39mlog(\u001b[32m`📊 TTFB: ${ttfb}ms`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m     expect(response\u001b[33m?\u001b[39m\u001b[33m.\u001b[39mstatus())\u001b[33m.\u001b[39mtoBe(\u001b[35m200\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m     expect(ttfb)\u001b[33m.\u001b[39mtoBeLessThan(\u001b[35m800\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                  \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 69 |\u001b[39m\n \u001b[90m 70 |\u001b[39m   test(\u001b[32m'CLS should be under 0.1'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                            "column": 18,
-                            "line": 67
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m800\u001b[39m\nReceived:   \u001b[31m2982\u001b[39m\n\n\u001b[0m \u001b[90m 65 |\u001b[39m     console\u001b[33m.\u001b[39mlog(\u001b[32m`📊 TTFB: ${ttfb}ms`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m     expect(response\u001b[33m?\u001b[39m\u001b[33m.\u001b[39mstatus())\u001b[33m.\u001b[39mtoBe(\u001b[35m200\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m     expect(ttfb)\u001b[33m.\u001b[39mtoBeLessThan(\u001b[35m800\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                  \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 69 |\u001b[39m\n \u001b[90m 70 |\u001b[39m   test(\u001b[32m'CLS should be under 0.1'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m\n\u001b[2m    at C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts:67:18\u001b[22m"
-                        }
-                      ],
-                      "stdout": [
-                        {
-                          "text": "📊 TTFB: 2982ms\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-04-12T12:07:37.687Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-b2968--TTFB-should-be-under-800ms-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-b2968--TTFB-should-be-under-800ms-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-b2968--TTFB-should-be-under-800ms-chromium\\error-context.md"
-                        },
-                        {
-                          "name": "trace",
-                          "contentType": "application/zip",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-b2968--TTFB-should-be-under-800ms-chromium\\trace.zip"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                        "column": 18,
-                        "line": 67
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "46e68afe3e36ec1cdb0f-c37e9777d6aa1d23e4e2",
-              "file": "performance/core-vitals.spec.ts",
-              "line": 60,
-              "column": 7
-            },
-            {
-              "title": "CLS should be under 0.1",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 7535,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "📊 CLS: 0.000\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-04-12T12:07:50.434Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "46e68afe3e36ec1cdb0f-96499f54d47634f5e8c2",
-              "file": "performance/core-vitals.spec.ts",
-              "line": 70,
-              "column": 7
-            },
-            {
-              "title": "Page load should complete in under 3s",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 3902,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "📊 Page Load: 2718ms\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-04-12T12:07:58.684Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "46e68afe3e36ec1cdb0f-f880232fb39b56d88e80",
-              "file": "performance/core-vitals.spec.ts",
-              "line": 98,
-              "column": 7
-            }
-          ]
-        },
-        {
-          "title": "Core Web Vitals - Admin Dashboard",
-          "file": "performance/core-vitals.spec.ts",
-          "line": 109,
-          "column": 6,
-          "specs": [
-            {
-              "title": "Admin LCP should be under 3s",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 13712,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m3000\u001b[39m\nReceived:   \u001b[31m5000\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m3000\u001b[39m\nReceived:   \u001b[31m5000\u001b[39m\n    at C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts:128:17",
-                        "location": {
-                          "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                          "column": 17,
-                          "line": 128
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 126 |\u001b[39m     console\u001b[33m.\u001b[39mlog(\u001b[32m`📊 Admin LCP: ${Math.round(lcp)}ms`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 127 |\u001b[39m     \u001b[90m// More lenient threshold for admin (includes auth redirect)\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 128 |\u001b[39m     expect(lcp)\u001b[33m.\u001b[39mtoBeLessThan(\u001b[35m3000\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 129 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 130 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 131 |\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                            "column": 17,
-                            "line": 128
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m3000\u001b[39m\nReceived:   \u001b[31m5000\u001b[39m\n\n\u001b[0m \u001b[90m 126 |\u001b[39m     console\u001b[33m.\u001b[39mlog(\u001b[32m`📊 Admin LCP: ${Math.round(lcp)}ms`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 127 |\u001b[39m     \u001b[90m// More lenient threshold for admin (includes auth redirect)\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 128 |\u001b[39m     expect(lcp)\u001b[33m.\u001b[39mtoBeLessThan(\u001b[35m3000\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 129 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 130 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 131 |\u001b[39m\u001b[0m\n\u001b[2m    at C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts:128:17\u001b[22m"
-                        }
-                      ],
-                      "stdout": [
-                        {
-                          "text": "📊 Admin LCP: 5000ms\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-04-12T12:08:02.638Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-fe293-dmin-LCP-should-be-under-3s-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-fe293-dmin-LCP-should-be-under-3s-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-fe293-dmin-LCP-should-be-under-3s-chromium\\error-context.md"
-                        },
-                        {
-                          "name": "trace",
-                          "contentType": "application/zip",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Co-fe293-dmin-LCP-should-be-under-3s-chromium\\trace.zip"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                        "column": 17,
-                        "line": 128
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "46e68afe3e36ec1cdb0f-192301f4cee29276b3f8",
-              "file": "performance/core-vitals.spec.ts",
-              "line": 110,
-              "column": 7
-            }
-          ]
-        },
-        {
-          "title": "Bundle Performance",
-          "file": "performance/core-vitals.spec.ts",
-          "line": 132,
-          "column": 6,
-          "specs": [
-            {
-              "title": "Total JavaScript size should be reasonable",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 6631,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m512000\u001b[39m\nReceived:   \u001b[31m761017\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m512000\u001b[39m\nReceived:   \u001b[31m761017\u001b[39m\n    at C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts:154:20",
-                        "location": {
-                          "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                          "column": 20,
-                          "line": 154
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 152 |\u001b[39m     \n \u001b[90m 153 |\u001b[39m     \u001b[90m// Should be under 500KB total\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 154 |\u001b[39m     expect(jsSize)\u001b[33m.\u001b[39mtoBeLessThan(\u001b[35m500\u001b[39m \u001b[33m*\u001b[39m \u001b[35m1024\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 155 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 156 |\u001b[39m\n \u001b[90m 157 |\u001b[39m   test(\u001b[32m'Total CSS size should be reasonable'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                            "column": 20,
-                            "line": 154
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: < \u001b[32m512000\u001b[39m\nReceived:   \u001b[31m761017\u001b[39m\n\n\u001b[0m \u001b[90m 152 |\u001b[39m     \n \u001b[90m 153 |\u001b[39m     \u001b[90m// Should be under 500KB total\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 154 |\u001b[39m     expect(jsSize)\u001b[33m.\u001b[39mtoBeLessThan(\u001b[35m500\u001b[39m \u001b[33m*\u001b[39m \u001b[35m1024\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 155 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 156 |\u001b[39m\n \u001b[90m 157 |\u001b[39m   test(\u001b[32m'Total CSS size should be reasonable'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m\n\u001b[2m    at C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts:154:20\u001b[22m"
-                        }
-                      ],
-                      "stdout": [
-                        {
-                          "text": "📊 Total JS: 743 KB\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-04-12T12:08:19.296Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Bu-aa79c-t-size-should-be-reasonable-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Bu-aa79c-t-size-should-be-reasonable-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Bu-aa79c-t-size-should-be-reasonable-chromium\\error-context.md"
-                        },
-                        {
-                          "name": "trace",
-                          "contentType": "application/zip",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Bu-aa79c-t-size-should-be-reasonable-chromium\\trace.zip"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                        "column": 20,
-                        "line": 154
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "46e68afe3e36ec1cdb0f-2a63d1c8f071268601f6",
-              "file": "performance/core-vitals.spec.ts",
-              "line": 133,
-              "column": 7
-            },
-            {
-              "title": "Total CSS size should be reasonable",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 4,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 6180,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "📊 Total CSS: 0 KB\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-04-12T12:08:30.362Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "46e68afe3e36ec1cdb0f-597f1095188873f73c65",
-              "file": "performance/core-vitals.spec.ts",
-              "line": 157,
-              "column": 7
-            }
-          ]
-        },
-        {
-          "title": "Resource Loading",
-          "file": "performance/core-vitals.spec.ts",
-          "line": 182,
-          "column": 6,
-          "specs": [
-            {
-              "title": "Images should be lazy loaded",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 4,
-                      "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 4848,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: > \u001b[32m0\u001b[39m\nReceived:   \u001b[31m0\u001b[39m",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: > \u001b[32m0\u001b[39m\nReceived:   \u001b[31m0\u001b[39m\n    at C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts:193:24",
-                        "location": {
-                          "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                          "column": 24,
-                          "line": 193
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 191 |\u001b[39m     console\u001b[33m.\u001b[39mlog(\u001b[32m`📊 Lazy images: ${lazyImages}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 192 |\u001b[39m     \u001b[90m// At least some images should be lazy loaded\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 193 |\u001b[39m     expect(lazyImages)\u001b[33m.\u001b[39mtoBeGreaterThan(\u001b[35m0\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 194 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 195 |\u001b[39m\n \u001b[90m 196 |\u001b[39m   test(\u001b[32m'Fonts should be optimized'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                            "column": 24,
-                            "line": 193
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: > \u001b[32m0\u001b[39m\nReceived:   \u001b[31m0\u001b[39m\n\n\u001b[0m \u001b[90m 191 |\u001b[39m     console\u001b[33m.\u001b[39mlog(\u001b[32m`📊 Lazy images: ${lazyImages}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 192 |\u001b[39m     \u001b[90m// At least some images should be lazy loaded\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 193 |\u001b[39m     expect(lazyImages)\u001b[33m.\u001b[39mtoBeGreaterThan(\u001b[35m0\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 194 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 195 |\u001b[39m\n \u001b[90m 196 |\u001b[39m   test(\u001b[32m'Fonts should be optimized'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m\n\u001b[2m    at C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts:193:24\u001b[22m"
-                        }
-                      ],
-                      "stdout": [
-                        {
-                          "text": "📊 Lazy images: 0\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-04-12T12:08:37.047Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Re-e3f3c-mages-should-be-lazy-loaded-chromium\\test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Re-e3f3c-mages-should-be-lazy-loaded-chromium\\video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Re-e3f3c-mages-should-be-lazy-loaded-chromium\\error-context.md"
-                        },
-                        {
-                          "name": "trace",
-                          "contentType": "application/zip",
-                          "path": "C:\\Users\\claus\\BNBGEST\\test-results\\performance-core-vitals-Re-e3f3c-mages-should-be-lazy-loaded-chromium\\trace.zip"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "C:\\Users\\claus\\BNBGEST\\tests\\performance\\core-vitals.spec.ts",
-                        "column": 24,
-                        "line": 193
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "46e68afe3e36ec1cdb0f-3aee22e8a3c1505a4d20",
-              "file": "performance/core-vitals.spec.ts",
-              "line": 183,
-              "column": 7
-            },
-            {
-              "title": "Fonts should be optimized",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 5,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 5125,
-                      "errors": [],
-                      "stdout": [
-                        {
-                          "text": "📊 Font Display optimized: true\n"
-                        }
-                      ],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-04-12T12:08:46.101Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "46e68afe3e36ec1cdb0f-0e5457a7fc8075a0dc95",
-              "file": "performance/core-vitals.spec.ts",
-              "line": 196,
-              "column": 7
-            }
-          ]
-        }
-      ]
+      "message": "Error: Process from config.webServer exited early.",
+      "stack": "Error: Process from config.webServer exited early."
     }
   ],
-  "errors": [],
   "stats": {
-    "startTime": "2026-04-12T12:07:04.195Z",
-    "duration": 109313.905,
-    "expected": 5,
+    "startTime": "2026-04-13T19:35:47.442Z",
+    "duration": 7747.025999999999,
+    "expected": 0,
     "skipped": 0,
-    "unexpected": 5,
+    "unexpected": 0,
     "flaky": 0
   }
 }
