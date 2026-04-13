@@ -1633,11 +1633,13 @@ export function parseAirbnbEmail(
   const airbnbListingId     = extractAirbnbListingId(body);
 
   // ── Champs financiers : selon le type ────────────────────────────────────
-  // new/modified/cancelled → détail complet des frais
-  // checkout/reminder      → totalPrice uniquement (pas de détail frais)
-  // review                 → aucun champ financier
-  // payout                 → seulement hostPayout + payoutDate/Method
-  const isFinanceType = bookingType === 'new' || bookingType === 'modified' || bookingType === 'cancelled';
+  // new/modified/cancelled/reminder → détail complet des frais
+  // checkout                        → totalPrice uniquement (pas de détail frais)
+  // review                          → aucun champ financier
+  // payout                          → seulement hostPayout + payoutDate/Method
+  // Les emails de rappel Airbnb contiennent souvent le récapitulatif complet du séjour
+  // → on extrait nightlyRate/cleaningFee/serviceFee/taxAmount pour enrichir la fiche
+  const isFinanceType = bookingType === 'new' || bookingType === 'modified' || bookingType === 'cancelled' || bookingType === 'reminder';
   const nightlyRate  = isFinanceType ? extractNightlyRate(text) : undefined;
   const cleaningFee  = isFinanceType ? extractCleaningFee(text) : undefined;
   const serviceFee   = isFinanceType ? extractServiceFee(text) : undefined;

@@ -71,8 +71,13 @@ export interface Booking {
   hostPayout?: number;       // Virement reçu de Airbnb
   cleaningFee?: number;      // Frais de ménage facturés
   serviceFee?: number;       // Commission Airbnb
+  nightlyRate?: number;      // Prix par nuit
+  taxAmount?: number;        // Taxes (TVA, taxe de séjour…)
   payoutDate?: string;       // Date du virement (YYYY-MM-DD)
   payoutConfirmed?: boolean; // true = virement confirmé par email
+  // Horaires check-in/check-out (depuis emails Airbnb)
+  checkInTime?: string;      // Heure d'arrivée (ex: "15:00")
+  checkOutTime?: string;     // Heure de départ (ex: "11:00")
 }
 
 export interface Guest {

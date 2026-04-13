@@ -33,10 +33,14 @@ interface ParsedBooking {
   checkIn: string;
   checkOut: string;
   nights: number;
+  checkInTime?: string;    // Heure d'arrivée (ex: "15:00")
+  checkOutTime?: string;   // Heure de départ (ex: "11:00")
   totalPrice: number;
   currency: string;
+  nightlyRate?: number;    // Prix par nuit
   cleaningFee?: number;
   serviceFee?: number;
+  taxAmount?: number;      // Taxes
   hostPayout?: number;
   propertyName?: string;
   confirmationCode?: string;
@@ -572,9 +576,62 @@ export default function GmailImporter() {
         }
       }
 
-      // ── 4e. Rappel (reminder) → créer tâche de préparation J-1 ──────────
+      // ── 4e. Rappel (reminder) → enrichir la réservation + créer tâche préparation J-1 ──
       if (b.bookingType === 'reminder' && property) {
-        // Créer une tâche d'inspection/préparation J-1
+        // ── Retrouver la réservation existante correspondante ──────────────
+        const matchedReminder = b.confirmationCode
+          ? existingBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
+          : existingBookings.find(eb =>
+              eb.propertyId === property.id &&
+              eb.checkIn === b.checkIn &&
+              (eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase() || eb.guestId === guestId)
+            );
+
+        if (matchedReminder) {
+          // Enrichir la réservation existante avec les infos complémentaires du rappel
+          const updates: Record<string, unknown> = {};
+          if (b.checkInTime  && !matchedReminder.checkInTime)  updates.checkInTime  = b.checkInTime;
+          if (b.checkOutTime && !matchedReminder.checkOutTime) updates.checkOutTime = b.checkOutTime;
+          if (b.guests > 0   && !matchedReminder.guests)       updates.guests       = b.guests;
+          if (b.totalPrice > 0 && !matchedReminder.totalPrice) updates.totalPrice   = b.totalPrice;
+          if (b.nightlyRate  && !matchedReminder.nightlyRate)   updates.nightlyRate  = b.nightlyRate;
+          if (b.cleaningFee  && !matchedReminder.cleaningFee)   updates.cleaningFee  = b.cleaningFee;
+          if (b.serviceFee   && !matchedReminder.serviceFee)    updates.serviceFee   = b.serviceFee;
+          if (b.taxAmount    && !matchedReminder.taxAmount)     updates.taxAmount    = b.taxAmount;
+          if (Object.keys(updates).length > 0) {
+            updateBooking(matchedReminder.id, updates as Parameters<typeof updateBooking>[1]);
+          }
+          summary.created++; // compté comme une action (enrichissement)
+        } else {
+          // Aucune réservation trouvée → en créer une depuis le rappel
+          // (l'email de confirmation n'a peut-être pas encore été importé)
+          addBooking({
+            propertyId: property.id,
+            guestId,
+            checkIn: b.checkIn,
+            checkOut: b.checkOut,
+            guests: b.guests || 1,
+            totalPrice: b.totalPrice || 0,
+            status: 'confirmed',
+            paymentStatus: b.totalPrice > 0 ? 'paid' : 'pending',
+            checkInTime:  b.checkInTime,
+            checkOutTime: b.checkOutTime,
+            nightlyRate:  b.nightlyRate,
+            cleaningFee:  b.cleaningFee,
+            serviceFee:   b.serviceFee,
+            taxAmount:    b.taxAmount,
+            specialRequests: [
+              b.confirmationCode ? `Code Airbnb: ${b.confirmationCode}` : '',
+              `Importé depuis rappel Gmail (${fmt(b.receivedAt)})`,
+              b.propertyName ? `Logement: ${b.propertyName}` : '',
+              b.guestPhone   ? `Tél: ${b.guestPhone}`        : '',
+            ].filter(Boolean).join(' | '),
+            guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
+          });
+          summary.created++;
+        }
+
+        // ── Créer une tâche de préparation J-1 ────────────────────────────
         const prepDate = new Date(b.checkIn);
         prepDate.setDate(prepDate.getDate() - 1);
         const prepDateStr = prepDate.toISOString().split('T')[0];
@@ -584,7 +641,9 @@ export default function GmailImporter() {
           title: `🔍 Préparation J-1 — ${b.guestName}`,
           description: [
             `Vérification avant arrivée le ${fmt(b.checkIn)} (${b.nights} nuit${b.nights > 1 ? 's' : ''}).`,
-            `Voyageurs : ${b.guests}.`,
+            b.guests > 1 ? `${b.guests} voyageurs.` : '1 voyageur.',
+            b.checkInTime  ? `Heure d'arrivée prévue : ${b.checkInTime}.`  : '',
+            b.checkOutTime ? `Heure de départ prévue : ${b.checkOutTime}.` : '',
             b.confirmationCode ? `Réservation : ${b.confirmationCode}.` : '',
             'Vérifier : linge propre, ménage, équipements, codes d\'accès.',
           ].filter(Boolean).join(' '),
