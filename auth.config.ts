@@ -8,6 +8,34 @@ const AUTHORIZED_ADMINS = [
   'employee@bnbgest.com'
 ];
 
+// ─── Refresh automatique du token Google ────────────────────────────────────
+// Quand l'accessToken expire (1h), on le renouvelle via le refreshToken
+async function refreshGoogleAccessToken(refreshToken: string): Promise<{
+  accessToken: string;
+  expiresAt: number;
+} | null> {
+  try {
+    const resp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id:     process.env.GOOGLE_CLIENT_ID     ?? '',
+        client_secret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+        grant_type:    'refresh_token',
+        refresh_token: refreshToken,
+      }),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json() as { access_token: string; expires_in: number };
+    return {
+      accessToken: data.access_token,
+      expiresAt:   Math.floor(Date.now() / 1000) + data.expires_in,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export const authConfig = {
   providers: [
     Google({
@@ -63,6 +91,30 @@ export const authConfig = {
           token.role = 'admin';
         }
       }
+
+      // ── Refresh automatique du token Google ──────────────────────────────
+      // Si le token expire dans moins de 5 minutes, le renouveler silencieusement
+      if (
+        token.provider === 'google' &&
+        token.refreshToken &&
+        token.expiresAt &&
+        typeof token.expiresAt === 'number' &&
+        Date.now() / 1000 > (token.expiresAt as number) - 300
+      ) {
+        console.log('[Auth] Token Google expiré ou proche expiration — refresh automatique');
+        const refreshed = await refreshGoogleAccessToken(token.refreshToken as string);
+        if (refreshed) {
+          token.accessToken = refreshed.accessToken;
+          token.expiresAt   = refreshed.expiresAt;
+          token.tokenError  = undefined;
+          console.log('[Auth] Token Google rafraîchi avec succès');
+        } else {
+          // Refresh échoué → signaler à l'UI pour forcer reconnexion manuelle
+          token.tokenError = 'RefreshAccessTokenError';
+          console.warn('[Auth] Échec du refresh token Google — reconnexion requise');
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -71,8 +123,9 @@ export const authConfig = {
         session.user.id = token.id as string;
         session.user.provider = token.provider as string;
       }
-      // Exposer l'access token dans la session (lecture côté API routes)
+      // Exposer l'access token et l'erreur éventuelle dans la session (lecture côté API routes)
       (session as { accessToken?: unknown }).accessToken = token.accessToken;
+      (session as { tokenError?: unknown }).tokenError   = token.tokenError;
       return session;
     }
   },

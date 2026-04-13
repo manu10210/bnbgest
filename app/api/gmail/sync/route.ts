@@ -63,14 +63,16 @@ export async function GET(req: NextRequest) {
 
   // 2. Récupérer le token d'accès Google
   const accessToken = (session as { accessToken?: string }).accessToken;
-  if (!accessToken) {
+  const tokenError  = (session as { tokenError?: string }).tokenError;
+
+  if (!accessToken || tokenError === 'RefreshAccessTokenError') {
     return NextResponse.json(
       {
-        error: 'Token Gmail non disponible',
+        error: 'Autorisation Gmail expirée',
         action: 'reconnect',
-        message: 'Veuillez vous déconnecter et vous reconnecter pour autoriser l\'accès Gmail',
+        message: 'Votre autorisation Gmail a expiré. Reconnectez-vous avec Google pour la renouveler.',
       },
-      { status: 403 }
+      { status: 401 }
     );
   }
 
@@ -191,7 +193,9 @@ export async function POST(req: NextRequest) {
   }
 
   const accessToken = (session as { accessToken?: string }).accessToken;
-  if (!accessToken) {
+  const tokenError  = (session as { tokenError?: string }).tokenError;
+
+  if (!accessToken || tokenError === 'RefreshAccessTokenError') {
     return NextResponse.json({ connected: false, action: 'reconnect' });
   }
 

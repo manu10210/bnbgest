@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signIn } from 'next-auth/react';
 import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import {
@@ -179,6 +179,16 @@ export default function GmailImporter() {
   const [currentWizard, setCurrentWizard] = useState<DetectedPropertyInfo | null>(null);
 
   const isGoogleUser = (session as { user?: { provider?: string } })?.user?.provider === 'google';
+  const tokenError   = (session as { tokenError?: string })?.tokenError;
+  const needsReconnect = tokenError === 'RefreshAccessTokenError' || error === 'reconnect';
+
+  // ─── Reconnexion Google automatique ──────────────────────────────────────
+  const handleReconnect = useCallback(() => {
+    signIn('google', {
+      callbackUrl: window.location.href,
+      // Forcer le consentement pour obtenir un nouveau refresh_token
+    });
+  }, []);
 
   // ─── Vérifier la connexion Gmail ─────────────────────────────────────────
 
@@ -188,6 +198,7 @@ export default function GmailImporter() {
     try {
       const res = await fetch('/api/gmail/sync', { method: 'POST' });
       const data = await res.json();
+      if (data.action === 'reconnect') { setError('reconnect'); setStatus('idle'); return; }
       setGmailConnected(data.connected);
       if (data.email) setGmailEmail(data.email);
       setStatus('idle');
@@ -789,15 +800,22 @@ export default function GmailImporter() {
             </p>
           </div>
         </div>
-      ) : error === 'reconnect' ? (
-        <div className={`border rounded-xl p-5 flex items-start gap-3 ${isDark ? 'bg-red-900/30 border-red-700' : 'bg-red-50 border-red-200'}`}>
-          <XCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-          <div>
-            <div className={`font-semibold ${isDark ? 'text-red-300' : 'text-red-800'}`}>Autorisation Gmail expirée</div>
-            <p className={`text-sm mt-1 ${isDark ? 'text-red-400' : 'text-red-700'}`}>
-              Déconnectez-vous et reconnectez-vous avec Google pour renouveler l&apos;autorisation.
+      ) : needsReconnect ? (
+        <div className={`border rounded-xl p-5 flex items-start gap-3 ${isDark ? 'bg-amber-900/20 border-amber-700' : 'bg-amber-50 border-amber-300'}`}>
+          <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className={`font-semibold ${isDark ? 'text-amber-300' : 'text-amber-800'}`}>🔐 Autorisation Gmail expirée</div>
+            <p className={`text-sm mt-1 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+              Votre accès Gmail a expiré. Cliquez sur le bouton ci-dessous pour renouveler l&apos;autorisation automatiquement.
             </p>
           </div>
+          <button
+            onClick={handleReconnect}
+            className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors shadow-sm"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Se reconnecter
+          </button>
         </div>
       ) : (
         <>
