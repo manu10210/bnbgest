@@ -118,6 +118,18 @@ const IGNORED_PATTERNS = [
   /damage\s+claim/i,
   /resolution\s+center/i,
   /centre\s+de\s+r[eé]solution/i,
+  // Litiges / Offres de remboursement / Négociation montant
+  /vous\s+avez\s+propos[eé]\s+un\s+montant\s+diff[eé]rent/i,
+  /a\s+propos[eé]\s+un\s+montant\s+diff[eé]rent/i,
+  /offre\s+de\s+remboursement/i,
+  /proposition\s+de\s+remboursement/i,
+  /litige\s+(?:ouvert|en\s+cours|soumis)/i,
+  /contestation\s+de\s+(?:r[eé]servation|paiement)/i,
+  /vous\s+avez\s+contest[eé]/i,
+  /a\s+contest[eé]\s+(?:le\s+)?remboursement/i,
+  /offered\s+a\s+different\s+amount/i,
+  /submitted\s+a\s+reimbursement/i,
+  /dispute\s+(?:opened|submitted|filed)/i,
   // Sujets corrompus / URLs de tracking Airbnb encodées (base64, paramètres URL)
   // Ex: "661?c=.pi80.pkaG9tZV9yZXZpZXdzL2VtcGF0aGV0aWNfaG9zdF9yZXZpZXdfcmVjZWl2ZWQ%3D&eu"
   /^[\w\d]+\?c=/,           // sujet qui commence par un identifiant puis "?c="
