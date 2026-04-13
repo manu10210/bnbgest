@@ -84,6 +84,37 @@
  *          confidence minimum = 80 même sans dates
  *
  * ════════════════════════════════════════════════════════════════════════════
+ * CHAMPS EXTRAITS PAR TYPE D'EMAIL
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * 🔵 'new'       → guestName, guests, checkIn, checkOut, nights, checkInTime,
+ *                  checkOutTime, totalPrice, nightlyRate, cleaningFee, serviceFee,
+ *                  taxAmount, hostPayout, confirmationCode, propertyName,
+ *                  guestEmail, guestPhone, guestCountry, guestLanguage,
+ *                  cancellationPolicy, isInstantBook, currency
+ *
+ * 🔴 'cancelled' → guestName, checkIn, checkOut, confirmationCode, propertyName,
+ *                  cancellationPolicy, totalPrice (si remboursement mentionné),
+ *                  guestLanguage
+ *
+ * 🟡 'modified'  → guestName, checkIn, checkOut (dates ACTUELLES),
+ *                  modifiedCheckIn, modifiedCheckOut (NOUVELLES dates proposées),
+ *                  confirmationCode, propertyName, guestLanguage
+ *
+ * 🔔 'reminder'  → guestName, checkIn, checkOut, checkInTime, confirmationCode,
+ *                  propertyName, guests, guestLanguage
+ *
+ * 🟤 'checkout'  → guestName, checkIn, checkOut, checkOutTime, confirmationCode,
+ *                  propertyName, guestLanguage
+ *
+ * ⭐ 'review'    → guestName, reviewRating (1-5), reviewComment, guestLanguage
+ *                  (pas de dates séjour dans ces emails)
+ *
+ * 💶 'payout'   → hostPayout, totalPrice, payoutDate, payoutMethod, currency,
+ *                  confirmationCode (si séjour lié mentionné), guestName (si mentionné)
+ *                  (pas de checkIn/checkOut — dates bancaires ≠ dates séjour)
+ *
+ * ════════════════════════════════════════════════════════════════════════════
  * EMAILS IGNORÉS — IGNORED_PATTERNS (retourne null)
  * ════════════════════════════════════════════════════════════════════════════
  *
@@ -116,25 +147,39 @@ export interface ParsedBooking {
   guestEmail?: string;
   guestPhone?: string;
   guests: number;
+  guestCountry?: string;    // Pays du voyageur (ex: "France", "Germany")
+  guestLanguage?: string;   // Langue détectée (ex: "fr", "en", "de")
   // Séjour
-  checkIn: string;         // ISO date YYYY-MM-DD
-  checkOut: string;        // ISO date YYYY-MM-DD
+  checkIn: string;          // ISO date YYYY-MM-DD
+  checkOut: string;         // ISO date YYYY-MM-DD
   nights: number;
+  checkInTime?: string;     // Heure d'arrivée (ex: "15:00")
+  checkOutTime?: string;    // Heure de départ (ex: "11:00")
   // Finance
   totalPrice: number;
   currency: string;
+  nightlyRate?: number;     // Prix par nuit (ex: 89.0)
   cleaningFee?: number;
   serviceFee?: number;
-  hostPayout?: number;     // Ce que l'hôte reçoit réellement
+  hostPayout?: number;      // Ce que l'hôte reçoit réellement
+  taxAmount?: number;       // Taxes (TVA, taxe de séjour…)
+  // Versement
+  payoutDate?: string;      // Date du versement bancaire (ISO YYYY-MM-DD) — payout uniquement
+  payoutMethod?: string;    // Méthode (ex: "Virement bancaire", "PayPal")
   // Propriété
   propertyName?: string;
   confirmationCode?: string;
   // Statut
   bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review' | 'payout';
-  confidence: number;      // 0-100%
+  confidence: number;       // 0-100%
+  isInstantBook?: boolean;  // true si réservation instantanée (sans approbation)
+  cancellationPolicy?: string; // Politique d'annulation (ex: "Flexible", "Modérée", "Stricte")
+  // Modification — nouvelles dates proposées
+  modifiedCheckIn?: string;   // Nouvelle date d'arrivée (modified uniquement)
+  modifiedCheckOut?: string;  // Nouvelle date de départ (modified uniquement)
   // Champs spécifiques aux avis
-  reviewRating?: number;   // 1-5 étoiles
-  reviewComment?: string;  // Commentaire du voyageur
+  reviewRating?: number;    // 1-5 étoiles
+  reviewComment?: string;   // Commentaire du voyageur
 }
 
 // ─── Expéditeurs connus Airbnb ──────────────────────────────────────────────
@@ -615,6 +660,223 @@ function extractHostPayout(text: string): number | undefined {
       if (!isNaN(val) && val > 0) return val;
     }
   }
+  return undefined;
+}
+
+// ─── Nouveaux extracteurs spécialisés ──────────────────────────────────────
+
+function extractCheckInTime(text: string): string | undefined {
+  // Formats Airbnb observés :
+  //   "Heure d'arrivée : 15:00" / "Heure d'arrivée : à partir de 15h"
+  //   "Arrivée après 15h00" / "Check-in : 15h00" / "à partir de 15:00"
+  //   "Check-in time: 3:00 PM" / "After 3 PM"
+  const patterns = [
+    /heure(?:\s+d[''e])?\s*arriv[eé]e?\s*[:\-–]\s*(?:[àa]\s+partir\s+de\s+)?(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
+    /check.?in\s*[:\-–]\s*(?:[àa]\s+partir\s+de\s+)?(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
+    /arriv[eé]e?\s*[:\-–]\s*(?:[àa]\s+partir\s+de\s+)?(\d{1,2}[h:]\d{0,2})/i,
+    /[àa]\s+partir\s+de\s+(\d{1,2}[h:]\d{0,2})/i,
+    /check.?in\s+time\s*[:\-–]\s*(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
+    /after\s+(\d{1,2}(?::\d{2})?\s*[aApP][mM])/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) return normalizeTime(m[1]);
+  }
+  return undefined;
+}
+
+function extractCheckOutTime(text: string): string | undefined {
+  // Formats Airbnb observés :
+  //   "Heure de départ : 11:00" / "Départ avant 11h"
+  //   "Check-out : 11h00" / "before 11 AM"
+  const patterns = [
+    /heure(?:\s+de)?\s*d[eé]part\s*[:\-–]\s*(?:avant\s+)?(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
+    /check.?out\s*[:\-–]\s*(?:avant\s+)?(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
+    /d[eé]part\s*[:\-–]\s*(?:avant\s+)?(\d{1,2}[h:]\d{0,2})/i,
+    /avant\s+(\d{1,2}[h:]\d{0,2})/i,
+    /check.?out\s+time\s*[:\-–]\s*(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
+    /before\s+(\d{1,2}(?::\d{2})?\s*[aApP][mM])/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) return normalizeTime(m[1]);
+  }
+  return undefined;
+}
+
+function normalizeTime(raw: string): string {
+  // "15h00" → "15:00" / "3 PM" → "15:00" / "15:0" → "15:00" / "15h" → "15:00"
+  const s = raw.trim().replace(/\s+/g, '');
+  // Format "15h00" ou "15h"
+  const hm = s.match(/^(\d{1,2})h(\d{0,2})$/i);
+  if (hm) return `${hm[1].padStart(2, '0')}:${(hm[2] || '00').padStart(2, '0')}`;
+  // Format "15:00" ou "15:0"
+  const colon = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (colon) return `${colon[1].padStart(2, '0')}:${colon[2].padStart(2, '0')}`;
+  // Format "3 PM" / "11AM"
+  const ampm = s.match(/^(\d{1,2})(?::(\d{2}))?([AaPp][Mm])$/);
+  if (ampm) {
+    let h = parseInt(ampm[1]);
+    const min = ampm[2] || '00';
+    const period = ampm[3].toLowerCase();
+    if (period === 'pm' && h < 12) h += 12;
+    if (period === 'am' && h === 12) h = 0;
+    return `${String(h).padStart(2, '0')}:${min.padStart(2, '0')}`;
+  }
+  return raw;
+}
+
+function extractNightlyRate(text: string): number | undefined {
+  // Formats Airbnb observés :
+  //   "89 € par nuit" / "Prix par nuit : 89 €"
+  //   "Tarif nuitée : 89,00 €" / "89 €/nuit"
+  //   "$89 per night" / "89 € x 3 nuits"
+  const parseAmt = (s: string) => {
+    const n = parseFloat(s.replace(/[€$£\s\xa0]/g, '').replace(',', '.'));
+    return !isNaN(n) && n > 0 && n < 10000 ? n : 0;
+  };
+  const patterns = [
+    /([€$£]?\s*[\d\s\xa0.,]+)\s*[€$£]?\s*(?:par\s+nuit|\/nuit)/i,
+    /prix\s+(?:de\s+la\s+)?nuit[eé]e?\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /tarif\s+(?:de\s+la\s+)?nuit[eé]e?\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /([€$£]?\s*[\d\s\xa0.,]+)\s*[€$£]?\s*x\s*\d+\s*nuits?/i,
+    /([€$£]?\s*[\d\s\xa0.,]+)\s*[€$£]?\s*per\s+night/i,
+    /nightly\s+rate\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const val = parseAmt(m[1]);
+      if (val > 0) return val;
+    }
+  }
+  return undefined;
+}
+
+function extractTaxAmount(text: string): number | undefined {
+  // Formats : "Taxes : 12,00 €" / "Taxe de séjour : 4 €" / "TVA : 5,00 €"
+  //            "Taxes and fees: $12" / "Tourist tax: 4 €"
+  const parseAmt = (s: string) => {
+    const n = parseFloat(s.replace(/[€$£\s\xa0]/g, '').replace(',', '.'));
+    return !isNaN(n) && n > 0 ? n : 0;
+  };
+  const patterns = [
+    /taxe(?:s)?\s+de\s+s[eé]jour\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /taxes?\s*(?:et\s+frais)?\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /tva\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /tourist\s+tax\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /taxes?\s+and\s+fees?\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /occupancy\s+tax\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const val = parseAmt(m[1]);
+      if (val > 0) return val;
+    }
+  }
+  return undefined;
+}
+
+function extractPayoutDate(text: string): string | undefined {
+  // Formats Airbnb versement :
+  //   "Prévu le 14 avril 2026" / "Date de versement : 14/04/2026"
+  //   "Envoyé le 13 avr. 2026" / "Estimated arrival: Apr 14, 2026"
+  //   "Expected by April 14, 2026"
+  const MOIS_RE = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?\\.?|oct\\.?|octobre?|nov\\.?|d[eé]c\\.?|d[eé]cembre?|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)`;
+  const patterns = [
+    new RegExp(`pr[eé]vu\\s+le\\s+(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+    new RegExp(`date\\s+(?:de\\s+)?versement\\s*[:\\-–]\\s*(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+    new RegExp(`envoy[eé]\\s+le\\s+(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+    new RegExp(`estimated\\s+arrival\\s*[:\\-–]\\s*(${MOIS_RE}\\s+\\d{1,2},?\\s+\\d{4})`, 'i'),
+    new RegExp(`expected\\s+by\\s+(${MOIS_RE}\\s+\\d{1,2},?\\s+\\d{4})`, 'i'),
+    /date\s+de\s+versement\s*[:\-–]\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i,
+    /payout\s+date\s*[:\-–]\s*([^\n\r<,]{5,30})/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const d = normalizeDate(m[1].trim());
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    }
+  }
+  return undefined;
+}
+
+function extractPayoutMethod(text: string): string | undefined {
+  // "Virement bancaire" / "PayPal" / "Bank transfer" / "Payoneer"
+  if (/virement\s+bancaire|bank\s+transfer|direct\s+deposit/i.test(text)) return 'Virement bancaire';
+  if (/paypal/i.test(text)) return 'PayPal';
+  if (/payoneer/i.test(text)) return 'Payoneer';
+  if (/wise|transferwise/i.test(text)) return 'Wise';
+  if (/western\s+union/i.test(text)) return 'Western Union';
+  if (/carte\s+(?:de\s+cr[eé]dit|bancaire)|credit\s+card/i.test(text)) return 'Carte bancaire';
+  return undefined;
+}
+
+function extractCancellationPolicy(text: string): string | undefined {
+  // "Politique d'annulation : Flexible" / "Annulation flexible" / "Politique stricte"
+  // "Cancellation policy: Flexible" / "Moderate" / "Strict"
+  if (/politique\s+d[''e]annulation\s*[:\-–]\s*([\w\s]+)/i.test(text)) {
+    const m = text.match(/politique\s+d[''e]annulation\s*[:\-–]\s*(flexible|mod[eé]r[eé]e?|stricte?|super\s+strict|no\s+refund|remboursable)/i);
+    if (m) return normalizePoliceName(m[1]);
+  }
+  if (/cancellation\s+policy\s*[:\-–]\s*(flexible|moderate|strict|super\s+strict|non.refundable)/i.test(text)) {
+    const m = text.match(/cancellation\s+policy\s*[:\-–]\s*(flexible|moderate|strict|super\s+strict|non.refundable)/i);
+    if (m) return normalizePoliceName(m[1]);
+  }
+  // Mots-clés seuls dans le texte
+  if (/\bflexible\b/i.test(text)) return 'Flexible';
+  if (/mod[eé]r[eé]e?\b/i.test(text)) return 'Modérée';
+  if (/\bstricte?\b/i.test(text)) return 'Stricte';
+  return undefined;
+}
+
+function normalizePoliceName(raw: string): string {
+  const s = raw.trim().toLowerCase();
+  if (/flex/i.test(s)) return 'Flexible';
+  if (/mod/i.test(s)) return 'Modérée';
+  if (/strict|super/i.test(s)) return 'Stricte';
+  if (/no.refund|non.refund/i.test(s)) return 'Non remboursable';
+  return raw.trim();
+}
+
+function extractGuestCountry(text: string): string | undefined {
+  // Formats : "Pays : France" / "Country: Germany" / "Nationalité : Française"
+  // Aussi : drapeaux ou mentions de pays dans le texte
+  const patterns = [
+    /pays\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
+    /country\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
+    /nationalit[eé]\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
+    /from\s+([A-Z][a-z]{2,20})/,
+    /lieu\s+de\s+r[eé]sidence\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const country = m[1].trim().replace(/<[^>]*>/g, '').slice(0, 40);
+      if (country.length >= 2 && !/airbnb|r[eé]servation|logement/i.test(country)) return country;
+    }
+  }
+  return undefined;
+}
+
+function detectGuestLanguage(text: string, subject: string): string | undefined {
+  // Détecte la langue de l'email pour inférer la langue du voyageur
+  // Un email Airbnb est envoyé dans la langue du voyageur
+  const combined = (subject + ' ' + text.slice(0, 500)).toLowerCase();
+  // Indices français
+  const frScore = (combined.match(/\b(votre|vous|réservation|voyageur|bienvenue|merci|arrivée|départ|nuit|logement)\b/g) || []).length;
+  // Indices anglais
+  const enScore = (combined.match(/\b(your|you|reservation|guest|welcome|thank|arrival|departure|night|listing|booking|check)\b/g) || []).length;
+  // Indices allemand
+  const deScore = (combined.match(/\b(ihre|sie|buchung|gast|willkommen|danke|ankunft|abreise|nacht|unterkunft)\b/g) || []).length;
+  // Indices espagnol
+  const esScore = (combined.match(/\b(su|usted|reserva|huésped|bienvenido|gracias|llegada|salida|noche|alojamiento)\b/g) || []).length;
+
+  const scores: Record<string, number> = { fr: frScore, en: enScore, de: deScore, es: esScore };
+  const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+  if (best[1] >= 2) return best[0];
   return undefined;
 }
 
@@ -1161,23 +1423,56 @@ export function parseAirbnbEmail(
     (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
   )) : 0;
 
-  // 6. Calculer la confiance
+  // 6. Extraire tous les champs enrichis selon le type d'email
+  const price               = extractPrice(text);
+  const confirmationCode    = extractConfirmationCode(text);
+  const guestNameExtracted  = extractGuestName(text, subject);
+  const propertyNameExtracted = extractPropertyName(text, subject);
+  const nightlyRate         = extractNightlyRate(text);
+  const taxAmount           = extractTaxAmount(text);
+  const checkInTime         = bookingType !== 'payout' ? extractCheckInTime(text) : undefined;
+  const checkOutTime        = bookingType !== 'payout' ? extractCheckOutTime(text) : undefined;
+  const guestCountry        = extractGuestCountry(text);
+  const guestLanguage       = detectGuestLanguage(text, subject);
+  const cancellationPolicy  = (bookingType === 'new' || bookingType === 'cancelled')
+                                ? extractCancellationPolicy(text) : undefined;
+  const isInstantBook       = bookingType === 'new'
+                                ? /r[eé]servation\s+instantan[eé]e?|instant\s+book/i.test(subject + ' ' + text.slice(0, 300))
+                                : undefined;
+  // Versement : date et méthode bancaire
+  const payoutDate          = bookingType === 'payout' ? extractPayoutDate(text) : undefined;
+  const payoutMethod        = bookingType === 'payout' ? extractPayoutMethod(text) : undefined;
+  // Modification : nouvelles dates proposées
+  // On cherche un deuxième couple de dates différent de checkIn/checkOut courant
+  let modifiedCheckIn: string | undefined;
+  let modifiedCheckOut: string | undefined;
+  if (bookingType === 'modified') {
+    // Chercher "Nouvelles dates :" ou "Dates modifiées :" ou "New dates :"
+    const modDateBlock = text.match(/(?:nouvelle[s]?\s+dates?|dates?\s+modifi[eé]e?s?|new\s+dates?)\s*[:\-–]\s*([^\n\r<]{5,60})/i);
+    if (modDateBlock) {
+      const block = modDateBlock[1];
+      const MOIS_RE2 = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?\\.?|oct\\.?|nov\\.?|d[eé]c\\.?)`;
+      const rangeM = block.match(new RegExp(`(\\d{1,2}\\s+${MOIS_RE2}(?:\\s+\\d{4})?)\\s*[–\\-]\\s*(\\d{1,2}\\s+${MOIS_RE2}(?:\\s+\\d{4})?)`, 'i'));
+      if (rangeM) {
+        modifiedCheckIn  = normalizeDate(rangeM[1]);
+        modifiedCheckOut = normalizeDate(rangeM[2]);
+      }
+    }
+  }
+
+  // 7. Calculer la confiance
   let confidence = 50;
   if (isAirbnbSender) confidence += 20;
   if (checkIn && checkOut) confidence += 15;
-  const price = extractPrice(text);
   if (price > 0) confidence += 10;
-  const confirmationCode = extractConfirmationCode(text);
   if (confirmationCode) {
     confidence += 5;
     // Code HM au format Airbnb (HMXXXXXXXX) = très fiable
     if (/^HM[A-Z0-9]{8,}$/i.test(confirmationCode)) confidence += 5;
   }
   // Nom de voyageur réel trouvé (pas le placeholder générique)
-  const guestNameExtracted = extractGuestName(text, subject);
   if (guestNameExtracted && guestNameExtracted !== 'Voyageur Airbnb') confidence += 5;
   // Logement identifié dans le texte
-  const propertyNameExtracted = extractPropertyName(text, subject);
   if (propertyNameExtracted) confidence += 5;
   // Versement : confidence de base 80 (pas de dates = normal)
   if (bookingType === 'payout') confidence = Math.max(confidence, 80);
@@ -1189,22 +1484,42 @@ export function parseAirbnbEmail(
     messageId,
     subject: subject.slice(0, 200),
     receivedAt,
+    // Voyageur
     guestName: guestNameExtracted,
     guestEmail: extractGuestEmail(text),
     guestPhone: extractGuestPhone(text),
     guests: extractGuests(text),
+    guestCountry,
+    guestLanguage,
+    // Séjour
     checkIn: checkIn ?? receivedAt.split('T')[0],
     checkOut: checkOut ?? receivedAt.split('T')[0],
     nights: (bookingType === 'payout' && !checkIn) ? 0 : nights,
+    checkInTime,
+    checkOutTime,
+    // Finance
     totalPrice: price,
     currency: text.includes('€') ? 'EUR' : text.includes('£') ? 'GBP' : 'USD',
+    nightlyRate,
     cleaningFee: extractCleaningFee(text),
     serviceFee: extractServiceFee(text),
+    taxAmount,
     hostPayout: extractHostPayout(text),
+    // Versement
+    payoutDate,
+    payoutMethod,
+    // Propriété
     propertyName: propertyNameExtracted,
     confirmationCode,
+    // Statut
     bookingType,
     confidence: Math.min(100, confidence),
+    isInstantBook,
+    cancellationPolicy,
+    // Modification
+    modifiedCheckIn,
+    modifiedCheckOut,
+    // Avis
     reviewRating: bookingType === 'review' ? extractReviewRating(text, subject) : undefined,
     reviewComment: bookingType === 'review' ? extractReviewComment(text) : undefined,
   };
