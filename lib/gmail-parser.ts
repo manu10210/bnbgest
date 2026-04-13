@@ -159,61 +159,101 @@ const IGNORED_PATTERNS = [
   /\?(?:c|eu|t|s|ref)=[A-Za-z0-9%_+/.-]{10,}/, // paramètre URL encodé
 ];
 //
+// ════════════════════════════════════════════════════════════════════════════
+// FORMATS RÉELS D'EMAILS AIRBNB OBSERVÉS (hôte FR, 2024-2026)
+// ════════════════════════════════════════════════════════════════════════════
+//
 // 🔵 NOUVELLE RÉSERVATION
-//   FR: "Prénom a réservé votre logement"
-//       "Nouvelle réservation de Prénom"
-//       "Demande de réservation de Prénom acceptée"
-//       "Réservation confirmée – NomLogement, 10–13 avr."
-//       "Félicitations ! Prénom a réservé votre logement."
-//   EN: "Prénom has booked your place"
+//   FR: "Marie a réservé votre logement"
+//       "Félicitations ! Marie a réservé votre logement."
+//       "Nouvelle réservation de Marie"
+//       "Confirmation de réservation"
+//       "Réservation confirmée"
+//       "Demande de réservation de Marie acceptée"
+//       "Réservation pour Mon Logement, 10–13 avr."
+//   EN: "Marie has booked your place"
 //       "Reservation confirmed"
-//       "New reservation from Prénom"
+//       "New reservation from Marie"
+//       "Booking confirmation"
 //
 // 🔴 ANNULATION
-//   FR: "Prénom a annulé sa réservation"
+//   FR: "Marie a annulé sa réservation"
 //       "Réservation annulée"
+//       "Annulation de réservation"
 //   EN: "Booking cancelled"
+//       "Cancellation"
 //
 // 🟡 MODIFICATION
-//   FR: "Prénom a modifié sa réservation"
+//   FR: "Marie a modifié sa réservation"
+//       "Marie souhaite changer sa réservation"   ← observé réel
+//       "Marie souhaite modifier sa réservation"
+//       "Marie a changé sa réservation"
 //       "Demande de modification"
+//       "Changement de réservation"
+//   EN: "Marie wants to change their booking"
+//       "Alteration request"
 //
 // 🟤 DÉPART / CHECKOUT
-//   FR: "Le séjour de Prénom se termine aujourd'hui"
-//       "Prénom part aujourd'hui"
+//   FR: "Le séjour de Marie se termine aujourd'hui"
+//       "Marie part aujourd'hui"
+//       "Départ de Marie"
 //   EN: "Your guest is checking out today"
+//       "Checking out today"
 //
-// 🔔 RAPPEL
-//   FR: "Rappel : Prénom arrive dans 2 jours"
-//       "Prénom arrive demain !"
-//       "Avez-vous tout préparé pour l'arrivée de Prénom ?"
-//       "4 voyageurs attendent votre commentaire"
-//       "N'oubliez pas de noter Prénom"
-//   EN: "Reminder: Prénom arrives in 2 days"
+// 🔔 RAPPEL D'ARRIVÉE (reminder — lié à une réservation existante)
+//   FR: "Rappel : Marie arrive dans 2 jours"
+//       "Marie arrive demain !"
+//       "Avez-vous tout préparé pour l'arrivée de Marie ?"
+//       "Prochaine arrivée"
+//   EN: "Reminder: Marie arrives in 2 days"
+//       "Marie arriving tomorrow"
 //
-// ⭐ AVIS REÇU
-//   FR: "Prénom a laissé un avis"
-//       "Vous avez un nouvel avis"
-//       "Prénom vous a noté"
+// ⭐ AVIS REÇU D'UN VOYAGEUR (review)
+//   FR: "Marie a laissé une évaluation 4 étoiles"  ← observé réel
+//       "vous a laissé une évaluation 5 étoiles !" ← observé réel (prénom masqué)
+//       "Marie a laissé un avis"
+//       "Marie a évalué votre logement"
+//       "Marie a noté votre logement"
+//       "Nouvel avis"
+//       "Nouvelle évaluation"
+//   EN: "Marie left you a review"
+//       "New review"
+//       "Marie rated your place"
 //
-// 💶 VERSEMENT
-//   FR: "Nous avons envoyé un versement de 63,62 €"
+// 💶 VERSEMENT HÔTE (payout — Airbnb envoie de l'argent à l'hôte)
+//   FR: "Nous avons envoyé un versement de 63,62 €"  ← format exact Airbnb
 //       "Votre versement de X €"
 //   EN: "Your payout of $X has been sent"
+//
+// 🚫 IGNORÉS (pas de réservation à importer) — voir IGNORED_PATTERNS :
+//   • "Plusieurs annonces nécessitent votre attention"  (maintenance)
+//   • "Marie a laissé une évaluation 4 étoiles" → RAPPEL HÔTE d'évaluer = ignoré
+//     vs "Marie a laissé une évaluation" = AVIS REÇU = review ✅
+//   • "X attend votre commentaire" / "Notez votre voyageur"  (rappel évaluation hôte)
+//   • "Vous avez demandé de l'argent à X"  (litige/sinistre)
+//   • "Vous avez proposé un montant différent à X"  (litige)
+//   • "Paiement effectué pour la réservation"  (paiement voyageur, pas versement hôte)
+//   • "Vous avez un nouveau message"  (messagerie)
+//   • "AirCover", "Dommages signalés"  (sinistre)
+//   • Sujet encodé base64 / URL de tracking  (email corrompu)
+//
 const SUBJECT_PATTERNS = {
   new_fr: [
-    // Format principal Airbnb hôte: "Prénom a réservé votre logement"
+    // "Marie a réservé votre logement" / "Marie a réservé"
     /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+a\s+r[eé]serv[eé]\s+votre\s+logement/,
     /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+a\s+r[eé]serv[eé]/,
+    // "Nouvelle réservation" / "Confirmation de réservation" / "Réservation confirmée"
     /nouvelle\s+r[eé]servation/i,
     /confirmation\s+de\s+r[eé]servation/i,
     /r[eé]servation\s+confirm[eé]e?/i,
     /vous\s+avez\s+une\s+nouvelle\s+r[eé]servation/i,
     /votre\s+r[eé]servation\s+est\s+confirm[eé]e?/i,
     /r[eé]servation\s+accept[eé]e?/i,
+    // "Demande de réservation de Marie acceptée"
     /demande\s+de\s+r[eé]servation\s+accept[eé]e?/i,
+    // "Félicitations ! Marie a réservé votre logement."
     /f[eé]licitations[^a-z]*r[eé]servation/i,
-    // "Réservation pour NomLogement, X–Y avr." (confirmation)
+    // "Réservation pour Mon Logement, 10–13 avr."
     /r[eé]servation\s+pour\s+.{5,60},?\s+\d{1,2}[–\-]/i,
   ],
   new_en: [
@@ -229,6 +269,7 @@ const SUBJECT_PATTERNS = {
     /[A-Z][a-z]+\s+has\s+reserved\s+your\s+place/,
   ],
   cancelled: [
+    // "Marie a annulé sa réservation"
     /a\s+annul[eé]\s+(?:sa\s+)?r[eé]servation/i,
     /r[eé]servation\s+annul[eé]e?/i,
     /annulation\s+de\s+r[eé]servation/i,
@@ -237,7 +278,9 @@ const SUBJECT_PATTERNS = {
     /booking\s+cancelled/i,
   ],
   modified: [
+    // "Marie a modifié sa réservation"
     /a\s+modifi[eé]\s+(?:sa\s+)?r[eé]servation/i,
+    // "Marie souhaite changer/modifier sa réservation"  ← observé réel
     /souhaite\s+changer\s+(?:sa\s+)?r[eé]servation/i,
     /souhaite\s+modifier\s+(?:sa\s+)?r[eé]servation/i,
     /a\s+chang[eé]\s+(?:sa\s+)?r[eé]servation/i,
@@ -248,12 +291,13 @@ const SUBJECT_PATTERNS = {
     /modifi[eé]e?\s*:/i,
     /modified/i, /updated/i, /mis\s+[àa]\s+jour/i,
     /alteration\s+request/i,
+    // "Marie wants to change their booking"
     /wants?\s+to\s+change\s+(?:their\s+)?(?:reservation|booking)/i,
   ],
   checkout: [
-    // "Le séjour de Prénom se termine aujourd'hui"
+    // "Le séjour de Marie se termine aujourd'hui"
     /s[eé]jour\s+de\s+.+\s+se\s+termine/i,
-    // "Prénom part aujourd'hui"
+    // "Marie part aujourd'hui"
     /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+part\s+aujourd[''']hui/,
     /d[eé]part\s+de/i,
     /voyage\s+termin[eé]/i, /s[eé]jour\s+termin[eé]/i,
@@ -263,10 +307,13 @@ const SUBJECT_PATTERNS = {
     /checking\s+out\s+today/i,
   ],
   reminder: [
-    // Rappels d'arrivée imminente
+    // Rappels d'arrivée imminente UNIQUEMENT (liés à une réservation existante)
+    // Les rappels d'évaluation hôte sont dans IGNORED_PATTERNS
+    // "Rappel : Marie arrive dans 2 jours"
     /rappel\s*[:\–-]/i,
     /dans\s+\d+\s+jours?/i,
     /in\s+\d+\s+days?/i,
+    // "Marie arrive demain !"
     /arrive\s+(?:demain|aujourd[''']hui|dans)/i,
     /pr[eé]par[eé]z.{0,20}arriv[eé]e?/i,
     /avez.{0,20}pr[eé]par[eé].{0,20}arriv[eé]e?/i,
@@ -274,18 +321,17 @@ const SUBJECT_PATTERNS = {
     /prochaine?\s+s[eé]jour/i,
     /reminder\s*:/i,
     /arriving\s+(?:tomorrow|today|in\s+\d)/i,
-    // Rappels d'évaluation HÔTE — retirés ici, gérés dans IGNORED_PATTERNS
   ],
   review: [
-    // Avis REÇU d'un voyageur (pas rappel hôte)
-    // Formats réels Airbnb FR observés :
-    // "Mélody a laissé une évaluation 4 étoiles"
-    // "Mélody a laissé un avis"
-    // "Mélody a évalué votre logement"
+    // Avis REÇU d'un voyageur (≠ rappel hôte d'évaluer → voir IGNORED_PATTERNS)
+    // "Marie a laissé une évaluation 4 étoiles"  ← observé réel
     /a\s+laiss[eé]\s+une?\s+[eé]valuation/i,
+    // "Marie a évalué / noté votre logement"
     /a\s+[eé]valu[eé]\s+votre\s+(?:logement|s[eé]jour|annonce)/i,
     /a\s+not[eé]\s+votre\s+(?:logement|s[eé]jour|annonce)/i,
+    // "Marie a laissé un avis"
     /a\s+laiss[eé]\s+(?:un\s+)?avis/i,
+    // "vous a laissé une évaluation 5 étoiles !"  ← observé réel (prénom masqué par Airbnb)
     /vous\s+a\s+(?:laiss[eé]\s+un[e]?\s+(?:avis|[eé]valuation)|not[eé])/i,
     /vous\s+a\s+[eé]valu[eé]/i,
     /nouvel?\s+avis/i,
@@ -305,18 +351,17 @@ const SUBJECT_PATTERNS = {
     /\d\s*stars?\s*$/i,
   ],
   payout: [
-    // Format exact Airbnb: "Nous avons envoyé un versement de 63,62 €"
+    // Versement hôte — Airbnb envoie de l'argent à l'hôte
+    // "Nous avons envoyé un versement de 63,62 €"  ← format exact Airbnb observé
     /nous\s+avons\s+envoy[eé]\s+un\s+versement/i,
     /votre\s+versement\s+de/i,
     /versement\s+de\s+[\d,.\s]+\s*[€$£]/i,
-    // Formats alternatifs
     /virement\s+(?:effectu[eé]|envoy[eé])/i,
-    /paiement\s+envoy[eé]/i,
     /r[eè]glement\s+effectu[eé]/i,
+    // "Your payout of $X has been sent"
     /your\s+payout\s+of/i,
     /payout\s+(?:sent|of)\s+/i,
-    /payment\s+sent/i,
-    // Mots-clés seuls (moins précis, en dernier)
+    // Mots-clés seuls (moins précis, en dernier recours)
     /versement/i, /virement\b/i, /\bpayout\b/i,
   ],
 };
