@@ -914,14 +914,26 @@ export function parseAirbnbEmail(
   const price = extractPrice(text);
   if (price > 0) confidence += 10;
   const confirmationCode = extractConfirmationCode(text);
-  if (confirmationCode) confidence += 5;
+  if (confirmationCode) {
+    confidence += 5;
+    // Code HM au format Airbnb (HMXXXXXXXX) = très fiable
+    if (/^HM[A-Z0-9]{8,}$/i.test(confirmationCode)) confidence += 5;
+  }
+  // Nom d'hôte trouvé (pas le placeholder générique)
+  const guestNameExtracted = extractGuestName(text, subject);
+  if (guestNameExtracted && guestNameExtracted !== 'Voyageur Airbnb') confidence += 5;
+  // Logement identifié dans le texte
+  const propertyNameExtracted = extractPropertyName(text, subject);
+  if (propertyNameExtracted) confidence += 5;
+  // Versement : confidence de base 80 (pas de dates = normal)
+  if (bookingType === 'payout') confidence = Math.max(confidence, 80);
 
   return {
     source: 'gmail',
     messageId,
     subject: subject.slice(0, 200),
     receivedAt,
-    guestName: extractGuestName(text, subject),
+    guestName: guestNameExtracted,
     guestEmail: extractGuestEmail(text),
     guestPhone: extractGuestPhone(text),
     guests: extractGuests(text),
@@ -933,7 +945,7 @@ export function parseAirbnbEmail(
     cleaningFee: extractCleaningFee(text),
     serviceFee: extractServiceFee(text),
     hostPayout: extractHostPayout(text),
-    propertyName: extractPropertyName(text, subject),
+    propertyName: propertyNameExtracted,
     confirmationCode,
     bookingType,
     confidence: Math.min(100, confidence),
