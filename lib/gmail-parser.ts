@@ -2,7 +2,108 @@
  * 📧 Gmail Parser — Extraction automatique des réservations Airbnb
  *
  * Détecte et parse les emails de confirmation Airbnb depuis Gmail API.
- * Supporte : French + English Airbnb emails
+ * Supporte : Emails hôte Airbnb en français et en anglais (2024-2026)
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ARCHITECTURE DU PARSER
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ *  parseAirbnbEmail()
+ *   ├─ 1. Vérifier expéditeur @airbnb.com
+ *   ├─ 2. IGNORED_PATTERNS → null  (maintenance, litige, paiement voyageur…)
+ *   ├─ 3. Détecter bookingType via SUBJECT_PATTERNS (sujet)
+ *   │      ou fallback via slugs URL dans le corps
+ *   ├─ 4. Extraire dates checkIn / checkOut  (sauf payout)
+ *   ├─ 5. Extraire prix, frais, versement hôte
+ *   ├─ 6. Extraire nom voyageur, logement, code confirmation
+ *   └─ 7. Calculer score de confiance (0-100)
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * TYPES D'EMAILS AIRBNB RECONNUS (bookingType)
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * 🔵 'new'       — Nouvelle réservation confirmée
+ *   Sujets FR :  "Marie a réservé votre logement"
+ *                "Félicitations ! Marie a réservé votre logement."
+ *                "Nouvelle réservation de Marie"
+ *                "Confirmation de réservation"
+ *                "Réservation confirmée"
+ *                "Demande de réservation de Marie acceptée"
+ *                "Réservation pour Mon Logement, 10–13 avr."
+ *   Sujets EN :  "Marie has booked your place"
+ *                "Reservation confirmed" / "Booking confirmation"
+ *                "New reservation from Marie"
+ *
+ * 🔴 'cancelled' — Annulation de réservation
+ *   Sujets FR :  "Marie a annulé sa réservation"
+ *                "Réservation annulée" / "Annulation de réservation"
+ *   Sujets EN :  "Booking cancelled" / "Cancellation"
+ *
+ * 🟡 'modified'  — Modification / changement de réservation
+ *   Sujets FR :  "Marie a modifié sa réservation"
+ *                "Marie souhaite changer sa réservation"  ← observé réel
+ *                "Marie souhaite modifier sa réservation"
+ *                "Marie a changé sa réservation"
+ *                "Demande de modification" / "Changement de réservation"
+ *   Sujets EN :  "Marie wants to change their booking"
+ *                "Alteration request"
+ *
+ * 🟤 'checkout'  — Fin de séjour / départ du voyageur
+ *   Sujets FR :  "Le séjour de Marie se termine aujourd'hui"
+ *                "Marie part aujourd'hui"
+ *                "Départ de Marie"
+ *   Sujets EN :  "Your guest is checking out today"
+ *                "Checking out today"
+ *
+ * 🔔 'reminder'  — Rappel d'arrivée imminente (≠ rappel évaluation hôte)
+ *   Sujets FR :  "Rappel : Marie arrive dans 2 jours"
+ *                "Marie arrive demain !"
+ *                "Avez-vous tout préparé pour l'arrivée de Marie ?"
+ *                "Prochaine arrivée"
+ *   Sujets EN :  "Reminder: Marie arrives in 2 days"
+ *                "Marie arriving tomorrow"
+ *   ⚠️  Les rappels "notez votre voyageur" / "X attend votre commentaire"
+ *       sont dans IGNORED_PATTERNS (pas de réservation à créer)
+ *
+ * ⭐ 'review'    — Avis reçu d'un voyageur
+ *   Sujets FR :  "Marie a laissé une évaluation 4 étoiles"  ← observé réel
+ *                "vous a laissé une évaluation 5 étoiles !" ← observé réel (prénom masqué)
+ *                "Marie a laissé un avis"
+ *                "Marie a évalué votre logement"
+ *                "Marie a noté votre logement"
+ *                "Nouvel avis" / "Nouvelle évaluation"
+ *   Sujets EN :  "Marie left you a review" / "New review"
+ *                "Marie rated your place"
+ *   Note : la note (1-5 étoiles) est extraite depuis le sujet en priorité
+ *
+ * 💶 'payout'   — Versement hôte (Airbnb envoie de l'argent à l'hôte)
+ *   Sujets FR :  "Nous avons envoyé un versement de 63,62 €"  ← format exact observé
+ *                "Votre versement de X €"
+ *   Sujets EN :  "Your payout of $X has been sent"
+ *   Note : pas de dates de séjour dans ces emails → checkIn/checkOut non extraits
+ *          confidence minimum = 80 même sans dates
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * EMAILS IGNORÉS — IGNORED_PATTERNS (retourne null)
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * 🔧 Maintenance annonces    "Plusieurs annonces nécessitent votre attention"
+ *                            "Action requise sur votre annonce"
+ * 📣 Marketing / Conseils    "Conseils pour les hôtes" / "Superhost"
+ * 📋 Politique / CGU         "Mise à jour des conditions" / "Terms of service"
+ * 🔐 Sécurité / Compte       "Connexion à votre compte" / "Réinitialisez votre MDP"
+ * 💬 Messagerie seule        "Vous avez un nouveau message" / "a répondu à votre message"
+ * ⚖️  Litiges / Sinistres    "Vous avez proposé un montant différent à X"  ← observé réel
+ *                            "Vous avez demandé de l'argent à X"           ← observé réel
+ *                            "AirCover" / "Dommages signalés"
+ *                            "Centre de résolution" / "Damage claim"
+ * 💳 Paiement voyageur       "Paiement effectué pour la réservation"       ← observé réel
+ *                            (≠ versement hôte qui est un 'payout')
+ * ✍️  Rappels évaluation hôte "X attend votre commentaire"                  ← observé réel
+ *                            "Notez votre voyageur" / "N'oubliez pas de noter"
+ *                            "4 voyageurs attendent votre commentaire"
+ * 🔗 Sujets corrompus/URL    "661?c=.pi80.pkaG9tZV9yZXZp..."               ← observé réel
+ *                            (URL de tracking Airbnb encodée base64 dans le sujet)
  */
 
 export interface ParsedBooking {
