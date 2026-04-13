@@ -763,7 +763,8 @@ function extractCheckOutTime(text: string): string | undefined {
 
 function normalizeTime(raw: string): string {
   // "15h00" → "15:00" / "3 PM" → "15:00" / "15:0" → "15:00" / "15h" → "15:00"
-  const s = raw.trim().replace(/\s+/g, '');
+  let s = raw.trim().replace(/\s+/g, '');
+  s = s.replace(/partir/ig, '').replace(/de/ig, '').replace(/avant/ig, '');
   // Format "15h00" ou "15h"
   const hm = s.match(/^(\d{1,2})h(\d{0,2})$/i);
   if (hm) return `${hm[1].padStart(2, '0')}:${(hm[2] || '00').padStart(2, '0')}`;
@@ -883,18 +884,18 @@ function extractCancellationPolicy(text: string): string | undefined {
   // "Politique d'annulation : Flexible" / "Annulation flexible" / "Politique stricte"
   // "Cancellation policy: Flexible" / "Moderate" / "Strict"
   // ── 1. Avec label explicite (le plus fiable) ──────────────────────────────
-  const labelFR = text.match(/politique\s+d[''e]annulation\s*[:\-–]\s*(flexible|mod[eé]r[eé]e?|stricte?|super\s+strict|non\s+remboursable|remboursable|24\s+heures?)/i);
+  const labelFR = text.match(/politique\s+d[''e]annulation\s*[:\-–]?\s*(flexible|mod[eé]r[eé]e?|stricte?|ferme|super\s+strict|non\s+remboursable|remboursable|24\s+heures?)/i);
   if (labelFR) return normalizePoliceName(labelFR[1]);
 
-  const labelEN = text.match(/cancellation\s+policy\s*[:\-–]\s*(flexible|moderate|strict|super\s+strict|non.refundable|refundable|24.hour)/i);
+  const labelEN = text.match(/cancellation\s+policy\s*[:\-–]?\s*(flexible|moderate|strict|firm|super\s+strict|non.refundable|refundable|24.hour)/i);
   if (labelEN) return normalizePoliceName(labelEN[1]);
 
   // ── 2. Sections dédiées annulation (contexte fort) ────────────────────────
   // "annulation flexible" / "politique flexible" / "flexible cancellation"
-  const sectionFR = text.match(/(?:politique|conditions?|type)\s+(?:d[''e]\s*)?(?:annulation|remboursement)\s*[:\-–]?\s*(flexible|mod[eé]r[eé]e?|stricte?|24\s+heures?)/i);
+  const sectionFR = text.match(/(?:politique|conditions?|type)\s+(?:d[''e]\s*)?(?:annulation|remboursement)\s*[:\-–]?\s*(flexible|mod[eé]r[eé]e?|stricte?|ferme|24\s+heures?)/i);
   if (sectionFR) return normalizePoliceName(sectionFR[1]);
 
-  const sectionEN = text.match(/(?:cancellation|refund)\s+(?:policy|type|conditions?)\s*[:\-–]?\s*(flexible|moderate|strict|24.hour)/i);
+  const sectionEN = text.match(/(?:cancellation|refund)\s+(?:policy|type|conditions?)\s*[:\-–]?\s*(flexible|moderate|strict|firm|24.hour)/i);
   if (sectionEN) return normalizePoliceName(sectionEN[1]);
 
   // ── 3. Mots-clés UNIQUEMENT si contexte annulation présent dans la même phrase ──
@@ -916,6 +917,7 @@ function normalizePoliceName(raw: string): string {
   if (/flex/i.test(s)) return 'Flexible';
   if (/24.?h/i.test(s)) return 'Flexible (24h)';
   if (/mod/i.test(s)) return 'Modérée';
+  if (/ferm|firm/i.test(s)) return 'Ferme';
   if (/strict|super/i.test(s)) return 'Stricte';
   if (/no.refund|non.refund/i.test(s)) return 'Non remboursable';
   return raw.trim();
@@ -1086,31 +1088,37 @@ function extractGuests(text: string, subject?: string): number {
   // sinon prend le premier chiffre voyageur/guest/personne trouvé.
   // Chercher dans le corps ET dans le sujet
   const combined = text + (subject ? ' ' + subject : '');
+  
+  // Format Airbnb récent: "1 adulte, 1 enfant" ou "2 adultes, 1 bébé"
   const adultsM = combined.match(/(\d+)\s*adultes?/i);
   const childM  = combined.match(/(\d+)\s*(?:enfants?|child(?:ren)?)/i);
-  const babyM   = combined.match(/(\d+)\s*(?:b[eé]b[eé]s?|infant[s]?|nourrisson[s]?)/i);
-  if (adultsM) {
-    const adults   = parseInt(adultsM[1]);
+  const babyM   = combined.match(/(\d+)\s*(?:b[eé]b[eé]s?|infants?|nourrissons?)/i);
+  const petM    = combined.match(/(\d+)\s*(?:animaux(?:|x)|anim(?:al|aux)|pet?s)/i);
+
+  if (adultsM || childM || babyM || petM) {
+    const adults   = adultsM ? parseInt(adultsM[1]) : 0;
+    // Parfois sans adultes mentionnés, il peut y avoir juste voyageurs
     const children = childM  ? parseInt(childM[1])  : 0;
     const babies   = babyM   ? parseInt(babyM[1])   : 0;
-    const total = adults + children + babies;
-    if (total >= 1 && total <= 20) return total;
+    const pets     = petM    ? parseInt(petM[1])    : 0;
+    const total = adults + children + babies; // Les animaux ne comptent generalement pas dans la jauge humaine stricte, mais on les ignore pour count.
+    if (total >= 1 && total <= 50) return total;
   }
+
   const patterns: Array<[RegExp, number]> = [
-    [/(\d+)\s*voyageur[s]?/i, 1],
-    [/(\d+)\s*guest[s]?/i, 1],
-    [/(\d+)\s*personne[s]?/i, 1],
-    [/(\d+)\s*person[s]?/i, 1],
-    [/nombre\s+de\s+voyageurs?\s*[:\-]\s*(\d+)/i, 2],
-    [/number\s+of\s+guests?\s*[:\-]\s*(\d+)/i, 2],
-    // "pour N personnes" dans le sujet
-    [/pour\s+(\d+)\s*(?:voyageur[s]?|personne[s]?|guest[s]?)/i, 1],
+    [/(\d+)\s*voyageur(?:s)?/i, 1],
+    [/(\d+)\s*guest(?:s)?/i, 1],
+    [/(\d+)\s*personne(?:s)?/i, 1],
+    [/(\d+)\s*person(?:s)?/i, 1],
+    [/nombre\s+de\s+voyageurs?\s*[:\-\u2013\u2014]\s*(\d+)/i, 1],
+    [/number\s+of\s+guests?\s*[:\-\u2013\u2014]\s*(\d+)/i, 1],
+    [/pour\s+(\d+)\s*(?:voyageur(?:s)?|personne(?:s)?|guest(?:s)?)/i, 1],
   ];
   for (const [p, idx] of patterns) {
     const m = combined.match(p);
     if (m) {
       const v = parseInt(m[idx]);
-      if (v >= 1 && v <= 20) return v;
+      if (v >= 1 && v <= 50) return v;
     }
   }
   return 1;
