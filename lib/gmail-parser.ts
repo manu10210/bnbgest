@@ -38,72 +38,170 @@ export interface ParsedBooking {
 
 // ─── Patterns de détection des emails Airbnb ───────────────────────────────
 
+// ─── Expéditeurs connus Airbnb ──────────────────────────────────────────────
+// Airbnb utilise plusieurs domaines : automated@, express@, no-reply@, reply@
+// Les notifications hôtes viennent principalement de automated@airbnb.com
 const AIRBNB_SENDERS = [
   'automated@airbnb.com',
   'express@airbnb.com',
   'no-reply@airbnb.com',
   'reply@airbnb.com',
   'support@airbnb.com',
+  'airbnb.com',  // domaine générique pour capturer toute adresse @airbnb.com
 ];
 
+// ─── Patterns de sujets ─────────────────────────────────────────────────────
+// ORDRE CRITIQUE : new > cancelled > modified > checkout > reminder > review > payout
+// Basés sur les vrais sujets Airbnb observés 2024-2026 (FR + EN)
+//
+// 🔵 NOUVELLE RÉSERVATION
+//   FR: "Prénom a réservé votre logement"
+//       "Nouvelle réservation de Prénom"
+//       "Demande de réservation de Prénom acceptée"
+//       "Réservation confirmée – NomLogement, 10–13 avr."
+//       "Félicitations ! Prénom a réservé votre logement."
+//   EN: "Prénom has booked your place"
+//       "Reservation confirmed"
+//       "New reservation from Prénom"
+//
+// 🔴 ANNULATION
+//   FR: "Prénom a annulé sa réservation"
+//       "Réservation annulée"
+//   EN: "Booking cancelled"
+//
+// 🟡 MODIFICATION
+//   FR: "Prénom a modifié sa réservation"
+//       "Demande de modification"
+//
+// 🟤 DÉPART / CHECKOUT
+//   FR: "Le séjour de Prénom se termine aujourd'hui"
+//       "Prénom part aujourd'hui"
+//   EN: "Your guest is checking out today"
+//
+// 🔔 RAPPEL
+//   FR: "Rappel : Prénom arrive dans 2 jours"
+//       "Prénom arrive demain !"
+//       "Avez-vous tout préparé pour l'arrivée de Prénom ?"
+//       "4 voyageurs attendent votre commentaire"
+//       "N'oubliez pas de noter Prénom"
+//   EN: "Reminder: Prénom arrives in 2 days"
+//
+// ⭐ AVIS REÇU
+//   FR: "Prénom a laissé un avis"
+//       "Vous avez un nouvel avis"
+//       "Prénom vous a noté"
+//
+// 💶 VERSEMENT
+//   FR: "Nous avons envoyé un versement de 63,62 €"
+//       "Votre versement de X €"
+//   EN: "Your payout of $X has been sent"
 const SUBJECT_PATTERNS = {
   new_fr: [
-    /confirmation de r[eé]servation/i,
-    /nouvelle r[eé]servation/i,
-    /r[eé]servation confirm[eé]e/i,
-    /vous avez une nouvelle r[eé]servation/i,
-    /votre r[eé]servation est confirm[eé]e/i,
-    /r[eé]servation accept[eé]e/i,
-    /demande de r[eé]servation accept[eé]e/i,
-    /f[eé]licitations.*r[eé]servation/i,
+    // Format principal Airbnb hôte: "Prénom a réservé votre logement"
+    /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+a\s+r[eé]serv[eé]\s+votre\s+logement/,
+    /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+a\s+r[eé]serv[eé]/,
+    /nouvelle\s+r[eé]servation/i,
+    /confirmation\s+de\s+r[eé]servation/i,
+    /r[eé]servation\s+confirm[eé]e?/i,
+    /vous\s+avez\s+une\s+nouvelle\s+r[eé]servation/i,
+    /votre\s+r[eé]servation\s+est\s+confirm[eé]e?/i,
+    /r[eé]servation\s+accept[eé]e?/i,
+    /demande\s+de\s+r[eé]servation\s+accept[eé]e?/i,
+    /f[eé]licitations[^a-z]*r[eé]servation/i,
+    // "Réservation pour NomLogement, X–Y avr." (confirmation)
+    /r[eé]servation\s+pour\s+.{5,60},?\s+\d{1,2}[–\-]/i,
   ],
   new_en: [
-    /reservation confirmed/i,
-    /new reservation/i,
-    /booking confirmation/i,
-    /you have a new reservation/i,
-    /booking confirmed/i,
-    /reservation request accepted/i,
+    /[A-Z][a-z]+\s+has\s+booked\s+your\s+place/,
+    /[A-Z][a-z]+\s+has\s+booked/,
+    /reservation\s+confirmed/i,
+    /new\s+reservation/i,
+    /booking\s+confirmation/i,
+    /you\s+have\s+a\s+new\s+reservation/i,
+    /booking\s+confirmed/i,
+    /reservation\s+request\s+accepted/i,
     /congratulations.*reservation/i,
+    /[A-Z][a-z]+\s+has\s+reserved\s+your\s+place/,
   ],
   cancelled: [
-    /annul[eé]/i, /cancelled/i, /cancellation/i,
+    /a\s+annul[eé]\s+(?:sa\s+)?r[eé]servation/i,
+    /r[eé]servation\s+annul[eé]e?/i,
+    /annulation\s+de\s+r[eé]servation/i,
+    /annul[eé]e?\s*:/i,
+    /cancelled/i, /cancellation/i,
+    /booking\s+cancelled/i,
   ],
   modified: [
-    /modifi[eé]/i, /modified/i, /updated/i, /mis à jour/i,
+    /a\s+modifi[eé]\s+(?:sa\s+)?r[eé]servation/i,
+    /demande\s+de\s+modification/i,
+    /modification\s+de\s+r[eé]servation/i,
+    /modifi[eé]e?\s*:/i,
+    /modified/i, /updated/i, /mis\s+[àa]\s+jour/i,
+    /alteration\s+request/i,
   ],
   checkout: [
-    /d[eé]part/i, /checkout/i, /check-out/i, /voyage termin[eé]/i, /s[eé]jour termin[eé]/i,
-    /trip completed/i, /stay completed/i,
+    // "Le séjour de Prénom se termine aujourd'hui"
+    /s[eé]jour\s+de\s+.+\s+se\s+termine/i,
+    // "Prénom part aujourd'hui"
+    /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+part\s+aujourd[''']hui/,
+    /d[eé]part\s+de/i,
+    /voyage\s+termin[eé]/i, /s[eé]jour\s+termin[eé]/i,
+    /check.?out/i, /checkout/i,
+    /trip\s+completed/i, /stay\s+completed/i,
+    /your\s+guest\s+is\s+checking\s+out/i,
+    /checking\s+out\s+today/i,
   ],
   reminder: [
-    /rappel/i, /reminder/i, /dans\s+\d+\s+jour/i, /in\s+\d+\s+day/i,
-    /pr[eé]par[e]z/i, /proch[ae]in[e]?\s+(arr[iî]v[eé]e?|s[eé]jour)/i,
-    // Rappels d'évaluation hôte (hôte doit noter le voyageur, pas avis reçu)
-    /attendent?\s+votre\s+commentaire/i,
-    /attendent?\s+votre\s+[eé]valuation/i,
+    // Rappels d'arrivée imminente
+    /rappel\s*[:\–-]/i,
+    /dans\s+\d+\s+jours?/i,
+    /in\s+\d+\s+days?/i,
+    /arrive\s+(?:demain|aujourd[''']hui|dans)/i,
+    /pr[eé]par[eé]z.{0,20}arriv[eé]e?/i,
+    /avez.{0,20}pr[eé]par[eé].{0,20}arriv[eé]e?/i,
+    /prochaine?\s+arriv[eé]e?/i,
+    /prochaine?\s+s[eé]jour/i,
+    /reminder\s*:/i,
+    /arriving\s+(?:tomorrow|today|in\s+\d)/i,
+    // Rappels d'évaluation HÔTE (demande à l'hôte de noter son voyageur)
+    /attendent?\s+votre\s+(?:commentaire|[eé]valuation|avis)/i,
     /\d+\s+voyageurs?\s+attendent/i,
-    /voyageurs?\s+attend(?:ent)?\s+votre/i,
-    /laissez\s+(?:un\s+)?(?:avis|commentaire|[eé]valuation)\s+(?:sur|pour|[àa])\s+(?:votre\s+)?voyageur/i,
+    /voyageurs?\s+attendent?\s+votre/i,
+    /n['']oubliez\s+pas\s+de\s+noter/i,
     /[eé]valuez\s+(?:votre\s+)?voyageur/i,
     /notez\s+(?:votre\s+)?voyageur/i,
     /rate\s+your\s+guest/i,
+    /don[''']t\s+forget\s+to\s+review/i,
+    /leave\s+a\s+review\s+for\s+your\s+guest/i,
   ],
   review: [
-    /nouvel?\s+avis/i, /new\s+review/i, /a\s+laiss[eé]\s+un\s+avis/i,
-    /left\s+you\s+a\s+review/i, /[eé]valuation/i, /avis\s+re[cç]u/i,
-    /review\s+received/i, /[eé]toile[s]?/i, /rated\s+you/i, /vous\s+a\s+not[eé]/i,
-    // Avis reçu d'un voyageur (pas rappel hôte)
-    /laissez\s+(?:un\s+)?(?:avis|commentaire)\s*$/i,
-    /donnez\s+votre\s+avis/i,
-    /write\s+a\s+review/i,
-    /leave\s+a\s+review/i,
+    // Avis REÇU d'un voyageur (pas rappel hôte)
+    /a\s+laiss[eé]\s+(?:un\s+)?avis/i,
+    /vous\s+a\s+(?:laiss[eé]\s+un\s+avis|not[eé])/i,
+    /nouvel?\s+avis/i,
+    /new\s+review/i,
+    /left\s+you\s+a\s+review/i,
+    /avis\s+re[cç]u/i,
+    /review\s+received/i,
+    /rated\s+you/i,
+    /vous\s+a\s+not[eé]/i,
+    /a\s+[eé]valu[eé]\s+votre\s+s[eé]jour/i,
+    /reviewed\s+their\s+stay/i,
   ],
   payout: [
-    /versement/i, /virement/i, /payout/i, /nous\s+vous\s+avons\s+envoy[eé]/i,
-    /nous\s+avons\s+envoy[eé]\s+un\s+versement/i, /payment\s+sent/i,
-    /votre\s+paiement/i, /your\s+payout/i, /r[eè]glement\s+effectu[eé]/i,
-    /vir[eé]\s+sur\s+votre\s+compte/i, /transfer[eé]\s+vers/i,
+    // Format exact Airbnb: "Nous avons envoyé un versement de 63,62 €"
+    /nous\s+avons\s+envoy[eé]\s+un\s+versement/i,
+    /votre\s+versement\s+de/i,
+    /versement\s+de\s+[\d,.\s]+\s*[€$£]/i,
+    // Formats alternatifs
+    /virement\s+(?:effectu[eé]|envoy[eé])/i,
+    /paiement\s+envoy[eé]/i,
+    /r[eè]glement\s+effectu[eé]/i,
+    /your\s+payout\s+of/i,
+    /payout\s+(?:sent|of)\s+/i,
+    /payment\s+sent/i,
+    // Mots-clés seuls (moins précis, en dernier)
+    /versement/i, /virement\b/i, /\bpayout\b/i,
   ],
 };
 
@@ -380,168 +478,262 @@ function extractGuests(text: string): number {
 }
 
 function extractGuestName(text: string, subject?: string): string {
-  // ── Depuis le sujet ───────────────────────────────────────────────────────
+  // Regex de prénom/nom : commence par majuscule, peut avoir un nom de famille
+  // Supporte les prénoms composés (Jean-Pierre), les accents, les tirets
+  const NAME = `[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+)?`;
+  const NAME_RE = new RegExp(NAME);
+
+  // ── 1. Depuis le SUJET (source la plus fiable) ────────────────────────────
   if (subject) {
     const subjectPatterns = [
+      // 🔵 NOUVELLE RÉSERVATION — format principal Airbnb hôte
       // "Prénom a réservé votre logement"
-      /^([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)\s+a\s+r[eé]serv[eé]/,
-      /^([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)\s+souhaite\s+r[eé]server/,
+      // "Marie a réservé votre logement"
+      new RegExp(`^(${NAME})\\s+a\\s+r[eé]serv[eé](?:\\s+votre\\s+logement)?`, 'u'),
+      // "Prénom souhaite réserver votre logement" (demande)
+      new RegExp(`^(${NAME})\\s+souhaite\\s+r[eé]server`, 'u'),
+      // "Nouvelle réservation de Prénom"
+      new RegExp(`nouvelle\\s+r[eé]servation\\s+de\\s+(${NAME})`, 'iu'),
+      // EN: "Prénom has booked your place"
       /^([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+has\s+(?:booked|reserved)/,
-      /^([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+wants\s+to\s+book/,
-      // "Versement pour le séjour de Prénom" / "versement … Prénom Nom"
-      /s[eé]jour\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)/i,
+      // EN: "New reservation from Prénom"
+      /new\s+reservation\s+from\s+([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)/i,
+      // 🔴 ANNULATION — "Prénom a annulé sa réservation"
+      new RegExp(`^(${NAME})\\s+a\\s+annul[eé]`, 'u'),
+      // 🟤 DÉPART — "Le séjour de Prénom se termine"
+      new RegExp(`s[eé]jour\\s+de\\s+(${NAME})\\s+se\\s+termine`, 'iu'),
+      // "Prénom part aujourd'hui"
+      new RegExp(`^(${NAME})\\s+part\\s+aujourd`, 'u'),
+      // 🔔 RAPPEL — "Rappel : Prénom arrive demain"
+      new RegExp(`rappel\\s*[:\\-–]\\s*(${NAME})\\s+arrive`, 'iu'),
+      new RegExp(`(${NAME})\\s+arrive\\s+(?:demain|aujourd|dans)`, 'iu'),
+      // ⭐ AVIS — "Prénom a laissé un avis"
+      new RegExp(`^(${NAME})\\s+a\\s+laiss[eé]\\s+(?:un\\s+)?avis`, 'u'),
+      new RegExp(`^(${NAME})\\s+vous\\s+a\\s+not[eé]`, 'u'),
+      new RegExp(`^(${NAME})\\s+a\\s+[eé]valu[eé]`, 'u'),
+      // EN: "Prénom left you a review"
+      /^([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+left\s+you\s+a\s+review/,
+      // 💶 VERSEMENT — "versement pour le séjour de Prénom"
+      new RegExp(`s[eé]jour\\s+de\\s+(${NAME})`, 'iu'),
+      // Modification : "Prénom a modifié sa réservation"
+      new RegExp(`^(${NAME})\\s+a\\s+modifi[eé]`, 'u'),
     ];
     for (const p of subjectPatterns) {
       const m = subject.match(p);
       if (m) {
         const name = m[1].trim().slice(0, 60);
-        if (name.length >= 2 && !/airbnb/i.test(name)) return name;
+        if (name.length >= 2 && !/airbnb/i.test(name) && NAME_RE.test(name)) return name;
       }
     }
   }
 
-  // ── Depuis le corps du mail ────────────────────────────────────────────────
-  const patterns = [
-    // FR — format hôte Airbnb
-    /([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+){0,2})\s+a\s+r[eé]serv[eé]/,
-    /([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+){0,2})\s+souhaite\s+r[eé]server/,
-    /nouveau\s+voyageur\s*:\s*([^\n\r<]{2,60})/i,
-    /r[eé]servation\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+){0,2})/i,
-    /voyageur[s]?\s*:\s*([^\n\r<]+)/i,
-    /nom\s+du\s+voyageur\s*:\s*([^\n\r<]+)/i,
-    /nom\s*:\s*([^\n\r<]+)/i,
-    // Versement : "versement pour le séjour de Prénom Nom"
+  // ── 2. Depuis le CORPS de l'email ─────────────────────────────────────────
+  // Basé sur les vrais formats observés dans les emails Airbnb hôte
+  const bodyPatterns = [
+    // "Prénom a réservé votre logement" dans le corps
+    new RegExp(`([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+)?)\\s+a\\s+r[eé]serv[eé](?:\\s+votre\\s+logement)?`),
+    // "Prénom souhaite réserver"
+    new RegExp(`([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+)?)\\s+souhaite\\s+r[eé]server`),
+    // "Bonjour [Hôte], Prénom a réservé" → après "Bonjour"
+    /Bonjour\s+\S+,?\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)\s+a\s+r[eé]serv[eé]/u,
+    // Labels explicites dans le corps
+    /voyageur[s]?\s*[:\-]\s*([^\n\r<,]{2,60})/i,
+    /nom\s+du\s+voyageur\s*[:\-]\s*([^\n\r<,]{2,60})/i,
+    /nouveau\s+voyageur\s*[:\-]\s*([^\n\r<,]{2,60})/i,
+    /invit[eé]\s*[:\-]\s*([^\n\r<,]{2,60})/i,
+    /guest\s*[:\-]\s*([^\n\r<,]{2,60})/i,
+    /name\s*[:\-]\s*([^\n\r<,]{2,60})/i,
+    // "réservation de Prénom"
+    /r[eé]servation\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)/i,
+    // "séjour de Prénom" (dans corps payout ou checkout)
     /s[eé]jour\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)/i,
-    // EN — format hôte Airbnb
-    /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+){0,2})\s+has\s+(?:booked|reserved)/,
-    /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+){0,2})\s+wants\s+to\s+book/,
-    /new\s+guest\s*:\s*([^\n\r<]{2,60})/i,
-    /guest\s*:\s*([^\n\r<]+)/i,
-    /name\s*:\s*([^\n\r<]+)/i,
+    // "Prénom a laissé un avis"
+    /([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)\s+a\s+laiss[eé]\s+(?:un\s+)?avis/i,
+    // EN
+    /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+has\s+(?:booked|reserved)/,
+    /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+wants\s+to\s+book/,
+    /new\s+guest\s*[:\-]\s*([^\n\r<,]{2,60})/i,
+    /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+left\s+you\s+a\s+review/i,
   ];
-  for (const p of patterns) {
+  for (const p of bodyPatterns) {
     const m = text.match(p);
     if (m) {
-      const name = m[1].trim().replace(/<[^>]*>/g, '').slice(0, 60);
-      if (name.length >= 2 && !/airbnb/i.test(name) && !/versement|payout|s[eé]jour/i.test(name)) return name;
+      const name = m[1].trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').slice(0, 60);
+      // Filtres anti-pollution: rejeter si ressemble à un payout, une phrase ou du bruit
+      if (name.length >= 2
+        && name.length <= 50
+        && !/airbnb/i.test(name)
+        && !/versement|payout|s[eé]jour|r[eé]servation|logement|annonce/i.test(name)
+        && NAME_RE.test(name)
+      ) return name;
     }
   }
   return 'Voyageur Airbnb';
 }
 
 function extractConfirmationCode(text: string): string | undefined {
+  // Codes Airbnb : format HMXXXXX (HM + chiffres) ou ABCDEF123 (lettres+chiffres)
+  // Vrais formats observés: HM1234567890, HMABCD123, etc.
   const patterns = [
     /code\s+de\s+confirmation\s*[:\s]+([A-Z0-9]{6,12})/i,
     /confirmation\s+code\s*[:\s]+([A-Z0-9]{6,12})/i,
+    /r[eé]f[eé]rence\s+(?:de\s+)?r[eé]servation\s*[:\s]+([A-Z0-9]{6,12})/i,
     /r[eé]f[eé]rence\s*[:\s]+([A-Z0-9]{6,12})/i,
-    /n[°o]\s*r[eé]servation\s*[:\s]+([A-Z0-9]{6,12})/i,
-    /booking\s*#\s*([A-Z0-9]{6,12})/i,
+    /n[°o]\.?\s*(?:de\s+)?r[eé]servation\s*[:\s]+([A-Z0-9]{6,12})/i,
+    /booking\s+(?:reference|id|code|#)\s*[:\s]*([A-Z0-9]{6,12})/i,
+    // Code Airbnb natif: "HM" suivi de chiffres (ex: HM1234567890)
+    /\b(HM[A-Z0-9]{6,10})\b/,
+    // Code type HMXXXXX
+    /\b([A-Z]{2,3}[0-9]{5,9})\b/,
+    // Générique: séquence mixte lettres+chiffres en majuscules
     /\b([A-Z]{2,4}[0-9]{4,8})\b/,
   ];
   for (const p of patterns) {
     const m = text.match(p);
-    if (m) return m[1].toUpperCase();
+    if (m) {
+      const code = m[1].toUpperCase();
+      // Filtrer les faux positifs courants
+      if (!/^(EUR|USD|GBP|JPY|CHF|CAD|AUD)$/.test(code)) return code;
+    }
   }
   return undefined;
 }
 
 function extractPropertyName(text: string, subject?: string): string | undefined {
-  // ── Pour les emails de versement : pas de nom de logement ─────────────────
-  // Évite que "Nous avons envoyé un versement de X €" soit capturé comme nom
-  const PAYOUT_RE = /nous\s+avons\s+envoy[eé]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout|versement\s+de\s+[\d,.\s]+[€$]?|your\s+payout\s+of/i;
-  const isPayoutText = PAYOUT_RE.test(text.slice(0, 500)) || (subject ? PAYOUT_RE.test(subject) : false);
-  if (isPayoutText) return undefined;
+  // ── GUARD : emails de versement → jamais de nom de logement ──────────────
+  // "Nous avons envoyé un versement de X €" → return undefined immédiatement
+  const PAYOUT_RE = /nous\s+avons\s+envoy[eé]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout|versement\s+de\s+[\d,.\s]+\s*[€$£]|your\s+payout\s+of/i;
+  const isPayoutEmail = PAYOUT_RE.test(text.slice(0, 600)) || (subject ? PAYOUT_RE.test(subject) : false);
+  if (isPayoutEmail) return undefined;
 
-  // ── Patterns dans le corps du mail ────────────────────────────────────────
-  const bodyPatterns = [
-    /logement\s*:\s*([^\n\r<]{5,80})/i,
-    /propriété\s*:\s*([^\n\r<]{5,80})/i,
-    /listing\s*:\s*([^\n\r<]{5,80})/i,
-    /property\s*:\s*([^\n\r<]{5,80})/i,
-    /vous\s+restez\s+à\s*:\s*([^\n\r<]{5,80})/i,
-    /staying\s+at\s*:\s*([^\n\r<]{5,80})/i,
-    // Patterns réels emails Airbnb (hôte/voyageur)
-    /votre\s+logement\s+:\s*([^\n\r<]{5,80})/i,
-    /votre\s+annonce\s+:\s*([^\n\r<]{5,80})/i,
-    /annonce\s*:\s*([^\n\r<]{5,80})/i,
-    /titre\s+de\s+l['']annonce\s*:\s*([^\n\r<]{5,80})/i,
-    /r[eé]servation\s+(?:pour|de|à)\s+([^\n\r<,\.]{5,60})\s+(?:du|pour)/i,
-    /a\s+r[eé]serv[eé]\s+(?:votre\s+logement\s+)?([^\n\r<,\.]{5,60})\s+(?:du|pour)/i,
-    /your\s+listing\s*:\s*([^\n\r<]{5,80})/i,
-    /your\s+place\s*:\s*([^\n\r<]{5,80})/i,
-    /reservation\s+at\s+([^\n\r<,\.]{5,60})/i,
+  // Helper: nettoie un candidat de nom de logement
+  const cleanCandidate = (raw: string): string =>
+    stripDateSuffix(raw.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' '))
+      .replace(/\s*\|.*$/, '')
+      .replace(/\s*[-–]\s*Airbnb.*$/i, '')
+      .replace(/\.$/, '')
+      .replace(/\s*\(airbnb\)/i, '')
+      .trim()
+      .slice(0, 80);
+
+  // ── 1. CORPS du mail — patterns structurés (les plus fiables) ─────────────
+  // Vrais formats Airbnb observés dans les emails hôte 2024-2026 :
+  //   "Réservation pour NomLogement, 10–13 avr."   → dans le corps
+  //   "Annonce : NomLogement"
+  //   "Votre logement : NomLogement"
+  //   "Logement : NomLogement"
+  //   "Your listing: NomLogement"
+  const bodyPatterns: RegExp[] = [
+    // Format Airbnb hôte : "Réservation pour NomLogement, 10–13 avr."
+    // Le nom est entre "pour " et la virgule+date ou fin de ligne
+    /r[eé]servation\s+pour\s+([^,\n\r<]{5,70})(?:,|\n|\r|$)/i,
+    // "Logement : NomLogement" / "Votre logement : NomLogement"
+    /(?:votre\s+)?logement\s*[:\-]\s*([^\n\r<]{5,80})/i,
+    // "Annonce : NomLogement" / "Votre annonce : NomLogement"
+    /(?:votre\s+)?annonce\s*[:\-]\s*([^\n\r<]{5,80})/i,
+    // "Titre de l'annonce : NomLogement"
+    /titre\s+de\s+l['']annonce\s*[:\-]\s*([^\n\r<]{5,80})/i,
+    // "Propriété : NomLogement"
+    /propri[eé]t[eé]\s*[:\-]\s*([^\n\r<]{5,80})/i,
+    // "Your listing: NomLogement"
+    /your\s+listing\s*[:\-]\s*([^\n\r<]{5,80})/i,
+    // "Listing: NomLogement"
+    /listing\s*[:\-]\s*([^\n\r<]{5,80})/i,
+    // "Property: NomLogement"
+    /property\s*[:\-]\s*([^\n\r<]{5,80})/i,
+    // "Vous restez à : NomLogement"
+    /vous\s+restez\s+[àa]\s*[:\-]?\s*([^\n\r<]{5,80})/i,
+    // "Staying at: NomLogement"
+    /staying\s+at\s*[:\-]\s*([^\n\r<]{5,80})/i,
+    // "Your place: NomLogement"
+    /your\s+place\s*[:\-]\s*([^\n\r<]{5,80})/i,
+    // "Confirmed at: NomLogement"
     /confirmed\s+at\s+([^\n\r<,\.]{5,60})/i,
+    // "Reservation at NomLogement"
+    /reservation\s+at\s+([^\n\r<,\.]{5,60})/i,
+    // "Trip to NomLogement"
     /trip\s+to\s+([^\n\r<,\.]{5,60})/i,
+    // "Voyage à NomLogement"
     /voyage\s+[àa]\s+([^\n\r<,\.]{5,60})/i,
   ];
   for (const p of bodyPatterns) {
     const m = text.match(p);
     if (m) {
-      const raw = m[1].trim().replace(/<[^>]*>/g, '');
-      const cleaned = stripDateSuffix(raw).slice(0, 80);
-      if (cleaned.length >= 5) return cleaned;
+      const c = cleanCandidate(m[1]);
+      // Rejeter si contient des mots-clés de versement ou de bruit
+      if (c.length >= 5 && !/versement|payout|virement|envoy[eé]|r[eé]gl[eé]|€\s*\d|^\d+[,.]?\d*\s*[€$]/i.test(c)) return c;
     }
   }
 
-  // ── Extraction depuis le sujet de l'email ─────────────────────────────────
+  // ── 2. SUJET de l'email ───────────────────────────────────────────────────
+  // Vrais sujets Airbnb observés :
+  //   "Réservation pour NomLogement, 10–13 avr."
+  //   "Réservation confirmée – NomLogement"
+  //   "NomLogement – Rappel check-in"   ← nom EN PREMIER
+  //   "Check-in – NomLogement"
+  //   "Votre séjour à NomLogement"
+  //   "Rappel : NomLogement"
   if (subject) {
-    const subjectPatterns = [
-      // "Réservation pour NomLogement, 10–13 avr." → prioritaire car format exact Airbnb
-      /r[eé]servation\s+pour\s+(.{5,60})/i,
-      // "Réservation confirmée – NomLogement"
-      /(?:r[eé]servation\s+(?:confirm[eé]e?|accept[eé]e?)|booking\s+confirmed?)\s*[–\-:]\s*(.{5,60})/i,
-      // "Rappel : NomLogement"
-      /rappel\s*[–\-:]\s*(.{5,60})/i,
-      // "Votre voyage à/chez NomLogement"
-      /voyage\s+(?:[àa]|chez|pour)\s+(.{5,60})/i,
+    const subjectPatterns: RegExp[] = [
+      // 🏆 PRIORITÉ 1 : "Réservation pour NomLogement, ..." — format exact Airbnb hôte
+      /r[eé]servation\s+pour\s+([^,\n\r]{5,60})(?:,|$)/i,
+      // "Réservation confirmée – NomLogement" ou "Booking confirmed – NomLogement"
+      /(?:r[eé]servation\s+(?:confirm[eé]e?|accept[eé]e?)|booking\s+confirmed?)\s*[–\-:]\s*([^,\n\r]{5,60})/i,
+      // "Séjour confirmé – NomLogement"
+      /s[eé]jour\s+confirm[eé]\s*[–\-:]\s*([^,\n\r]{5,60})/i,
       // "Votre séjour à NomLogement"
-      /s[eé]jour\s+(?:[àa]|chez)\s+(.{5,60})/i,
-      // "Nouveau message de NomVoyageur concernant NomLogement"
-      /concernant\s+(.{5,60})/i,
-      // "Check-in – NomLogement"
-      /check.?(?:in|out)\s*[–\-:]\s*(.{5,60})/i,
+      /votre\s+s[eé]jour\s+(?:[àa]|chez|dans)\s+([^,\n\r]{5,60})/i,
+      // "Votre voyage à NomLogement"
+      /votre\s+voyage\s+(?:[àa]|chez|dans)\s+([^,\n\r]{5,60})/i,
+      // "Check-in – NomLogement" ou "Départ – NomLogement"
+      /check.?(?:in|out)\s*[–\-:]\s*([^,\n\r]{5,60})/i,
+      /d[eé]part\s*[–\-:]\s*([^,\n\r]{5,60})/i,
+      // "Rappel : NomLogement" (rappels hôte)
+      /rappel\s*[–\-:]\s*([^,\n\r]{5,60})/i,
       // "Demande de réservation – NomLogement"
-      /demande\s+de\s+r[eé]servation\s*[–\-:]\s*(.{5,60})/i,
-      // "[Airbnb] NomLogement – …"  ou  "Airbnb – NomLogement"
-      /\[airbnb\]\s*(.{5,60}?)(?:\s*[–\-]|$)/i,
-      /airbnb\s*[–\-]\s*(.{5,60})/i,
-      // "NomVoyageur arrive chez NomLogement"
-      /(?:arrive|s['']installe)\s+(?:chez|[àa])\s+(.{5,60})/i,
+      /demande\s+de\s+r[eé]servation\s*[–\-:]\s*([^,\n\r]{5,60})/i,
       // "Votre annonce NomLogement a reçu…"
-      /(?:votre\s+annonce|your\s+listing)\s+(.{5,60?})\s+(?:a\s+re[cç]u|has)/i,
-      // "NomLogement – confirmation de séjour" (nom en début de sujet avant tiret)
-      /^(.{5,60}?)\s*[–\-]\s*(?:r[eé]servation|confirm|rappel|check|s[eé]jour|arriv)/i,
+      /votre\s+annonce\s+([^,\n\r\s]{5,60}(?:\s+\S+){0,4})\s+a\s+re[cç]u/i,
+      // "[Airbnb] NomLogement"
+      /\[airbnb\]\s+([^–\-\n\r]{5,60})(?:\s*[–\-]|$)/i,
+      // "Airbnb – NomLogement"
+      /\bairbnb\s*[–\-]\s*([^,\n\r]{5,60})/i,
+      // Format "NomLogement – Rappel" (nom en tête)
+      /^([^–\-\n\r]{5,60}?)\s*[–\-]\s*(?:rappel|check|s[eé]jour|d[eé]part|arriv|confirm)/i,
+      // Concernant un logement
+      /concernant\s+(?:votre\s+logement\s+)?([^,\n\r]{5,60})/i,
     ];
     for (const p of subjectPatterns) {
       const m = subject.match(p);
       if (m) {
-        const candidate = stripDateSuffix(m[1].trim())
-          .replace(/\s*\|.*$/, '')
-          .replace(/\s*-\s*Airbnb.*$/i, '')
-          .replace(/\s*–\s*Airbnb.*$/i, '')
-          .replace(/\.$/, '')
-          .trim()
-          .slice(0, 80);
-        if (candidate.length >= 5) return candidate;
+        const c = cleanCandidate(m[1]);
+        if (c.length >= 5 && !/versement|payout|virement|envoy[eé]|r[eé]gl[eé]|^\d+[,.]?\d*\s*[€$]/i.test(c)) return c;
       }
     }
 
-    // ── Dernier recours : sujet entier nettoyé comme nom candidat ────────────
-    const cleaned = subject
-      .replace(/airbnb/gi, '')
-      .replace(/r[eé]servation\s+(confirm[eé]e?|accept[eé]e?|re[cç]ue?)/gi, '')
-      .replace(/booking\s+(confirmed?|received?)/gi, '')
-      .replace(/nouvelle?\s+r[eé]servation/gi, '')
-      .replace(/rappel\s+d[e']?\s*arriv[eé]e?/gi, '')
-      .replace(/rappel\s+check.?in/gi, '')
-      .replace(/check.?(?:in|out)/gi, '')
-      .replace(/confirmation\s+de\s+s[eé]jour/gi, '')
-      .replace(/\[|\]/g, '')
-      .replace(/[–\-:]/g, ' ')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-    const finalCleaned = stripDateSuffix(cleaned).trim();
-    if (finalCleaned.length >= 5) return finalCleaned.slice(0, 80);
+    // ── 3. DERNIER RECOURS : nettoyer le sujet entier ────────────────────────
+    // Uniquement si le sujet ne ressemble PAS à un payout ou un nom de voyageur
+    const isPersonSubject = /^[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-z]+\s+[a-z]+\s+(r[eé]serv|annul|modifi|laiss|part\s)/i.test(subject);
+    if (!isPersonSubject) {
+      const cleaned = subject
+        .replace(/airbnb/gi, '')
+        .replace(/r[eé]servation\s+(confirm[eé]e?|accept[eé]e?|re[cç]ue?)/gi, '')
+        .replace(/nouvelle?\s+r[eé]servation/gi, '')
+        .replace(/booking\s+(confirmed?|received?)/gi, '')
+        .replace(/rappel\s+(?:d['e]?\s*)?arriv[eé]e?/gi, '')
+        .replace(/rappel\s+check.?in/gi, '')
+        .replace(/check.?(?:in|out)/gi, '')
+        .replace(/confirmation\s+de\s+s[eé]jour/gi, '')
+        .replace(/votre\s+(?:voyage|s[eé]jour)\s+[àa]/gi, '')
+        .replace(/\[|\]/g, '')
+        .replace(/[–\-:,]/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      const fc = cleanCandidate(cleaned);
+      if (fc.length >= 5 && !/versement|payout|virement|envoy[eé]|^\d+[,.]?\d*\s*[€$]/i.test(fc)) {
+        return fc.slice(0, 80);
+      }
+    }
   }
 
   return undefined;
@@ -607,29 +799,52 @@ export function parseAirbnbEmail(
   let checkOut: string | null = null;
 
   if (bookingType !== 'payout') {
+    // Vrais formats de dates dans les emails Airbnb hôte (FR) :
+    //   "Arrivée : sam. 10 avr." / "Arrivée : 10 avr. 2026"
+    //   "Arrivée : 10 avril 2026"
+    //   "Départ : mar. 13 avr."
+    //   "10 avr. – 13 avr." (dans le corps ou le sujet)
+    //   "du 10 au 13 avril 2026"
+    //   "10/04/2026" / "10-04-2026"
+    //   "April 10, 2026" / "Apr 10, 2026"
+    //   "samedi 10 avril 2026"
+    //   "sam. 10 avr." (jour abrégé + date sans année)
+    const MOIS_RE = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|juillet|ao[uû]t|sept?\\.?|octobre?|nov\\.?|d[eé]c\\.?|d[eé]cembre?)`;
+    const JOUR_RE = `(?:lun\\.?|mar\\.?|mer\\.?|jeu\\.?|ven\\.?|sam\\.?|dim\\.?|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)`;
+
     const checkInPatterns = [
-      /(?:arriv[eé]e?|check.?in|entr[eé]e?)\s*[:\-–]\s*([\d\w\/\.\s,àáâãäåèéêëìíîïòóôõöùúûü]+(?:\d{4}))/i,
-      /du\s+([\d]{1,2}[\s\/\-\.]([\d]{1,2}|[\wéèûî]+)[\s\/\-\.][\d]{4})/i,
+      // "Arrivée : sam. 10 avr." / "Arrivée : 10 avr." / "Arrivée : 10 avr. 2026"
+      new RegExp(`arriv[eé]e?\\s*[:\\-–]\\s*(?:${JOUR_RE}\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // "Check-in : sam. 10 avr."
+      new RegExp(`check.?in\\s*[:\\-–]\\s*(?:${JOUR_RE}\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // "Entrée : 10 avr."
+      new RegExp(`entr[eé]e?\\s*[:\\-–]\\s*(?:${JOUR_RE}\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // Dates avec année : "du 10/04/2026" ou "10/04/2026"
+      /(?:du\s+|from\s+)?(\d{1,2}[\s\/\-](?:\d{1,2}|[a-zàâéèêëîïôùûü]+)[\s\/\-]\d{4})/i,
       /from\s+([\w\s,]+\d{4})/i,
-      // Airbnb sans année: "Arrivée : 10 avr." / "10 avr. – 13 avr."
-      /(?:arriv[eé]e?|check.?in|entr[eé]e?)\s*[:\-–]\s*(\d{1,2}\s+[a-zà-ÿ]{3,10}\.?)\b/i,
-      /\b(\d{1,2}\s+(?:janv?|févr?|mars|avr\.?|mai|juin|juil\.?|août|sept?|oct\.?|nov\.?|déc\.?)\b)\s*[–\-]/i,
+      // Plage "10 avr. – 13 avr." → prendre la PREMIÈRE date
+      new RegExp(`(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*[–\\-]`, 'i'),
     ];
     const checkOutPatterns = [
-      /(?:d[eé]part|check.?out|sortie)\s*[:\-–]\s*([\d\w\/\.\s,àáâãäåèéêëìíîïòóôõöùúûü]+(?:\d{4}))/i,
-      /au\s+([\d]{1,2}[\s\/\-\.]([\d]{1,2}|[\wéèûî]+)[\s\/\-\.][\d]{4})/i,
+      // "Départ : mar. 13 avr." / "Départ : 13 avr."
+      new RegExp(`d[eé]part\\s*[:\\-–]\\s*(?:${JOUR_RE}\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // "Check-out : 13 avr."
+      new RegExp(`check.?out\\s*[:\\-–]\\s*(?:${JOUR_RE}\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // "Sortie : 13 avr."
+      new RegExp(`sortie\\s*[:\\-–]\\s*(?:${JOUR_RE}\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // Dates avec année : "au 13/04/2026"
+      /(?:au\s+|to\s+)(\d{1,2}[\s\/\-](?:\d{1,2}|[a-zàâéèêëîïôùûü]+)[\s\/\-]\d{4})/i,
       /to\s+([\w\s,]+\d{4})/i,
-      // Airbnb sans année: "Départ : 13 avr." / "10 avr. – 13 avr."
-      /(?:d[eé]part|check.?out|sortie)\s*[:\-–]\s*(\d{1,2}\s+[a-zà-ÿ]{3,10}\.?)\b/i,
-      /[–\-]\s*(\d{1,2}\s+(?:janv?|févr?|mars|avr\.?|mai|juin|juil\.?|août|sept?|oct\.?|nov\.?|déc\.?)\b)/i,
+      // Plage "10 avr. – 13 avr." → prendre la DEUXIÈME date (après le tiret)
+      new RegExp(`[–\\-]\\s*(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
     ];
 
     checkIn = extractDate(text, checkInPatterns);
     checkOut = extractDate(text, checkOutPatterns);
 
-    // Fallback : chercher deux dates proches dans le texte
+    // Fallback : chercher deux dates proches dans le texte (avec ou sans année)
     if (!checkIn || !checkOut) {
-      const allDates = [...text.matchAll(/\b(\d{1,2}[\s\/\-\.](?:\d{1,2}|[a-zàâéèêëîïôùûü]+)[\s\/\-\.]\d{4})\b/gi)]
+      const allDates = [...text.matchAll(/\b(\d{1,2}[\s\/\-](?:\d{1,2}|[a-zàâéèêëîïôùûü]+)[\s\/\-]\d{4})\b/gi)]
         .map(m => normalizeDate(m[1]))
         .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
       if (allDates.length >= 2) {
