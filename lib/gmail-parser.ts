@@ -68,12 +68,15 @@
  * ⭐ 'review'    — Avis reçu d'un voyageur
  *   Sujets FR :  "Marie a laissé une évaluation 4 étoiles"  ← observé réel
  *                "vous a laissé une évaluation 5 étoiles !" ← observé réel (prénom masqué)
+ *                "Un voyageur a récemment laissé une évaluation 1 étoile" ← observé réel (anonymisé)
+ *                "Un voyageur a récemment laissé un avis"   ← variante anonymisée
  *                "Marie a laissé un avis"
  *                "Marie a évalué votre logement"
  *                "Marie a noté votre logement"
  *                "Nouvel avis" / "Nouvelle évaluation"
  *   Sujets EN :  "Marie left you a review" / "New review"
  *                "Marie rated your place"
+ *                "A guest has recently left a review"       ← EN anonymisé
  *   Note : la note (1-5 étoiles) est extraite depuis le sujet en priorité
  *
  * 💶 'payout'   — Versement hôte (Airbnb envoie de l'argent à l'hôte)
@@ -107,7 +110,9 @@
  * 🟤 'checkout'  → guestName, checkIn, checkOut, checkOutTime, confirmationCode,
  *                  propertyName, guestLanguage
  *
- * ⭐ 'review'    → guestName, reviewRating (1-5), reviewComment, guestLanguage
+ * ⭐ 'review'    → guestName (ou "Voyageur Airbnb" si anonymisé), reviewRating (1-5),
+ *                  reviewComment, guestLanguage
+ *                  ⚠️  Airbnb peut masquer le prénom → "Un voyageur a récemment laissé…"
  *                  (pas de dates séjour dans ces emails)
  *
  * 💶 'payout'   → hostPayout, totalPrice, payoutDate, payoutMethod, currency,
@@ -396,6 +401,12 @@ const SUBJECT_PATTERNS = {
     // Avis REÇU d'un voyageur (≠ rappel hôte d'évaluer → voir IGNORED_PATTERNS)
     // "Marie a laissé une évaluation 4 étoiles"  ← observé réel
     /a\s+laiss[eé]\s+une?\s+[eé]valuation/i,
+    // "Un voyageur a récemment laissé une évaluation 1 étoile"  ← observé réel (prénom masqué)
+    /un(?:e)?\s+(?:de\s+vos\s+)?voyageurs?\s+a\s+(?:r[eé]cemment\s+)?laiss[eé]/i,
+    // "Un voyageur a récemment laissé un avis"  ← variante
+    /un(?:e)?\s+(?:de\s+vos\s+)?voyageurs?\s+a\s+(?:r[eé]cemment\s+)?[eé]valu[eé]/i,
+    // "A guest has recently left a review"  ← EN anonymisé
+    /a\s+guest\s+(?:has\s+)?(?:recently\s+)?left\s+(?:a\s+)?(?:review|rating)/i,
     // "Marie a évalué / noté votre logement"
     /a\s+[eé]valu[eé]\s+votre\s+(?:logement|s[eé]jour|annonce)/i,
     /a\s+not[eé]\s+votre\s+(?:logement|s[eé]jour|annonce)/i,
@@ -416,9 +427,9 @@ const SUBJECT_PATTERNS = {
     /vous\s+a\s+not[eé]/i,
     /a\s+[eé]valu[eé]\s+votre\s+s[eé]jour/i,
     /reviewed\s+their\s+stay/i,
-    // Note explicite dans le sujet : "... 4 étoiles", "... 5 stars"
-    /\d\s*[eé]toiles?\s*$/i,
-    /\d\s*stars?\s*$/i,
+    // Note explicite dans le sujet : "... 4 étoiles", "... 5 stars" / "1 étoile"
+    /\d\s*[eé]toiles?\s*[!.]?\s*$/i,
+    /\d\s*stars?\s*[!.]?\s*$/i,
   ],
   payout: [
     // Versement hôte — Airbnb envoie de l'argent à l'hôte
