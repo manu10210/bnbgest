@@ -1370,7 +1370,7 @@ function extractPropertyName(text: string, subject?: string): string | undefined
 
     // ── 3. DERNIER RECOURS : nettoyer le sujet entier ────────────────────────
     // Uniquement si le sujet ne ressemble PAS à un payout ou un nom de voyageur
-    const isPersonSubject = /^[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-z]+\s+[a-z]+\s+(r[eé]serv|annul|modifi|laiss|part\s|arrive)/i.test(subject);
+    const isPersonSubject = /^[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive)/i.test(subject);
     if (!isPersonSubject) {
       const cleaned = subject
         .replace(/airbnb/gi, '')
