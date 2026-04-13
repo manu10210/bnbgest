@@ -652,9 +652,9 @@ function extractPrice(text: string): number {
 
 function extractCleaningFee(text: string): number | undefined {
   const patterns = [
-    /frais\s+(?:de\s+)?m[eé]nage\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
-    /nettoyage\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
-    /cleaning\s+fee\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /frais\s+(?:de\s+)?m[eé]nage\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /nettoyage\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /cleaning\s+fee\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
@@ -669,9 +669,9 @@ function extractCleaningFee(text: string): number | undefined {
 
 function extractServiceFee(text: string): number | undefined {
   const patterns = [
-    /frais\s+de\s+service\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
-    /commission\s+(?:airbnb|de\s+service)\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
-    /service\s+fee\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /frais\s+de\s+service(?:\s+airbnb)?\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /commission\s+(?:airbnb|de\s+service)\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /service\s+fee\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
@@ -826,12 +826,12 @@ function extractTaxAmount(text: string): number | undefined {
     return !isNaN(n) && n > 0 ? n : 0;
   };
   const patterns = [
-    /taxe(?:s)?\s+de\s+s[eé]jour\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
-    /taxes?\s*(?:et\s+frais)?\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
-    /tva\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
-    /tourist\s+tax\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
-    /taxes?\s+and\s+fees?\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
-    /occupancy\s+tax\s*[:\-–]\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /taxe(?:s)?\s+de\s+s[eé]jour(?:\s+collect[eé]e?(?:s)?|s)?\s*[:\-–]*\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /taxes?\s*(?:et\s+frais)?\s*[:\-–]?\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /tva\s*[:\-–]?\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /tourist\s+tax\s*[:\-–]?\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /taxes?\s+and\s+fees?\s*[:\-–]?\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /occupancy\s+tax\s*[:\-–]?\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
@@ -973,7 +973,7 @@ function extractGuestPhone(text: string): string | undefined {
     /t[eé]l[eé]phone?\s*[:\s]+([+\d\s\-\(\)]{8,20})/i,
     /phone\s*[:\s]+([+\d\s\-\(\)]{8,20})/i,
     /mobile\s*[:\s]+([+\d\s\-\(\)]{8,20})/i,
-    /\b(\+?[0-9]{1,3}[\s\-]?(?:\([0-9]{1,4}\)[\s\-]?)?[0-9]{6,10})\b/,
+    /(?:^|\s|\()(\+?[0-9]{1,3}[\s\-]?(?:\([0-9]{1,4}\)[\s\-]?)?[0-9]{6,10})\b/
   ];
   for (const p of patterns) {
     const m = text.match(p);
@@ -986,18 +986,23 @@ function extractGuestPhone(text: string): string | undefined {
 }
 
 function extractGuestEmail(text: string): string | undefined {
-  // Chercher une adresse email de voyageur (pas airbnb)
+  // Support guest proxy emails from Airbnb (e.g. xxxx@guest.airbnb.com)
   const patterns = [
     /e-?mail\s+voyageur\s*[:\s]+([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
     /guest\s+e-?mail\s*[:\s]+([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
-    /contact\s*[:\s]+([a-zA-Z0-9._%+\-]+@(?!airbnb)[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
-    /(?:^|\s)([a-zA-Z0-9._%+\-]+@(?!airbnb)[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})(?:\s|$)/m,
+    /contact\s*[:\s]+([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
+    /(?:^|\s)([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})(?:\s|$)/m,
   ];
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
       const email = m[1].trim().toLowerCase();
-      if (!email.includes('airbnb') && !email.includes('noreply') && !email.includes('automated')) {
+      // Allow guest.airbnb.com, but block standard automated airbnb addresses
+      if (
+        (!email.includes('airbnb.com') || email.includes('guest.airbnb.com')) &&
+        !email.includes('noreply') && 
+        !email.includes('automated')
+      ) {
         return email;
       }
     }
