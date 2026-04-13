@@ -53,6 +53,55 @@ const AIRBNB_SENDERS = [
 // ─── Patterns de sujets ─────────────────────────────────────────────────────
 // ORDRE CRITIQUE : new > cancelled > modified > checkout > reminder > review > payout
 // Basés sur les vrais sujets Airbnb observés 2024-2026 (FR + EN)
+
+// ─── Emails à IGNORER (informatifs, maintenance, marketing) ─────────────────
+// Ces emails ne correspondent à aucune réservation — retourner null immédiatement
+const IGNORED_PATTERNS = [
+  // Maintenance / Actions requises sur les annonces
+  /plusieurs\s+annonces?\s+n[eé]cessitent?\s+votre\s+attention/i,
+  /annonces?\s+n[eé]cessitent?\s+votre\s+attention/i,
+  /votre\s+attention\s+est\s+requise/i,
+  /action\s+requise\s+sur\s+votre\s+annonce/i,
+  /action\s+n[eé]cessaire\s+sur\s+votre\s+annonce/i,
+  /mise\s+[àa]\s+jour\s+de\s+votre\s+annonce/i,
+  /mettez?\s+[àa]\s+jour\s+votre\s+annonce/i,
+  /action\s+required.*listing/i,
+  /listing.*requires?\s+your\s+attention/i,
+  /update\s+your\s+listing/i,
+  // Newsletters / Conseils / Opportunités
+  /conseils?\s+pour\s+les\s+h[oô]tes?/i,
+  /ressources?\s+pour\s+les\s+h[oô]tes?/i,
+  /bonnes?\s+pratiques?\s+airbnb/i,
+  /am[eé]liorez?\s+votre\s+annonce/i,
+  /augmentez?\s+vos\s+revenus/i,
+  /optimisez?\s+vos\s+tarifs/i,
+  /host\s+tips?/i,
+  /host\s+resources?/i,
+  /superh[oô]te/i,
+  /superhost/i,
+  // Notifications de politique / Conditions
+  /politique\s+de\s+r[eé]mun[eé]ration/i,
+  /mise\s+[àa]\s+jour\s+des\s+conditions/i,
+  /modification\s+des\s+conditions\s+d[''']utilisation/i,
+  /nouvelles?\s+conditions\s+g[eé]n[eé]rales/i,
+  /terms\s+of\s+service/i,
+  /policy\s+update/i,
+  // Sécurité / Compte
+  /connexion\s+[àa]\s+votre\s+compte/i,
+  /votre\s+compte\s+airbnb/i,
+  /v[eé]rifiez?\s+votre\s+adresse/i,
+  /r[eé]initialisez?\s+votre\s+mot\s+de\s+passe/i,
+  /sign.?in\s+to\s+your\s+account/i,
+  /verify\s+your\s+email/i,
+  /reset\s+your\s+password/i,
+  // Messagerie sans réservation
+  /a\s+r[eé]pondu\s+[àa]\s+votre\s+message/i,
+  /vous\s+a\s+envoy[eé]\s+un\s+message/i,
+  /vous\s+avez\s+un\s+nouveau\s+message/i,
+  /new\s+message\s+from/i,
+  /replied\s+to\s+your\s+message/i,
+  /sent\s+you\s+a\s+message/i,
+];
 //
 // 🔵 NOUVELLE RÉSERVATION
 //   FR: "Prénom a réservé votre logement"
@@ -809,6 +858,9 @@ export function parseAirbnbEmail(
   const isAirbnbSender = AIRBNB_SENDERS.some(s => from.toLowerCase().includes(s));
   const isAirbnbSubject = /airbnb/i.test(subject) || /r[eé]servation/i.test(subject);
   if (!isAirbnbSender && !isAirbnbSubject) return null;
+
+  // 1b. Ignorer les emails informatifs/maintenance/marketing — pas de réservation à importer
+  if (IGNORED_PATTERNS.some(p => p.test(subject))) return null;
 
   // 2. Déterminer le type de mail
   let bookingType: ParsedBooking['bookingType'] = 'new';
