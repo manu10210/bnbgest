@@ -230,11 +230,17 @@ const SUBJECT_PATTERNS = {
   ],
   modified: [
     /a\s+modifi[eé]\s+(?:sa\s+)?r[eé]servation/i,
-    /demande\s+de\s+modification/i,
+    /souhaite\s+changer\s+(?:sa\s+)?r[eé]servation/i,
+    /souhaite\s+modifier\s+(?:sa\s+)?r[eé]servation/i,
+    /a\s+chang[eé]\s+(?:sa\s+)?r[eé]servation/i,
+    /veut\s+(?:changer|modifier)\s+(?:sa\s+)?r[eé]servation/i,
+    /demande\s+de\s+(?:modification|changement)/i,
     /modification\s+de\s+r[eé]servation/i,
+    /changement\s+de\s+r[eé]servation/i,
     /modifi[eé]e?\s*:/i,
     /modified/i, /updated/i, /mis\s+[àa]\s+jour/i,
     /alteration\s+request/i,
+    /wants?\s+to\s+change\s+(?:their\s+)?(?:reservation|booking)/i,
   ],
   checkout: [
     // "Le séjour de Prénom se termine aujourd'hui"
