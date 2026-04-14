@@ -348,10 +348,8 @@ export default function GmailImporter() {
       //   Matching robuste (score ≥ 40) ou fallback sur le 1er logement.
       //   Pour les versements (payout) : pas de fallback — pas de propertyName attendu.
       //   Si aucune propriété → on marque "skipped" sauf pour cancel/payout
-      const useFallback = b.bookingType !== 'payout';
-      let property = findMatchingProperty(b.propertyName, properties, useFallback ? defaultProperty : undefined);
-
-      // ── 1b. Pour les avis (review) : retrouver le logement par recoupement ──
+        const useFallback = b.bookingType !== 'payout' && b.bookingType !== 'review';
+        let property = findMatchingProperty(b.propertyName, properties, useFallback ? defaultProperty : undefined);      // ── 1b. Pour les avis (review) : retrouver le logement par recoupement ──
       // L'email d'avis Airbnb ne contient pas le nom du logement.
       // Stratégie : chercher la réservation la plus récente du voyageur dans les 30j
       // avant la réception de l'email, puis utiliser son propertyId.
@@ -376,7 +374,7 @@ export default function GmailImporter() {
         }
       }
 
-      if (!property && b.bookingType !== 'cancelled' && b.bookingType !== 'payout') {
+      if (!property && b.bookingType !== 'cancelled' && b.bookingType !== 'payout' && b.bookingType !== 'review') {
         summary.skipped++;
         summary.skippedNoProperty++;
         continue;
@@ -852,7 +850,7 @@ export default function GmailImporter() {
       // On prend TOUS les bookings importés (toImport) avec
       // un propertyName détecté mais inconnu — pour ne rater aucun nouveau logement
       const allCandidates = toImport
-        .filter(b => b.propertyName?.trim() && !isKnownProperty(b.propertyName));
+        .filter(b => b.propertyName?.trim() && !isKnownProperty(b.propertyName) && b.bookingType !== 'review' && b.bookingType !== 'payout');
 
       const allNamesForWizard = allCandidates.map(b => b.propertyName!.trim());
 
