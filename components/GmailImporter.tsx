@@ -884,7 +884,7 @@ export default function GmailImporter() {
                 .trim()
                 .slice(0, 60) || '';
             })
-            .filter(n => n.length >= 5)
+            .filter(n => n.length >= 5 && !/[?=&%]|https?:/.test(n) && !(n.length > 50 && !n.includes(' ')))
         ));
         if (fallbackNames.length > 0) {
           const queue = fallbackNames.map(n => analyzeAirbnbTitle(n));

@@ -1270,14 +1270,17 @@ function extractPropertyName(text: string, subject?: string): string | undefined
   if (isPayoutEmail) return undefined;
 
   // Helper: nettoie un candidat de nom de logement
-  const cleanCandidate = (raw: string): string =>
-    stripDateSuffix(raw.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' '))
+  const cleanCandidate = (raw: string): string => {
+    const c = stripDateSuffix(raw.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' '))
       .replace(/\s*\|.*$/, '')
       .replace(/\s*[-–]\s*Airbnb.*$/i, '')
       .replace(/\.$/, '')
       .replace(/\s*\(airbnb\)/i, '')
       .trim()
       .slice(0, 80);
+    if (c && (/[?=&%]|https?:/.test(c) || (c.length > 50 && !c.includes(' ')))) return '';
+    return c;
+  };
 
   // ── 1. CORPS du mail — patterns structurés (les plus fiables) ─────────────
   // Vrais formats Airbnb observés dans les emails hôte 2024-2026 :
