@@ -8,11 +8,11 @@ import React, { useState, useCallback } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
-import {
+import { 
   Mail, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
   ChevronDown, ChevronUp, Download, Search, Calendar,
-  Users, DollarSign, Home, Zap, Filter, Info, Sparkles,
-} from 'lucide-react';
+  Users, DollarSign, Home, Zap, Filter, Info, Sparkles, DownloadCloud, Database } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import NewPropertyWizard, {
   analyzeAirbnbTitle,
   findNewPropertyNames,
@@ -53,8 +53,8 @@ interface ParsedBooking {
   reviewComment?: string;
 }
 
-type SyncStatus = 'idle' | 'checking' | 'syncing' | 'done' | 'error';
-type FilterType = 'all' | 'new' | 'cancelled';
+type SyncStatus = 'idle' | 'checking' | 'syncing' | 'importing' | 'done' | 'error';
+type FilterType = 'all' | 'new' | 'cancelled' | 'modified' | 'review' | 'payout';
 
 // ─── Composant ParseField — affiche un champ extrait par le parser ────────────
 // Affiche uniquement si value est défini et non vide.
@@ -221,7 +221,7 @@ export default function GmailImporter() {
   const [imported, setImported] = useState<string[]>([]);
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
   const [gmailEmail, setGmailEmail] = useState<string>('');
-  const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; skippedDuplicate: number; skippedNoProperty: number; tasksCreated: number; reviewsImported: number } | null>(null);
+  const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; skippedDuplicate: number; skippedNoProperty: number; tasksCreated: number; reviewsImported: number ; payoutsSaved: number; expensesCreated: number} | null>(null);
   const [purgeResult, setPurgeResult] = useState<{ bookings: number; guests: number } | null>(null);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
 
@@ -266,6 +266,7 @@ export default function GmailImporter() {
     setError(null);
     setBookings([]);
     setSelected(new Set());
+      setTimeout(() => setStatus('idle'), 2000);
     setImported([]);
     setImportSummary(null);
     try {
@@ -337,12 +338,14 @@ export default function GmailImporter() {
 
   // ─── Importer les réservations sélectionnées ──────────────────────────────
 
-  const importSelected = useCallback(() => {
+  const importSelected = useCallback(async () => {
+  setStatus('importing');
     const toImport = bookings.filter(b => selected.has(b.messageId));
     const defaultProperty = properties[0];
-    const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, tasksCreated: 0, reviewsImported: 0 };
+    const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0 };
 
     for (const b of toImport) {
+      await new Promise(r => setTimeout(r, 200)); // Animation de transfert visible
 
       // ── 1. Trouver le logement ────────────────────────────────────────────
       //   Matching robuste (score ≥ 40) ou fallback sur le 1er logement.
@@ -760,7 +763,7 @@ export default function GmailImporter() {
               `[VERSEMENT ${payoutAmount}€ le ${payoutDateStr}]`,
             ].filter(Boolean).join(' | '),
           });
-          summary.created++; // compté comme une action réalisée
+          summary.payoutsSaved++;
         } else if (payoutAmount > 0) {
           // Aucune réservation trouvée → créer une réservation "fantôme" financière
           // pour tracer le versement dans les données
@@ -794,6 +797,7 @@ export default function GmailImporter() {
 
       // â”€â”€ 4.h. CrÃ©er les dÃ©penses (Expenses) p
       // our les frais Airbnb retenus â”€â”€â”€â”€â”€â”€        for (const b of toImport) {
+      await new Promise(r => setTimeout(r, 200)); // Animation de transfert visible
         if ((b.bookingType === 'new' || b.bookingType === 'payout') && b.totalPrice > 0) {
           const pid = properties.find(p => p.name === b.propertyName)?.id || defaultProperty?.id;
 
@@ -902,6 +906,9 @@ export default function GmailImporter() {
         setPropertyQueue(queue.slice(1));
         setCurrentWizard(queue[0]);
       }
+
+      setTimeout(() => setStatus('idle'), 2500);
+      setStatus('done');
     }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems]);
 
   // ─── Purge des données importées depuis Gmail ─────────────────────────────
@@ -939,7 +946,7 @@ export default function GmailImporter() {
     setSelected(prev => { const n = new Set(prev); allSel ? visible.forEach(id => n.delete(id)) : visible.forEach(id => n.add(id)); return n; });
   };
 
-  const filtered = bookings.filter(b => filter === 'all' ? true : filter === 'new' ? b.bookingType === 'new' : b.bookingType === 'cancelled');
+  const filtered = bookings.filter(b => filter === 'all' ? true : b.bookingType === filter);
   const newCount = bookings.filter(b => b.bookingType === 'new').length;
   // Sélectionnable : tout type sauf review et payout (pas d'action réservation possible)
   const selectedNew = bookings.filter(b => selected.has(b.messageId) && b.bookingType !== 'review' && b.bookingType !== 'payout').length;
@@ -1205,7 +1212,7 @@ export default function GmailImporter() {
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <Filter className={`w-4 h-4 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                  {(['all', 'new', 'cancelled'] as FilterType[]).map(f => (
+                  {(['all', 'new', 'cancelled', 'modified', 'payout', 'review'] as FilterType[]).map(f => (
                     <button
                       key={f}
                       onClick={() => setFilter(f)}
@@ -1215,7 +1222,7 @@ export default function GmailImporter() {
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
-                      {f === 'all' ? `Tous (${bookings.length})` : f === 'new' ? `Nouvelles (${newCount})` : 'Annulées'}
+                      {f === 'all' ? `Tous (${bookings.length})` : f === 'new' ? `Nouvelles (${newCount})` : f === 'cancelled' ? 'Annulées' : f === 'payout' ? 'Versements' : f === 'review' ? 'Avis' : 'Modifications'}
                     </button>
                   ))}
                 </div>
