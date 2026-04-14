@@ -439,6 +439,11 @@ const SUBJECT_PATTERNS = {
     /reviewed\s+their\s+stay/i,
     // Note explicite dans le sujet : "... 4 étoiles", "... 5 stars" / "1 étoile"
     /\d\s*[eé]toiles?\s*[!.]?\s*$/i,
+      /\d\s*[eé]toiles?\s*$/i,
+      /[eé]valuation\s+\d\s*[eé]toiles?/i,
+      /avis\s+\d\s*[eé]toiles?/i,
+      /[eé]valuation\s+de\s+/i,
+      /avis\s+de\s+/i,
     /\d\s*stars?\s*[!.]?\s*$/i,
   ],
   payout: [
@@ -1508,7 +1513,7 @@ export function parseAirbnbEmail(
     //   checkout / check_out     → 'checkout'
     //   reminder / rappel_arriv  → 'reminder'
     const bodySnippet = body.slice(0, 2000).toLowerCase();
-    if (/home_reviews|review_received|guest.*review|avis.*re[cç]u/i.test(bodySnippet)) {
+      if (/home_reviews|review_received|guest.*review|avis.*re[cç]u|[eé]valuation.*[eé]toiles|avis.*[eé]toiles|has left you a review/i.test(bodySnippet)) {
       bookingType = 'review';
     } else if (/reservation_confirmation|booking_confirmation|new_reservation/i.test(bodySnippet)) {
       bookingType = 'new';
