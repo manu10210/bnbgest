@@ -1257,7 +1257,7 @@ function extractPropertyName(text: string, subject?: string): string | undefined
   if (subject && (
     /\barrive\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(subject) ||
     /\bpart\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(subject) ||
-    /^(?:\[[^\]]+\]\s*)?[A-ZÀ-ŸŒÆ][a-zàâéèêëîïôùûüÿœæ]+\s+(a\s+r[eé]serv|annul|modifi|laiss)/i.test(subject) ||
+    /^(?:\[[^\]]+\]\s*)?[A-ZÀ-ŸŒÆ][a-zàâéèêëîïôùûüÿœæ]+\s+(a\s+r[eé]serv|annul|modifi|laiss|r[eé]dig)/i.test(subject) ||
     /\bcheck[\s-]?(in|out)\b/i.test(subject)
   )) {
     return undefined;
@@ -1380,7 +1380,7 @@ function extractPropertyName(text: string, subject?: string): string | undefined
 
     // ── 3. DERNIER RECOURS : nettoyer le sujet entier ────────────
     // Uniquement si le sujet ne ressemble PAS à un payout ou un nom de voyageur
-    const isPersonSubject = /^(?:\[[^\]]+\]\s*)?[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive)/i.test(subject)
+    const isPersonSubject = /^(?:\[[^\]]+\]\s*)?[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive|r[eé]dig)/i.test(subject)
       || /\barrive\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(subject)
       || /^rappel\s*[:\-–]/i.test(subject)
       || /\bpart\s+(aujourd|demain|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(subject)
