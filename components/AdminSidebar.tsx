@@ -249,143 +249,159 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
         {menuItems.map((group, idx) => (
           <div key={idx}>
             {!isCollapsed && (
-              <h3 className={`px-4 mb-2 text-xs font-bold uppercase tracking-wider ${
-                isDark ? 'text-gray-500' : 'text-gray-400'
-              }`}>
-                {group.title}
-              </h3>
+              <button 
+                onClick={() => toggleCategory(group.title)}
+                className={`w-full flex items-center justify-between px-4 mb-2 text-xs font-bold uppercase tracking-wider transition-colors ${
+                  isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <span>{group.title}</span>
+                <motion.div animate={{ rotate: openCategories.includes(group.title) ? 90 : 0 }}>
+                  <ChevronRight className="w-3 h-3 opacity-50" />
+                </motion.div>
+              </button>
             )}
-            <div className="space-y-1">
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                const ext = EXTERNAL_ROUTES[item.id];
+            <AnimatePresence initial={false}>
+              {(openCategories.includes(group.title) || isCollapsed) && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-1 overflow-hidden"
+                >
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    const ext = EXTERNAL_ROUTES[item.id];
 
-                // External page link
-                if (ext) {
-                  const isExtActive = pathname === ext.href;
-                  return (
-                    <a
-                      key={item.id}
-                      href={ext.href}
-                      title={isCollapsed ? item.label : undefined}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                        isExtActive
-                          ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10'
-                          : isDark
-                            ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
-                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 shrink-0 relative z-10 transition-colors ${
-                        isExtActive ? 'text-indigo-400' : ext.color
-                      }`} />
-                      {!isCollapsed && (
-                        <>
-                          <span className={`text-sm font-medium relative z-10 flex-1 ${isExtActive ? 'font-bold text-indigo-400' : ''}`}>
-                            {item.label}
-                          </span>
-                          {item.badge > 0 && (
-                            <span className="relative z-10 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500">
+                    // External page link
+                    if (ext) {
+                      const isExtActive = pathname === ext.href;
+                      return (
+                        <a
+                          key={item.id}
+                          href={ext.href}
+                          title={isCollapsed ? item.label : undefined}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                            isExtActive
+                              ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10'
+                              : isDark
+                                ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Icon className={`w-5 h-5 shrink-0 relative z-10 transition-colors ${
+                            isExtActive ? 'text-indigo-400' : ext.color
+                          }`} />
+                          {!isCollapsed && (
+                            <>
+                              <span className={`text-sm font-medium relative z-10 flex-1 ${isExtActive ? 'font-bold text-indigo-400' : ''}`}>
+                                {item.label}
+                              </span>
+                              {item.badge > 0 && (
+                                <span className="relative z-10 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500">
+                                  {item.badge > 9 ? '9+' : item.badge}
+                                </span>
+                              )}
+                              <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-40 shrink-0 relative z-10" />
+                            </>
+                          )}
+                          {isCollapsed && item.badge > 0 && (
+                            <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center">
                               {item.badge > 9 ? '9+' : item.badge}
                             </span>
                           )}
-                          <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-40 shrink-0 relative z-10" />
-                        </>
-                      )}
-                      {isCollapsed && item.badge > 0 && (
-                        <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center">
-                          {item.badge > 9 ? '9+' : item.badge}
-                        </span>
-                      )}
-                    </a>
-                  );
-                }
+                        </a>
+                      );
+                    }
 
-                // In-dashboard tab button
-                return (
-                  <button
-                    key={item.id}
-                    data-testid={`${item.id}-tab`}
-                    onClick={() => safeSetActiveTab(item.id as TabType)}
-                    title={isCollapsed ? item.label : undefined}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
-                      isActive
-                        ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-500'
-                        : isDark
-                          ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                  >
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeTab"
-                        className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-xl"
-                        initial={false}
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      />
-                    )}
-                    <div className="relative shrink-0">
-                      <Icon className={`w-5 h-5 relative z-10 ${
-                        isActive ? 'text-indigo-500' : isDark ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-gray-900'
-                      }`} />
-                      {item.badge > 0 && (
-                        <AnimatePresence>
-                          <motion.span
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            exit={{ scale: 0 }}
-                            className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none shadow-sm"
-                          >
-                            {item.badge > 9 ? '9+' : item.badge}
-                          </motion.span>
-                        </AnimatePresence>
-                      )}
-                    </div>
-                    {!isCollapsed && (
-                      <span className={`text-sm font-medium relative z-10 flex-1 text-left ${
-                        isActive ? 'font-bold' : ''
-                      }`}>
-                        {item.label}
-                      </span>
-                    )}
-                    {!isCollapsed && item.badge > 0 && (
-                      <span className="relative z-10 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500">
-                        {item.badge}
-                      </span>
-                    )}
-                    {isActive && !isCollapsed && item.badge === 0 && (
-                      <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                    )}
-                  </button>
-                );
-              })}
+                    // Internal dashboard tab
+                    return (
+                      <button
+                        key={item.id}
+                        data-testid={`${item.id}-tab`}
+                        onClick={() => safeSetActiveTab(item.id as TabType)}
+                        title={isCollapsed ? item.label : undefined}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                          isActive
+                            ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-500'
+                            : isDark
+                              ? 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                      >
+                        {isActive && (
+                          <motion.div
+                            layoutId="activeTab"
+                            className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-xl"
+                            initial={false}
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                          />
+                        )}
+                        <div className="relative shrink-0">
+                          <Icon className={`w-5 h-5 relative z-10 ${
+                            isActive ? 'text-indigo-500' : isDark ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-gray-900'
+                          }`} />
+                          {item.badge > 0 && (
+                            <AnimatePresence>
+                              <motion.span
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                exit={{ scale: 0 }}
+                                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none shadow-sm"
+                              >
+                                {item.badge > 9 ? '9+' : item.badge}
+                              </motion.span>
+                            </AnimatePresence>
+                          )}
+                        </div>
+                        {!isCollapsed && (
+                          <span className={`text-sm font-medium relative z-10 flex-1 text-left ${
+                            isActive ? 'font-bold' : ''
+                          }`}>
+                            {item.label}
+                          </span>
+                        )}
+                        {!isCollapsed && item.badge > 0 && (
+                          <span className="relative z-10 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500">
+                            {item.badge}
+                          </span>
+                        )}
+                        {isActive && !isCollapsed && item.badge === 0 && (
+                          <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* Footer / User Profile */}
-      <div className={`p-4 border-t ${isDark ? 'border-white/[0.06]' : 'border-gray-200'}`}>
-        {!isCollapsed && currentTime && (
-          <div className={`mb-3 px-3 py-2 rounded-xl text-center ${isDark ? 'bg-white/[0.03]' : 'bg-gray-50'}`}>
-            <div className={`text-lg font-bold tabular-nums tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {currentTime}
+        {/* Footer / User Profile */}
+        <div className={`p-4 border-t ${isDark ? 'border-white/[0.06]' : 'border-gray-200'}`}>
+          {!isCollapsed && currentTime && (
+            <div className={`mb-3 px-3 py-2 rounded-xl text-center ${isDark ? 'bg-white/[0.03]' : 'bg-gray-50'}`}>
+              <div className={`text-lg font-bold tabular-nums tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                {currentTime}
+              </div>
+              <div className={`text-[11px] capitalize ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                {currentDate}
+              </div>
             </div>
-            <div className={`text-[11px] capitalize ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-              {currentDate}
-            </div>
-          </div>
-        )}
-        <button 
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`w-full flex items-center justify-center p-2 rounded-xl transition-colors ${
-            isDark ? 'hover:bg-white/[0.04] text-gray-400' : 'hover:bg-gray-100 text-gray-600'
-          }`}
-        >
-          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-        </button>
-      </div>
+          )}
+          <button 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className={`w-full flex items-center justify-center p-2 rounded-xl transition-colors ${
+              isDark ? 'hover:bg-white/[0.04] text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+            }`}
+          >
+            {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+          </button>
+        </div>
     </motion.aside>
     </AnimatePresence>
 
@@ -419,48 +435,64 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 scrollbar-hide">
             {menuItems.map((group, idx) => (
               <div key={idx}>
-                <h3 className={`px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{group.title}</h3>
-                <div className="space-y-0.5">
-                  {group.items.map(item => {
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
-                    const ext = EXTERNAL_ROUTES[item.id];
+                <button 
+                  onClick={() => toggleCategory(group.title)}
+                  className={`w-full flex items-center justify-between px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`}>
+                  <span>{group.title}</span>
+                  <motion.div animate={{ rotate: openCategories.includes(group.title) ? 90 : 0 }}>
+                    <ChevronRight className="w-3 h-3 opacity-50" />
+                  </motion.div>
+                </button>
+                <AnimatePresence initial={false}>
+                  {openCategories.includes(group.title) && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="space-y-0.5 overflow-hidden"
+                    >
+                      {group.items.map(item => {
+                        const Icon = item.icon;
+                        const isActive = activeTab === item.id;
+                        const ext = EXTERNAL_ROUTES[item.id];
 
-                    if (ext) {
-                      return (
-                        <a key={item.id} href={ext.href}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
-                            pathname === ext.href
-                              ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-400 font-bold'
-                              : isDark ? 'text-gray-400 hover:bg-white/[0.04] hover:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                          }`}>
-                          <Icon className={`w-5 h-5 shrink-0 ${ext.color}`} />
-                          <span className="text-sm flex-1">{item.label}</span>
-                          {item.badge > 0 && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500">{item.badge > 9 ? '9+' : item.badge}</span>
-                          )}
-                          <ExternalLink className="w-3 h-3 opacity-30" />
-                        </a>
-                      );
-                    }
+                        if (ext) {
+                          return (
+                            <a key={item.id} href={ext.href}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
+                                pathname === ext.href
+                                  ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-400 font-bold'
+                                  : isDark ? 'text-gray-400 hover:bg-white/[0.04] hover:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                              }`}>
+                              <Icon className={`w-5 h-5 shrink-0 ${ext.color}`} />
+                              <span className="text-sm flex-1">{item.label}</span>
+                              {item.badge > 0 && (
+                                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500">{item.badge > 9 ? '9+' : item.badge}</span>
+                              )}
+                              <ExternalLink className="w-3 h-3 opacity-30" />
+                            </a>
+                          );
+                        }
 
-                    return (
-                      <button key={item.id}
-                        onClick={() => { safeSetActiveTab(item.id as TabType); setMobileOpen(false); }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
-                          isActive
-                            ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-500 font-bold'
-                            : isDark ? 'text-gray-400 hover:bg-white/[0.04] hover:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                        }`}>
-                        <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-indigo-500' : ''}`} />
-                        <span className="text-sm flex-1">{item.label}</span>
-                        {item.badge > 0 && (
-                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500">{item.badge > 9 ? '9+' : item.badge}</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                        return (
+                          <button key={item.id} onClick={() => { safeSetActiveTab(item.id as TabType); setMobileOpen(false); }}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
+                              isActive
+                                ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-500 font-bold'
+                                : isDark ? 'text-gray-400 hover:bg-white/[0.04] hover:text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            }`}>
+                            <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-indigo-500' : ''}`} />
+                            <span className="text-sm flex-1">{item.label}</span>
+                            {item.badge > 0 && (
+                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-500">{item.badge > 9 ? '9+' : item.badge}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ))}
           </div>
