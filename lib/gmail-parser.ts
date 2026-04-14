@@ -932,7 +932,7 @@ function extractGuestCountry(text: string): string | undefined {
     /nationalit[eé]\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
     /lieu\s+de\s+r[eé]sidence\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
     // "Localisation : Paris, France" → extraire "France" après la virgule
-    /localisation\s*[:\-–]\s*[^,\n\r]+,\s*([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]{3,30})/i,
+    /localisation\s*[:\-–]\s*[^,\n\r]+,\s*([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ]{3,30})/i,
     // "Lives in France" / "from France"
     /\blives?\s+in\s+([A-Z][a-z]{2,30})\b/,
     /\bfrom\s+([A-Z][a-z]{2,30})\b/,
@@ -1127,7 +1127,7 @@ function extractGuests(text: string, subject?: string): number {
 function extractGuestName(text: string, subject?: string): string {
   // Regex de prénom/nom : commence par majuscule, peut avoir un nom de famille
   // Supporte les prénoms composés (Jean-Pierre), les accents, les tirets
-  const NAME = `[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+)?`;
+  const NAME = `[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+)?`;
   const NAME_RE = new RegExp(NAME);
 
   // ── 1. Depuis le SUJET (source la plus fiable) ────────────────────────────
@@ -1181,11 +1181,11 @@ function extractGuestName(text: string, subject?: string): string {
   // Basé sur les vrais formats observés dans les emails Airbnb hôte
   const bodyPatterns = [
     // "Prénom a réservé votre logement" dans le corps
-    new RegExp(`([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+)?)\\s+a\\s+r[eé]serv[eé](?:\\s+votre\\s+logement)?`),
+    new RegExp(`([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+)?)\\s+a\\s+r[eé]serv[eé](?:\\s+votre\\s+logement)?`),
     // "Prénom souhaite réserver"
-    new RegExp(`([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\\-]+)?)\\s+souhaite\\s+r[eé]server`),
+    new RegExp(`([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+)?)\\s+souhaite\\s+r[eé]server`),
     // "Bonjour [Hôte], Prénom a réservé" → après "Bonjour"
-    /Bonjour\s+\S+,?\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)\s+a\s+r[eé]serv[eé]/u,
+    /Bonjour\s+\S+,?\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+)?)\s+a\s+r[eé]serv[eé]/u,
     // Labels explicites dans le corps
     /voyageur[s]?\s*[:\-]\s*([^\n\r<,]{2,60})/i,
     /nom\s+du\s+voyageur\s*[:\-]\s*([^\n\r<,]{2,60})/i,
@@ -1194,11 +1194,11 @@ function extractGuestName(text: string, subject?: string): string {
     /guest\s*[:\-]\s*([^\n\r<,]{2,60})/i,
     /name\s*[:\-]\s*([^\n\r<,]{2,60})/i,
     // "réservation de Prénom"
-    /r[eé]servation\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)/i,
+    /r[eé]servation\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+)?)/i,
     // "séjour de Prénom" (dans corps payout ou checkout)
-    /s[eé]jour\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)/i,
+    /s[eé]jour\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+)?)/i,
     // "Prénom a laissé un avis"
-    /([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ\-]+)?)\s+a\s+laiss[eé]\s+(?:un\s+)?avis/i,
+    /([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+)?)\s+a\s+laiss[eé]\s+(?:un\s+)?avis/i,
     // EN
     /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+has\s+(?:booked|reserved)/,
     /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+wants\s+to\s+book/,
@@ -1230,7 +1230,7 @@ function extractConfirmationCode(text: string): string | undefined {
     /r[eé]f[eé]rence\s+(?:de\s+)?r[eé]servation\s*[:\s]+([A-Z0-9]{6,12})/i,
     /r[eé]f[eé]rence\s*[:\s]+([A-Z0-9]{6,12})/i,
     /n[°o]\.?\s*(?:de\s+)?r[eé]servation\s*[:\s]+([A-Z0-9]{6,12})/i,
-    /booking\s+(?:reference|id|code|#)\s*[:\s]*([A-Z0-9]{6,12})/i,
+    /booking\s+(?:reference|id|code|#)\s*[:\s*]([A-Z0-9]{6,12})/i,
     // Code Airbnb natif: "HM" suivi de lettres+chiffres (ex: HM1234567890, HMABCD123)
     /\b(HM[A-Z0-9]{6,10})\b/i,
     // Code type HMXXXXX — 2-3 lettres + 5-9 chiffres (ex: AB12345)
@@ -1253,6 +1253,16 @@ function extractConfirmationCode(text: string): string | undefined {
 }
 
 function extractPropertyName(text: string, subject?: string): string | undefined {
+  // ── GUARD : emails de type "arrive le" / "part" → jamais de nom de logement ──────────────
+  if (subject && (
+    /\barrive\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(subject) ||
+    /\bpart\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(subject) ||
+    /^(?:\[[^\]]+\]\s*)?[A-ZÀ-ŸŒÆ][a-zàâéèêëîïôùûüÿœæ]+\s+(a\s+r[eé]serv|annul|modifi|laiss)/i.test(subject) ||
+    /\bcheck[\s-]?(in|out)\b/i.test(subject)
+  )) {
+    return undefined;
+  }
+
   // ── GUARD : emails de versement → jamais de nom de logement ──────────────
   // "Nous avons envoyé un versement de X €" → return undefined immédiatement
   const PAYOUT_RE = /nous\s+avons\s+envoy[eé]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout|versement\s+de\s+[\d,.\s]+\s*[€$£]|your\s+payout\s+of/i;
@@ -1368,12 +1378,12 @@ function extractPropertyName(text: string, subject?: string): string | undefined
       }
     }
 
-    // ── 3. DERNIER RECOURS : nettoyer le sujet entier ────────────────────────
+    // ── 3. DERNIER RECOURS : nettoyer le sujet entier ────────────
     // Uniquement si le sujet ne ressemble PAS à un payout ou un nom de voyageur
-    const isPersonSubject = /^[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive)/i.test(subject)
-      || /\barrive\s+(le|demain|aujourd|dans\s+\d)/i.test(subject)
+    const isPersonSubject = /^(?:\[[^\]]+\]\s*)?[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive)/i.test(subject)
+      || /\barrive\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(subject)
       || /^rappel\s*[:\-–]/i.test(subject)
-      || /\bpart\s+(aujourd|demain)\b/i.test(subject)
+      || /\bpart\s+(aujourd|demain|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(subject)
       || /\bcheck[\s-]?(in|out)\b/i.test(subject);
     if (!isPersonSubject) {
       const cleaned = subject
@@ -1390,11 +1400,11 @@ function extractPropertyName(text: string, subject?: string): string | undefined
         // Supprimer les fragments "arrive le/demain/aujourd'hui/dans N jours"
         .replace(/arrive\s+(?:le|demain|aujourd['']hui|dans\s+\d)/gi, '')
         // Supprimer "part aujourd'hui" / "part demain"
-        .replace(/part\s+(?:aujourd['']hui|demain)/gi, '')
+        .replace(/part\s+(aujourd['']hui|demain)/gi, '')
         // Supprimer "dans N jours" / "dans N nuits"
         .replace(/dans\s+\d+\s+(?:jours?|nuits?)/gi, '')
         // Supprimer les prénoms isolés (Prénom + verbe de rappel)
-        .replace(/[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+(?:arrive|part|est\s+l[àa]|a\s+laiss[eé])/gi, '')
+        .replace(/[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ]+\s+(?:arrive|part|est\s+l[àa]|a\s+laiss[eé])/gi, '')
         .replace(/\[|\]/g, '')
         .replace(/[–\-:,!?]/g, ' ')
         .replace(/\s{2,}/g, ' ')
@@ -1518,7 +1528,7 @@ export function parseAirbnbEmail(
     //   "samedi 10 avril 2026"
     //   "sam. 10 avr." (jour abrégé + date sans année)
     const MOIS_RE = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|juillet|ao[uû]t|sept?\\.?|octobre?|nov\\.?|d[eé]c\\.?|d[eé]cembre?)`;
-    const JOUR_RE = `(?:lun\\.?|mar\\.?|mer\\.?|jeu\\.?|ven\\.?|sam\\.?|dim\\.?|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)`;
+    const JOUR_RE = `(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)`;
 
     const checkInPatterns = [
       // "Arrivée : sam. 10 avr." / "Arrivée : 10 avr." / "Arrivée : 10 avr. 2026"
@@ -1591,9 +1601,9 @@ export function parseAirbnbEmail(
         checkIn  = checkIn  || datesWithYear[0];
         checkOut = checkOut || datesWithYear[1];
       }
-      // Dates SANS année — textuelles FR/EN (ex: "10 avr.", "Apr 10")
+      // Dates SANS année : textuelles FR/EN (ex: "10 avr.", "Apr 10")
       if (!checkIn || !checkOut) {
-        const MOIS_BOTH = `(?:janv?|f[eé]vr?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?|oct\\.?|nov\\.?|d[eé]c\\.?|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|dec)`;
+        const MOIS_BOTH = `(?:janv?|f[eé]vr?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?|oct|nov|dec)`;
         const noYearRe = new RegExp(`\\b(\\d{1,2}\\s+${MOIS_BOTH}|${MOIS_BOTH}\\s+\\d{1,2})\\b`, 'gi');
         const datesNoYear = [...combinedText.matchAll(noYearRe)]
           .map(m => normalizeDate(m[1]))

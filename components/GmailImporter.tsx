@@ -866,10 +866,10 @@ export default function GmailImporter() {
               // Si le sujet ressemble à "Prénom arrive le...", "arrive le", "arrive demain"
               // ou tout autre sujet de rappel/voyageur, ce n'est PAS un nom de logement
               const isPersonSubject =
-                /^[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive)/i.test(b.subject || '')
-                || /\barrive\s+(le|demain|aujourd|dans\s+\d)/i.test(b.subject || '')
+                /^(?:\[[^\]]+\]\s*)?[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive)/i.test(b.subject || '')
+                || /\barrive\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(b.subject || '')
                 || /^rappel\s*[:\-–]/i.test(b.subject || '')
-                || /\bpart\s+(aujourd|demain)\b/i.test(b.subject || '')
+                || /\bpart\s+(aujourd|demain|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(b.subject || '')
                 || /\bcheck[\s-]?(in|out)\b/i.test(b.subject || '');
               if (isPersonSubject) return '';
 
