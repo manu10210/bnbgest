@@ -48,6 +48,7 @@ interface ParsedBooking {
   confirmationCode?: string;
   bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review' | 'payout';
   confidence: number;
+  warnings?: string[];
   reviewRating?: number;
   reviewComment?: string;
 }
@@ -1331,6 +1332,16 @@ export default function GmailImporter() {
 
                             <div className={`flex flex-wrap gap-4 mt-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                               {/* Dates — masquées pour les versements (pas de dates séjour) */}
+                                                            {booking.warnings && booking.warnings.length > 0 && (
+                                <div className={`w-full mt-3 p-2.5 rounded-lg border text-xs flex flex-col gap-1 ${isDark ? 'border-amber-700/30 bg-amber-900/10 text-amber-300' : 'border-amber-200/60 bg-amber-50 text-amber-700'}`}>
+                                  {booking.warnings.map((w, idx) => (
+                                    <div key={idx} className="flex flex-row items-start gap-1.5 leading-snug">
+                                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-[1.5px] opacity-80" />
+                                      <span className="font-medium mt-[1px]">{w}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                               {booking.bookingType !== 'payout' && (
                                 <span className="flex items-center gap-1">
                                   <Calendar className="w-3.5 h-3.5" />

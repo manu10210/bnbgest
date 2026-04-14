@@ -184,7 +184,8 @@ export interface ParsedBooking {
   cancellationPolicy?: string; // Politique d'annulation (ex: "Flexible", "Modérée", "Stricte")
   // Modification — nouvelles dates proposées
   modifiedCheckIn?: string;   // Nouvelle date d'arrivée (modified uniquement)
-  modifiedCheckOut?: string;  // Nouvelle date de départ (modified uniquement)
+  modifiedCheckOut?: string;
+    warnings?: string[];
   // Champs spécifiques aux avis
   reviewRating?: number;    // 1-5 étoiles
   reviewComment?: string;   // Commentaire du voyageur
@@ -1458,7 +1459,8 @@ export function parseAirbnbEmail(
   if (IGNORED_PATTERNS.some(p => p.test(subject))) return null;
 
   // 2. Déterminer le type de mail
-  let bookingType: ParsedBooking['bookingType'] = 'new';
+  const warnings: string[] = [];
+    let bookingType: ParsedBooking['bookingType'] = 'new';
   // Priorité : new > cancelled > modified > checkout > reminder > review > payout
   // On teste new_fr/new_en EN PREMIER pour éviter qu'un email de confirmation
   // soit mal classé (ex: sujet contenant "annulé" dans une autre langue)
@@ -1797,8 +1799,15 @@ export function parseAirbnbEmail(
     confidence = Math.min(confidence, 65);
   }
 
-  return {
-    source: 'gmail',
+  
+    if (!propertyNameExtracted && bookingType !== 'payout' && bookingType !== 'review') warnings.push('Logement introuvable');
+    if (!checkIn && bookingType !== 'payout' && bookingType !== 'review') warnings.push('Dates de s�jour');
+    if (price === 0 && (bookingType === 'new' || bookingType === 'modified')) warnings.push('Montant suspect (0�)');
+    if (confidence < 75) warnings.push('Parser incertain (confiance < 75%)');
+
+    return {
+      warnings,
+      source: 'gmail',
     messageId,
     subject: subject.slice(0, 200),
     receivedAt,
