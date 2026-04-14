@@ -748,7 +748,7 @@ function extractCheckOutTime(text: string): string | undefined {
     /heure(?:\s+de)?\s*d[eé]part\s*[:\-–]\s*(?:avant\s+)?(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
     /check.?out\s*[:\-–]\s*(?:avant\s+)?(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
     /check.?out\s+time\s*[:\-–]\s*(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
-    // "Départ : HH:MM" — uniquement si suivi d'une heure (pas d'une date)
+    // "Départ : HH:MM" — uniquement si suivi directement d'une heure (pas d'une date)
     /d[eé]part\s*[:\-–]\s*(?:avant\s+)?(\d{1,2}[h:]\d{2})(?!\s+(?:janv|f[eé]vr|mars|avr|mai|juin|juil|ao[uû]t|sept|oct|nov|d[eé]c))/i,
     /avant\s+(\d{1,2}[h:]\d{2})/i,
     /before\s+(\d{1,2}(?::\d{2})?\s*[aApP][mM])/i,
@@ -1447,9 +1447,27 @@ export function parseAirbnbEmail(
   messageId: string,
   subject: string,
   from: string,
-  body: string,    // texte brut décodé
+  body: string,
   receivedAt: string,
 ): ParsedBooking | null {
+  const warnings: string[] = [];
+
+  // --- NOUVEAU: Extraction pro du JSON-LD Schema.org ---
+  const jsonLdMatch = body.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i);
+  let jsonLdParsed: any = null;
+  if (jsonLdMatch && jsonLdMatch[1]) {
+    try {
+      jsonLdParsed = JSON.parse(jsonLdMatch[1]);
+      // Parfois c'est un tableau de schemas
+      if (Array.isArray(jsonLdParsed)) {
+        jsonLdParsed = jsonLdParsed.find((item: any) => item['@type'] === 'LodgingReservation' || item['@type'] === 'Reservation') || jsonLdParsed[0];
+      }
+    } catch (e) {
+      console.warn("Échec du parsing JSON-LD Airbnb:", e);
+      warnings.push("Données structurées (JSON-LD) illisibles.");
+    }
+  }
+
   // 1. Vérifier que c'est bien un email Airbnb
   const isAirbnbSender = AIRBNB_SENDERS.some(s => from.toLowerCase().includes(s));
   const isAirbnbSubject = /airbnb/i.test(subject) || /r[eé]servation/i.test(subject);
@@ -1459,8 +1477,7 @@ export function parseAirbnbEmail(
   if (IGNORED_PATTERNS.some(p => p.test(subject))) return null;
 
   // 2. Déterminer le type de mail
-  const warnings: string[] = [];
-    let bookingType: ParsedBooking['bookingType'] = 'new';
+  let bookingType: ParsedBooking['bookingType'] = 'new';
   // Priorité : new > cancelled > modified > checkout > reminder > review > payout
   // On teste new_fr/new_en EN PREMIER pour éviter qu'un email de confirmation
   // soit mal classé (ex: sujet contenant "annulé" dans une autre langue)
@@ -1583,7 +1600,7 @@ export function parseAirbnbEmail(
     if (!checkIn || !checkOut) {
       const combinedSrc = text + ' ' + subject;
       // "10–13 avr. 2026" / "10-13 avr. 2026" / "10 – 13 avril 2026"
-      const MOIS_BOTH2 = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?\\.?|oct\\.?|octobre?|nov\\.?|d[eé]c\\.?|d[eé]cembre?)`;
+      const MOIS_BOTH2 = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?\\.?|octobre?|nov\\.?|d[eé]c\\.?|d[eé]cembre?)`;
       const frCompact = new RegExp(`(\\d{1,2})\\s*[–\\-]\\s*(\\d{1,2})\\s+(${MOIS_BOTH2}(?:\\.?))(?:\\s+(\\d{4}))?`, 'i');
       const fcm = combinedSrc.match(frCompact);
       if (fcm) {
@@ -1654,10 +1671,10 @@ export function parseAirbnbEmail(
   )) : 0;
 
   // 6. Extraire tous les champs enrichis selon le type d'email
-  const price               = extractPrice(text) || extractPrice(subject);
+  let price               = extractPrice(text) || extractPrice(subject);
   const confirmationCode    = extractConfirmationCode(text) || extractConfirmationCode(subject);
-  const guestNameExtracted  = extractGuestName(text, subject);
-  const propertyNameExtracted = extractPropertyName(text, subject);
+  let guestNameExtracted  = extractGuestName(text, subject);
+  let propertyNameExtracted = extractPropertyName(text, subject);
   const guestCountry        = extractGuestCountry(text);
   const guestLanguage       = detectGuestLanguage(text, subject);
   // Extraire l'ID Airbnb de l'annonce depuis le corps HTML brut (avant stripping)
@@ -1698,7 +1715,7 @@ export function parseAirbnbEmail(
   let modifiedCheckIn: string | undefined;
   let modifiedCheckOut: string | undefined;
   if (bookingType === 'modified') {
-    const MOIS_RE2 = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?\\.?|oct\\.?|octobre?|nov\\.?|d[eé]c\\.?|d[eé]cembre?)`;
+    const MOIS_RE2 = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?\\.?|octobre?|nov\\.?|d[eé]c\\.?|d[eé]cembre?)`;
     const DATE_RANGE_RE = new RegExp(
       `(\\d{1,2}\\s+${MOIS_RE2}(?:\\s+\\d{4})?)\\s*[–\\-]\\s*(\\d{1,2}\\s+${MOIS_RE2}(?:\\s+\\d{4})?)`,
       'ig'
@@ -1805,9 +1822,28 @@ export function parseAirbnbEmail(
     if (price === 0 && (bookingType === 'new' || bookingType === 'modified')) warnings.push('Montant suspect (0�)');
     if (confidence < 75) warnings.push('Parser incertain (confiance < 75%)');
 
-    return {
-      warnings,
-      source: 'gmail',
+  // --- NOUVEAU: Surcharge depuis le JSON-LD Schema.org ---
+  if (jsonLdParsed) {
+    if (jsonLdParsed.checkinTime && !checkIn) {
+      checkIn = jsonLdParsed.checkinTime.split('T')[0];
+    }
+    if (jsonLdParsed.checkoutTime && !checkOut) {
+      checkOut = jsonLdParsed.checkoutTime.split('T')[0];
+    }
+    if (jsonLdParsed.totalPrice) {
+      price = parseFloat(jsonLdParsed.totalPrice);
+    }
+    if (jsonLdParsed.lodgingUnit && jsonLdParsed.lodgingUnit.name) {
+      propertyNameExtracted = jsonLdParsed.lodgingUnit.name;
+    }
+    if (jsonLdParsed.underName && jsonLdParsed.underName.name) {
+      guestNameExtracted = jsonLdParsed.underName.name;
+    }
+  }
+
+      return {
+        warnings,
+        source: 'gmail',
     messageId,
     subject: subject.slice(0, 200),
     receivedAt,
