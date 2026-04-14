@@ -270,11 +270,11 @@ export default function GmailImporter() {
     setImportSummary(null);
     try {
       const queries = [
-        'from:automated@airbnb.com after:2026/01/01',
-        'from:express@airbnb.com subject:réservation after:2026/01/01',
-        'from:airbnb.com subject:reservation after:2026/01/01',
-        'from:airbnb.com subject:versement after:2026/01/01',
-        'from:airbnb.com subject:payout after:2026/01/01',
+        'from:automated@airbnb.com after:2024/01/01',
+        'from:express@airbnb.com subject:réservation after:2024/01/01',
+        'from:airbnb.com subject:reservation after:2024/01/01',
+        'from:airbnb.com subject:versement after:2024/01/01',
+        'from:airbnb.com subject:payout after:2024/01/01',
       ];
       const allBookings: ParsedBooking[] = [];
       const seen = new Set<string>();
@@ -967,7 +967,7 @@ export default function GmailImporter() {
         {status === 'done' && stats && (
           <div className={`text-right text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
             <div className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>{stats.parsed} réservations trouvées</div>
-            <div>{stats.found} emails analysés · 2026 complet</div>
+            <div>{stats.found} emails analysés · depuis 2024</div>
           </div>
         )}
       </div>
