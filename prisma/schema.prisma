@@ -1,7 +1,3 @@
-// BNBGEST Database Schema
-// Gestion complète de propriétés Airbnb/Booking
-// Compatible Vercel PostgreSQL
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,27 +7,21 @@ datasource db {
   url      = env("POSTGRES_PRISMA_URL")
 }
 
-// ==========================================
-// USERS & AUTHENTICATION
-// ==========================================
-
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
+  id            String        @id @default(cuid())
+  email         String        @unique
   name          String?
   password      String?
   image         String?
-  role          Role      @default(USER)
+  role          Role          @default(USER)
   emailVerified DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Relations
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   accounts      Account[]
-  sessions      Session[]
-  properties    Property[]
   bookings      Booking[]
+  properties    Property[]
   reviews       Review[]
+  sessions      Session[]
   profile       UserProfile?
   settings      UserSettings?
 
@@ -51,8 +41,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
@@ -90,7 +79,6 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
-// Stocke les mots de passe définis via reset (override des variables d'env)
 model AppCredential {
   id             String   @id @default(cuid())
   email          String   @unique
@@ -101,48 +89,496 @@ model AppCredential {
 }
 
 model UserProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  phone       String?
-  company     String?
-  address     String?
-  city        String?
-  postalCode  String?
-  country     String?
-  website     String?
-  bio         String?
-  timezone    String   @default("Europe/Paris")
-  language    String   @default("fr")
-  currency    String   @default("EUR")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  phone      String?
+  company    String?
+  address    String?
+  city       String?
+  postalCode String?
+  country    String?
+  website    String?
+  bio        String?
+  timezone   String   @default("Europe/Paris")
+  language   String   @default("fr")
+  currency   String   @default("EUR")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
 }
 
 model UserSettings {
-  id                    String   @id @default(cuid())
-  userId                String   @unique
-  twoFactorEnabled      Boolean  @default(false)
-  autoBackupEnabled     Boolean  @default(true)
-  backupFrequency       String   @default("daily")
-  backupTime            String   @default("03:00")
-  retentionDays         Int      @default(30)
-  emailNotifications    Boolean  @default(true)
-  smsNotifications      Boolean  @default(false)
-  pushNotifications     Boolean  @default(true)
-  dateFormat            String   @default("DD/MM/YYYY")
-  timeFormat            String   @default("24h")
-  numberFormat          String   @default("space")
-  firstDayOfWeek        Int      @default(1)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  twoFactorEnabled   Boolean  @default(false)
+  autoBackupEnabled  Boolean  @default(true)
+  backupFrequency    String   @default("daily")
+  backupTime         String   @default("03:00")
+  retentionDays      Int      @default(30)
+  emailNotifications Boolean  @default(true)
+  smsNotifications   Boolean  @default(false)
+  pushNotifications  Boolean  @default(true)
+  dateFormat         String   @default("DD/MM/YYYY")
+  timeFormat         String   @default("24h")
+  numberFormat       String   @default("space")
+  firstDayOfWeek     Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_settings")
+}
+
+model Property {
+  id             Int                  @id @default(autoincrement())
+  name           String
+  address        String
+  city           String
+  country        String
+  description    String?
+  capacity       Int
+  bedrooms       Int
+  bathrooms      Int
+  price          Float
+  currency       String               @default("EUR")
+  status         PropertyStatus       @default(ACTIVE)
+  userId         String
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  amenities      String[]             @default([])
+  cleaningFee    Float                @default(0)
+  externalId     String?
+  externalSource String?
+  images         String[]             @default([])
+  maxGuests      Int?
+  metadata       Json?
+  pricePerNight  Float?
+  type           String?
+  zipCode        String?
+  accessCodes    AccessCode[]
+  bookings       Booking[]
+  cleanings      Cleaning[]
+  contracts      Contract[]
+  expenses       Expense[]
+  inventory      InventoryItem[]
+  maintenance    MaintenanceTask[]
+  messageThreads MessageThread[]
+  photos         Photo[]
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inspections    PropertyInspection[]
+  reviews        Review[]
+  videos         Video[]
+
+  @@map("properties")
+}
+
+model Booking {
+  id                 Int           @id @default(autoincrement())
+  propertyId         Int
+  userId             String?
+  guestName          String
+  guestEmail         String
+  guestPhone         String?
+  checkIn            DateTime
+  checkOut           DateTime
+  guests             Int
+  totalPrice         Float
+  status             BookingStatus @default(PENDING)
+  source             BookingSource @default(DIRECT)
+  externalId         String?
+  notes              String?
+  specialRequests    String?
+  cancellationReason String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  confirmationCode   String?
+  externalSource     String?
+  metadata           Json?
+  property           Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user               User?         @relation(fields: [userId], references: [id])
+  payments           Payment[]
+  reviews            Review[]
+
+  @@index([propertyId])
+  @@index([checkIn, checkOut])
+  @@index([status])
+  @@map("bookings")
+}
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  bookingId     Int
+  amount        Float
+  currency      String        @default("EUR")
+  status        PaymentStatus @default(PENDING)
+  method        PaymentMethod
+  transactionId String?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  propertyId Int
+  bookingId  Int?
+  userId     String?
+  guestName  String
+  rating     Int
+  comment    String?
+  isPublic   Boolean  @default(true)
+  source     String   @default("DIRECT")
+  externalId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  booking    Booking? @relation(fields: [bookingId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@map("reviews")
+}
+
+model Photo {
+  id         Int      @id @default(autoincrement())
+  propertyId Int
+  url        String
+  publicId   String?
+  caption    String?
+  category   String?
+  order      Int      @default(0)
+  isMain     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@map("photos")
+}
+
+model Video {
+  id          Int      @id @default(autoincrement())
+  propertyId  Int
+  filename    String
+  title       String?
+  description String?
+  duration    Int?
+  size        Int?
+  mimeType    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@map("videos")
+}
+
+model Cleaning {
+  id            Int            @id @default(autoincrement())
+  propertyId    Int
+  scheduledDate DateTime
+  completedDate DateTime?
+  status        CleaningStatus @default(SCHEDULED)
+  assignedTo    String?
+  checklist     Json?
+  notes         String?
+  estimatedTime Int?
+  actualTime    Int?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  property      Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([scheduledDate])
+  @@map("cleanings")
+}
+
+model MaintenanceTask {
+  id          Int                 @id @default(autoincrement())
+  propertyId  Int
+  title       String
+  description String?
+  priority    MaintenancePriority @default(MEDIUM)
+  status      MaintenanceStatus   @default(PENDING)
+  category    String?
+  assignedTo  String?
+  dueDate     DateTime?
+  completedAt DateTime?
+  cost        Float?
+  notes       String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  property    Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([status])
+  @@map("maintenance_tasks")
+}
+
+model InventoryItem {
+  id          Int       @id @default(autoincrement())
+  propertyId  Int
+  name        String
+  category    String
+  quantity    Int
+  minQuantity Int       @default(0)
+  unit        String?
+  location    String?
+  notes       String?
+  lastChecked DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  property    Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@map("inventory_items")
+}
+
+model Contract {
+  id          Int            @id @default(autoincrement())
+  propertyId  Int
+  tenantName  String
+  tenantEmail String
+  startDate   DateTime
+  endDate     DateTime
+  rentAmount  Float
+  deposit     Float?
+  status      ContractStatus @default(ACTIVE)
+  signedAt    DateTime?
+  pdfUrl      String?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  property    Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@map("contracts")
+}
+
+model IntegrationSetting {
+  id             String    @id @default(cuid())
+  platform       String    @unique
+  enabled        Boolean   @default(false)
+  apiKey         String?
+  apiSecret      String?
+  icalUrl        String?
+  hotelId        String?
+  lastSyncAt     DateTime?
+  syncStatus     String?
+  config         Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  accessToken    String?
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+
+  @@map("integration_settings")
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  category  String
+  type      String
+  email     Boolean  @default(true)
+  sms       Boolean  @default(false)
+  push      Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_preferences")
+}
+
+model NotificationLog {
+  id      String   @id @default(cuid())
+  userId  String?
+  type    String
+  channel String
+  subject String?
+  message String
+  sentAt  DateTime @default(now())
+  status  String
+  error   String?
+
+  @@index([userId])
+  @@index([sentAt])
+  @@map("notification_logs")
+}
+
+model Backup {
+  id        String       @id @default(cuid())
+  name      String
+  type      BackupType   @default(MANUAL)
+  status    BackupStatus @default(COMPLETED)
+  size      Int?
+  path      String?
+  createdAt DateTime     @default(now())
+
+  @@map("backups")
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  eventType String
+  eventData Json?
+  userAgent String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("analytics_events")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  changes    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([resource])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Expense {
+  id            Int             @id @default(autoincrement())
+  propertyId    Int?
+  title         String
+  description   String?
+  amount        Float
+  currency      String          @default("EUR")
+  category      ExpenseCategory
+  date          DateTime
+  vendor        String?
+  receiptUrl    String?
+  paymentMethod String?
+  isRecurring   Boolean         @default(false)
+  recurrence    String?
+  notes         String?
+  createdBy     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  property      Property?       @relation(fields: [propertyId], references: [id])
+
+  @@index([propertyId])
+  @@index([category])
+  @@index([date])
+  @@map("expenses")
+}
+
+model PropertyInspection {
+  id          Int              @id @default(autoincrement())
+  propertyId  Int
+  bookingId   Int?
+  type        InspectionType
+  status      InspectionStatus @default(DRAFT)
+  date        DateTime
+  inspector   String?
+  guestName   String?
+  guestEmail  String?
+  notes       String?
+  signature   String?
+  signedAt    DateTime?
+  rooms       Json?
+  globalScore Int?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  property    Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([bookingId])
+  @@index([type])
+  @@map("property_inspections")
+}
+
+model AccessCode {
+  id          Int            @id @default(autoincrement())
+  propertyId  Int
+  bookingId   Int?
+  label       String
+  code        String
+  type        AccessCodeType @default(DOOR_CODE)
+  validFrom   DateTime?
+  validUntil  DateTime?
+  isActive    Boolean        @default(true)
+  sentByEmail Boolean        @default(false)
+  sentAt      DateTime?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  property    Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([bookingId])
+  @@map("access_codes")
+}
+
+model MessageThread {
+  id            Int       @id @default(autoincrement())
+  platform      String
+  externalId    String?
+  propertyId    Int?
+  bookingId     Int?
+  guestName     String
+  guestEmail    String?
+  subject       String?
+  lastMessage   String?
+  lastMessageAt DateTime  @default(now())
+  isRead        Boolean   @default(false)
+  isArchived    Boolean   @default(false)
+  autoReplied   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  property      Property? @relation(fields: [propertyId], references: [id])
+  messages      Message[]
+
+  @@index([platform])
+  @@index([propertyId])
+  @@index([isRead])
+  @@index([lastMessageAt])
+  @@map("message_threads")
+}
+
+model Message {
+  id         Int           @id @default(autoincrement())
+  threadId   Int
+  content    String
+  senderType String
+  senderName String?
+  isAI       Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  thread     MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@map("messages")
+}
+
+model WebVital {
+  id        String   @id @default(cuid())
+  name      String
+  value     Float
+  rating    String
+  page      String?
+  userId    String?
+  userAgent String?
+  timestamp DateTime @default(now())
+
+  @@index([name])
+  @@index([timestamp])
+  @@index([page])
+  @@map("web_vitals")
 }
 
 enum Role {
@@ -151,98 +587,10 @@ enum Role {
   EMPLOYEE
 }
 
-// ==========================================
-// PROPERTIES
-// ==========================================
-
-model Property {
-  id              Int            @id @default(autoincrement())
-  name            String
-  address         String
-  city            String
-  country         String
-  zipCode         String?
-  description     String?
-  capacity        Int
-  bedrooms        Int
-  bathrooms       Int
-  price           Float
-  pricePerNight   Float?
-  cleaningFee     Float          @default(0)
-  currency        String         @default("EUR")
-  status          PropertyStatus @default(ACTIVE)
-  type            String?        // villa, apartment, house, etc.
-  maxGuests       Int?
-  amenities       String[]       @default([])
-  images          String[]       @default([])
-  externalId      String?        // Airbnb/Booking ID
-  externalSource  String?        // airbnb, booking
-  metadata        Json?          // Additional data
-  userId          String
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  // Relations
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bookings        Booking[]
-  photos          Photo[]
-  videos          Video[]
-  reviews         Review[]
-  cleanings       Cleaning[]
-  maintenance     MaintenanceTask[]
-  inventory       InventoryItem[]
-  contracts       Contract[]
-  expenses        Expense[]
-  inspections     PropertyInspection[]
-  accessCodes     AccessCode[]
-  messageThreads  MessageThread[]
-
-  @@map("properties")
-}
-
 enum PropertyStatus {
   ACTIVE
   INACTIVE
   MAINTENANCE
-}
-
-// ==========================================
-// BOOKINGS
-// ==========================================
-
-model Booking {
-  id                  Int           @id @default(autoincrement())
-  propertyId          Int
-  userId              String?
-  guestName           String
-  guestEmail          String
-  guestPhone          String?
-  checkIn             DateTime
-  checkOut            DateTime
-  guests              Int
-  totalPrice          Float
-  status              BookingStatus @default(PENDING)
-  source              BookingSource @default(DIRECT)
-  externalId          String?       // ID Airbnb/Booking.com
-  externalSource      String?       // airbnb, booking
-  confirmationCode    String?       // Confirmation code
-  specialRequests     String?       // Special requests
-  cancellationReason  String?       // Cancellation reason
-  metadata            Json?         // Additional data
-  notes               String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-
-  // Relations
-  property Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  payments Payment[]
-  reviews  Review[]
-
-  @@index([propertyId])
-  @@index([checkIn, checkOut])
-  @@index([status])
-  @@map("bookings")
 }
 
 enum BookingStatus {
@@ -260,24 +608,6 @@ enum BookingSource {
   OTHER
 }
 
-model Payment {
-  id              Int           @id @default(autoincrement())
-  bookingId       Int
-  amount          Float
-  currency        String        @default("EUR")
-  status          PaymentStatus @default(PENDING)
-  method          PaymentMethod
-  transactionId   String?
-  paidAt          DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  // Relations
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-
-  @@map("payments")
-}
-
 enum PaymentStatus {
   PENDING
   COMPLETED
@@ -293,133 +623,11 @@ enum PaymentMethod {
   STRIPE
 }
 
-// ==========================================
-// REVIEWS & RATINGS
-// ==========================================
-
-model Review {
-  id         Int      @id @default(autoincrement())
-  propertyId Int
-  bookingId  Int?
-  userId     String?
-  guestName  String
-  rating     Int      // 1-5
-  comment    String?
-  isPublic   Boolean  @default(true)
-  source     String   @default("DIRECT") // DIRECT, AIRBNB, BOOKING_COM
-  externalId String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  booking  Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@map("reviews")
-}
-
-// ==========================================
-// MEDIA (Photos & Videos)
-// ==========================================
-
-model Photo {
-  id          Int      @id @default(autoincrement())
-  propertyId  Int
-  url         String
-  publicId    String?  // Cloudinary public ID
-  caption     String?
-  category    String?  // living_room, bedroom, bathroom, kitchen, exterior
-  order       Int      @default(0)
-  isMain      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@map("photos")
-}
-
-model Video {
-  id          Int      @id @default(autoincrement())
-  propertyId  Int
-  filename    String
-  title       String?
-  description String?
-  duration    Int?     // seconds
-  size        Int?     // bytes
-  mimeType    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@map("videos")
-}
-
-// ==========================================
-// CLEANING
-// ==========================================
-
-model Cleaning {
-  id              Int             @id @default(autoincrement())
-  propertyId      Int
-  scheduledDate   DateTime
-  completedDate   DateTime?
-  status          CleaningStatus  @default(SCHEDULED)
-  assignedTo      String?
-  checklist       Json?           // JSON array of tasks
-  notes           String?
-  estimatedTime   Int?            // minutes
-  actualTime      Int?            // minutes
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-
-  // Relations
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@index([scheduledDate])
-  @@map("cleanings")
-}
-
 enum CleaningStatus {
   SCHEDULED
   IN_PROGRESS
   COMPLETED
   CANCELLED
-}
-
-// ==========================================
-// MAINTENANCE
-// ==========================================
-
-model MaintenanceTask {
-  id          Int               @id @default(autoincrement())
-  propertyId  Int
-  title       String
-  description String?
-  priority    MaintenancePriority @default(MEDIUM)
-  status      MaintenanceStatus @default(PENDING)
-  category    String?           // Plumbing, Electrical, HVAC, etc.
-  assignedTo  String?
-  dueDate     DateTime?
-  completedAt DateTime?
-  cost        Float?
-  notes       String?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  // Relations
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@index([status])
-  @@map("maintenance_tasks")
 }
 
 enum MaintenancePriority {
@@ -436,137 +644,11 @@ enum MaintenanceStatus {
   CANCELLED
 }
 
-// ==========================================
-// INVENTORY
-// ==========================================
-
-model InventoryItem {
-  id          Int      @id @default(autoincrement())
-  propertyId  Int
-  name        String
-  category    String
-  quantity    Int
-  minQuantity Int      @default(0)
-  unit        String?  // pieces, liters, kg, etc.
-  location    String?
-  notes       String?
-  lastChecked DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@map("inventory_items")
-}
-
-// ==========================================
-// CONTRACTS
-// ==========================================
-
-model Contract {
-  id          Int            @id @default(autoincrement())
-  propertyId  Int
-  tenantName  String
-  tenantEmail String
-  startDate   DateTime
-  endDate     DateTime
-  rentAmount  Float
-  deposit     Float?
-  status      ContractStatus @default(ACTIVE)
-  signedAt    DateTime?
-  pdfUrl      String?
-  notes       String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  // Relations
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@map("contracts")
-}
-
 enum ContractStatus {
   DRAFT
   ACTIVE
   EXPIRED
   TERMINATED
-}
-
-// ==========================================
-// INTEGRATIONS
-// ==========================================
-
-model IntegrationSetting {
-  id              String    @id @default(cuid())
-  platform        String    @unique // airbnb, booking_com
-  enabled         Boolean   @default(false)
-  apiKey          String?
-  apiSecret       String?
-  accessToken     String?   // OAuth access token
-  refreshToken    String?   // OAuth refresh token
-  tokenExpiresAt  DateTime? // Token expiration date
-  icalUrl         String?
-  hotelId         String?
-  lastSyncAt      DateTime?
-  syncStatus      String?   // success, error
-  config          Json?     // Additional platform-specific config
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@map("integration_settings")
-}
-
-// ==========================================
-// NOTIFICATIONS
-// ==========================================
-
-model NotificationPreference {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  category  String   // bookings, guests, property, system
-  type      String   // new_booking, cancellation, message, etc.
-  email     Boolean  @default(true)
-  sms       Boolean  @default(false)
-  push      Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("notification_preferences")
-}
-
-model NotificationLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  type      String
-  channel   String   // email, sms, push
-  subject   String?
-  message   String
-  sentAt    DateTime @default(now())
-  status    String   // sent, failed, pending
-  error     String?
-
-  @@index([userId])
-  @@index([sentAt])
-  @@map("notification_logs")
-}
-
-// ==========================================
-// BACKUPS
-// ==========================================
-
-model Backup {
-  id          String      @id @default(cuid())
-  name        String
-  type        BackupType  @default(MANUAL)
-  status      BackupStatus @default(COMPLETED)
-  size        Int?        // bytes
-  path        String?
-  createdAt   DateTime    @default(now())
-
-  @@map("backups")
 }
 
 enum BackupType {
@@ -580,116 +662,20 @@ enum BackupStatus {
   FAILED
 }
 
-// ==========================================
-// ANALYTICS & LOGS
-// ==========================================
-
-model AnalyticsEvent {
-  id         String   @id @default(cuid())
-  userId     String?
-  eventType  String   // page_view, booking_created, etc.
-  eventData  Json?
-  userAgent  String?
-  ip         String?
-  createdAt  DateTime @default(now())
-
-  @@index([eventType])
-  @@index([createdAt])
-  @@map("analytics_events")
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  action    String   // CREATE, UPDATE, DELETE
-  resource  String   // Booking, Property, etc.
-  resourceId String?
-  changes   Json?
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([resource])
-  @@index([createdAt])
-  @@map("audit_logs")
-}
-
-// ==========================================
-// EXPENSES (Suivi des dépenses)
-// ==========================================
-
-model Expense {
-  id          Int             @id @default(autoincrement())
-  propertyId  Int?
-  title       String
-  description String?
-  amount      Float
-  currency    String          @default("EUR")
-  category    ExpenseCategory
-  date        DateTime
-  vendor      String?         // Fournisseur / prestataire
-  receiptUrl  String?         // URL justificatif (Cloudinary)
-  paymentMethod String?       // espèces, carte, virement
-  isRecurring Boolean         @default(false)
-  recurrence  String?         // monthly, yearly, etc.
-  notes       String?
-  createdBy   String?         // email de l'utilisateur
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  property    Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-
-  @@index([propertyId])
-  @@index([category])
-  @@index([date])
-  @@map("expenses")
-}
-
 enum ExpenseCategory {
-  CLEANING         // Ménage
-  MAINTENANCE      // Maintenance / réparations
-  UTILITIES        // Électricité, eau, gaz
-  INSURANCE        // Assurance
-  TAX              // Taxes / impôts
-  MORTGAGE         // Crédit immobilier
-  FURNITURE        // Mobilier / équipements
-  SUPPLIES         // Fournitures (linge, produits...)
-  MARKETING        // Publicité / marketing
-  MANAGEMENT       // Frais de gestion
-  RENOVATION       // Travaux
-  SUBSCRIPTION     // Abonnements (Airbnb, logiciels...)
-  OTHER            // Autres
-}
-
-// ==========================================
-// PROPERTY INSPECTIONS (État des lieux)
-// ==========================================
-
-model PropertyInspection {
-  id          Int              @id @default(autoincrement())
-  propertyId  Int
-  bookingId   Int?
-  type        InspectionType   // CHECKIN | CHECKOUT | PERIODIC
-  status      InspectionStatus @default(DRAFT)
-  date        DateTime
-  inspector   String?          // Nom de l'inspecteur
-  guestName   String?
-  guestEmail  String?
-  notes       String?
-  signature   String?          // Base64 ou URL image signature
-  signedAt    DateTime?
-  rooms       Json?            // Array of { name, items: [{ label, status, photos, notes }] }
-  globalScore Int?             // 1-5
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-
-  property    Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@index([bookingId])
-  @@index([type])
-  @@map("property_inspections")
+  CLEANING
+  MAINTENANCE
+  UTILITIES
+  INSURANCE
+  TAX
+  MORTGAGE
+  FURNITURE
+  SUPPLIES
+  MARKETING
+  MANAGEMENT
+  RENOVATION
+  SUBSCRIPTION
+  OTHER
 }
 
 enum InspectionType {
@@ -705,105 +691,12 @@ enum InspectionStatus {
   SIGNED
 }
 
-// ==========================================
-// ACCESS CODES (Gestion des accès)
-// ==========================================
-
-model AccessCode {
-  id           Int              @id @default(autoincrement())
-  propertyId   Int
-  bookingId    Int?
-  label        String           // "Porte principale", "Boîte à clés", "Digicode"
-  code         String
-  type         AccessCodeType   @default(DOOR_CODE)
-  validFrom    DateTime?
-  validUntil   DateTime?
-  isActive     Boolean          @default(true)
-  sentByEmail  Boolean          @default(false)
-  sentAt       DateTime?
-  notes        String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-
-  property     Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@index([propertyId])
-  @@index([bookingId])
-  @@map("access_codes")
-}
-
 enum AccessCodeType {
-  DOOR_CODE      // Digicode porte
-  KEY_BOX        // Boîte à clés
-  SMART_LOCK     // Serrure connectée
-  WIFI           // Code WiFi
-  PARKING        // Accès parking
-  GATE           // Portail / grille
+  DOOR_CODE
+  KEY_BOX
+  SMART_LOCK
+  WIFI
+  PARKING
+  GATE
   OTHER
-}
-
-// ==========================================
-// MESSAGERIE CENTRALISÉE
-// ==========================================
-
-model MessageThread {
-  id             Int       @id @default(autoincrement())
-  platform       String    // airbnb | booking | manual
-  externalId     String?   // ID thread côté plateforme
-  propertyId     Int?
-  bookingId      Int?
-  guestName      String
-  guestEmail     String?
-  subject        String?
-  lastMessage    String?
-  lastMessageAt  DateTime  @default(now())
-  isRead         Boolean   @default(false)
-  isArchived     Boolean   @default(false)
-  autoReplied    Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  property  Property?  @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  messages  Message[]
-
-  @@index([platform])
-  @@index([propertyId])
-  @@index([isRead])
-  @@index([lastMessageAt])
-  @@map("message_threads")
-}
-
-model Message {
-  id         Int      @id @default(autoincrement())
-  threadId   Int
-  content    String
-  senderType String   // guest | host
-  senderName String?
-  isAI       Boolean  @default(false)
-  createdAt  DateTime @default(now())
-
-  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-
-  @@index([threadId])
-  @@map("messages")
-}
-
-// ==========================================
-// PERFORMANCE MONITORING (Session 24)
-// ==========================================
-
-model WebVital {
-  id         String   @id @default(cuid())
-  name       String   // LCP, FCP, CLS, INP, TTFB
-  value      Float
-  rating     String   // good, needs-improvement, poor
-  page       String?
-  userId     String?
-  userAgent  String?
-  timestamp  DateTime @default(now())
-
-  @@index([name])
-  @@index([timestamp])
-  @@index([page])
-  @@map("web_vitals")
 }

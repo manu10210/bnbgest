@@ -1,0 +1,1 @@
+﻿const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { console.log('Killing locks...'); await prisma.\$executeRawUnsafe(\"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE wait_event_type = 'Lock';\"); console.log('Done!'); } main().finally(() => prisma.\$disconnect());
