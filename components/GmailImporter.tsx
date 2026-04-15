@@ -266,7 +266,7 @@ export default function GmailImporter() {
     setError(null);
     setBookings([]);
     setSelected(new Set());
-      setTimeout(() => setStatus('idle'), 2000);
+      
     setImported([]);
     setImportSummary(null);
     try {
@@ -960,7 +960,7 @@ export default function GmailImporter() {
   return (
     <>
       <AnimatePresence>
-        {status === 'importing' && (
+        {(status === 'importing' || status === 'syncing') && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -973,26 +973,28 @@ export default function GmailImporter() {
               exit={{ scale: 0.95, y: 15 }}
               className={`relative w-full max-w-sm rounded-[1.5rem] p-8 text-center shadow-2xl flex flex-col items-center gap-6 overflow-hidden ${isDark ? 'bg-gray-800 border-[0.5px] border-white/10' : 'bg-white border-[0.5px] border-black/5'}`}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 to-transparent pointer-events-none" />
+              <div className={`absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none ${status === 'importing' ? 'from-violet-500/10' : 'from-pink-500/10'}`} />
               
-              <div className="relative w-16 h-16 flex items-center justify-center text-violet-500 z-10">
+              <div className={`relative w-16 h-16 flex items-center justify-center z-10 ${status === 'importing' ? 'text-violet-500' : 'text-pink-500'}`}>
                 <motion.div 
                   animate={{ rotate: 360 }}
                   transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                  className="absolute inset-0 rounded-full border-4 border-violet-500/20 border-t-violet-500 w-16 h-16"
+                  className={`absolute inset-0 rounded-full border-4 border-t-[currentColor] w-16 h-16 ${status === 'importing' ? 'border-violet-500/20' : 'border-pink-500/20'}`}
                 />
                 <motion.div
                   animate={{ scale: [1, 1.2, 1] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
-                  <DownloadCloud className="w-6 h-6" />
+                  {status === 'importing' ? <DownloadCloud className="w-6 h-6" /> : <Search className="w-6 h-6" />}
                 </motion.div>
               </div>
               
               <div className="relative z-10 space-y-2">
-                <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Transfert en cours</h3>
-                <p className={`text-sm font-medium ${isDark ? 'text-violet-400' : 'text-violet-600'}`}>
-                  Extraction & classification...
+                <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  {status === 'importing' ? 'Transfert en cours' : 'Analyse de votre Gmail'}
+                </h3>
+                <p className={`text-sm font-medium ${isDark ? (status === 'importing' ? 'text-violet-400' : 'text-pink-400') : (status === 'importing' ? 'text-violet-600' : 'text-pink-600')}`}>
+                  {status === 'importing' ? 'Extraction & classification...' : 'Recherche de réservations & financières...'}
                 </p>
               </div>
               
@@ -1000,8 +1002,8 @@ export default function GmailImporter() {
                 <motion.div 
                   initial={{ width: "0%" }}
                   animate={{ width: "100%" }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  className="h-full bg-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.6)]"
+                  transition={{ duration: status === 'syncing' ? 4 : 2, repeat: Infinity, ease: "easeInOut" }}
+                  className={`h-full ${status === 'importing' ? 'bg-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.6)]' : 'bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.6)]'}`}
                 />
               </div>
             </motion.div>
