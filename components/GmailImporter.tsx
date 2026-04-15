@@ -273,11 +273,11 @@ export default function GmailImporter() {
     setImportSummary(null);
     try {
       const queries = [
-        'from:automated@airbnb.com after:2026/01/01',
-        'from:express@airbnb.com subject:réservation after:2026/01/01',
-        'from:airbnb.com subject:reservation after:2026/01/01',
-        'from:airbnb.com subject:versement after:2026/01/01',
-        'from:airbnb.com subject:payout after:2026/01/01',
+        'from:automated@airbnb.com after:2024/01/01',
+        'from:express@airbnb.com subject:réservation after:2024/01/01',
+        'from:airbnb.com subject:reservation after:2024/01/01',
+        'from:airbnb.com subject:versement after:2024/01/01',
+        'from:airbnb.com subject:payout after:2024/01/01',
       ];
       const allBookings: ParsedBooking[] = [];
       const seen = new Set<string>();
