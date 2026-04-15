@@ -11,7 +11,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { 
   Mail, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
   ChevronDown, ChevronUp, Download, Search, Calendar,
-  Users, DollarSign, Home, Zap, Filter, Info, Sparkles, DownloadCloud, Database } from 'lucide-react';
+  Users, DollarSign, Home, Zap, Filter, Info, Sparkles,
+, DownloadCloud, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import NewPropertyWizard, {
   analyzeAirbnbTitle,
@@ -906,9 +907,6 @@ export default function GmailImporter() {
         setPropertyQueue(queue.slice(1));
         setCurrentWizard(queue[0]);
       }
-
-      setTimeout(() => setStatus('idle'), 2500);
-      setStatus('done');
     }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems]);
 
   // ─── Purge des données importées depuis Gmail ─────────────────────────────
@@ -948,8 +946,8 @@ export default function GmailImporter() {
 
   const filtered = bookings.filter(b => filter === 'all' ? true : b.bookingType === filter);
   const newCount = bookings.filter(b => b.bookingType === 'new').length;
-  // Sélectionnable : tout type
-  const selectedNew = bookings.filter(b => selected.has(b.messageId)).length;
+  // Sélectionnable : tout type sauf review et payout (pas d'action réservation possible)
+  const selectedNew = bookings.filter(b => selected.has(b.messageId) && b.bookingType !== 'review' && b.bookingType !== 'payout').length;
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -1312,7 +1310,7 @@ export default function GmailImporter() {
                     <div key={booking.messageId} className={`rounded-xl border-2 transition-all ${isImp ? cardImported : isSel ? cardSelected : card}`}>
                       <div className="p-4">
                         <div className="flex items-start gap-3">
-                          {!isImp ? (
+                          {!isImp && booking.bookingType !== 'review' && booking.bookingType !== 'payout' ? (
                             <input type="checkbox" checked={isSel} onChange={() => toggleSelect(booking.messageId)}
                               className="mt-1 w-4 h-4 rounded text-violet-600 cursor-pointer flex-shrink-0" />
                           ) : (
