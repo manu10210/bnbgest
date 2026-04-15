@@ -308,29 +308,34 @@ export default function GmailImporter() {
       const finalBookings: ParsedBooking[] = [];
 
       for (const b of allBookings) {
-        if (!b.confirmationCode) {
+        // Sécuriser le regroupement : uniquement si le code commence par "HM" (vrai code Airbnb)
+        const isValidCode = b.confirmationCode && b.confirmationCode.toUpperCase().startsWith('HM');
+        
+        if (!isValidCode) {
           finalBookings.push(b);
         } else {
-          if (!groupedMap.has(b.confirmationCode)) {
-            groupedMap.set(b.confirmationCode, { ...b });
-            finalBookings.push(groupedMap.get(b.confirmationCode)!);
+          const code = b.confirmationCode!.toUpperCase();
+          if (!groupedMap.has(code)) {
+            groupedMap.set(code, { ...b });
+            finalBookings.push(groupedMap.get(code)!);
           } else {
-            const root = groupedMap.get(b.confirmationCode)!;
+            const root = groupedMap.get(code)!;
             
             // Enrichissement des données avec les anciens emails de la même résa
-            if (root.totalPrice === 0 && b.totalPrice > 0) root.totalPrice = b.totalPrice;
+            if ((!root.totalPrice || root.totalPrice === 0) && (b.totalPrice && b.totalPrice > 0)) root.totalPrice = b.totalPrice;
             if (!root.nightlyRate && b.nightlyRate) root.nightlyRate = b.nightlyRate;
             if (!root.cleaningFee && b.cleaningFee) root.cleaningFee = b.cleaningFee;
             if (!root.serviceFee && b.serviceFee) root.serviceFee = b.serviceFee;
-            if (!root.hostPayout && b.hostPayout) root.hostPayout = b.hostPayout;
+            if ((!root.hostPayout || root.hostPayout === 0) && (b.hostPayout && b.hostPayout > 0)) root.hostPayout = b.hostPayout;
             if (!root.payoutDate && b.payoutDate) root.payoutDate = b.payoutDate;
             if (!root.checkIn && b.checkIn) root.checkIn = b.checkIn;
             if (!root.checkOut && b.checkOut) root.checkOut = b.checkOut;
-            if (!root.guestName && b.guestName) root.guestName = b.guestName;
+            if ((!root.guestName || root.guestName === 'Voyageur Airbnb') && b.guestName && b.guestName !== 'Voyageur Airbnb') root.guestName = b.guestName;
             if (!root.propertyName && b.propertyName) root.propertyName = b.propertyName;
             
             // Garder le type plus principal si root était un payout ou un review
-            if ((root.bookingType === 'payout' || root.bookingType === 'review') && (b.bookingType === 'new' || b.bookingType === 'modified' || b.bookingType === 'cancelled')) {
+            if ((root.bookingType === 'payout' || root.bookingType === 'review' || root.bookingType === 'checkout') && 
+                (b.bookingType === 'new' || b.bookingType === 'modified' || b.bookingType === 'cancelled')) {
                root.bookingType = b.bookingType;
             }
           }
