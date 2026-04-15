@@ -273,9 +273,11 @@ export default function GmailImporter() {
     setImportSummary(null);
     try {
       const queries = [
+        // ① Tous les emails de automated@airbnb.com (notifications hôte principales)
         'from:automated@airbnb.com after:2024/01/01',
-        'from:express@airbnb.com subject:réservation after:2024/01/01',
-        'from:airbnb.com subject:reservation after:2024/01/01',
+        // ② Réservations + versements depuis les autres domaines Airbnb
+        'from:express@airbnb.com after:2024/01/01',
+        // ③ Emails avec sujet réservation depuis n'importe quel @airbnb.com
         'from:airbnb.com subject:versement after:2024/01/01',
         'from:airbnb.com subject:payout after:2024/01/01',
       ];
@@ -304,51 +306,69 @@ export default function GmailImporter() {
       allBookings.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
 
       // Regroupement des emails concernant la même réservation (par confirmationCode)
+      // RÈGLE : on groupe uniquement les emails avec un vrai code Airbnb "HM…"
+      // Les payout avec code HM sont gardés SÉPARÉS (type différent, traitement différent)
+      // Priorité de type : new > modified > cancelled > checkout > reminder > review > payout
+      const TYPE_PRIORITY: Record<ParsedBooking['bookingType'], number> = {
+        new: 7, modified: 6, cancelled: 5, checkout: 4, reminder: 3, review: 2, payout: 1,
+      };
       const groupedMap = new Map<string, ParsedBooking>();
       const finalBookings: ParsedBooking[] = [];
 
       for (const b of allBookings) {
         // Sécuriser le regroupement : uniquement si le code commence par "HM" (vrai code Airbnb)
-        const isValidCode = b.confirmationCode && b.confirmationCode.toUpperCase().startsWith('HM');
+        const isValidCode = b.confirmationCode && /^HM[A-Z0-9]{6,10}$/i.test(b.confirmationCode);
         
         if (!isValidCode) {
+          // Pas de code HM valide → entrée indépendante
           finalBookings.push(b);
         } else {
           const code = b.confirmationCode!.toUpperCase();
-          if (!groupedMap.has(code)) {
-            groupedMap.set(code, { ...b });
-            finalBookings.push(groupedMap.get(code)!);
+          // Clé unique : code + type pour garder payout séparé
+          const groupKey = b.bookingType === 'payout' ? `${code}_payout` : code;
+
+          if (!groupedMap.has(groupKey)) {
+            groupedMap.set(groupKey, { ...b });
+            finalBookings.push(groupedMap.get(groupKey)!);
           } else {
-            const root = groupedMap.get(code)!;
+            const root = groupedMap.get(groupKey)!;
             
-            // Enrichissement des données avec les anciens emails de la même résa
+            // Enrichissement : combler les champs manquants du root avec ceux de b
             if ((!root.totalPrice || root.totalPrice === 0) && (b.totalPrice && b.totalPrice > 0)) root.totalPrice = b.totalPrice;
             if (!root.nightlyRate && b.nightlyRate) root.nightlyRate = b.nightlyRate;
             if (!root.cleaningFee && b.cleaningFee) root.cleaningFee = b.cleaningFee;
             if (!root.serviceFee && b.serviceFee) root.serviceFee = b.serviceFee;
+            if (!root.taxAmount && b.taxAmount) root.taxAmount = b.taxAmount;
             if ((!root.hostPayout || root.hostPayout === 0) && (b.hostPayout && b.hostPayout > 0)) root.hostPayout = b.hostPayout;
             if (!root.payoutDate && b.payoutDate) root.payoutDate = b.payoutDate;
             if (!root.checkIn && b.checkIn) root.checkIn = b.checkIn;
             if (!root.checkOut && b.checkOut) root.checkOut = b.checkOut;
+            if (!root.checkInTime && b.checkInTime) root.checkInTime = b.checkInTime;
+            if (!root.checkOutTime && b.checkOutTime) root.checkOutTime = b.checkOutTime;
             if ((!root.guestName || root.guestName === 'Voyageur Airbnb') && b.guestName && b.guestName !== 'Voyageur Airbnb') root.guestName = b.guestName;
+            if (!root.guestEmail && b.guestEmail) root.guestEmail = b.guestEmail;
+            if (!root.guestPhone && b.guestPhone) root.guestPhone = b.guestPhone;
             if (!root.propertyName && b.propertyName) root.propertyName = b.propertyName;
-            
-            // Garder le type plus principal si root était un payout ou un review
-            if ((root.bookingType === 'payout' || root.bookingType === 'review' || root.bookingType === 'checkout') && 
-                (b.bookingType === 'new' || b.bookingType === 'modified' || b.bookingType === 'cancelled')) {
-               root.bookingType = b.bookingType;
+            if (!root.guests && b.guests) root.guests = b.guests;
+
+            // Promotion de type : garder le type le plus "important" (new > modified > cancelled …)
+            if ((TYPE_PRIORITY[b.bookingType] ?? 0) > (TYPE_PRIORITY[root.bookingType] ?? 0)) {
+              root.bookingType = b.bookingType;
             }
           }
         }
       }
 
       setBookings(finalBookings);
-      // Auto-sélectionner : nouvelles (confiance ≥70%) + annulations/modifications/avis/départs (toujours)
-      setSelected(new Set(allBookings.filter(b =>
+      // Auto-sélectionner uniquement :
+      // - nouvelles réservations avec confiance ≥ 70%
+      // - annulations et modifications (toujours — impactent les réservations existantes)
+      // - avis (enrichissement de données)
+      // NE PAS auto-sélectionner reminder/checkout — ces types ne créent pas de nouvelle réservation
+      setSelected(new Set(finalBookings.filter(b =>
         (b.bookingType === 'new' && b.confidence >= 70) ||
         b.bookingType === 'cancelled' ||
         b.bookingType === 'modified' ||
-        b.bookingType === 'checkout' ||
         b.bookingType === 'review'
       ).map(b => b.messageId)));
       setStatus('done');
