@@ -1329,12 +1329,20 @@ export default function GmailImporter() {
                     </button>
                   ))}
                 </div>
-                <button onClick={selectAll} className="text-xs text-violet-500 hover:underline font-medium">
-                  {filtered.every(b => selected.has(b.messageId)) ? 'Tout désélectionner' : 'Tout sélectionner'}
+                <button 
+                  onClick={selectAll} 
+                  className={`flex items-center text-xs h-8 px-3 rounded-lg border font-medium transition-colors ${
+                    isDark 
+                      ? 'border-violet-500/30 text-violet-400 hover:bg-violet-500/20 bg-gray-800' 
+                      : 'border-violet-200 text-violet-600 hover:bg-violet-50 bg-white'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                  {filtered.length > 0 && filtered.every(b => selected.has(b.messageId)) ? 'Tout désélectionner' : 'Tout sélectionner'}
                 </button>
               </div>
 
-              {/* ── Récapitulatif global du parse ─────────────────────────── */}
+              {/* ── Récapitulatif global du parse ── */}
               {(() => {
                 const byType = bookings.reduce((acc, b) => {
                   acc[b.bookingType] = (acc[b.bookingType] || 0) + 1;
