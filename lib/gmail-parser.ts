@@ -80,8 +80,8 @@
  *   Note : la note (1-5 Ã©toiles) est extraite depuis le sujet en prioritÃ©
  *
  * ðŸ’¶ 'payout'   â€” Versement hÃ´te (Airbnb envoie de l'argent Ã  l'hÃ´te)
- *   Sujets FR :  "Nous avons envoyÃ© un versement de 63,62 â‚¬"  â† format exact observÃ©
- *                "Votre versement de X â‚¬"
+ *   Sujets FR :  "Nous avons envoyÃ© un versement de 63,62 €"  â† format exact observÃ©
+ *                "Votre versement de X €"
  *   Sujets EN :  "Your payout of $X has been sent"
  *   Note : pas de dates de sÃ©jour dans ces emails â†’ checkIn/checkOut non extraits
  *          confidence minimum = 80 mÃªme sans dates
@@ -448,10 +448,10 @@ const SUBJECT_PATTERNS = {
   ],
   payout: [
     // Versement hÃ´te â€” Airbnb envoie de l'argent Ã  l'hÃ´te
-    // "Nous avons envoyÃ© un versement de 63,62 â‚¬"  â† format exact Airbnb observÃ©
+    // "Nous avons envoyÃ© un versement de 63,62 €"  â† format exact Airbnb observÃ©
     /nous\s+avons\s+envoy[eÃ©]\s+un\s+versement/i,
     /votre\s+versement\s+de/i,
-    /versement\s+de\s+[\d,.\s]+\s*[â‚¬$Â£]/i,
+    /versement\s+de\s+[\d,.\s]+\s*[€$£]/i,
     /virement\s+(?:effectu[eÃ©]|envoy[eÃ©])/i,
     /r[eÃ¨]glement\s+effectu[eÃ©]/i,
     // "Your payout of $X has been sent"
@@ -603,51 +603,53 @@ function normalizeDate(raw: string): string {
 
 function extractPrice(text: string): number {
   // Vrais formats Airbnb hÃ´te observÃ©s :
-  //   "Revenus : 178 â‚¬"              (email nouvelle rÃ©servation hÃ´te)
-  //   "Vos revenus pour ce sÃ©jour : 154,00 â‚¬"
-  //   "Votre revenu estimÃ© : 154 â‚¬"
-  //   "Votre revenu : 154 â‚¬"
-  //   "Total : 210,00 â‚¬"             (rÃ©capitulatif voyageur)
-  //   "Montant total : 210 â‚¬"
-  //   "Prix total : 210 â‚¬"
-  //   "Vous gagnez 178 â‚¬"
-  //   "178 â‚¬" (montant seul sur une ligne)
+  //   "Revenus : 178 €"              (email nouvelle rÃ©servation hÃ´te)
+  //   "Vos revenus pour ce sÃ©jour : 154,00 €"
+  //   "Votre revenu estimÃ© : 154 €"
+  //   "Votre revenu : 154 €"
+  //   "Total : 210,00 €"             (rÃ©capitulatif voyageur)
+  //   "Montant total : 210 €"
+  //   "Prix total : 210 €"
+  //   "Vous gagnez 178 €"
+  //   "178 €" (montant seul sur une ligne)
   //
   // IMPORTANT : on cherche le montant le plus pertinent dans cet ordre de prioritÃ©.
   // Un helper pour extraire un nombre depuis une chaÃ®ne capturÃ©e
   const parseAmount = (s: string): number => {
     // Supporte "178,34" / "178.34" / "1 234,56" / "1 234.56" / espaces insÃ©cables \xa0
-    const clean = s.replace(/[â‚¬$Â£]/g, '').replace(/[\s\xa0\u202f]+/g, ' ').trim();
+    const clean = s.replace(/[\u20AC\u00A3$€£]/g, '').replace(/[\s\xa0\u202f]+/g, ' ').trim();
     // Format FR : "1 234,56" â†’ supprimer espaces inter-chiffres, puis remplacer virgule
-    const normalized = clean.replace(/(\d)\s+(\d)/g, '$1$2').replace(',', '.');
+    // Strip thousand-separator spaces ('1 234,56' -> '1234,56'), then normalize FR comma
+    const normalized = clean.replace(/(?<=\d)\s+(?=\d)/g, '').replace(',', '.');
     const val = parseFloat(normalized);
     return (!isNaN(val) && val > 0 && val < 100000) ? val : 0;
   };
 
   const patterns: RegExp[] = [
     // ðŸ¥‡ Revenus hÃ´te (prioritÃ© maximale â€” c'est ce que l'hÃ´te reÃ§oit)
-    /vos\s+revenus\s+pour\s+ce\s+s[eÃ©]jour\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /votre\s+revenu\s+estim[eÃ©]\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /votre\s+revenu\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /revenus?\s+de\s+l[''`]h[oÃ´]te\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /revenus?\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /host\s+earnings?\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /vous\s+gagnez\s*[:\s]*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /you\s+earn\s*[:\s]*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /earnings?\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
+    /vos\s+revenus\s+pour\s+ce\s+s[eÃ©]jour\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /votre\s+revenu\s+estim[eÃ©]\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /votre\s+revenu\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /revenus?\s+de\s+l[''`]h[oÃ´]te\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /revenus?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /host\s+earnings?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /vous\s+gagnez\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /you\s+earn\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /earnings?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
     // ðŸ¥ˆ Total gÃ©nÃ©ral
-    /montant\s+total\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /total\s+amount\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /prix\s+total\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /total\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
+    /montant\s+total\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /total\s+amount\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /prix\s+total\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /total\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
     // ðŸ¥‰ Montant gÃ©nÃ©rique
-    /montant\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /payout\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /prix\s+(?:de\s+la\s+)?nuit[eÃ©]e?\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
+    /montant\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /payout\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /prix\s+(?:de\s+la\s+)?nuit[eÃ©]e?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
     // ðŸ”š Dernier recours : premier montant en euros trouvÃ© dans le texte
     // Guard renforcÃ© : min 1 chiffre, max 8 chiffres avant virgule, pas suivi d'autres chiffres
     // Ã‰vite les faux positifs sur numÃ©ros de tÃ©lÃ©phone (ex: "0612345678")
-    /(?<![0-9])([â‚¬$Â£]\s*[\d\s\xa0]{1,8}[,.]?\d{0,2})(?![0-9])/,
+    /(?<![0-9])([€$£]\s*[\d\s\xa0]{1,8}[,.]?\d{0,2})(?![0-9])/,
+    /(?<![0-9])([\d][\d\s\xa0]{0,8}[,.]?\d{0,2})\s*[€$£](?![\d])/,
   ];
 
   for (const p of patterns) {
@@ -662,14 +664,14 @@ function extractPrice(text: string): number {
 
 function extractCleaningFee(text: string): number | undefined {
   const patterns = [
-    /frais\s+(?:de\s+)?m[eÃ©]nage\s*[:\s]*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /nettoyage\s*[:\s]*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /cleaning\s+fee\s*[:\s]*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
+    /frais\s+(?:de\s+)?m[eÃ©]nage\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /nettoyage\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /cleaning\s+fee\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const clean = m[1].replace(/[â‚¬$Â£\s\xa0]/g, '').replace(',', '.');
+      const clean = m[1].replace(/[€$£\s\xa0]/g, '').replace(',', '.');
       const val = parseFloat(clean);
       if (!isNaN(val) && val >= 0) return val;
     }
@@ -679,14 +681,14 @@ function extractCleaningFee(text: string): number | undefined {
 
 function extractServiceFee(text: string): number | undefined {
   const patterns = [
-    /frais\s+de\s+service(?:\s+airbnb)?\s*[:\s]*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /commission\s+(?:airbnb|de\s+service)\s*[:\s]*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /service\s+fee\s*[:\s]*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
+    /frais\s+de\s+service(?:\s+airbnb)?\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /commission\s+(?:airbnb|de\s+service)\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /service\s+fee\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const clean = m[1].replace(/[â‚¬$Â£\s\xa0]/g, '').replace(',', '.');
+      const clean = m[1].replace(/[€$£\s\xa0]/g, '').replace(',', '.');
       const val = parseFloat(clean);
       if (!isNaN(val) && val >= 0) return val;
     }
@@ -696,25 +698,25 @@ function extractServiceFee(text: string): number | undefined {
 
 function extractHostPayout(text: string): number | undefined {
   // Vrais formats Airbnb versement :
-  //   "Nous avons envoyÃ© un versement de 178,34 â‚¬"
-  //   "Montant versÃ© : 178,34 â‚¬"
-  //   "Vous recevrez : 178,34 â‚¬"
-  //   "Votre versement : 178,34 â‚¬"
+  //   "Nous avons envoyÃ© un versement de 178,34 €"
+  //   "Montant versÃ© : 178,34 €"
+  //   "Vous recevrez : 178,34 €"
+  //   "Votre versement : 178,34 €"
   const patterns = [
     // Format exact sujet/corps versement Airbnb
-    /nous\s+avons\s+envoy[eÃ©]\s+un\s+versement\s+de\s+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /versement\s+de\s+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /votre\s+versement\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /montant\s+vers[eÃ©]\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /vous\s+recevrez?\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /host\s+payout\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /r[eÃ©]mun[eÃ©]ration\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /payout\s+(?:amount|total)\s*[:\s]+([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
+    /nous\s+avons\s+envoy[eÃ©]\s+un\s+versement\s+de\s+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /versement\s+de\s+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /votre\s+versement\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /montant\s+vers[eÃ©]\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /vous\s+recevrez?\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /host\s+payout\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /r[eÃ©]mun[eÃ©]ration\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /payout\s+(?:amount|total)\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const clean = m[1].replace(/[â‚¬$Â£\s\xa0]/g, '').replace(',', '.');
+      const clean = m[1].replace(/[€$£\s\xa0]/g, '').replace(',', '.');
       const val = parseFloat(clean);
       if (!isNaN(val) && val > 0) return val;
     }
@@ -796,28 +798,28 @@ function normalizeTime(raw: string): string {
 
 function extractNightlyRate(text: string): number | undefined {
   // Formats Airbnb observÃ©s :
-  //   "89 â‚¬ par nuit" / "Prix par nuit : 89 â‚¬"
-  //   "Tarif nuitÃ©e : 89,00 â‚¬" / "89 â‚¬/nuit"
-  //   "$89 per night" / "89 â‚¬ x 3 nuits" / "89 â‚¬ Ã— 3 nuits"
+  //   "89 € par nuit" / "Prix par nuit : 89 €"
+  //   "Tarif nuitÃ©e : 89,00 €" / "89 €/nuit"
+  //   "$89 per night" / "89 € x 3 nuits" / "89 € Ã— 3 nuits"
   const parseAmt = (s: string) => {
-    const n = parseFloat(s.replace(/[â‚¬$Â£\s\xa0\u202f]/g, '').replace(',', '.'));
+    const n = parseFloat(s.replace(/[€$£\s\xa0\u202f]/g, '').replace(',', '.'));
     return !isNaN(n) && n > 0 && n < 10000 ? n : 0;
   };
   const patterns = [
-    // "89 â‚¬ par nuit" ou "89,00â‚¬ par nuit" â€” ancre sur le nombre JUSTE avant le symbole/mot
-    /(\d[\d\s\xa0\u202f]*[,.]?\d*)\s*[â‚¬$Â£]\s*(?:par\s+nuit|\/nuit)/i,
-    // "â‚¬ 89 par nuit" â€” symbole AVANT le nombre
-    /[â‚¬$Â£]\s*([\d\s\xa0\u202f]*[,.]?\d+)\s*(?:par\s+nuit|\/nuit)/i,
-    /prix\s+(?:de\s+la\s+)?nuit[eÃ©]e?\s*[:\-â€“]\s*[â‚¬$Â£]?\s*([\d\s\xa0\u202f]*[,.]?\d+)/i,
-    /tarif\s+(?:de\s+la\s+)?nuit[eÃ©]e?\s*[:\-â€“]\s*[â‚¬$Â£]?\s*([\d\s\xa0\u202f]*[,.]?\d+)/i,
-    // "89 â‚¬ x 3 nuits" ou "89 â‚¬ Ã— 3 nuits" (Ã— Unicode U+00D7 ou Ã— en entitÃ© HTML)
-    /(\d[\d\s\xa0\u202f]*[,.]?\d*)\s*[â‚¬$Â£]?\s*[Ã—xÃ—]\s*\d+\s*nuits?/i,
-    // "89 â‚¬ / nuit Ã— 3 nuits" â€” format rÃ©capitulatif Airbnb
-    /(\d[\d\s\xa0\u202f]*[,.]?\d*)\s*[â‚¬$Â£]\s*\/\s*nuit/i,
+    // "89 € par nuit" ou "89,00€ par nuit" â€” ancre sur le nombre JUSTE avant le symbole/mot
+    /(\d[\d\s\xa0\u202f]*[,.]?\d*)\s*[€$£]\s*(?:par\s+nuit|\/nuit)/i,
+    // "€ 89 par nuit" â€” symbole AVANT le nombre
+    /[€$£]\s*([\d\s\xa0\u202f]*[,.]?\d+)\s*(?:par\s+nuit|\/nuit)/i,
+    /prix\s+(?:de\s+la\s+)?nuit[eÃ©]e?\s*[:\-â€“]\s*[€$£]?\s*([\d\s\xa0\u202f]*[,.]?\d+)/i,
+    /tarif\s+(?:de\s+la\s+)?nuit[eÃ©]e?\s*[:\-â€“]\s*[€$£]?\s*([\d\s\xa0\u202f]*[,.]?\d+)/i,
+    // "89 € x 3 nuits" ou "89 € Ã— 3 nuits" (Ã— Unicode U+00D7 ou Ã— en entitÃ© HTML)
+    /(\d[\d\s\xa0\u202f]*[,.]?\d*)\s*[€$£]?\s*[Ã—xÃ—]\s*\d+\s*nuits?/i,
+    // "89 € / nuit Ã— 3 nuits" â€” format rÃ©capitulatif Airbnb
+    /(\d[\d\s\xa0\u202f]*[,.]?\d*)\s*[€$£]\s*\/\s*nuit/i,
     // "$89 per night"
-    /[â‚¬$Â£]\s*([\d\s\xa0\u202f]*[,.]?\d+)\s*per\s+night/i,
-    /([\d\s\xa0\u202f]*[,.]?\d+)\s*[â‚¬$Â£]?\s*per\s+night/i,
-    /nightly\s+rate\s*[:\-â€“]\s*[â‚¬$Â£]?\s*([\d\s\xa0\u202f]*[,.]?\d+)/i,
+    /[€$£]\s*([\d\s\xa0\u202f]*[,.]?\d+)\s*per\s+night/i,
+    /([\d\s\xa0\u202f]*[,.]?\d+)\s*[€$£]?\s*per\s+night/i,
+    /nightly\s+rate\s*[:\-â€“]\s*[€$£]?\s*([\d\s\xa0\u202f]*[,.]?\d+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
@@ -830,19 +832,19 @@ function extractNightlyRate(text: string): number | undefined {
 }
 
 function extractTaxAmount(text: string): number | undefined {
-  // Formats : "Taxes : 12,00 â‚¬" / "Taxe de sÃ©jour : 4 â‚¬" / "TVA : 5,00 â‚¬"
-  //            "Taxes and fees: $12" / "Tourist tax: 4 â‚¬"
+  // Formats : "Taxes : 12,00 €" / "Taxe de sÃ©jour : 4 €" / "TVA : 5,00 €"
+  //            "Taxes and fees: $12" / "Tourist tax: 4 €"
   const parseAmt = (s: string) => {
-    const n = parseFloat(s.replace(/[â‚¬$Â£\s\xa0]/g, '').replace(',', '.'));
+    const n = parseFloat(s.replace(/[€$£\s\xa0]/g, '').replace(',', '.'));
     return !isNaN(n) && n > 0 ? n : 0;
   };
   const patterns = [
-    /taxe(?:s)?\s+de\s+s[eÃ©]jour(?:\s+collect[eÃ©]e?(?:s)?|s)?\s*[:\-â€“]*\s*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /taxes?\s*(?:et\s+frais)?\s*[:\-â€“]?\s*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /tva\s*[:\-â€“]?\s*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /tourist\s+tax\s*[:\-â€“]?\s*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /taxes?\s+and\s+fees?\s*[:\-â€“]?\s*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
-    /occupancy\s+tax\s*[:\-â€“]?\s*([â‚¬$Â£]?\s*[\d\s\xa0.,]+)/i,
+    /taxe(?:s)?\s+de\s+s[eÃ©]jour(?:\s+collect[eÃ©]e?(?:s)?|s)?\s*[:\-â€“]*\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /taxes?\s*(?:et\s+frais)?\s*[:\-â€“]?\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /tva\s*[:\-â€“]?\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /tourist\s+tax\s*[:\-â€“]?\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /taxes?\s+and\s+fees?\s*[:\-â€“]?\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /occupancy\s+tax\s*[:\-â€“]?\s*([€$£]?\s*[\d\s\xa0.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
@@ -1266,15 +1268,15 @@ function extractPropertyName(text: string, subject?: string): string | undefined
   if (subject && (
     /\barrive\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(subject) ||
     /\bpart\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(subject) ||
-    /^(?:\[[^\]]+\]\s*)?[A-ZÃ€-Å¸Å’Ã†][a-zÃ Ã¢Ã©Ã¨ÃªÃ«Ã®Ã¯Ã´Ã¹Ã»Ã¼Ã¿Å“Ã¦]+\s+(a\s+r[eÃ©]serv|annul|modifi|laiss|r[eÃ©]dig|souhait)/i.test(subject) ||
+    /^(?:\[[^\]]+\]\s*)?[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+\s+(a\s+r[eé]serv|annul|modifi|laiss|r[eé]dig|souhait)/i.test(subject) ||
     /\bcheck[\s-]?(in|out)\b/i.test(subject)
   )) {
     return undefined;
   }
 
   // â”€â”€ GUARD : emails de versement â†’ jamais de nom de logement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // "Nous avons envoyÃ© un versement de X â‚¬" â†’ return undefined immÃ©diatement
-  const PAYOUT_RE = /nous\s+avons\s+envoy[eÃ©]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout|versement\s+de\s+[\d,.\s]+\s*[â‚¬$Â£]|your\s+payout\s+of/i;
+  // "Nous avons envoyÃ© un versement de X €" â†’ return undefined immÃ©diatement
+  const PAYOUT_RE = /nous\s+avons\s+envoy[eÃ©]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout|versement\s+de\s+[\d,.\s]+\s*[€$£]|your\s+payout\s+of/i;
   const isPayoutEmail = PAYOUT_RE.test(text.slice(0, 600)) || (subject ? PAYOUT_RE.test(subject) : false);
   if (isPayoutEmail) return undefined;
 
@@ -1336,7 +1338,7 @@ function extractPropertyName(text: string, subject?: string): string | undefined
     if (m) {
       const c = cleanCandidate(m[1]);
       // Rejeter si contient des mots-clÃ©s de versement ou de bruit
-      if (c.length >= 5 && !/versement|payout|virement|envoy[eÃ©]|r[eÃ©]gl[eÃ©]|â‚¬\s*\d|^\d+[,.]?\d*\s*[â‚¬$]/i.test(c)) return c;
+      if (c.length >= 5 && !/versement|payout|virement|envoy[eÃ©]|r[eÃ©]gl[eÃ©]|€\s*\d|^\d+[,.]?\d*\s*[€$]/i.test(c)) return c;
     }
   }
 
@@ -1386,13 +1388,13 @@ function extractPropertyName(text: string, subject?: string): string | undefined
       const m = subject.match(p);
       if (m) {
         const c = cleanCandidate(m[1]);
-        if (c.length >= 5 && !/versement|payout|virement|envoy[eÃ©]|r[eÃ©]gl[eÃ©]|^\d+[,.]?\d*\s*[â‚¬$]/i.test(c)) return c;
+        if (c.length >= 5 && !/versement|payout|virement|envoy[eÃ©]|r[eÃ©]gl[eÃ©]|^\d+[,.]?\d*\s*[€$]/i.test(c)) return c;
       }
     }
 
     // â”€â”€ 3. DERNIER RECOURS : nettoyer le sujet entier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Uniquement si le sujet ne ressemble PAS Ã  un payout ou un nom de voyageur
-    const isPersonSubject = /^(?:\[[^\]]+\]\s*)?[A-ZÃ€Ã‚Ã„Ã‰ÃˆÃŠÃ‹ÃŽÃÃ”Ã™Ã›ÃœÅ¸Å’Ã†][a-zÃ Ã¢Ã©Ã¨ÃªÃ«Ã®Ã¯Ã´Ã¹Ã»Ã¼Ã¿Å“Ã¦]+(?:\s+[A-Za-zÃ€-Ã¿\-]+){0,3}\s+(a\s+r[eÃ©]serv|annul|modifi|laiss|part\s|arrive|r[eÃ©]dig|souhait|veut|aimer)/i.test(subject)
+    const isPersonSubject = /^(?:\[[^\]]+\]\s*)?[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+[A-Za-z\u00C0-\u024F\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive|r[eé]dig|souhait|veut|aimer)/i.test(subject)
       || /\barrive\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(subject)
       || /^rappel\s*[:\-â€“]/i.test(subject)
       || /\bpart\s+(aujourd|demain|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(subject)
@@ -1424,7 +1426,7 @@ function extractPropertyName(text: string, subject?: string): string | undefined
       const fc = cleanCandidate(cleaned);
       // Rejeter si le rÃ©sultat est trop court, un verbe seul, ou du bruit pur
       if (fc.length >= 5
-        && !/versement|payout|virement|envoy[eÃ©]|^\d+[,.]?\d*\s*[â‚¬$]/i.test(fc)
+        && !/versement|payout|virement|envoy[eÃ©]|^\d+[,.]?\d*\s*[€$]/i.test(fc)
         && !/^(demain|aujourd|hier|arrive|part|s[eÃ©]jour|rappel|check|confirmat)$/i.test(fc.split(' ')[0])
       ) {
         return fc.slice(0, 80);
@@ -1886,8 +1888,8 @@ export function parseAirbnbEmail(
     totalPrice: (bookingType === 'review' || bookingType === 'payout') ? 0 : price,
     // Devise : chercher dans le corps HTML-strippÃ© + sujet, prioritÃ© EUR > GBP > CHF > USD
     currency:  /CHF|Fr\./i.test(text + subject) ? 'CHF'
-               : (text + subject).includes('Â£') ? 'GBP'
-               : (text + subject).includes('â‚¬') || /EUR/i.test(text + subject) ? 'EUR'
+               : (text + subject).includes('£') ? 'GBP'
+               : (text + subject).includes('€') || /EUR/i.test(text + subject) ? 'EUR'
                : 'USD',
     nightlyRate,
     cleaningFee,
