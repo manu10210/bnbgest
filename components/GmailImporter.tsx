@@ -958,6 +958,57 @@ export default function GmailImporter() {
   const cardImported = isDark ? 'border-green-700 bg-green-900/20 opacity-70' : 'border-green-300 bg-green-50 opacity-70';
 
   return (
+    <>
+      <AnimatePresence>
+        {status === 'importing' && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className={`relative w-full max-w-sm rounded-[1.5rem] p-8 text-center shadow-2xl flex flex-col items-center gap-6 overflow-hidden ${isDark ? 'bg-gray-800 border-[0.5px] border-white/10' : 'bg-white border-[0.5px] border-black/5'}`}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 to-transparent pointer-events-none" />
+              
+              <div className="relative w-16 h-16 flex items-center justify-center text-violet-500 z-10">
+                <motion.div 
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                  className="absolute inset-0 rounded-full border-4 border-violet-500/20 border-t-violet-500 w-16 h-16"
+                />
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <DownloadCloud className="w-6 h-6" />
+                </motion.div>
+              </div>
+              
+              <div className="relative z-10 space-y-2">
+                <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Transfert en cours</h3>
+                <p className={`text-sm font-medium ${isDark ? 'text-violet-400' : 'text-violet-600'}`}>
+                  Extraction & classification...
+                </p>
+              </div>
+              
+              <div className="w-full bg-gray-100 dark:bg-gray-700/50 rounded-full h-1.5 mt-2 overflow-hidden relative z-10">
+                <motion.div 
+                  initial={{ width: "0%" }}
+                  animate={{ width: "100%" }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  className="h-full bg-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.6)]"
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     <div className={`space-y-6 p-4 sm:p-6 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
 
       {/* ── Header ── */}
@@ -1154,16 +1205,24 @@ export default function GmailImporter() {
                     🧹 {importSummary.tasksCreated} tâche{importSummary.tasksCreated > 1 ? 's' : ''} créée{importSummary.tasksCreated > 1 ? 's' : ''} (ménage/préparation)
                   </span>
                 )}
-                {importSummary.reviewsImported > 0 && (
-                  <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-purple-800 text-purple-200' : 'bg-purple-100 text-purple-700'}`}>
-                    ⭐ {importSummary.reviewsImported} avis importé{importSummary.reviewsImported > 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── Nouveaux logements en attente de configuration ── */}
+  {importSummary.reviewsImported > 0 && (
+    <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-purple-800 text-purple-200' : 'bg-purple-100 text-purple-700'}`}>
+      ⭐ {importSummary.reviewsImported} avis importé{importSummary.reviewsImported > 1 ? 's' : ''}
+    </span>
+  )}
+  {importSummary.payoutsSaved > 0 && (
+    <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-emerald-800 text-emerald-200' : 'bg-emerald-100 text-emerald-700'}`}>
+      💸 {importSummary.payoutsSaved} versement{importSummary.payoutsSaved > 1 ? 's' : ''} classé{importSummary.payoutsSaved > 1 ? 's' : ''}
+    </span>
+  )}
+  {importSummary.expensesCreated > 0 && (
+    <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-rose-800 text-rose-200' : 'bg-rose-100 text-rose-700'}`}>
+      📉 {importSummary.expensesCreated} dépense{importSummary.expensesCreated > 1 ? 's' : ''} classée{importSummary.expensesCreated > 1 ? 's' : ''}
+    </span>
+  )}
+</div>
+</div>
+          )}          {/* ── Nouveaux logements en attente de configuration ── */}
           {propertyQueue.length > 0 && !currentWizard && (
             <div className={`border-2 rounded-xl p-4 flex items-center justify-between gap-3 ${isDark ? 'bg-violet-900/30 border-violet-600' : 'bg-violet-50 border-violet-300'}`}>
               <div className="flex items-center gap-3">
@@ -1511,5 +1570,6 @@ export default function GmailImporter() {
         />
       )}
     </div>
+    </>
   );
 }
