@@ -44,6 +44,8 @@ interface ParsedBooking {
   serviceFee?: number;
   taxAmount?: number;      // Taxes
   hostPayout?: number;
+  payoutDate?: string;
+  payoutMethod?: string;
   propertyName?: string;
   confirmationCode?: string;
   bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review' | 'payout';
@@ -271,11 +273,11 @@ export default function GmailImporter() {
     setImportSummary(null);
     try {
       const queries = [
-        'from:automated@airbnb.com after:2024/01/01',
-        'from:express@airbnb.com subject:réservation after:2024/01/01',
-        'from:airbnb.com subject:reservation after:2024/01/01',
-        'from:airbnb.com subject:versement after:2024/01/01',
-        'from:airbnb.com subject:payout after:2024/01/01',
+        'from:automated@airbnb.com after:2026/01/01',
+        'from:express@airbnb.com subject:réservation after:2026/01/01',
+        'from:airbnb.com subject:reservation after:2026/01/01',
+        'from:airbnb.com subject:versement after:2026/01/01',
+        'from:airbnb.com subject:payout after:2026/01/01',
       ];
       const allBookings: ParsedBooking[] = [];
       const seen = new Set<string>();
@@ -300,7 +302,42 @@ export default function GmailImporter() {
       }
 
       allBookings.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
-      setBookings(allBookings);
+
+      // Regroupement des emails concernant la même réservation (par confirmationCode)
+      const groupedMap = new Map<string, ParsedBooking>();
+      const finalBookings: ParsedBooking[] = [];
+
+      for (const b of allBookings) {
+        if (!b.confirmationCode) {
+          finalBookings.push(b);
+        } else {
+          if (!groupedMap.has(b.confirmationCode)) {
+            groupedMap.set(b.confirmationCode, { ...b });
+            finalBookings.push(groupedMap.get(b.confirmationCode)!);
+          } else {
+            const root = groupedMap.get(b.confirmationCode)!;
+            
+            // Enrichissement des données avec les anciens emails de la même résa
+            if (root.totalPrice === 0 && b.totalPrice > 0) root.totalPrice = b.totalPrice;
+            if (!root.nightlyRate && b.nightlyRate) root.nightlyRate = b.nightlyRate;
+            if (!root.cleaningFee && b.cleaningFee) root.cleaningFee = b.cleaningFee;
+            if (!root.serviceFee && b.serviceFee) root.serviceFee = b.serviceFee;
+            if (!root.hostPayout && b.hostPayout) root.hostPayout = b.hostPayout;
+            if (!root.payoutDate && b.payoutDate) root.payoutDate = b.payoutDate;
+            if (!root.checkIn && b.checkIn) root.checkIn = b.checkIn;
+            if (!root.checkOut && b.checkOut) root.checkOut = b.checkOut;
+            if (!root.guestName && b.guestName) root.guestName = b.guestName;
+            if (!root.propertyName && b.propertyName) root.propertyName = b.propertyName;
+            
+            // Garder le type plus principal si root était un payout ou un review
+            if ((root.bookingType === 'payout' || root.bookingType === 'review') && (b.bookingType === 'new' || b.bookingType === 'modified' || b.bookingType === 'cancelled')) {
+               root.bookingType = b.bookingType;
+            }
+          }
+        }
+      }
+
+      setBookings(finalBookings);
       // Auto-sélectionner : nouvelles (confiance ≥70%) + annulations/modifications/avis/départs (toujours)
       setSelected(new Set(allBookings.filter(b =>
         (b.bookingType === 'new' && b.confidence >= 70) ||
