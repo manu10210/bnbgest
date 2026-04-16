@@ -184,6 +184,10 @@ export interface ParsedBooking {
   // Statut
   bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review' | 'payout';
   confidence: number;       // 0-100%
+  parserPatternVersion?: string; // version du moteur de classification
+  classificationSource?: 'subject' | 'body-fallback';
+  classificationRuleId?: string;
+  classificationRegex?: string;
   isInstantBook?: boolean;  // true si réservation instantanée (sans approbation)
   cancellationPolicy?: string; // Politique d'annulation (ex: "Flexible", "Modérée", "Stricte")
   // Modification — nouvelles dates proposées
@@ -467,6 +471,64 @@ const SUBJECT_PATTERNS = {
     /\bpayout\b/i,
   ],
 };
+
+const PARSER_PATTERN_VERSION = '2026.2';
+
+type BookingType = ParsedBooking['bookingType'];
+type SubjectPatternGroup = keyof typeof SUBJECT_PATTERNS;
+
+const SUBJECT_CLASSIFICATION_PRIORITY: Array<{ type: BookingType; groups: SubjectPatternGroup[] }> = [
+  { type: 'new', groups: ['new_fr', 'new_en'] },
+  { type: 'cancelled', groups: ['cancelled'] },
+  { type: 'modified', groups: ['modified'] },
+  { type: 'checkout', groups: ['checkout'] },
+  { type: 'reminder', groups: ['reminder'] },
+  { type: 'review', groups: ['review'] },
+  { type: 'payout', groups: ['payout'] },
+];
+
+const BODY_FALLBACK_RULES: Array<{ id: string; type: BookingType; regex: RegExp }> = [
+  { id: 'body.review.1', type: 'review', regex: /home_reviews|review_received|guest.*review|avis.*re[cç]u|[eé]valuation.*[eé]toiles|avis.*[eé]toiles|has left you a review/i },
+  { id: 'body.new.1', type: 'new', regex: /reservation_confirmation|booking_confirmation|new_reservation/i },
+  { id: 'body.cancelled.1', type: 'cancelled', regex: /cancellation|booking_cancelled|reservation_cancelled/i },
+  { id: 'body.payout.1', type: 'payout', regex: /host_payout|payout_sent|versement/i },
+  { id: 'body.payout.2', type: 'payout', regex: /nous\s+avons\s+envoy[eé]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout/i },
+  { id: 'body.checkout.1', type: 'checkout', regex: /checkout|check_out|s[eé]jour.*termin/i },
+  { id: 'body.reminder.1', type: 'reminder', regex: /reminder|rappel.*arriv/i },
+];
+
+function matchSubjectClassification(subject: string): { type: BookingType; ruleId: string; regex: string } | null {
+  for (const rule of SUBJECT_CLASSIFICATION_PRIORITY) {
+    for (const group of rule.groups) {
+      const patterns = SUBJECT_PATTERNS[group];
+      for (let i = 0; i < patterns.length; i++) {
+        const re = patterns[i];
+        if (re.test(subject)) {
+          return {
+            type: rule.type,
+            ruleId: `subject.${group}.${i + 1}`,
+            regex: re.source,
+          };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function matchBodyFallbackClassification(body: string): { type: BookingType; ruleId: string; regex: string } | null {
+  const snippet = body.slice(0, 2000).toLowerCase();
+  for (const rule of BODY_FALLBACK_RULES) {
+    if (rule.regex.test(snippet)) {
+      return {
+        type: rule.type,
+        ruleId: rule.id,
+        regex: rule.regex.source,
+      };
+    }
+  }
+  return null;
+}
 
 // ─── Extracteurs de données ─────────────────────────────────────────────────
 
@@ -1506,50 +1568,28 @@ export function parseAirbnbEmail(
   // 1b. Ignorer les emails informatifs/maintenance/marketing — pas de réservation à importer
   if (IGNORED_PATTERNS.some(p => p.test(subject))) return null;
 
-  // 2. Déterminer le type de mail
+  // 2. Déterminer le type de mail (moteur versionné + traces)
+  // Hiérarchie explicite :
+  //   1) subject patterns (priorité stricte)
+  //   2) body fallback (slugs/tracking/texte)
   let bookingType: ParsedBooking['bookingType'] = 'new';
-  // Priorité : new > cancelled > modified > checkout > reminder > review > payout
-  // On teste new_fr/new_en EN PREMIER pour éviter qu'un email de confirmation
-  // soit mal classé (ex: sujet contenant "annulé" dans une autre langue)
-  if (
-    SUBJECT_PATTERNS.new_fr.some(p => p.test(subject)) ||
-    SUBJECT_PATTERNS.new_en.some(p => p.test(subject))
-  ) bookingType = 'new';
-  else if (SUBJECT_PATTERNS.cancelled.some(p => p.test(subject))) bookingType = 'cancelled';
-  else if (SUBJECT_PATTERNS.modified.some(p => p.test(subject))) bookingType = 'modified';
-  else if (SUBJECT_PATTERNS.checkout.some(p => p.test(subject))) bookingType = 'checkout';
-  else if (SUBJECT_PATTERNS.reminder.some(p => p.test(subject))) bookingType = 'reminder';
-  else if (SUBJECT_PATTERNS.review.some(p => p.test(subject))) bookingType = 'review';
-  else if (
-    SUBJECT_PATTERNS.payout.some(p => p.test(subject)) ||
-    SUBJECT_PATTERNS.payout.some(p => p.test(body.slice(0, 500))) ||
-    // Versement standalone dans le corps (ex: "Nous avons envoyé un versement")
-    /nous\s+avons\s+envoy[eé]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout/i.test(body.slice(0, 600))
-  ) bookingType = 'payout';
-  else {
-    // ─── Fallback : déduire le type depuis les slugs URL du corps ────────────
-    // Airbnb encode le type d'email dans les URLs de tracking (base64 ou slug).
-    // Observé réel : sujet corrompu "661?c=.pi80.pkaG9tZV9yZXZpZXdzL..."
-    //   → décodé : "home_reviews/empathetic_host_review_received" → 'review'
-    // Autres slugs connus :
-    //   reservation_confirmation → 'new'
-    //   booking_cancelled        → 'cancelled'
-    //   host_payout / payout_sent → 'payout'
-    //   checkout / check_out     → 'checkout'
-    //   reminder / rappel_arriv  → 'reminder'
-    const bodySnippet = body.slice(0, 2000).toLowerCase();
-      if (/home_reviews|review_received|guest.*review|avis.*re[cç]u|[eé]valuation.*[eé]toiles|avis.*[eé]toiles|has left you a review/i.test(bodySnippet)) {
-      bookingType = 'review';
-    } else if (/reservation_confirmation|booking_confirmation|new_reservation/i.test(bodySnippet)) {
-      bookingType = 'new';
-    } else if (/cancellation|booking_cancelled|reservation_cancelled/i.test(bodySnippet)) {
-      bookingType = 'cancelled';
-    } else if (/host_payout|payout_sent|versement/i.test(bodySnippet)) {
-      bookingType = 'payout';
-    } else if (/checkout|check_out|s[eé]jour.*termin/i.test(bodySnippet)) {
-      bookingType = 'checkout';
-    } else if (/reminder|rappel.*arriv/i.test(bodySnippet)) {
-      bookingType = 'reminder';
+  let classificationSource: 'subject' | 'body-fallback' = 'subject';
+  let classificationRuleId = '';
+  let classificationRegex = '';
+
+  const subjectMatch = matchSubjectClassification(subject);
+  if (subjectMatch) {
+    bookingType = subjectMatch.type;
+    classificationSource = 'subject';
+    classificationRuleId = subjectMatch.ruleId;
+    classificationRegex = subjectMatch.regex;
+  } else {
+    const bodyFallbackMatch = matchBodyFallbackClassification(body);
+    if (bodyFallbackMatch) {
+      bookingType = bodyFallbackMatch.type;
+      classificationSource = 'body-fallback';
+      classificationRuleId = bodyFallbackMatch.ruleId;
+      classificationRegex = bodyFallbackMatch.regex;
     } else {
       // Aucun type détecté ni depuis le sujet ni depuis le corps → ignorer
       return null;
@@ -1936,6 +1976,10 @@ export function parseAirbnbEmail(
     // ── Statut ──────────────────────────────────────────────────────────────
     bookingType,
     confidence: Math.min(100, confidence),
+  parserPatternVersion: PARSER_PATTERN_VERSION,
+  classificationSource,
+  classificationRuleId,
+  classificationRegex,
     isInstantBook,
     cancellationPolicy,
 
