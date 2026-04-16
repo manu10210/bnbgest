@@ -65,10 +65,27 @@ interface ParsedBooking {
     receivedAt: string;
     confidence: number;
   }>;
+  parserPatternVersion?: string;
+  classificationSource?: 'subject' | 'body_fallback' | 'unknown';
+  classificationRuleId?: string;
+  classificationRegex?: string;
 }
 
 type SyncStatus = 'idle' | 'checking' | 'syncing' | 'importing' | 'done' | 'error';
 type FilterType = 'all' | 'new' | 'cancelled' | 'modified' | 'review' | 'payout';
+
+interface RejectedBooking {
+  booking: ParsedBooking;
+  reasons: string[];
+}
+
+interface QualityReport {
+  scanned: number;
+  accepted: number;
+  rejected: number;
+  acceptanceRate: number;
+  reasonBreakdown: Record<string, number>;
+}
 
 // ─── Composant ParseField — affiche un champ extrait par le parser ────────────
 // Affiche uniquement si value est défini et non vide.
@@ -129,36 +146,58 @@ function isValidDateRange(checkIn?: string, checkOut?: string): boolean {
   return diffDays >= 0 && diffDays <= 365;
 }
 
-function isBookingQualityAcceptable(b: ParsedBooking): boolean {
-  if (!b.messageId || !b.subject?.trim()) return false;
-  if (!b.receivedAt || Number.isNaN(new Date(b.receivedAt).getTime())) return false;
-  if (new Date(b.receivedAt) < ANALYSIS_START_2026) return false;
-  if (b.confidence < 40) return false;
-  if (b.confirmationCode && !/^HM[A-Z0-9]{6,12}$/i.test(b.confirmationCode)) return false;
+function evaluateBookingQuality(b: ParsedBooking): { accepted: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+
+  if (!b.messageId) reasons.push('missing_message_id');
+  if (!b.subject?.trim()) reasons.push('missing_subject');
+  if (!b.receivedAt || Number.isNaN(new Date(b.receivedAt).getTime())) reasons.push('invalid_received_at');
+  if (b.receivedAt && !Number.isNaN(new Date(b.receivedAt).getTime()) && new Date(b.receivedAt) < ANALYSIS_START_2026) {
+    reasons.push('outside_2026_window');
+  }
+  if (b.confidence < 40) reasons.push('low_confidence');
+  if (b.confirmationCode && !/^HM[A-Z0-9]{6,12}$/i.test(b.confirmationCode)) reasons.push('invalid_confirmation_code');
 
   const hasGuestName = !!b.guestName?.trim();
   const hasRealGuestName = hasGuestName && b.guestName !== 'Voyageur Airbnb';
 
   switch (b.bookingType) {
     case 'new':
-      return hasRealGuestName && isValidDateRange(b.checkIn, b.checkOut) && (b.totalPrice > 0 || !!b.confirmationCode);
+      if (!hasRealGuestName) reasons.push('missing_real_guest_name');
+      if (!isValidDateRange(b.checkIn, b.checkOut)) reasons.push('invalid_date_range');
+      if (!(b.totalPrice > 0 || !!b.confirmationCode)) reasons.push('missing_price_or_confirmation_code');
+      break;
     case 'modified':
-      return hasRealGuestName && isValidDateRange(b.checkIn, b.checkOut);
+      if (!hasRealGuestName) reasons.push('missing_real_guest_name');
+      if (!isValidDateRange(b.checkIn, b.checkOut)) reasons.push('invalid_date_range');
+      break;
     case 'cancelled':
-      return hasGuestName && isValidDateRange(b.checkIn, b.checkOut);
+      if (!hasGuestName) reasons.push('missing_guest_name');
+      if (!isValidDateRange(b.checkIn, b.checkOut)) reasons.push('invalid_date_range');
+      break;
     case 'checkout':
     case 'reminder':
-      return hasGuestName && isValidDateRange(b.checkIn, b.checkOut);
+      if (!hasGuestName) reasons.push('missing_guest_name');
+      if (!isValidDateRange(b.checkIn, b.checkOut)) reasons.push('invalid_date_range');
+      break;
     case 'review':
-      return (
-        (typeof b.reviewRating === 'number' && b.reviewRating >= 1 && b.reviewRating <= 5) ||
-        (b.reviewComment?.trim().length ?? 0) >= 10
-      );
+      if (!((typeof b.reviewRating === 'number' && b.reviewRating >= 1 && b.reviewRating <= 5) ||
+        (b.reviewComment?.trim().length ?? 0) >= 10)) {
+        reasons.push('review_without_rating_or_comment');
+      }
+      break;
     case 'payout':
-      return (b.hostPayout ?? 0) > 0;
+      if (!((b.hostPayout ?? 0) > 0)) reasons.push('payout_without_amount');
+      break;
     default:
-      return false;
+      reasons.push('unsupported_booking_type');
+      break;
   }
+
+  return {
+    accepted: reasons.length === 0,
+    reasons,
+  };
 }
 
 // ─── Matching logement robuste ────────────────────────────────────────────────
@@ -383,6 +422,8 @@ export default function GmailImporter() {
   const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; skippedDuplicate: number; skippedNoProperty: number; tasksCreated: number; reviewsImported: number ; payoutsSaved: number; expensesCreated: number} | null>(null);
   const [purgeResult, setPurgeResult] = useState<{ bookings: number; guests: number } | null>(null);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
+  const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
+  const [rejectedBookings, setRejectedBookings] = useState<RejectedBooking[]>([]);
 
   // ── Détection nouveaux logements ──────────────────────────────────────────
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
@@ -425,6 +466,8 @@ export default function GmailImporter() {
     setError(null);
     setBookings([]);
     setSelected(new Set());
+    setQualityReport(null);
+    setRejectedBookings([]);
       
     setImported([]);
     setImportSummary(null);
@@ -462,8 +505,36 @@ export default function GmailImporter() {
         }
       }
 
-      const qualityBookings = allBookings.filter(isBookingQualityAcceptable);
-      const rejectedCount = allBookings.length - qualityBookings.length;
+      const qualityEvaluations = allBookings.map((booking) => {
+        const quality = evaluateBookingQuality(booking);
+        return {
+          booking,
+          accepted: quality.accepted,
+          reasons: quality.reasons,
+        };
+      });
+
+      const qualityBookings = qualityEvaluations.filter(r => r.accepted).map(r => r.booking);
+      const rejected = qualityEvaluations
+        .filter(r => !r.accepted)
+        .map(r => ({ booking: r.booking, reasons: r.reasons }));
+      const rejectedCount = rejected.length;
+
+      const reasonBreakdown = rejected.reduce<Record<string, number>>((acc, item) => {
+        for (const reason of item.reasons) {
+          acc[reason] = (acc[reason] || 0) + 1;
+        }
+        return acc;
+      }, {});
+
+      setRejectedBookings(rejected);
+      setQualityReport({
+        scanned: allBookings.length,
+        accepted: qualityBookings.length,
+        rejected: rejectedCount,
+        acceptanceRate: allBookings.length > 0 ? Math.round((qualityBookings.length / allBookings.length) * 100) : 0,
+        reasonBreakdown,
+      });
 
       if (rejectedCount > 0) {
         console.info(`[GmailImporter] ${rejectedCount} email(s) ignoré(s) (qualité insuffisante)`);
@@ -531,6 +602,40 @@ export default function GmailImporter() {
       setStatus('error');
     }
   }, []);
+
+  const exportRejectedAsCsv = useCallback(() => {
+    if (rejectedBookings.length === 0) return;
+
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const header = [
+      'messageId', 'receivedAt', 'bookingType', 'confidence', 'confirmationCode',
+      'guestName', 'propertyName', 'subject', 'reasons', 'classificationSource', 'classificationRuleId', 'parserPatternVersion',
+    ];
+    const rows = rejectedBookings.map(({ booking, reasons }) => ([
+      booking.messageId || '',
+      booking.receivedAt || '',
+      booking.bookingType || '',
+      String(booking.confidence ?? ''),
+      booking.confirmationCode || '',
+      booking.guestName || '',
+      booking.propertyName || '',
+      booking.subject || '',
+      reasons.join('|'),
+      booking.classificationSource || '',
+      booking.classificationRuleId || '',
+      booking.parserPatternVersion || '',
+    ].map(v => escapeCsv(v)).join(',')));
+
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateTag = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `gmail-quality-rejected-${dateTag}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [rejectedBookings]);
 
   // ─── Notification email (fire-and-forget, côté serveur) ─────────────────
   const notifyEmail = useCallback((payload: {
@@ -1149,6 +1254,8 @@ export default function GmailImporter() {
     setBookings([]);
     setSelected(new Set());
     setStats(null);
+    setQualityReport(null);
+    setRejectedBookings([]);
   }, [purgeGmailImports]);
 
   // ─── Avancer dans la file de nouveaux logements ───────────────────────────
@@ -1252,10 +1359,58 @@ export default function GmailImporter() {
         {status === 'done' && stats && (
           <div className={`text-right text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
             <div className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>{stats.parsed} réservations trouvées</div>
-            <div>{stats.found} emails analysés · depuis 2024</div>
+            <div>{stats.found} emails analysés · depuis 2026</div>
           </div>
         )}
       </div>
+
+      {qualityReport && (
+        <div className={`border rounded-xl p-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <div className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                📊 Qualité du scan Gmail (Session 30)
+              </div>
+              <div className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                {qualityReport.scanned} analysés · {qualityReport.accepted} acceptés · {qualityReport.rejected} rejetés · {qualityReport.acceptanceRate}% d&apos;acceptation
+              </div>
+            </div>
+
+            {qualityReport.rejected > 0 && (
+              <button
+                onClick={exportRejectedAsCsv}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                  isDark
+                    ? 'border-amber-700 text-amber-300 hover:bg-amber-900/30'
+                    : 'border-amber-300 text-amber-700 hover:bg-amber-50'
+                }`}
+              >
+                <Database className="w-3.5 h-3.5" />
+                Export rejets CSV
+              </button>
+            )}
+          </div>
+
+          {Object.keys(qualityReport.reasonBreakdown).length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {Object.entries(qualityReport.reasonBreakdown)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 6)
+                .map(([reason, count]) => (
+                  <span
+                    key={reason}
+                    className={`text-[11px] px-2 py-1 rounded-full font-medium ${
+                      isDark ? 'bg-amber-900/30 text-amber-300 border border-amber-800/40' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}
+                    title={reason}
+                  >
+                    {reason} · {count}
+                  </span>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Alerte connexion ── */}
       {!isGoogleUser ? (
