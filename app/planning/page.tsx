@@ -194,6 +194,17 @@ export default function PlanningPage() {
             <div>
               <h1 className={`font-bold text-base ${text}`}>Planning</h1>
               <p className={`text-xs ${muted}`}>{title}</p>
+              <div className={`mt-0.5 flex items-center gap-1 text-[11px] ${muted}`}>
+                <button
+                  onClick={() => router.push('/admin')}
+                  className="inline-flex items-center gap-1 hover:text-[#FF385C] transition-colors"
+                >
+                  <Home size={12} />
+                  Accueil
+                </button>
+                <span>/</span>
+                <span className={text}>Planning</span>
+              </div>
             </div>
           </div>
 
