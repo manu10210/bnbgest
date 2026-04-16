@@ -100,6 +100,55 @@ const fmt = (d: string) =>
 const confidenceColor = (c: number) =>
   c >= 80 ? 'text-green-500' : c >= 60 ? 'text-amber-400' : 'text-orange-400';
 
+const ANALYSIS_START_2026 = new Date('2026-01-01T00:00:00.000Z');
+
+function isIsoDate(value?: string): boolean {
+  return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
+}
+
+function isValidDateRange(checkIn?: string, checkOut?: string): boolean {
+  if (!isIsoDate(checkIn) || !isIsoDate(checkOut)) return false;
+  const safeCheckIn = checkIn as string;
+  const safeCheckOut = checkOut as string;
+  const inTs = new Date(safeCheckIn).getTime();
+  const outTs = new Date(safeCheckOut).getTime();
+  if (Number.isNaN(inTs) || Number.isNaN(outTs)) return false;
+  const diffDays = Math.round((outTs - inTs) / (1000 * 60 * 60 * 24));
+  return diffDays >= 0 && diffDays <= 365;
+}
+
+function isBookingQualityAcceptable(b: ParsedBooking): boolean {
+  if (!b.messageId || !b.subject?.trim()) return false;
+  if (!b.receivedAt || Number.isNaN(new Date(b.receivedAt).getTime())) return false;
+  if (new Date(b.receivedAt) < ANALYSIS_START_2026) return false;
+  if (b.confidence < 40) return false;
+  if (b.confirmationCode && !/^HM[A-Z0-9]{6,12}$/i.test(b.confirmationCode)) return false;
+
+  const hasGuestName = !!b.guestName?.trim();
+  const hasRealGuestName = hasGuestName && b.guestName !== 'Voyageur Airbnb';
+
+  switch (b.bookingType) {
+    case 'new':
+      return hasRealGuestName && isValidDateRange(b.checkIn, b.checkOut) && (b.totalPrice > 0 || !!b.confirmationCode);
+    case 'modified':
+      return hasRealGuestName && isValidDateRange(b.checkIn, b.checkOut);
+    case 'cancelled':
+      return hasGuestName && isValidDateRange(b.checkIn, b.checkOut);
+    case 'checkout':
+    case 'reminder':
+      return hasGuestName && isValidDateRange(b.checkIn, b.checkOut);
+    case 'review':
+      return (
+        (typeof b.reviewRating === 'number' && b.reviewRating >= 1 && b.reviewRating <= 5) ||
+        (b.reviewComment?.trim().length ?? 0) >= 10
+      );
+    case 'payout':
+      return (b.hostPayout ?? 0) > 0;
+    default:
+      return false;
+  }
+}
+
 // ─── Matching logement robuste ────────────────────────────────────────────────
 // Retourne le score de similarité entre un nom d'email et un nom de propriété (0-100)
 
@@ -305,7 +354,14 @@ export default function GmailImporter() {
         }
       }
 
-      allBookings.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+      const qualityBookings = allBookings.filter(isBookingQualityAcceptable);
+      const rejectedCount = allBookings.length - qualityBookings.length;
+
+      if (rejectedCount > 0) {
+        console.info(`[GmailImporter] ${rejectedCount} email(s) ignoré(s) (qualité insuffisante)`);
+      }
+
+      qualityBookings.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
 
       // Regroupement des emails concernant la même réservation (par confirmationCode)
       // RÈGLE : on groupe uniquement les emails avec un vrai code Airbnb "HM…"
@@ -317,9 +373,9 @@ export default function GmailImporter() {
       const groupedMap = new Map<string, ParsedBooking>();
       const finalBookings: ParsedBooking[] = [];
 
-      for (const b of allBookings) {
+      for (const b of qualityBookings) {
         // Sécuriser le regroupement : uniquement si le code commence par "HM" (vrai code Airbnb)
-        const isValidCode = b.confirmationCode && /^HM[A-Z0-9]{6,10}$/i.test(b.confirmationCode);
+        const isValidCode = b.confirmationCode && /^HM[A-Z0-9]{6,12}$/i.test(b.confirmationCode);
         
         if (!isValidCode) {
           // Pas de code HM valide → entrée indépendante
