@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '../../contexts/ThemeContext';
 import ThemeToggle from '../../components/ThemeToggle';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Home,
   Wrench, Sparkles, Calendar, Users, RefreshCw,
-  CheckCircle, Clock, AlertTriangle, Plus, X,
+  CheckCircle, Clock, Plus, X,
   ArrowLeftRight
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -78,7 +78,6 @@ export default function PlanningPage() {
   const [dayDetail, setDayDetail]     = useState<{ date: Date; propId: number } | null>(null);
 
   // Styles
-  const bg   = isDark ? 'bg-gray-950' : 'bg-gray-50';
   const card = isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200';
   const text = isDark ? 'text-white' : 'text-gray-900';
   const muted = isDark ? 'text-gray-400' : 'text-gray-500';
@@ -143,6 +142,8 @@ export default function PlanningPage() {
     ? properties
     : properties.filter(p => p.id === selectedProp);
 
+  const selectedPropertyIds = useMemo(() => new Set(displayedProperties.map(p => p.id)), [displayedProperties]);
+
   // Events per day per property
   const getBookingsForDayProp = (day: Date, propId: number) =>
     bookings.filter(b => {
@@ -162,8 +163,64 @@ export default function PlanningPage() {
   const getMaintenanceForDay = (day: Date, propId: number) =>
     maintenance.filter(m => m.propertyId === propId && m.dueDate && sameDay(new Date(m.dueDate), day));
 
-  const { days } = dateRange();
+  const { days, start, end } = dateRange();
   const today = new Date(); today.setHours(0,0,0,0);
+
+  const planningMetrics = (() => {
+    const startTs = new Date(start); startTs.setHours(0, 0, 0, 0);
+    const endTs = new Date(end); endTs.setHours(23, 59, 59, 999);
+
+    const activeBookings = bookings.filter(b => {
+      if (!selectedPropertyIds.has(b.propertyId)) return false;
+      if ((b.status || '').toLowerCase() === 'cancelled') return false;
+      const ci = new Date(b.checkIn).getTime();
+      const co = new Date(b.checkOut).getTime();
+      return !Number.isNaN(ci) && !Number.isNaN(co) && co > startTs.getTime() && ci <= endTs.getTime();
+    });
+
+    const checkins = bookings.filter(b => {
+      if (!selectedPropertyIds.has(b.propertyId)) return false;
+      const ts = new Date(b.checkIn).getTime();
+      return !Number.isNaN(ts) && ts >= startTs.getTime() && ts <= endTs.getTime();
+    }).length;
+
+    const checkouts = bookings.filter(b => {
+      if (!selectedPropertyIds.has(b.propertyId)) return false;
+      const ts = new Date(b.checkOut).getTime();
+      return !Number.isNaN(ts) && ts >= startTs.getTime() && ts <= endTs.getTime();
+    }).length;
+
+    const pendingCleanings = cleanings.filter(c => {
+      if (!selectedPropertyIds.has(c.propertyId)) return false;
+      if ((c.status || '').toUpperCase() === 'COMPLETED') return false;
+      const ts = new Date(c.scheduledDate).getTime();
+      return !Number.isNaN(ts) && ts >= startTs.getTime() && ts <= endTs.getTime();
+    }).length;
+
+    const urgentMaintenance = maintenance.filter(m => {
+      if (!selectedPropertyIds.has(m.propertyId)) return false;
+      const priority = (m.priority || '').toUpperCase();
+      if (priority !== 'URGENT' && priority !== 'HIGH') return false;
+      const ts = m.dueDate ? new Date(m.dueDate).getTime() : Number.NaN;
+      return Number.isNaN(ts) || (ts >= startTs.getTime() && ts <= endTs.getTime());
+    }).length;
+
+    const totalSlots = displayedProperties.length * days.length;
+    const occupiedSlots = displayedProperties.reduce((sum, prop) => {
+      const occDays = days.filter(day => getBookingsForDayProp(day, prop.id).length > 0).length;
+      return sum + occDays;
+    }, 0);
+    const occupancyRate = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0;
+
+    return {
+      activeBookings: activeBookings.length,
+      checkins,
+      checkouts,
+      pendingCleanings,
+      urgentMaintenance,
+      occupancyRate,
+    };
+  })();
 
   const title = view === 'week'
     ? `Semaine du ${days[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} au ${days[6].toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
@@ -241,18 +298,37 @@ export default function PlanningPage() {
           <button onClick={fetchAll} className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
             <RefreshCw size={16} className={muted} />
           </button>
+          <button
+            onClick={() => toast.info('Création rapide d\'événement bientôt disponible')}
+            className="px-3 py-2 rounded-xl bg-[#FF385C] text-white text-xs font-semibold hover:bg-[#E31C5F] transition inline-flex items-center gap-1.5"
+          >
+            <Plus size={14} /> Ajouter
+          </button>
           <ThemeToggle />
         </div>
       </header>
 
+      {/* KPI band */}
+      <div className="px-4 pt-3">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-2">
+          <KpiCard label="Occupation" value={`${planningMetrics.occupancyRate}%`} tone="blue" isDark={isDark} />
+          <KpiCard label="Réservations" value={String(planningMetrics.activeBookings)} tone="indigo" isDark={isDark} />
+          <KpiCard label="Check-in" value={String(planningMetrics.checkins)} tone="green" isDark={isDark} />
+          <KpiCard label="Check-out" value={String(planningMetrics.checkouts)} tone="gray" isDark={isDark} />
+          <KpiCard label="Ménages à faire" value={String(planningMetrics.pendingCleanings)} tone="purple" isDark={isDark} />
+          <KpiCard label="Maintenance urgente" value={String(planningMetrics.urgentMaintenance)} tone="orange" isDark={isDark} />
+        </div>
+      </div>
+
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 px-4 pt-3 pb-1 text-xs">
+      <div className="flex flex-wrap gap-3 px-4 pt-3 pb-1 text-xs items-center">
         {[
           { color: 'bg-blue-500',   label: 'Réservation' },
           { color: 'bg-green-400',  label: 'Check-in' },
           { color: 'bg-gray-400',   label: 'Check-out' },
           { color: 'bg-purple-500', label: 'Ménage' },
           { color: 'bg-orange-500', label: 'Maintenance' },
+          { color: 'bg-amber-400', label: 'Turnover IN/OUT' },
         ].map(l => (
           <div key={l.label} className="flex items-center gap-1.5">
             <div className={`w-2.5 h-2.5 rounded-sm ${l.color}`} />
@@ -295,6 +371,9 @@ export default function PlanningPage() {
                         <span className="truncate max-w-[130px]">{prop.name}</span>
                       </div>
                       <p className={`text-[10px] ${muted} pl-4`}>{prop.city}</p>
+                      <p className={`text-[10px] pl-4 mt-0.5 ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>
+                        {Math.round((days.filter(d => getBookingsForDayProp(d, prop.id).length > 0).length / Math.max(1, days.length)) * 100)}% occupé
+                      </p>
                     </td>
                     {days.map((day, i) => {
                       const occupied  = getBookingsForDayProp(day, prop.id);
@@ -303,6 +382,7 @@ export default function PlanningPage() {
                       const clean     = getCleaningsForDay(day, prop.id);
                       const maint     = getMaintenanceForDay(day, prop.id);
                       const isToday   = sameDay(day, today);
+                      const isTurnover = checkins.length > 0 && checkouts.length > 0;
                       const hasEvents = occupied.length + checkins.length + checkouts.length + clean.length + maint.length > 0;
 
                       return (
@@ -319,6 +399,11 @@ export default function PlanningPage() {
                             <div className="h-1.5 rounded-full bg-blue-500/70 mb-1" title={occupied[0].guestName} />
                           )}
                           <div className="flex flex-wrap gap-0.5">
+                            {isTurnover && (
+                              <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[9px] font-medium leading-none">
+                                <Clock size={8} />TURN
+                              </span>
+                            )}
                             {checkins.map(b => (
                               <span key={`ci-${b.id}`} className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-green-500/20 text-green-400 text-[9px] font-medium leading-none">
                                 <ArrowLeftRight size={8} />IN
@@ -392,6 +477,7 @@ export default function PlanningPage() {
                     >
                       <p className={`text-xs font-bold mb-1 ${isToday ? 'text-[#FF385C]' : text}`}>{day.getDate()}</p>
                       {allBookings.length > 0 && <div className="h-1 rounded-full bg-blue-500/60 mb-0.5" />}
+                      {(allCheckins.length > 0 && allCheckouts.length > 0) && <div className="h-1 rounded-full bg-amber-400/70 mb-0.5" />}
                       <div className="flex flex-wrap gap-0.5">
                         {allCheckins.length  > 0 && <span className="w-1.5 h-1.5 rounded-full bg-green-400" title="Check-in" />}
                         {allCheckouts.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-gray-400" title="Check-out" />}
@@ -481,6 +567,34 @@ export default function PlanningPage() {
         </div>
       )}
       </div>
+    </div>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  tone,
+  isDark,
+}: {
+  label: string;
+  value: string;
+  tone: 'blue' | 'indigo' | 'green' | 'gray' | 'purple' | 'orange';
+  isDark: boolean;
+}) {
+  const toneMap: Record<typeof tone, string> = {
+    blue: 'from-blue-500/20 to-cyan-500/10 text-blue-300 border-blue-500/20',
+    indigo: 'from-indigo-500/20 to-violet-500/10 text-indigo-300 border-indigo-500/20',
+    green: 'from-emerald-500/20 to-green-500/10 text-emerald-300 border-emerald-500/20',
+    gray: 'from-slate-500/20 to-gray-500/10 text-slate-300 border-slate-500/20',
+    purple: 'from-purple-500/20 to-fuchsia-500/10 text-purple-300 border-purple-500/20',
+    orange: 'from-orange-500/20 to-amber-500/10 text-orange-300 border-orange-500/20',
+  };
+
+  return (
+    <div className={`rounded-xl border px-3 py-2 bg-gradient-to-br ${toneMap[tone]} ${isDark ? 'backdrop-blur-sm' : 'bg-white'}`}>
+      <p className={`text-[11px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{label}</p>
+      <p className={`text-lg font-extrabold leading-5 ${isDark ? 'text-white' : 'text-gray-900'}`}>{value}</p>
     </div>
   );
 }
