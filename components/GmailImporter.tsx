@@ -58,6 +58,13 @@ interface ParsedBooking {
   reviewRating?: number;
   reviewComment?: string;
   airbnbListingId?: string;
+  relatedMessageIds?: string[];
+  timelineEvents?: Array<{
+    messageId: string;
+    bookingType: ParsedBooking['bookingType'];
+    receivedAt: string;
+    confidence: number;
+  }>;
 }
 
 type SyncStatus = 'idle' | 'checking' | 'syncing' | 'importing' | 'done' | 'error';
@@ -251,6 +258,102 @@ const bookingTypeLabel: Record<ParsedBooking['bookingType'], { label: string; co
   payout:    { label: 'Versement 💶', color: 'bg-emerald-100 text-emerald-700' },
 };
 
+function normalizeEventTimeline(events: ParsedBooking['timelineEvents'] = []): ParsedBooking['timelineEvents'] {
+  const seen = new Set<string>();
+  const deduped = events.filter(e => {
+    if (seen.has(e.messageId)) return false;
+    seen.add(e.messageId);
+    return true;
+  });
+  return deduped.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+}
+
+function mergeBookingsTimeline(root: ParsedBooking, incoming: ParsedBooking, typePriority: Record<ParsedBooking['bookingType'], number>) {
+  // Historique des emails liés
+  root.relatedMessageIds = Array.from(new Set([...(root.relatedMessageIds || [root.messageId]), incoming.messageId]));
+  root.timelineEvents = normalizeEventTimeline([
+    ...(root.timelineEvents || [{ messageId: root.messageId, bookingType: root.bookingType, receivedAt: root.receivedAt, confidence: root.confidence }]),
+    { messageId: incoming.messageId, bookingType: incoming.bookingType, receivedAt: incoming.receivedAt, confidence: incoming.confidence },
+  ]);
+
+  // Warnings cumulés (utile debug import)
+  if (incoming.warnings?.length) {
+    root.warnings = Array.from(new Set([...(root.warnings || []), ...incoming.warnings]));
+  }
+
+  // Email le plus récent pour le contexte principal
+  if (new Date(incoming.receivedAt) > new Date(root.receivedAt)) {
+    root.receivedAt = incoming.receivedAt;
+    root.subject = incoming.subject || root.subject;
+    root.messageId = incoming.messageId;
+  }
+
+  // Promotion du type (new > modified > cancelled > checkout > reminder > review > payout)
+  const incomingTypePriority = typePriority[incoming.bookingType] ?? 0;
+  const rootTypePriority = typePriority[root.bookingType] ?? 0;
+  if (incomingTypePriority > rootTypePriority) {
+    root.bookingType = incoming.bookingType;
+  }
+
+  // Données voyageur / propriété
+  if ((!root.guestName || root.guestName === 'Voyageur Airbnb') && incoming.guestName && incoming.guestName !== 'Voyageur Airbnb') {
+    root.guestName = incoming.guestName;
+  }
+  if (!root.guestEmail && incoming.guestEmail) root.guestEmail = incoming.guestEmail;
+  if (!root.guestPhone && incoming.guestPhone) root.guestPhone = incoming.guestPhone;
+  if (!root.guestLanguage && incoming.guestLanguage) root.guestLanguage = incoming.guestLanguage;
+  if (!root.guestCountry && incoming.guestCountry) root.guestCountry = incoming.guestCountry;
+  if (!root.propertyName && incoming.propertyName) root.propertyName = incoming.propertyName;
+  if (!root.airbnbListingId && incoming.airbnbListingId) root.airbnbListingId = incoming.airbnbListingId;
+
+  // Dates : priorité au type modified si présent, sinon garder la première date fiable
+  const incomingHasDates = !!incoming.checkIn && !!incoming.checkOut;
+  if (incoming.bookingType === 'modified' && incomingHasDates) {
+    root.checkIn = incoming.checkIn;
+    root.checkOut = incoming.checkOut;
+    root.nights = incoming.nights;
+  } else if ((!root.checkIn || !root.checkOut) && incomingHasDates) {
+    root.checkIn = incoming.checkIn;
+    root.checkOut = incoming.checkOut;
+    root.nights = incoming.nights;
+  }
+
+  // Horaires
+  if (!root.checkInTime && incoming.checkInTime) root.checkInTime = incoming.checkInTime;
+  if (!root.checkOutTime && incoming.checkOutTime) root.checkOutTime = incoming.checkOutTime;
+
+  // Composition voyageurs
+  if ((!root.guests || root.guests <= 0) && incoming.guests > 0) root.guests = incoming.guests;
+  if (!root.guestAdults && incoming.guestAdults) root.guestAdults = incoming.guestAdults;
+  if (!root.guestChildren && incoming.guestChildren) root.guestChildren = incoming.guestChildren;
+  if (!root.guestInfants && incoming.guestInfants) root.guestInfants = incoming.guestInfants;
+  if (!root.guestPets && incoming.guestPets) root.guestPets = incoming.guestPets;
+
+  // Finance : privilégier les valeurs non nulles + plus complètes
+  if ((!root.totalPrice || root.totalPrice === 0) && incoming.totalPrice && incoming.totalPrice > 0) root.totalPrice = incoming.totalPrice;
+  if (!root.nightlyRate && incoming.nightlyRate) root.nightlyRate = incoming.nightlyRate;
+  if (!root.cleaningFee && incoming.cleaningFee) root.cleaningFee = incoming.cleaningFee;
+  if (!root.serviceFee && incoming.serviceFee) root.serviceFee = incoming.serviceFee;
+  if (!root.taxAmount && incoming.taxAmount) root.taxAmount = incoming.taxAmount;
+  if ((!root.hostPayout || root.hostPayout === 0) && incoming.hostPayout && incoming.hostPayout > 0) root.hostPayout = incoming.hostPayout;
+  if (!root.payoutDate && incoming.payoutDate) root.payoutDate = incoming.payoutDate;
+  if (!root.payoutMethod && incoming.payoutMethod) root.payoutMethod = incoming.payoutMethod;
+  if (!root.currency && incoming.currency) root.currency = incoming.currency;
+
+  // Classification debug metadata (si dispo côté parser)
+  const incomingAny = incoming as Record<string, any>;
+  const rootAny = root as Record<string, any>;
+  if (!rootAny.parserPatternVersion && incomingAny.parserPatternVersion) rootAny.parserPatternVersion = incomingAny.parserPatternVersion;
+  if (!rootAny.classificationSource && incomingAny.classificationSource) rootAny.classificationSource = incomingAny.classificationSource;
+  if (!rootAny.classificationRuleId && incomingAny.classificationRuleId) rootAny.classificationRuleId = incomingAny.classificationRuleId;
+  if (!rootAny.classificationRegex && incomingAny.classificationRegex) rootAny.classificationRegex = incomingAny.classificationRegex;
+
+  // Confiance : garder la meilleure confiance observée dans la timeline
+  if ((incoming.confidence ?? 0) > (root.confidence ?? 0)) {
+    root.confidence = incoming.confidence;
+  }
+}
+
 // ─── Composant principal ──────────────────────────────────────────────────────
 
 export default function GmailImporter() {
@@ -391,33 +494,21 @@ export default function GmailImporter() {
           const groupKey = b.bookingType === 'payout' ? `${code}_payout` : code;
 
           if (!groupedMap.has(groupKey)) {
-            groupedMap.set(groupKey, { ...b });
+            const base: ParsedBooking = {
+              ...b,
+              relatedMessageIds: [b.messageId],
+              timelineEvents: [{
+                messageId: b.messageId,
+                bookingType: b.bookingType,
+                receivedAt: b.receivedAt,
+                confidence: b.confidence,
+              }],
+            };
+            groupedMap.set(groupKey, base);
             finalBookings.push(groupedMap.get(groupKey)!);
           } else {
             const root = groupedMap.get(groupKey)!;
-            
-            // Enrichissement : combler les champs manquants du root avec ceux de b
-            if ((!root.totalPrice || root.totalPrice === 0) && (b.totalPrice && b.totalPrice > 0)) root.totalPrice = b.totalPrice;
-            if (!root.nightlyRate && b.nightlyRate) root.nightlyRate = b.nightlyRate;
-            if (!root.cleaningFee && b.cleaningFee) root.cleaningFee = b.cleaningFee;
-            if (!root.serviceFee && b.serviceFee) root.serviceFee = b.serviceFee;
-            if (!root.taxAmount && b.taxAmount) root.taxAmount = b.taxAmount;
-            if ((!root.hostPayout || root.hostPayout === 0) && (b.hostPayout && b.hostPayout > 0)) root.hostPayout = b.hostPayout;
-            if (!root.payoutDate && b.payoutDate) root.payoutDate = b.payoutDate;
-            if (!root.checkIn && b.checkIn) root.checkIn = b.checkIn;
-            if (!root.checkOut && b.checkOut) root.checkOut = b.checkOut;
-            if (!root.checkInTime && b.checkInTime) root.checkInTime = b.checkInTime;
-            if (!root.checkOutTime && b.checkOutTime) root.checkOutTime = b.checkOutTime;
-            if ((!root.guestName || root.guestName === 'Voyageur Airbnb') && b.guestName && b.guestName !== 'Voyageur Airbnb') root.guestName = b.guestName;
-            if (!root.guestEmail && b.guestEmail) root.guestEmail = b.guestEmail;
-            if (!root.guestPhone && b.guestPhone) root.guestPhone = b.guestPhone;
-            if (!root.propertyName && b.propertyName) root.propertyName = b.propertyName;
-            if (!root.guests && b.guests) root.guests = b.guests;
-
-            // Promotion de type : garder le type le plus "important" (new > modified > cancelled …)
-            if ((TYPE_PRIORITY[b.bookingType] ?? 0) > (TYPE_PRIORITY[root.bookingType] ?? 0)) {
-              root.bookingType = b.bookingType;
-            }
+            mergeBookingsTimeline(root, b, TYPE_PRIORITY);
           }
         }
       }
@@ -1616,6 +1707,7 @@ export default function GmailImporter() {
                                 <ParseField label="Type" value={booking.bookingType} badge={bookingTypeLabel[booking.bookingType]} isDark={isDark} />
                                 <ParseField label="Confiance" value={`${booking.confidence}%`} isDark={isDark} highlight={booking.confidence >= 80 ? 'green' : booking.confidence >= 60 ? 'amber' : 'red'} />
                                 <ParseField label="Code réservation" value={booking.confirmationCode} isDark={isDark} mono />
+                                <ParseField label="Emails fusionnés" value={booking.relatedMessageIds ? String(booking.relatedMessageIds.length) : undefined} isDark={isDark} />
                                 <ParseField label="Message ID" value={booking.messageId.slice(0, 22) + '…'} isDark={isDark} mono />
                               </div>
                               {/* ── Section: Voyageur ── */}
@@ -1652,6 +1744,20 @@ export default function GmailImporter() {
                             </div>
                             
                             <div className="mt-4">
+                              {booking.timelineEvents && booking.timelineEvents.length > 1 && (
+                                <div className={`mb-3 p-2 rounded-lg border ${isDark ? 'border-gray-700 bg-gray-800/60' : 'border-gray-200 bg-gray-50'}`}>
+                                  <div className={`text-[11px] font-semibold mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    Timeline consolidation ({booking.timelineEvents.length} emails)
+                                  </div>
+                                  <div className="space-y-1">
+                                    {booking.timelineEvents.slice(0, 4).map((ev, idx) => (
+                                      <div key={`${ev.messageId}-${idx}`} className={`text-[11px] ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        {fmt(ev.receivedAt)} · {ev.bookingType} · confiance {ev.confidence}%
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                               {/* Avis */}
                               {booking.bookingType === 'review' && (
                                 <div className="space-y-1">
