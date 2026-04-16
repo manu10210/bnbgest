@@ -41,6 +41,7 @@
     "test:performance": "playwright test tests/performance",
     "test:perf": "playwright test tests/performance --project=chromium",
     "test:api": "playwright test tests/api-performance.spec.ts"
+    ,"test:gmail-parser": "tsx tests/parser/gmail-parser-quality.ts"
   },
   "bundlesize": [
     {
