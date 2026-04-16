@@ -156,6 +156,80 @@ function isValidDateRange(checkIn?: string, checkOut?: string): boolean {
   return diffDays >= 0 && diffDays <= 365;
 }
 
+function formatIsoDate(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
+function parseArrivalDateFromSubject(subject?: string, receivedAt?: string): string | undefined {
+  if (!subject) return undefined;
+  const normalized = stripInvisibleUnicode(subject)
+    .replace(/[\u00A0\u202F]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .toLowerCase();
+
+  const monthMap: Record<string, number> = {
+    jan: 0, janv: 0, janvier: 0,
+    fev: 1, fév: 1, fevr: 1, févr: 1, fevrier: 1, février: 1,
+    mar: 2, mars: 2,
+    avr: 3, avril: 3,
+    mai: 4,
+    jun: 5, juin: 5,
+    jul: 6, juil: 6, juillet: 6,
+    aou: 7, août: 7, aout: 7,
+    sep: 8, sept: 8, septembre: 8,
+    oct: 9, octobre: 9,
+    nov: 10, novembre: 10,
+    dec: 11, déc: 11, decembre: 11, décembre: 11,
+  };
+
+  const m = normalized.match(/\barrive\s+(?:le\s+)?(\d{1,2})\s+([a-zéû\.]+)(?:\s+(\d{4}))?/i);
+  if (!m) return undefined;
+
+  const day = Number.parseInt(m[1], 10);
+  if (!Number.isFinite(day) || day < 1 || day > 31) return undefined;
+
+  const monthToken = m[2].replace(/\./g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const monthIndex = monthMap[monthToken];
+  if (monthIndex === undefined) return undefined;
+
+  const fallbackYear = receivedAt ? new Date(receivedAt).getFullYear() : new Date().getFullYear();
+  const year = m[3] ? Number.parseInt(m[3], 10) : fallbackYear;
+  if (!Number.isFinite(year) || year < 2020 || year > 2100) return undefined;
+
+  const candidate = new Date(Date.UTC(year, monthIndex, day));
+  if (Number.isNaN(candidate.getTime())) return undefined;
+  if (candidate.getUTCDate() !== day || candidate.getUTCMonth() !== monthIndex || candidate.getUTCFullYear() !== year) {
+    return undefined;
+  }
+
+  return formatIsoDate(candidate);
+}
+
+function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
+  if (isValidDateRange(booking.checkIn, booking.checkOut)) return booking;
+
+  const inferredCheckIn = parseArrivalDateFromSubject(booking.subject, booking.receivedAt);
+  if (!inferredCheckIn) return booking;
+
+  const nights = Number.isFinite(booking.nights) && booking.nights > 0 ? booking.nights : 1;
+  const checkInDate = new Date(`${inferredCheckIn}T00:00:00.000Z`);
+  if (Number.isNaN(checkInDate.getTime())) return booking;
+
+  const inferredCheckOutDate = new Date(checkInDate);
+  inferredCheckOutDate.setUTCDate(inferredCheckOutDate.getUTCDate() + nights);
+  const inferredCheckOut = formatIsoDate(inferredCheckOutDate);
+
+  if (!isValidDateRange(inferredCheckIn, inferredCheckOut)) return booking;
+
+  return {
+    ...booking,
+    checkIn: inferredCheckIn,
+    checkOut: inferredCheckOut,
+    nights,
+    warnings: Array.from(new Set([...(booking.warnings || []), 'date_range_inferred_from_subject'])),
+  };
+}
+
 function isPlaceholderGuestName(name?: string): boolean {
   if (!name) return true;
   const n = name.trim().toLowerCase();
@@ -578,7 +652,7 @@ export default function GmailImporter() {
           for (const b of data.bookings) {
             if (!seen.has(b.messageId)) {
               seen.add(b.messageId);
-              allBookings.push(enrichBookingGuestName(b as ParsedBooking));
+              allBookings.push(enrichBookingDateRange(enrichBookingGuestName(b as ParsedBooking)));
             }
           }
           if (data.stats) setStats(s => s
