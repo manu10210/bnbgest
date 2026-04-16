@@ -30,32 +30,30 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
   // ── Stats this month ──────────────────────────────────────────────────────
   const thisMonth = today.getMonth();
   const thisYear  = today.getFullYear();
-  const prevMonth = thisMonth === 0 ? 11 : thisMonth - 1;
-  const prevYear  = thisMonth === 0 ? thisYear - 1 : thisYear;
 
-  const bookingsThisMonth = bookings.filter(b => {
+  const dashboardBookings = useMemo(() => bookings.filter((b) => {
+    const d = new Date(b.checkIn);
+    return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+  }), [bookings, thisMonth, thisYear]);
+
+  const bookingsThisMonth = dashboardBookings.filter(b => {
     const d = new Date(b.checkIn);
     return d.getMonth() === thisMonth && d.getFullYear() === thisYear && b.status !== 'cancelled';
   });
-  const bookingsPrevMonth = bookings.filter(b => {
-    const d = new Date(b.checkIn);
-    return d.getMonth() === prevMonth && d.getFullYear() === prevYear && b.status !== 'cancelled';
-  });
 
-  const totalRevenue     = bookings.filter(b => b.status === 'confirmed').reduce((a, c) => a + c.totalPrice, 0);
+  const totalRevenue     = bookingsThisMonth.reduce((a, c) => a + c.totalPrice, 0);
   const revenueThisMonth = bookingsThisMonth.reduce((a, c) => a + c.totalPrice, 0);
-  const revenuePrevMonth = bookingsPrevMonth.reduce((a, c) => a + c.totalPrice, 0);
-  const revenueDelta     = revenuePrevMonth > 0 ? Math.round(((revenueThisMonth - revenuePrevMonth) / revenuePrevMonth) * 100) : null;
+  const revenueDelta     = null;
 
-  const activeBookings       = bookings.filter(b => { const s = new Date(b.checkIn); const e = new Date(b.checkOut); return s <= today && e >= today && b.status === 'confirmed'; }).length;
+  const activeBookings       = dashboardBookings.filter(b => { const s = new Date(b.checkIn); const e = new Date(b.checkOut); return s <= today && e >= today && b.status === 'confirmed'; }).length;
   const pendingMaintenance   = maintenanceTasks.filter(t => t.status !== 'completed').length;
   const urgentMaintenance    = maintenanceTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length;
   const occupancyRate        = properties.length > 0 ? Math.min(Math.round((activeBookings / properties.length) * 100), 100) : 0;
-  const pendingBookingsCount = bookings.filter(b => b.status === 'pending').length;
+  const pendingBookingsCount = dashboardBookings.filter(b => b.status === 'pending').length;
   const totalGuests          = guests.length;
   const totalGuestNights     = bookings.reduce((s, b) => s + (b.guests || 0), 0);
-  const checkinsToday        = bookings.filter(b => b.checkIn?.toString().split('T')[0]  === todayStr);
-  const checkoutsToday       = bookings.filter(b => b.checkOut?.toString().split('T')[0] === todayStr);
+  const checkinsToday        = dashboardBookings.filter(b => b.checkIn?.toString().split('T')[0]  === todayStr);
+  const checkoutsToday       = dashboardBookings.filter(b => b.checkOut?.toString().split('T')[0] === todayStr);
   const avgRatingNum         = reviews.length > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
   const avgRating            = avgRatingNum > 0 ? avgRatingNum.toFixed(1) : '—';
   const pendingResponses     = reviews.filter(r => !r.response).length;
@@ -88,29 +86,29 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
   // ── Next arrivals (next 7 days) ───────────────────────────────────────────
   const nextArrivals = useMemo(() => {
     const next7 = new Date(today); next7.setDate(next7.getDate() + 7);
-    return bookings
+    return dashboardBookings
       .filter(b => {
         const d = new Date(b.checkIn);
         return d >= today && d <= next7 && b.status === 'confirmed';
       })
       .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime())
       .slice(0, 5);
-  }, [bookings]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dashboardBookings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Revenue chart ─────────────────────────────────────────────────────────
   const revenueData = useMemo(() => ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((name, i) => {
-    const v = bookings.filter(b => b.status === 'confirmed' && new Date(b.checkIn).getDay() === (i + 1) % 7).reduce((s, b) => s + b.totalPrice, 0);
-    const seed = (i * 1234 + 567) % 2500;
-    return { name, value: v || (800 + seed) };
-  }), [bookings]);
+    const v = dashboardBookings
+      .filter(b => b.status === 'confirmed' && new Date(b.checkIn).getDay() === (i + 1) % 7)
+      .reduce((s, b) => s + b.totalPrice, 0);
+    return { name, value: v };
+  }), [dashboardBookings]);
 
-  // ── Monthly bars (last 6 months) ──────────────────────────────────────────
-  const monthlyData = useMemo(() => Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(today.getFullYear(), today.getMonth() - 5 + i, 1);
-    const v = bookings.filter(b => { const bd = new Date(b.checkIn); return b.status === 'confirmed' && bd.getMonth() === d.getMonth() && bd.getFullYear() === d.getFullYear(); }).reduce((s, b) => s + b.totalPrice, 0);
-    const seed = (i * 891 + 432) % 4000;
-    return { name: d.toLocaleDateString('fr-FR', { month: 'short' }), value: v || (1200 + seed), isCurrent: i === 5 };
-  }), [bookings]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ── Monthly bars (mois en cours uniquement) ────────────────────────────────
+  const monthlyData = useMemo(() => ([{
+    name: today.toLocaleDateString('fr-FR', { month: 'short' }),
+    value: revenueThisMonth,
+    isCurrent: true,
+  }]), [today, revenueThisMonth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Per-property revenue (this month) ────────────────────────────────────
   const propertyRevenue = useMemo(() => properties.map((p, i) => {
@@ -248,8 +246,8 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
           const d = new Date(today);
           d.setDate(d.getDate() + i);
           const dStr = d.toISOString().split('T')[0];
-          const arrivals = bookings.filter(b => b.checkIn?.toString().split('T')[0] === dStr).length;
-          const departures = bookings.filter(b => b.checkOut?.toString().split('T')[0] === dStr).length;
+          const arrivals = dashboardBookings.filter(b => b.checkIn?.toString().split('T')[0] === dStr).length;
+          const departures = dashboardBookings.filter(b => b.checkOut?.toString().split('T')[0] === dStr).length;
           const isToday = i === 0;
           return { d, dStr, arrivals, departures, isToday };
         });

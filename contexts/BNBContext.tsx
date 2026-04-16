@@ -256,6 +256,27 @@ function saveToStorage<T>(key: string, data: T[]): void {
   }
 }
 
+type BookingMonthlyArchive = {
+  monthKey: string; // YYYY-MM
+  generatedAt: string;
+  bookings: Booking[];
+  stats: {
+    bookingsCount: number;
+    confirmedCount: number;
+    cancelledCount: number;
+    revenue: number;
+  };
+};
+
+function getMonthKeyFromIso(dateIso?: string): string | null {
+  if (!dateIso) return null;
+  const d = new Date(dateIso);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
 export function BNBProvider({ children }: { children: ReactNode }) {
   const [properties, setProperties] = useState<Property[]>(() => loadFromStorage('bnbgest_properties', []));
   const [bookings, setBookings] = useState<Booking[]>(() => loadFromStorage('bnbgest_bookings', []));
@@ -271,6 +292,51 @@ export function BNBProvider({ children }: { children: ReactNode }) {
   useEffect(() => { saveToStorage('bnbgest_maintenance', maintenanceTasks); }, [maintenanceTasks]);
   useEffect(() => { saveToStorage('bnbgest_inventory', inventory); }, [inventory]);
   useEffect(() => { saveToStorage('bnbgest_reviews', reviews); }, [reviews]);
+
+  // Archivage mensuel automatique des mois précédents (bookings)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthlyBuckets = new Map<string, Booking[]>();
+
+    for (const booking of bookings) {
+      const monthKey = getMonthKeyFromIso(booking.checkIn);
+      if (!monthKey) continue;
+      if (monthKey >= currentMonthKey) continue; // on archive uniquement les mois précédents
+      const list = monthlyBuckets.get(monthKey) ?? [];
+      list.push(booking);
+      monthlyBuckets.set(monthKey, list);
+    }
+
+    const archiveByMonth: Record<string, BookingMonthlyArchive> = {};
+    for (const [monthKey, monthBookings] of monthlyBuckets.entries()) {
+      const confirmedCount = monthBookings.filter(b => b.status === 'confirmed' || b.status === 'completed').length;
+      const cancelledCount = monthBookings.filter(b => b.status === 'cancelled').length;
+      const revenue = monthBookings
+        .filter(b => b.status !== 'cancelled')
+        .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+
+      archiveByMonth[monthKey] = {
+        monthKey,
+        generatedAt: new Date().toISOString(),
+        bookings: monthBookings,
+        stats: {
+          bookingsCount: monthBookings.length,
+          confirmedCount,
+          cancelledCount,
+          revenue,
+        },
+      };
+    }
+
+    try {
+      localStorage.setItem('bnbgest_bookings_archives', JSON.stringify(archiveByMonth));
+    } catch (error) {
+      console.warn('Erreur lors de la sauvegarde des archives mensuelles:', error);
+    }
+  }, [bookings]);
 
   // Properties functions
   const addProperty = (property: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => {
