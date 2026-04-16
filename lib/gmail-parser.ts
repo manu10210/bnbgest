@@ -550,9 +550,9 @@ function normalizeDate(raw: string): string {
       const year = now.getFullYear();
       const candidate = `${year}-${monthNum}-${noYear[1].padStart(2, '0')}`;
       const diff = (new Date(candidate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-      // Si la date semble dans le passé lointain (> 180j), tenter année précédente aussi
+      // Si la date est dans le passé lointain (> 180j), c'est probablement une réservation future
+      // de l'année prochaine (ex: email reçu en novembre avec "10 avr." = avril prochain)
       if (diff < -180) return `${year + 1}-${monthNum}-${noYear[1].padStart(2, '0')}`;
-      if (diff < -400) return `${year - 1}-${monthNum}-${noYear[1].padStart(2, '0')}`;
       return candidate;
     }
   }
@@ -1105,7 +1105,7 @@ function extractGuests(text: string, subject?: string): number {
   const adultsM = combined.match(/(\d+)\s*adultes?/i);
   const childM  = combined.match(/(\d+)\s*(?:enfants?|child(?:ren)?)/i);
   const babyM   = combined.match(/(\d+)\s*(?:b[eé]b[eé]s?|infants?|nourrissons?)/i);
-  const petM    = combined.match(/(\d+)\s*(?:animaux(?:|x)|anim(?:al|aux)|pet?s)/i);
+  const petM    = combined.match(/(\d+)\s*(?:animaux(?:|x)|anim(?:al|aux)|pets?)/i);
 
   if (adultsM || childM || babyM || petM) {
     const adults   = adultsM ? parseInt(adultsM[1]) : 0;
@@ -1149,6 +1149,8 @@ function extractGuestName(text: string, subject?: string): string {
       // "Prénom a réservé votre logement"
       // "Marie a réservé votre logement"
       new RegExp(`^(${NAME})\\s+a\\s+r[eé]serv[eé](?:\\s+votre\\s+logement)?`, 'u'),
+      // "Félicitations ! Marie a réservé votre logement." ← sujet avec préfixe
+      new RegExp(`f[eé]licitations[^a-z]{0,10}(${NAME})\\s+a\\s+r[eé]serv`, 'iu'),
       // "Marie a demandé à réserver"
       new RegExp(`^(${NAME})\\s+a\\s+demand[eé]\\s+[àa]\\s+r[eé]server`, 'u'),
       // "Prénom souhaite réserver votre logement" (demande)
@@ -1245,7 +1247,7 @@ function extractConfirmationCode(text: string): string | undefined {
     /n[°o]\.?\s*(?:de\s+)?r[eé]servation\s*[:\s]+([A-Z0-9]{6,12})/i,
     /booking\s+(?:reference|id|code|#)\s*[:\s]+([A-Z0-9]{6,12})/i,
     // ② Format natif Airbnb "HM" — UNIQUEMENT ce format sans label (très spécifique, pas de faux positifs)
-    /\b(HM[A-Z0-9]{6,10})\b/i,
+    /\b(HM[A-Z0-9]{6,12})\b/i,
     // ③ NE PAS utiliser le pattern générique [A-Z]{2,3}[0-9]{5,9} — trop de faux positifs
     // (IBAN partiels, codes postaux étrangers, montants…)
   ];

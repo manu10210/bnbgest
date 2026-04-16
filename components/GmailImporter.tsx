@@ -277,7 +277,9 @@ export default function GmailImporter() {
         'from:automated@airbnb.com after:2024/01/01',
         // ② Réservations + versements depuis les autres domaines Airbnb
         'from:express@airbnb.com after:2024/01/01',
-        // ③ Emails avec sujet réservation depuis n'importe quel @airbnb.com
+        // ③ Rappels, départs, et confirmations depuis no-reply@airbnb.com
+        'from:no-reply@airbnb.com after:2024/01/01',
+        // ④ Emails avec sujet versement depuis n'importe quel @airbnb.com
         'from:airbnb.com subject:versement after:2024/01/01',
         'from:airbnb.com subject:payout after:2024/01/01',
       ];
@@ -857,11 +859,9 @@ export default function GmailImporter() {
         }
       }
 
-      // ── 4.h. Créer les dépenses (Expenses) p
-      // our les frais Airbnb retenus ──────        for (const b of toImport) {
-      await new Promise(r => setTimeout(r, 200)); // Animation de transfert visible
-        if ((b.bookingType === 'new' || b.bookingType === 'payout') && b.totalPrice > 0) {
-          const pid = properties.find(p => p.name === b.propertyName)?.id || defaultProperty?.id;
+      // ── 4.h. Créer les dépenses (Expenses) pour les frais Airbnb retenus ──
+      if ((b.bookingType === 'new' || b.bookingType === 'payout') && b.totalPrice > 0) {
+          const pid = property?.id || defaultProperty?.id;
 
           // Frais de service (Mise en gestion/frais Airbnb)
           if (b.serviceFee && b.serviceFee > 0) {
