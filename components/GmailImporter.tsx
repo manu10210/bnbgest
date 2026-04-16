@@ -87,6 +87,16 @@ interface QualityReport {
   reasonBreakdown: Record<string, number>;
 }
 
+interface ImportTraceEntry {
+  messageId: string;
+  bookingType: ParsedBooking['bookingType'];
+  guestName: string;
+  status: 'success' | 'skipped' | 'error';
+  action: string;
+  reason?: string;
+  receivedAt: string;
+}
+
 // ─── Composant ParseField — affiche un champ extrait par le parser ────────────
 // Affiche uniquement si value est défini et non vide.
 // highlight : couleur du badge de valeur (green, amber, red, blue)
@@ -146,6 +156,62 @@ function isValidDateRange(checkIn?: string, checkOut?: string): boolean {
   return diffDays >= 0 && diffDays <= 365;
 }
 
+function isPlaceholderGuestName(name?: string): boolean {
+  if (!name) return true;
+  const n = name.trim().toLowerCase();
+  return n === '' || n === 'voyageur airbnb' || n === 'airbnb guest' || n === 'guest';
+}
+
+function cleanGuestName(candidate?: string): string | undefined {
+  if (!candidate) return undefined;
+  const cleaned = candidate
+    .replace(/^[\s\-–—:;,.!?()\[\]{}"'“”‘’]+/g, '')
+    .replace(/[\s\-–—:;,.!?()\[\]{}"'“”‘’]+$/g, '')
+    .replace(/[|•·]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  // Au moins prénom + nom, et pas une phrase système
+  if (!cleaned || cleaned.length < 3) return undefined;
+  if (/^(r[ée]servation|booking|airbnb|arrive|check)/i.test(cleaned)) return undefined;
+  if (!/^[A-Za-zÀ-ÿ'’\-\s]+$/.test(cleaned)) return undefined;
+
+  return cleaned;
+}
+
+function inferGuestNameFromSubject(subject?: string): string | undefined {
+  if (!subject) return undefined;
+  const normalizedSubject = subject
+    .replace(/[\u00A0\u202F]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  const patterns = [
+    /r[ée]servation\s+confirm[ée]e?\s*[:\-]\s*(.+?)\s+arrive(?:\s+le|\s+demain|\b)/i,
+    /r[ée]servation\s+confirm[ée]e?\s+pour\s+(.+?)\s+arrive(?:\s+le|\s+demain|\b)/i,
+    /booking\s+confirmed\s*:\s*([^:|\-]+?)\s+arrives?\b/i,
+    /:\s*([A-Za-zÀ-ÿ'’\-]+(?:\s+[A-Za-zÀ-ÿ'’\-]+){1,4})\s+arrive(?:\s+le|\s+demain|\b)/i,
+    /^\s*(?:\[[^\]]+\]\s*)?([A-Za-zÀ-ÿ'’\-]+(?:\s+[A-Za-zÀ-ÿ'’\-]+){1,3})\s+(?:arrive|a\s+r[ée]serv[ée]|a\s+annul[ée]|part)\b/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalizedSubject.match(pattern);
+    const maybeName = cleanGuestName(match?.[1]);
+    if (maybeName) return maybeName;
+  }
+  return undefined;
+}
+
+function enrichBookingGuestName(booking: ParsedBooking): ParsedBooking {
+  if (!isPlaceholderGuestName(booking.guestName)) return booking;
+  const inferred = inferGuestNameFromSubject(booking.subject);
+  if (!inferred) return booking;
+  return {
+    ...booking,
+    guestName: inferred,
+    warnings: Array.from(new Set([...(booking.warnings || []), 'guest_name_inferred_from_subject'])),
+  };
+}
+
 function evaluateBookingQuality(b: ParsedBooking): { accepted: boolean; reasons: string[] } {
   const reasons: string[] = [];
 
@@ -158,8 +224,11 @@ function evaluateBookingQuality(b: ParsedBooking): { accepted: boolean; reasons:
   if (b.confidence < 40) reasons.push('low_confidence');
   if (b.confirmationCode && !/^HM[A-Z0-9]{6,12}$/i.test(b.confirmationCode)) reasons.push('invalid_confirmation_code');
 
-  const hasGuestName = !!b.guestName?.trim();
-  const hasRealGuestName = hasGuestName && b.guestName !== 'Voyageur Airbnb';
+  const effectiveGuestName = isPlaceholderGuestName(b.guestName)
+    ? inferGuestNameFromSubject(b.subject)
+    : b.guestName;
+  const hasGuestName = !!cleanGuestName(effectiveGuestName) && !isPlaceholderGuestName(effectiveGuestName);
+  const hasRealGuestName = hasGuestName;
 
   switch (b.bookingType) {
     case 'new':
@@ -380,12 +449,10 @@ function mergeBookingsTimeline(root: ParsedBooking, incoming: ParsedBooking, typ
   if (!root.currency && incoming.currency) root.currency = incoming.currency;
 
   // Classification debug metadata (si dispo côté parser)
-  const incomingAny = incoming as Record<string, any>;
-  const rootAny = root as Record<string, any>;
-  if (!rootAny.parserPatternVersion && incomingAny.parserPatternVersion) rootAny.parserPatternVersion = incomingAny.parserPatternVersion;
-  if (!rootAny.classificationSource && incomingAny.classificationSource) rootAny.classificationSource = incomingAny.classificationSource;
-  if (!rootAny.classificationRuleId && incomingAny.classificationRuleId) rootAny.classificationRuleId = incomingAny.classificationRuleId;
-  if (!rootAny.classificationRegex && incomingAny.classificationRegex) rootAny.classificationRegex = incomingAny.classificationRegex;
+  if (!root.parserPatternVersion && incoming.parserPatternVersion) root.parserPatternVersion = incoming.parserPatternVersion;
+  if (!root.classificationSource && incoming.classificationSource) root.classificationSource = incoming.classificationSource;
+  if (!root.classificationRuleId && incoming.classificationRuleId) root.classificationRuleId = incoming.classificationRuleId;
+  if (!root.classificationRegex && incoming.classificationRegex) root.classificationRegex = incoming.classificationRegex;
 
   // Confiance : garder la meilleure confiance observée dans la timeline
   if ((incoming.confidence ?? 0) > (root.confidence ?? 0)) {
@@ -425,6 +492,7 @@ export default function GmailImporter() {
   const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
   const [rejectedBookings, setRejectedBookings] = useState<RejectedBooking[]>([]);
   const [activeRejectReason, setActiveRejectReason] = useState<string>('all');
+  const [importTrace, setImportTrace] = useState<ImportTraceEntry[]>([]);
 
   // ── Détection nouveaux logements ──────────────────────────────────────────
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
@@ -471,6 +539,7 @@ export default function GmailImporter() {
     setQualityReport(null);
     setRejectedBookings([]);
     setActiveRejectReason('all');
+  setImportTrace([]);
       
     setImported([]);
     setImportSummary(null);
@@ -499,7 +568,10 @@ export default function GmailImporter() {
         const data = await res.json();
         if (data.bookings) {
           for (const b of data.bookings) {
-            if (!seen.has(b.messageId)) { seen.add(b.messageId); allBookings.push(b); }
+            if (!seen.has(b.messageId)) {
+              seen.add(b.messageId);
+              allBookings.push(enrichBookingGuestName(b as ParsedBooking));
+            }
           }
           if (data.stats) setStats(s => s
             ? { found: s.found + data.stats.found, parsed: s.parsed + data.stats.parsed, errors: s.errors + data.stats.errors }
@@ -667,6 +739,38 @@ export default function GmailImporter() {
     const toImport = bookings.filter(b => selected.has(b.messageId));
     const defaultProperty = properties[0];
     const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0 };
+    const localGuests = [...guests];
+    const localBookings = [...existingBookings];
+    const trace: ImportTraceEntry[] = [];
+
+    const pushTrace = (entry: Omit<ImportTraceEntry, 'receivedAt'> & { receivedAt?: string }) => {
+      trace.push({
+        ...entry,
+        receivedAt: entry.receivedAt || new Date().toISOString(),
+      });
+    };
+
+    const touchLocalBooking = (id: number, updates: Record<string, unknown>) => {
+      const idx = localBookings.findIndex(b => b.id === id);
+      if (idx === -1) return;
+      localBookings[idx] = {
+        ...localBookings[idx],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+    };
+
+    const pushLocalBooking = (payload: Parameters<typeof addBooking>[0]) => {
+      const nowIso = new Date().toISOString();
+      const nextId = Math.max(...localBookings.map(bk => bk.id), 0) + 1;
+      localBookings.push({
+        ...payload,
+        id: nextId,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+      return nextId;
+    };
 
     for (const b of toImport) {
       await new Promise(r => setTimeout(r, 200)); // Animation de transfert visible
@@ -683,7 +787,7 @@ export default function GmailImporter() {
       if (!property && b.bookingType === 'review') {
         const reviewDate = new Date(b.receivedAt);
         // Chercher une réservation récente du même voyageur (checkout dans les 30j précédents)
-        const recentBooking = existingBookings
+        const recentBooking = localBookings
           .filter(eb => {
             const checkOut = new Date(eb.checkOut);
             const daysDiff = (reviewDate.getTime() - checkOut.getTime()) / (1000 * 60 * 60 * 24);
@@ -704,13 +808,22 @@ export default function GmailImporter() {
       if (!property && b.bookingType !== 'cancelled' && b.bookingType !== 'payout' && b.bookingType !== 'review') {
         summary.skipped++;
         summary.skippedNoProperty++;
+        pushTrace({
+          messageId: b.messageId,
+          bookingType: b.bookingType,
+          guestName: b.guestName || '—',
+          status: 'skipped',
+          action: 'skip_no_property',
+          reason: 'no_matching_property',
+          receivedAt: b.receivedAt,
+        });
         continue;
       }
 
       // ── 2. Trouver ou créer le voyageur (Guest) ──────────────────────────
       let guestId = 0;
       if (b.guestName && b.guestName !== 'Voyageur Airbnb') {
-        const existing = guests.find(g =>
+        const existing = localGuests.find(g =>
           g.name.toLowerCase() === b.guestName.toLowerCase() ||
           (b.guestEmail && g.email && g.email.toLowerCase() === b.guestEmail.toLowerCase())
         );
@@ -720,10 +833,14 @@ export default function GmailImporter() {
           if (b.guestEmail && !existing.email) updates.email = b.guestEmail;
           if (b.guestPhone && !existing.phone) updates.phone = b.guestPhone;
           if (b.totalPrice > 0) updates.totalSpent = (existing.totalSpent || 0) + b.totalPrice;
-          if (Object.keys(updates).length) updateGuest(existing.id, updates);
+          if (Object.keys(updates).length) {
+            updateGuest(existing.id, updates);
+            Object.assign(existing, updates);
+          }
           guestId = existing.id;
           summary.guestsUpdated++;
         } else if (b.bookingType === 'new') {
+          const nextGuestId = Math.max(...localGuests.map(g => g.id), 0) + 1;
           addGuest({
             name: b.guestName,
             email: b.guestEmail || '',
@@ -734,8 +851,22 @@ export default function GmailImporter() {
             lastBooking: b.checkIn,
             preferences: { smoking: false, pets: false, parties: false, preferredAmenities: [] },
           });
-          const created = guests[guests.length - 1];
-          guestId = created?.id ?? 0;
+          localGuests.push({
+            id: nextGuestId,
+            name: b.guestName,
+            email: b.guestEmail || '',
+            phone: b.guestPhone || '',
+            language: 'fr',
+            status: 'active',
+            nationality: undefined,
+            lastBooking: b.checkIn,
+            preferences: { smoking: false, pets: false, parties: false, preferredAmenities: [] },
+            createdAt: new Date().toISOString(),
+            totalBookings: 0,
+            totalSpent: 0,
+            rating: 0,
+          });
+          guestId = nextGuestId;
           summary.guestsCreated++;
         }
       }
@@ -743,20 +874,46 @@ export default function GmailImporter() {
       // ── 3. Vérifier doublon ───────────────────────────────────────────────
       // a) Par code de confirmation (fiable)
       if (b.confirmationCode) {
-        const alreadyExists = existingBookings.some(eb =>
+        const alreadyExists = localBookings.some(eb =>
           eb.specialRequests?.includes(b.confirmationCode!)
         );
-        if (alreadyExists) { summary.skipped++; summary.skippedDuplicate++; continue; }
+        if (alreadyExists) {
+          summary.skipped++;
+          summary.skippedDuplicate++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'skipped',
+            action: 'skip_duplicate',
+            reason: 'duplicate_confirmation_code',
+            receivedAt: b.receivedAt,
+          });
+          continue;
+        }
       }
       // b) Par dates + voyageur + logement (pour emails sans confirmationCode)
       if (!b.confirmationCode && property && b.bookingType === 'new') {
-        const alreadyExists = existingBookings.some(eb =>
+        const alreadyExists = localBookings.some(eb =>
           eb.propertyId === property!.id &&
           eb.checkIn === b.checkIn &&
           eb.checkOut === b.checkOut &&
           eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase()
         );
-        if (alreadyExists) { summary.skipped++; summary.skippedDuplicate++; continue; }
+        if (alreadyExists) {
+          summary.skipped++;
+          summary.skippedDuplicate++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'skipped',
+            action: 'skip_duplicate',
+            reason: 'duplicate_dates_guest_property',
+            receivedAt: b.receivedAt,
+          });
+          continue;
+        }
       }
 
       const notes = [
@@ -779,7 +936,7 @@ export default function GmailImporter() {
 
       // ── 4a. Nouvelle réservation ──────────────────────────────────────────
       if (b.bookingType === 'new' && property) {
-        addBooking({
+  const bookingPayload: Parameters<typeof addBooking>[0] = {
           propertyId: property.id,
           guestId,
           checkIn: b.checkIn,
@@ -797,17 +954,31 @@ export default function GmailImporter() {
               amount: b.totalPrice,
             },
           } : {}),
-        });
+        };
+        addBooking(bookingPayload);
+        pushLocalBooking(bookingPayload);
         summary.created++;
+        pushTrace({
+          messageId: b.messageId,
+          bookingType: b.bookingType,
+          guestName: b.guestName || '—',
+          status: 'success',
+          action: 'booking_created',
+          receivedAt: b.receivedAt,
+        });
 
         // Incrémenter le compteur de réservations du voyageur
         if (guestId) {
-          const g = guests.find(gg => gg.id === guestId);
-          if (g) updateGuest(guestId, {
-            totalBookings: (g.totalBookings || 0) + 1,
-            totalSpent: (g.totalSpent || 0) + (b.totalPrice || 0),
-            lastBooking: b.checkIn,
-          });
+          const g = localGuests.find(gg => gg.id === guestId);
+          if (g) {
+            const guestUpdates = {
+              totalBookings: (g.totalBookings || 0) + 1,
+              totalSpent: (g.totalSpent || 0) + (b.totalPrice || 0),
+              lastBooking: b.checkIn,
+            };
+            updateGuest(guestId, guestUpdates);
+            Object.assign(g, guestUpdates);
+          }
         }
 
         // Email de confirmation au voyageur (fire-and-forget)
@@ -829,12 +1000,12 @@ export default function GmailImporter() {
       if (b.bookingType === 'cancelled') {
         // Chercher par code de confirmation d'abord
         let match = b.confirmationCode
-          ? existingBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
+          ? localBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
           : undefined;
 
         // Sinon par dates + voyageur
         if (!match && property) {
-          match = existingBookings.find(eb =>
+          match = localBookings.find(eb =>
             eb.propertyId === property.id &&
             eb.checkIn === b.checkIn &&
             eb.checkOut === b.checkOut &&
@@ -844,15 +1015,34 @@ export default function GmailImporter() {
 
         if (match && match.status !== 'cancelled') {
           cancelBooking(match.id, `Annulé via Gmail — ${notes}`);
+          touchLocalBooking(match.id, { status: 'cancelled' });
           summary.cancelled++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'success',
+            action: 'booking_cancelled',
+            receivedAt: b.receivedAt,
+          });
+        } else {
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'skipped',
+            action: 'cancel_not_found',
+            reason: 'no_matching_booking',
+            receivedAt: b.receivedAt,
+          });
         }
       }
 
       // ── 4c. Modification → mettre à jour la réservation existante ─────────
       if (b.bookingType === 'modified' && property) {
         const match = b.confirmationCode
-          ? existingBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
-          : existingBookings.find(eb =>
+          ? localBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
+          : localBookings.find(eb =>
               eb.propertyId === property.id &&
               eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase() &&
               Math.abs(new Date(eb.checkIn).getTime() - new Date(b.checkIn).getTime()) < 7 * 86400000
@@ -866,9 +1056,24 @@ export default function GmailImporter() {
             totalPrice: b.totalPrice || match.totalPrice,
             specialRequests: `[MODIFIÉ] ${notes}`,
           });
+          touchLocalBooking(match.id, {
+            checkIn: b.checkIn,
+            checkOut: b.checkOut,
+            guests: b.guests,
+            totalPrice: b.totalPrice || match.totalPrice,
+            specialRequests: `[MODIFIÉ] ${notes}`,
+          });
           summary.created++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'success',
+            action: 'booking_updated',
+            receivedAt: b.receivedAt,
+          });
         } else {
-          addBooking({
+          const bookingPayload: Parameters<typeof addBooking>[0] = {
             propertyId: property.id,
             guestId,
             checkIn: b.checkIn,
@@ -879,8 +1084,18 @@ export default function GmailImporter() {
             paymentStatus: b.totalPrice > 0 ? 'paid' : 'pending',
             specialRequests: `[MODIFIÉ] ${notes}`,
             guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
-          });
+          };
+          addBooking(bookingPayload);
+          pushLocalBooking(bookingPayload);
           summary.created++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'success',
+            action: 'booking_created_from_modified',
+            receivedAt: b.receivedAt,
+          });
         }
       }
 
@@ -888,8 +1103,8 @@ export default function GmailImporter() {
       if (b.bookingType === 'checkout' && property) {
         // Retrouver la réservation correspondante
         const match = b.confirmationCode
-          ? existingBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
-          : existingBookings.find(eb =>
+          ? localBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
+          : localBookings.find(eb =>
               eb.propertyId === property.id &&
               eb.checkOut === b.checkOut &&
               (eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase() ||
@@ -904,7 +1119,31 @@ export default function GmailImporter() {
             totalPrice: b.hostPayout || b.totalPrice || match.totalPrice,
             specialRequests: `${match.specialRequests || ''} | [TERMINÉ] Départ confirmé Gmail`,
           });
+          touchLocalBooking(match.id, {
+            status: 'completed',
+            paymentStatus: 'paid',
+            totalPrice: b.hostPayout || b.totalPrice || match.totalPrice,
+            specialRequests: `${match.specialRequests || ''} | [TERMINÉ] Départ confirmé Gmail`,
+          });
           summary.created++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'success',
+            action: 'booking_completed_checkout',
+            receivedAt: b.receivedAt,
+          });
+        } else {
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'skipped',
+            action: 'checkout_not_found',
+            reason: 'no_matching_booking',
+            receivedAt: b.receivedAt,
+          });
         }
 
         // Créer automatiquement une tâche de ménage post-départ
@@ -953,8 +1192,8 @@ export default function GmailImporter() {
       if (b.bookingType === 'reminder' && property) {
         // ── Retrouver la réservation existante correspondante ──────────────
         const matchedReminder = b.confirmationCode
-          ? existingBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
-          : existingBookings.find(eb =>
+          ? localBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
+          : localBookings.find(eb =>
               eb.propertyId === property.id &&
               eb.checkIn === b.checkIn &&
               (eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase() || eb.guestId === guestId)
@@ -973,12 +1212,21 @@ export default function GmailImporter() {
           if (b.taxAmount    && !matchedReminder.taxAmount)     updates.taxAmount    = b.taxAmount;
           if (Object.keys(updates).length > 0) {
             updateBooking(matchedReminder.id, updates as Parameters<typeof updateBooking>[1]);
+            touchLocalBooking(matchedReminder.id, updates);
           }
           summary.created++; // compté comme une action (enrichissement)
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'success',
+            action: 'booking_enriched_from_reminder',
+            receivedAt: b.receivedAt,
+          });
         } else {
           // Aucune réservation trouvée → en créer une depuis le rappel
           // (l'email de confirmation n'a peut-être pas encore été importé)
-          addBooking({
+          const bookingPayload: Parameters<typeof addBooking>[0] = {
             propertyId: property.id,
             guestId,
             checkIn: b.checkIn,
@@ -1000,8 +1248,18 @@ export default function GmailImporter() {
               b.guestPhone   ? `Tél: ${b.guestPhone}`        : '',
             ].filter(Boolean).join(' | '),
             guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
-          });
+          };
+          addBooking(bookingPayload);
+          pushLocalBooking(bookingPayload);
           summary.created++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'success',
+            action: 'booking_created_from_reminder',
+            receivedAt: b.receivedAt,
+          });
         }
 
         // ── Créer une tâche de préparation J-1 ────────────────────────────
@@ -1044,8 +1302,8 @@ export default function GmailImporter() {
       if (b.bookingType === 'review' && property) {
         // Retrouver la réservation et l'ID du voyageur correspondants
         const matchedBooking = b.confirmationCode
-          ? existingBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
-          : existingBookings.find(eb =>
+          ? localBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
+          : localBookings.find(eb =>
               eb.propertyId === property.id &&
               (eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase() ||
                eb.checkOut === b.checkOut)
@@ -1064,18 +1322,27 @@ export default function GmailImporter() {
         // Si la réservation correspondante n'est pas déjà "completed", la marquer
         if (matchedBooking && matchedBooking.status !== 'completed' && matchedBooking.status !== 'cancelled') {
           updateBooking(matchedBooking.id, { status: 'completed' });
+          touchLocalBooking(matchedBooking.id, { status: 'completed' });
         }
 
         summary.reviewsImported++;
+        pushTrace({
+          messageId: b.messageId,
+          bookingType: b.bookingType,
+          guestName: b.guestName || '—',
+          status: 'success',
+          action: 'review_imported',
+          receivedAt: b.receivedAt,
+        });
       }
 
       // ── 4g. Versement (payout) → enrichir la réservation avec données financières ──
       if (b.bookingType === 'payout') {
         // Retrouver la réservation liée (par code de confirmation ou voyageur)
         const payoutBooking = b.confirmationCode
-          ? existingBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
+          ? localBookings.find(eb => eb.specialRequests?.includes(b.confirmationCode!))
           : property
-            ? existingBookings.find(eb =>
+            ? localBookings.find(eb =>
                 eb.propertyId === property.id &&
                 eb.guestInfo?.name?.toLowerCase() === b.guestName.toLowerCase()
               )
@@ -1098,13 +1365,33 @@ export default function GmailImporter() {
               `[VERSEMENT ${payoutAmount}€ le ${payoutDateStr}]`,
             ].filter(Boolean).join(' | '),
           });
+          touchLocalBooking(payoutBooking.id, {
+            paymentStatus: 'paid',
+            hostPayout: payoutAmount,
+            ...(b.cleaningFee ? { cleaningFee: b.cleaningFee } : {}),
+            ...(b.serviceFee  ? { serviceFee:  b.serviceFee  } : {}),
+            payoutDate: payoutDateStr,
+            payoutConfirmed: true,
+            specialRequests: [
+              payoutBooking.specialRequests || '',
+              `[VERSEMENT ${payoutAmount}€ le ${payoutDateStr}]`,
+            ].filter(Boolean).join(' | '),
+          });
           summary.payoutsSaved++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'success',
+            action: 'payout_attached_to_booking',
+            receivedAt: b.receivedAt,
+          });
         } else if (payoutAmount > 0) {
           // Aucune réservation trouvée → créer une réservation "fantôme" financière
           // pour tracer le versement dans les données
           const pid = property?.id ?? (properties[0]?.id ?? 0);
           if (pid) {
-            addBooking({
+            const bookingPayload: Parameters<typeof addBooking>[0] = {
               propertyId: pid,
               guestId: guestId || 0,
               checkIn: b.checkIn,
@@ -1124,9 +1411,29 @@ export default function GmailImporter() {
                 b.propertyName ? `Logement: ${b.propertyName}` : '',
               ].filter(Boolean).join(' | '),
               guestInfo: { name: b.guestName || 'Airbnb Payout', email: b.guestEmail || '', phone: '' },
-            });
+            };
+            addBooking(bookingPayload);
+            pushLocalBooking(bookingPayload);
             summary.created++;
+            pushTrace({
+              messageId: b.messageId,
+              bookingType: b.bookingType,
+              guestName: b.guestName || '—',
+              status: 'success',
+              action: 'payout_created_as_financial_booking',
+              receivedAt: b.receivedAt,
+            });
           }
+        } else {
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'skipped',
+            action: 'payout_skipped',
+            reason: 'missing_payout_amount',
+            receivedAt: b.receivedAt,
+          });
         }
       }
 
@@ -1145,7 +1452,7 @@ export default function GmailImporter() {
                 amount: b.serviceFee,
                 currency: b.currency || 'EUR',
                 category: 'MANAGEMENT',
-                date: (b.bookingType === 'payout' && (b as any).payoutDate) ? (b as any).payoutDate : b.checkIn,
+                date: (b.bookingType === 'payout' && b.payoutDate) ? b.payoutDate : b.checkIn,
                 propertyId: pid,
                 vendor: 'Airbnb',
                 notes: b.confirmationCode ? `Réservation: ${b.confirmationCode}` : '',
@@ -1165,7 +1472,7 @@ export default function GmailImporter() {
                 amount: b.taxAmount,
                 currency: b.currency || 'EUR',
                 category: 'TAX',
-                date: (b.bookingType === 'payout' && (b as any).payoutDate) ? (b as any).payoutDate : b.checkIn,
+                date: (b.bookingType === 'payout' && b.payoutDate) ? b.payoutDate : b.checkIn,
                 propertyId: pid,
                 vendor: 'Airbnb',
                 notes: b.confirmationCode ? `Réservation: ${b.confirmationCode}` : '',
@@ -1178,6 +1485,7 @@ export default function GmailImporter() {
 
       setImported(toImport.map(b => b.messageId));   
       setImportSummary(summary);
+      setImportTrace(trace.slice(-200));
       setSelected(new Set());
 
       // ── 5. Détecter les nouveaux logements inconnus ───────────────────────
@@ -1228,10 +1536,14 @@ export default function GmailImporter() {
           const queue = fallbackNames.map(n => analyzeAirbnbTitle(n));
           setPropertyQueue(queue.slice(1));
           setCurrentWizard(queue[0]);
+          setStatus('done');
+          setTimeout(() => setStatus('idle'), 2500);
           return;
         }
         // Dernier recours : ouvrir le wizard avec un nom vide pour que l'utilisateur saisisse
         setCurrentWizard(analyzeAirbnbTitle('Mon logement'));
+        setStatus('done');
+        setTimeout(() => setStatus('idle'), 2500);
         return;
       }
 
@@ -1262,6 +1574,7 @@ export default function GmailImporter() {
     setQualityReport(null);
     setRejectedBookings([]);
     setActiveRejectReason('all');
+    setImportTrace([]);
   }, [purgeGmailImports]);
 
   const rejectReasonEntries = useMemo(() => {
@@ -1286,12 +1599,27 @@ export default function GmailImporter() {
 
   // ─── UI Helpers ───────────────────────────────────────────────────────────
 
-  const toggleSelect = (id: string) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const toggleExpand = (id: string) => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSelect = (id: string) => setSelected(prev => {
+    const n = new Set(prev);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    return n;
+  });
+  const toggleExpand = (id: string) => setExpanded(prev => {
+    const n = new Set(prev);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    return n;
+  });
   const selectAll = () => {
     const visible = filtered.map(b => b.messageId);
     const allSel = visible.every(id => selected.has(id));
-    setSelected(prev => { const n = new Set(prev); allSel ? visible.forEach(id => n.delete(id)) : visible.forEach(id => n.add(id)); return n; });
+    setSelected(prev => {
+      const n = new Set(prev);
+      if (allSel) visible.forEach(id => n.delete(id));
+      else visible.forEach(id => n.add(id));
+      return n;
+    });
   };
 
   const filtered = bookings.filter(b => filter === 'all' ? true : b.bookingType === filter);
@@ -1672,6 +2000,38 @@ export default function GmailImporter() {
 </div>
 </div>
           )}          {/* ── Nouveaux logements en attente de configuration ── */}
+
+          {importTrace.length > 0 && (
+            <div className={`border rounded-xl ${isDark ? 'border-gray-700 bg-gray-800/40' : 'border-gray-200 bg-white'}`}>
+              <div className={`px-4 py-2 border-b text-xs font-semibold ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-700'}`}>
+                🧾 Trace d&apos;import ({importTrace.length})
+              </div>
+              <div className="max-h-56 overflow-auto text-[11px]">
+                {importTrace.slice().reverse().map((row, idx) => (
+                  <div key={`${row.messageId}-${idx}`} className={`px-4 py-2 border-b last:border-b-0 ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-100 text-gray-700'}`}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`px-1.5 py-0.5 rounded ${row.status === 'success'
+                        ? (isDark ? 'bg-green-900/40 text-green-300' : 'bg-green-100 text-green-700')
+                        : row.status === 'skipped'
+                        ? (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700')
+                        : (isDark ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')
+                      }`}>{row.status}</span>
+                      <span className="font-medium">{row.action}</span>
+                      <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>{row.bookingType}</span>
+                      <span>{row.guestName}</span>
+                      <span className={`ml-auto ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{fmt(row.receivedAt)}</span>
+                    </div>
+                    {row.reason && (
+                      <div className={`mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        raison: {row.reason}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {propertyQueue.length > 0 && !currentWizard && (
             <div className={`border-2 rounded-xl p-4 flex items-center justify-between gap-3 ${isDark ? 'bg-violet-900/30 border-violet-600' : 'bg-violet-50 border-violet-300'}`}>
               <div className="flex items-center gap-3">

@@ -274,17 +274,19 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
   // Properties functions
   const addProperty = (property: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newProperty: Property = {
-      ...property,
-      id: Math.max(...properties.map(p => p.id), 0) + 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    setProperties([...properties, newProperty]);
+    setProperties(prev => {
+      const newProperty: Property = {
+        ...property,
+        id: Math.max(...prev.map(p => p.id), 0) + 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      return [...prev, newProperty];
+    });
   };
 
   const updateProperty = (id: number, updates: Partial<Property>) => {
-    setProperties(properties.map(prop =>
+    setProperties(prev => prev.map(prop =>
       prop.id === id
         ? { ...prop, ...updates, updatedAt: new Date().toISOString() }
         : prop
@@ -304,17 +306,19 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
   // Bookings functions
   const addBooking = (booking: Omit<Booking, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newBooking: Booking = {
-      ...booking,
-      id: Math.max(...bookings.map(b => b.id), 0) + 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    setBookings([...bookings, newBooking]);
+    setBookings(prev => {
+      const newBooking: Booking = {
+        ...booking,
+        id: Math.max(...prev.map(b => b.id), 0) + 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      return [...prev, newBooking];
+    });
   };
 
   const updateBooking = (id: number, updates: Partial<Booking>) => {
-    setBookings(bookings.map(booking =>
+    setBookings(prev => prev.map(booking =>
       booking.id === id
         ? { ...booking, ...updates, updatedAt: new Date().toISOString() }
         : booking
@@ -336,19 +340,21 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
   // Guests functions
   const addGuest = (guest: Omit<Guest, 'id' | 'createdAt' | 'totalBookings' | 'totalSpent' | 'rating'>) => {
-    const newGuest: Guest = {
-      ...guest,
-      id: Math.max(...guests.map(g => g.id), 0) + 1,
-      createdAt: new Date().toISOString(),
-      totalBookings: 0,
-      totalSpent: 0,
-      rating: 0
-    };
-    setGuests([...guests, newGuest]);
+    setGuests(prev => {
+      const newGuest: Guest = {
+        ...guest,
+        id: Math.max(...prev.map(g => g.id), 0) + 1,
+        createdAt: new Date().toISOString(),
+        totalBookings: 0,
+        totalSpent: 0,
+        rating: 0
+      };
+      return [...prev, newGuest];
+    });
   };
 
   const updateGuest = (id: number, updates: Partial<Guest>) => {
-    setGuests(guests.map(guest =>
+    setGuests(prev => prev.map(guest =>
       guest.id === id ? { ...guest, ...updates } : guest
     ));
   };
@@ -357,17 +363,19 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
   // Maintenance functions
   const addMaintenanceTask = (task: Omit<MaintenanceTask, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newTask: MaintenanceTask = {
-      ...task,
-      id: Math.max(...maintenanceTasks.map(t => t.id), 0) + 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    setMaintenanceTasks([...maintenanceTasks, newTask]);
+    setMaintenanceTasks(prev => {
+      const newTask: MaintenanceTask = {
+        ...task,
+        id: Math.max(...prev.map(t => t.id), 0) + 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      return [...prev, newTask];
+    });
   };
 
   const updateMaintenanceTask = (id: number, updates: Partial<MaintenanceTask>) => {
-    setMaintenanceTasks(maintenanceTasks.map(task =>
+    setMaintenanceTasks(prev => prev.map(task =>
       task.id === id
         ? { ...task, ...updates, updatedAt: new Date().toISOString() }
         : task
@@ -393,15 +401,17 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
   // Inventory functions
   const addInventoryItem = (item: Omit<InventoryItem, 'id'>) => {
-    const newItem: InventoryItem = {
-      ...item,
-      id: Math.max(...inventory.map(i => i.id), 0) + 1
-    };
-    setInventory([...inventory, newItem]);
+    setInventory(prev => {
+      const newItem: InventoryItem = {
+        ...item,
+        id: Math.max(...prev.map(i => i.id), 0) + 1
+      };
+      return [...prev, newItem];
+    });
   };
 
   const updateInventoryItem = (id: number, updates: Partial<InventoryItem>) => {
-    setInventory(inventory.map(item =>
+    setInventory(prev => prev.map(item =>
       item.id === id ? { ...item, ...updates } : item
     ));
   };
@@ -418,14 +428,16 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
   // Reviews functions
   const addReview = (review: Omit<Review, 'id' | 'createdAt' | 'verified' | 'helpful'>) => {
-    const newReview: Review = {
-      ...review,
-      id: Math.max(...reviews.map(r => r.id), 0) + 1,
-      createdAt: new Date().toISOString(),
-      verified: true,
-      helpful: 0
-    };
-    setReviews([...reviews, newReview]);
+    setReviews(prev => {
+      const newReview: Review = {
+        ...review,
+        id: Math.max(...prev.map(r => r.id), 0) + 1,
+        createdAt: new Date().toISOString(),
+        verified: true,
+        helpful: 0
+      };
+      return [...prev, newReview];
+    });
   };
 
   const respondToReview = (reviewId: number, response: string, respondedBy: number) => {
