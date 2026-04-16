@@ -9,6 +9,7 @@ type Expected = {
   minHostPayout?: number;
   minGuests?: number;
   requiresDates?: boolean;
+  expectedGuestNameIncludes?: string[];
 };
 
 type Case = {
@@ -50,6 +51,29 @@ const CASES: Case[] = [
       minTotalPrice: 100,
       minGuests: 2,
       requiresDates: true,
+    },
+  },
+  {
+    name: 'NEW_FR_subject_invisible_unicode_guest_name',
+    messageId: 'msg_new_unicode_001',
+    subject: 'Réservation confirmée : ⁨Marie-⁩ Bordes arrive le 3 avr.',
+    from: 'Automated Airbnb <automated@airbnb.com>',
+    receivedAt: '2026-04-03T08:12:00.000Z',
+    body: [
+      'Code de confirmation : HM9KLMN45PQ',
+      'Arrivée : 3 avril 2026',
+      'Départ : 7 avril 2026',
+      '2 adultes',
+      'Vos revenus pour ce séjour : 320,00 €',
+    ].join('\n'),
+    expected: {
+      bookingType: 'new',
+      minConfidence: 70,
+      hasConfirmationCode: true,
+      minTotalPrice: 250,
+      minGuests: 2,
+      requiresDates: true,
+      expectedGuestNameIncludes: ['Marie', 'Bordes'],
     },
   },
   {
@@ -168,6 +192,15 @@ function assertCase(c: Case) {
   if (c.expected.requiresDates) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(parsed.checkIn) || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.checkOut)) {
       fail(`[${c.name}] expected ISO checkIn/checkOut got=${parsed.checkIn} / ${parsed.checkOut}`);
+    }
+  }
+
+  if (c.expected.expectedGuestNameIncludes?.length) {
+    const lowerGuestName = (parsed.guestName || '').toLowerCase();
+    for (const token of c.expected.expectedGuestNameIncludes) {
+      if (!lowerGuestName.includes(token.toLowerCase())) {
+        fail(`[${c.name}] guestName expected to include "${token}" got=${parsed.guestName}`);
+      }
     }
   }
 

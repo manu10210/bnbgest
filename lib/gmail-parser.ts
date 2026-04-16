@@ -1258,13 +1258,23 @@ function extractGuestComposition(text: string, subject?: string): {
 }
 
 function extractGuestName(text: string, subject?: string): string {
+  const stripInvisibleUnicode = (value: string) =>
+    value
+      .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '')
+      .replace(/[\u00A0\u202F]/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+  const normalizedText = stripInvisibleUnicode(text || '');
+  const normalizedSubject = subject ? stripInvisibleUnicode(subject) : undefined;
+
   // Regex de prénom/nom : commence par majuscule, peut avoir un nom de famille
   // Supporte les prénoms composés (Jean-Pierre), les accents, les tirets
   const NAME = `[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+)?`;
   const NAME_RE = new RegExp(NAME);
 
   // ── 1. Depuis le SUJET (source la plus fiable) ────────────────────────────
-  if (subject) {
+  if (normalizedSubject) {
     const subjectPatterns = [
       // 🔵 NOUVELLE RÉSERVATION — format principal Airbnb hôte
       // "Prénom a réservé votre logement"
@@ -1278,6 +1288,10 @@ function extractGuestName(text: string, subject?: string): string {
       new RegExp(`^(${NAME})\\s+souhaite\\s+r[eé]server`, 'u'),
       // "Nouvelle réservation de Prénom"
       new RegExp(`nouvelle\\s+r[eé]servation\\s+de\\s+(${NAME})`, 'iu'),
+  // "Réservation confirmée : Prénom Nom arrive le ..."
+  new RegExp(`r[eé]servation\\s+confirm[eé]e?\\s*[:\\-–]\\s*(${NAME})\\s+arrive`, 'iu'),
+  // "Réservation confirmée pour Prénom Nom arrive ..."
+  new RegExp(`r[eé]servation\\s+confirm[eé]e?\\s+pour\\s+(${NAME})\\s+arrive`, 'iu'),
       // EN: "Prénom has booked your place"
       /^([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+has\s+(?:booked|reserved)/,
       // EN: "New reservation from Prénom"
@@ -1304,9 +1318,9 @@ function extractGuestName(text: string, subject?: string): string {
       new RegExp(`s[eé]jour\\s+de\\s+(${NAME})`, 'iu'),
     ];
     for (const p of subjectPatterns) {
-      const m = subject.match(p);
+      const m = normalizedSubject.match(p);
       if (m) {
-        const name = m[1].trim().slice(0, 60);
+        const name = stripInvisibleUnicode(m[1]).slice(0, 60);
         if (name.length >= 2 && !/airbnb/i.test(name) && NAME_RE.test(name)) return name;
       }
     }
@@ -1341,9 +1355,9 @@ function extractGuestName(text: string, subject?: string): string {
     /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+left\s+you\s+a\s+review/i,
   ];
   for (const p of bodyPatterns) {
-    const m = text.match(p);
+    const m = normalizedText.match(p);
     if (m) {
-      const name = m[1].trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').slice(0, 60);
+      const name = stripInvisibleUnicode(m[1].replace(/<[^>]*>/g, '')).slice(0, 60);
       // Filtres anti-pollution: rejeter si ressemble à un payout, une phrase ou du bruit
       if (name.length >= 2
         && name.length <= 50
