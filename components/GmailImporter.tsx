@@ -4,7 +4,7 @@
  * 📧 GmailImporter — Importation automatique des réservations Airbnb depuis Gmail
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -424,6 +424,7 @@ export default function GmailImporter() {
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
   const [rejectedBookings, setRejectedBookings] = useState<RejectedBooking[]>([]);
+  const [activeRejectReason, setActiveRejectReason] = useState<string>('all');
 
   // ── Détection nouveaux logements ──────────────────────────────────────────
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
@@ -469,6 +470,7 @@ export default function GmailImporter() {
     setSelected(new Set());
     setQualityReport(null);
     setRejectedBookings([]);
+    setActiveRejectReason('all');
       
     setImported([]);
     setImportSummary(null);
@@ -1259,7 +1261,18 @@ export default function GmailImporter() {
     setStats(null);
     setQualityReport(null);
     setRejectedBookings([]);
+    setActiveRejectReason('all');
   }, [purgeGmailImports]);
+
+  const rejectReasonEntries = useMemo(() => {
+    return Object.entries(qualityReport?.reasonBreakdown ?? {})
+      .sort((a, b) => b[1] - a[1]);
+  }, [qualityReport]);
+
+  const filteredRejected = useMemo(() => {
+    if (activeRejectReason === 'all') return rejectedBookings;
+    return rejectedBookings.filter(r => r.reasons.includes(activeRejectReason));
+  }, [rejectedBookings, activeRejectReason]);
 
   // ─── Avancer dans la file de nouveaux logements ───────────────────────────
 
@@ -1394,23 +1407,74 @@ export default function GmailImporter() {
             )}
           </div>
 
-          {Object.keys(qualityReport.reasonBreakdown).length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {Object.entries(qualityReport.reasonBreakdown)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 6)
-                .map(([reason, count]) => (
-                  <span
-                    key={reason}
-                    className={`text-[11px] px-2 py-1 rounded-full font-medium ${
-                      isDark ? 'bg-amber-900/30 text-amber-300 border border-amber-800/40' : 'bg-amber-50 text-amber-700 border border-amber-200'
-                    }`}
-                    title={reason}
-                  >
-                    {reason} · {count}
-                  </span>
-                ))}
-            </div>
+          {rejectReasonEntries.length > 0 && (
+            <>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => setActiveRejectReason('all')}
+                  className={`text-[11px] px-2 py-1 rounded-full font-medium border transition-colors ${
+                    activeRejectReason === 'all'
+                      ? (isDark ? 'bg-violet-900/40 text-violet-300 border-violet-700' : 'bg-violet-100 text-violet-700 border-violet-300')
+                      : (isDark ? 'bg-gray-700/70 text-gray-300 border-gray-600 hover:bg-gray-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100')
+                  }`}
+                >
+                  all · {qualityReport.rejected}
+                </button>
+                {rejectReasonEntries.slice(0, 8).map(([reason, count]) => {
+                  const selected = activeRejectReason === reason;
+                  return (
+                    <button
+                      key={reason}
+                      onClick={() => setActiveRejectReason(reason)}
+                      className={`text-[11px] px-2 py-1 rounded-full font-medium border transition-colors ${
+                        selected
+                          ? (isDark ? 'bg-amber-900/50 text-amber-200 border-amber-700' : 'bg-amber-100 text-amber-800 border-amber-300')
+                          : (isDark ? 'bg-amber-900/20 text-amber-300 border-amber-800/40 hover:bg-amber-900/30' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100')
+                      }`}
+                      title={reason}
+                    >
+                      {reason} · {count}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {qualityReport.rejected > 0 && (
+                <div className={`mt-3 rounded-lg border overflow-hidden ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className={`px-3 py-2 text-[11px] font-semibold ${isDark ? 'bg-gray-900/40 text-gray-300' : 'bg-gray-50 text-gray-600'}`}>
+                    Rejets filtrés ({filteredRejected.length}) — {activeRejectReason === 'all' ? 'toutes raisons' : activeRejectReason}
+                  </div>
+                  <div className={`max-h-52 overflow-auto text-[11px] ${isDark ? 'bg-gray-800/40' : 'bg-white'}`}>
+                    {filteredRejected.length === 0 ? (
+                      <div className={`px-3 py-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Aucun email rejeté pour ce filtre.
+                      </div>
+                    ) : (
+                      filteredRejected.slice(0, 30).map(({ booking, reasons }) => (
+                        <div key={booking.messageId} className={`px-3 py-2 border-t first:border-t-0 ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-100 text-gray-700'}`}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>{fmt(booking.receivedAt)}</span>
+                            <span className={`px-1.5 py-0.5 rounded ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>{booking.bookingType}</span>
+                            <span className="font-medium">{booking.guestName || '—'}</span>
+                            <span className={`ml-auto ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{booking.confidence}%</span>
+                          </div>
+                          <div className={`mt-1 truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`} title={booking.subject}>
+                            {booking.subject}
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {reasons.map((reason) => (
+                              <span key={`${booking.messageId}-${reason}`} className={`px-1.5 py-0.5 rounded ${isDark ? 'bg-amber-900/30 text-amber-300' : 'bg-amber-50 text-amber-700'}`}>
+                                {reason}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
