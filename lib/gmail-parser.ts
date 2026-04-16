@@ -155,6 +155,10 @@ export interface ParsedBooking {
   guestEmail?: string;
   guestPhone?: string;
   guests: number;
+  guestAdults?: number;
+  guestChildren?: number;
+  guestInfants?: number;
+  guestPets?: number;
   guestCountry?: string;    // Pays du voyageur (ex: "France", "Germany")
   guestLanguage?: string;   // Langue détectée (ex: "fr", "en", "de")
   // Séjour
@@ -1095,7 +1099,13 @@ function extractAirbnbListingId(rawBody: string): string | undefined {
   return undefined;
 }
 
-function extractGuests(text: string, subject?: string): number {
+function extractGuestComposition(text: string, subject?: string): {
+  guests: number;
+  guestAdults?: number;
+  guestChildren?: number;
+  guestInfants?: number;
+  guestPets?: number;
+} {
   // Cherche le nombre total de voyageurs — additionne adultes+enfants+bébés si présents,
   // sinon prend le premier chiffre voyageur/guest/personne trouvé.
   // Chercher dans le corps ET dans le sujet
@@ -1114,7 +1124,15 @@ function extractGuests(text: string, subject?: string): number {
     const babies   = babyM   ? parseInt(babyM[1])   : 0;
     const pets     = petM    ? parseInt(petM[1])    : 0;
     const total = adults + children + babies; // Les animaux ne comptent generalement pas dans la jauge humaine stricte, mais on les ignore pour count.
-    if (total >= 1 && total <= 50) return total;
+    if (total >= 1 && total <= 50) {
+      return {
+        guests: total,
+        guestAdults: adults || undefined,
+        guestChildren: children || undefined,
+        guestInfants: babies || undefined,
+        guestPets: pets || undefined,
+      };
+    }
   }
 
   const patterns: Array<[RegExp, number]> = [
@@ -1130,10 +1148,10 @@ function extractGuests(text: string, subject?: string): number {
     const m = combined.match(p);
     if (m) {
       const v = parseInt(m[idx]);
-      if (v >= 1 && v <= 50) return v;
+      if (v >= 1 && v <= 50) return { guests: v };
     }
   }
-  return 1;
+  return { guests: 1 };
 }
 
 function extractGuestName(text: string, subject?: string): string {
@@ -1692,6 +1710,9 @@ export function parseAirbnbEmail(
   // Extraire l'ID Airbnb de l'annonce depuis le corps HTML brut (avant stripping)
   // Utile pour les emails d'avis qui ne contiennent pas le nom du logement
   const airbnbListingId     = extractAirbnbListingId(body);
+  const guestComposition    = bookingType !== 'payout'
+    ? extractGuestComposition(text, subject)
+    : { guests: 0 };
 
   // ── Champs financiers : selon le type ────────────────────────────────────
   // new/modified/cancelled/reminder → détail complet des frais
@@ -1869,7 +1890,11 @@ export function parseAirbnbEmail(
     // (pas extrait pour payout où le corps ne contient pas les infos voyageur)
     guestEmail: bookingType !== 'payout' ? extractGuestEmail(text) : undefined,
     guestPhone: bookingType !== 'payout' ? extractGuestPhone(text) : undefined,
-    guests:     bookingType !== 'payout' ? extractGuests(text, subject) : 0,
+  guests:     guestComposition.guests,
+  guestAdults: guestComposition.guestAdults,
+  guestChildren: guestComposition.guestChildren,
+  guestInfants: guestComposition.guestInfants,
+  guestPets: guestComposition.guestPets,
     // Pays/langue : utile pour new, modified, reminder, cancelled, checkout
     guestCountry:  (bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder' || bookingType === 'cancelled' || bookingType === 'checkout')
                      ? guestCountry : undefined,

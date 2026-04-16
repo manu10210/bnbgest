@@ -30,6 +30,10 @@ interface ParsedBooking {
   guestEmail?: string;
   guestPhone?: string;
   guests: number;
+  guestAdults?: number;
+  guestChildren?: number;
+  guestInfants?: number;
+  guestPets?: number;
   guestCountry?: string;
   guestLanguage?: string;
   checkIn: string;
@@ -53,6 +57,7 @@ interface ParsedBooking {
   warnings?: string[];
   reviewRating?: number;
   reviewComment?: string;
+  airbnbListingId?: string;
 }
 
 type SyncStatus = 'idle' | 'checking' | 'syncing' | 'importing' | 'done' | 'error';
@@ -560,6 +565,17 @@ export default function GmailImporter() {
         `Importé depuis Gmail (${fmt(b.receivedAt)})`,
         b.propertyName ? `Logement: ${b.propertyName}` : '',
         b.guestPhone ? `Tél: ${b.guestPhone}` : '',
+        b.airbnbListingId ? `Annonce Airbnb ID: ${b.airbnbListingId}` : '',
+        b.guestLanguage ? `Langue: ${b.guestLanguage}` : '',
+        b.guestCountry ? `Pays: ${b.guestCountry}` : '',
+        (b.guestAdults || b.guestChildren || b.guestInfants || b.guestPets)
+          ? `Composition: ${[
+              b.guestAdults ? `${b.guestAdults} adulte${b.guestAdults > 1 ? 's' : ''}` : '',
+              b.guestChildren ? `${b.guestChildren} enfant${b.guestChildren > 1 ? 's' : ''}` : '',
+              b.guestInfants ? `${b.guestInfants} bébé${b.guestInfants > 1 ? 's' : ''}` : '',
+              b.guestPets ? `${b.guestPets} animal${b.guestPets > 1 ? 'aux' : ''}` : '',
+            ].filter(Boolean).join(', ')}`
+          : '',
       ].filter(Boolean).join(' | ');
 
       // ── 4a. Nouvelle réservation ──────────────────────────────────────────
