@@ -206,6 +206,12 @@ function parseArrivalDateFromSubject(subject?: string, receivedAt?: string): str
 }
 
 function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
+  // Les emails d'avis/versement ne contiennent pas forcément un vrai séjour.
+  // Évite d'inférer des dates artificielles depuis le sujet.
+  if (booking.bookingType === 'review' || booking.bookingType === 'payout') {
+    return booking;
+  }
+
   if (isValidDateRange(booking.checkIn, booking.checkOut)) return booking;
 
   const inferredCheckIn = isIsoDate(booking.checkIn)
@@ -233,6 +239,70 @@ function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
       'date_range_inferred_from_subject',
       'checkout_inferred_from_nights',
     ])),
+  };
+}
+
+function enrichReviewFromContext(
+  booking: ParsedBooking,
+  existingBookings: Array<{
+    propertyId: number;
+    checkIn: string;
+    checkOut: string;
+    specialRequests?: string;
+    guestInfo?: { name?: string };
+    status?: string;
+  }>,
+  properties: Array<{ id: number; name: string }>,
+): ParsedBooking {
+  if (booking.bookingType !== 'review') return booking;
+
+  const hasGuest = !!booking.guestName && !isPlaceholderGuestName(booking.guestName);
+  const hasProperty = !!booking.propertyName?.trim();
+  const hasDates = isValidDateRange(booking.checkIn, booking.checkOut);
+  if (hasGuest && hasProperty && hasDates) return booking;
+
+  const receivedTs = new Date(booking.receivedAt).getTime();
+  if (Number.isNaN(receivedTs)) return booking;
+
+  const candidateByCode = booking.confirmationCode
+    ? existingBookings.find(b => b.specialRequests?.includes(booking.confirmationCode!))
+    : undefined;
+
+  const candidates = candidateByCode
+    ? [candidateByCode]
+    : existingBookings
+        .filter(b => {
+          if (b.status === 'cancelled') return false;
+          if (!isIsoDate(b.checkOut)) return false;
+          const outTs = new Date(`${b.checkOut}T00:00:00.000Z`).getTime();
+          if (Number.isNaN(outTs)) return false;
+          const diffDays = (receivedTs - outTs) / (1000 * 60 * 60 * 24);
+          // Un email d'avis arrive généralement peu après le départ.
+          return diffDays >= 0 && diffDays <= 45;
+        })
+        .sort((a, z) => {
+          const aDiff = Math.abs(receivedTs - new Date(`${a.checkOut}T00:00:00.000Z`).getTime());
+          const zDiff = Math.abs(receivedTs - new Date(`${z.checkOut}T00:00:00.000Z`).getTime());
+          return aDiff - zDiff;
+        });
+
+  const match = candidates[0];
+  if (!match) return booking;
+
+  const matchedProperty = properties.find(p => p.id === match.propertyId);
+  const inferredNights =
+    isIsoDate(match.checkIn) && isIsoDate(match.checkOut)
+      ? Math.max(1, Math.round((new Date(match.checkOut).getTime() - new Date(match.checkIn).getTime()) / (1000 * 60 * 60 * 24)))
+      : booking.nights;
+
+  return {
+    ...booking,
+    guestName: hasGuest ? booking.guestName : (match.guestInfo?.name || booking.guestName),
+    propertyName: hasProperty ? booking.propertyName : (matchedProperty?.name || booking.propertyName),
+    checkIn: hasDates ? booking.checkIn : (isIsoDate(match.checkIn) ? match.checkIn : booking.checkIn),
+    checkOut: hasDates ? booking.checkOut : (isIsoDate(match.checkOut) ? match.checkOut : booking.checkOut),
+    nights: hasDates ? booking.nights : (inferredNights || booking.nights),
+    warnings: Array.from(new Set([...(booking.warnings || []), 'review_context_inferred'])),
   };
 }
 
@@ -777,7 +847,7 @@ export default function GmailImporter() {
       callbackUrl: window.location.href,
       // Forcer le consentement pour obtenir un nouveau refresh_token
     });
-  }, []);
+  }, [existingBookings, properties]);
 
   // ─── Vérifier la connexion Gmail ─────────────────────────────────────────
 
@@ -928,13 +998,15 @@ export default function GmailImporter() {
         }
       }
 
-      setBookings(finalBookings);
+  const enrichedFinalBookings = finalBookings.map(b => enrichReviewFromContext(b, existingBookings, properties));
+
+  setBookings(enrichedFinalBookings);
       // Auto-sélectionner uniquement :
       // - nouvelles réservations avec confiance ≥ 70%
       // - annulations et modifications (toujours — impactent les réservations existantes)
       // - avis (enrichissement de données)
       // NE PAS auto-sélectionner reminder/checkout — ces types ne créent pas de nouvelle réservation
-      setSelected(new Set(finalBookings.filter(b =>
+      setSelected(new Set(enrichedFinalBookings.filter(b =>
         (b.bookingType === 'new' && b.confidence >= 70) ||
         b.bookingType === 'cancelled' ||
         b.bookingType === 'modified' ||
