@@ -667,6 +667,60 @@ function normalizeDate(raw: string): string {
   return s; // retourner tel quel si aucun format reconnu
 }
 
+function parseMoneyAmount(raw: string): number {
+  // Gère :
+  // - 1 234,56  | 1.234,56 | 1,234.56
+  // - symboles avant/après
+  // - espaces insécables
+  const clean = raw
+    .replace(/[€$£¥₣₹₽]|EUR|USD|GBP|CHF|CAD|AUD/gi, '')
+    .replace(/[\u00A0\u202F\s]+/g, '')
+    .trim();
+
+  if (!clean) return 0;
+
+  const hasComma = clean.includes(',');
+  const hasDot = clean.includes('.');
+  let normalized = clean;
+
+  if (hasComma && hasDot) {
+    // Le dernier séparateur rencontré est le séparateur décimal
+    const lastComma = clean.lastIndexOf(',');
+    const lastDot = clean.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      // 1.234,56 -> 1234.56
+      normalized = clean.replace(/\./g, '').replace(',', '.');
+    } else {
+      // 1,234.56 -> 1234.56
+      normalized = clean.replace(/,/g, '');
+    }
+  } else if (hasComma) {
+    // 1234,56 ou 1,234 (thousands)
+    normalized = /,\d{1,2}$/.test(clean)
+      ? clean.replace(',', '.')
+      : clean.replace(/,/g, '');
+  } else if (hasDot) {
+    // 1234.56 ou 1.234 (thousands)
+    normalized = /\.\d{1,2}$/.test(clean)
+      ? clean
+      : clean.replace(/\./g, '');
+  }
+
+  const val = parseFloat(normalized);
+  return (!isNaN(val) && isFinite(val) && val > 0 && val < 1000000) ? val : 0;
+}
+
+function extractCurrency(text: string, subject: string): string {
+  const combined = `${text} ${subject}`;
+  if (/CHF|\bFr\.?\b/i.test(combined)) return 'CHF';
+  if (/\bGBP\b|£/.test(combined)) return 'GBP';
+  if (/\bCAD\b|C\$/.test(combined)) return 'CAD';
+  if (/\bAUD\b|A\$/.test(combined)) return 'AUD';
+  if (/\bEUR\b|€/.test(combined)) return 'EUR';
+  if (/\bUSD\b|\$/.test(combined)) return 'USD';
+  return 'USD';
+}
+
 function extractPrice(text: string): number {
   // Vrais formats Airbnb hôte observés :
   //   "Revenus : 178 €"              (email nouvelle réservation hôte)
@@ -681,16 +735,6 @@ function extractPrice(text: string): number {
   //
   // IMPORTANT : on cherche le montant le plus pertinent dans cet ordre de priorité.
   // Un helper pour extraire un nombre depuis une chaîne capturée
-  const parseAmount = (s: string): number => {
-    // Supporte "178,34" / "178.34" / "1 234,56" / "1 234.56" / espaces insécables \xa0
-    const clean = s.replace(/[\u20AC\u00A3$€£]/g, '').replace(/[\s\xa0\u202f]+/g, ' ').trim();
-    // Format FR : "1 234,56" → supprimer espaces inter-chiffres, puis remplacer virgule
-    // Strip thousand-separator spaces ('1 234,56' -> '1234,56'), then normalize FR comma
-    const normalized = clean.replace(/(?<=\d)\s+(?=\d)/g, '').replace(',', '.');
-    const val = parseFloat(normalized);
-    return (!isNaN(val) && val > 0 && val < 100000) ? val : 0;
-  };
-
   const patterns: RegExp[] = [
     // 🥇 Revenus hôte (priorité maximale — c'est ce que l'hôte reçoit)
     /vos\s+revenus\s+pour\s+ce\s+s[eé]jour\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
@@ -721,7 +765,7 @@ function extractPrice(text: string): number {
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const val = parseAmount(m[1]);
+      const val = parseMoneyAmount(m[1]);
       if (val > 0) return val;
     }
   }
@@ -737,8 +781,7 @@ function extractCleaningFee(text: string): number | undefined {
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const clean = m[1].replace(/[€$£\s\xa0]/g, '').replace(',', '.');
-      const val = parseFloat(clean);
+      const val = parseMoneyAmount(m[1]);
       if (!isNaN(val) && val >= 0) return val;
     }
   }
@@ -754,8 +797,7 @@ function extractServiceFee(text: string): number | undefined {
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const clean = m[1].replace(/[€$£\s\xa0]/g, '').replace(',', '.');
-      const val = parseFloat(clean);
+      const val = parseMoneyAmount(m[1]);
       if (!isNaN(val) && val >= 0) return val;
     }
   }
@@ -782,8 +824,7 @@ function extractHostPayout(text: string): number | undefined {
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const clean = m[1].replace(/[€$£\s\xa0]/g, '').replace(',', '.');
-      const val = parseFloat(clean);
+      const val = parseMoneyAmount(m[1]);
       if (!isNaN(val) && val > 0) return val;
     }
   }
@@ -868,7 +909,7 @@ function extractNightlyRate(text: string): number | undefined {
   //   "Tarif nuitée : 89,00 €" / "89 €/nuit"
   //   "$89 per night" / "89 € x 3 nuits" / "89 € × 3 nuits"
   const parseAmt = (s: string) => {
-    const n = parseFloat(s.replace(/[€$£\s\xa0\u202f]/g, '').replace(',', '.'));
+    const n = parseMoneyAmount(s);
     return !isNaN(n) && n > 0 && n < 10000 ? n : 0;
   };
   const patterns = [
@@ -901,7 +942,7 @@ function extractTaxAmount(text: string): number | undefined {
   // Formats : "Taxes : 12,00 €" / "Taxe de séjour : 4 €" / "TVA : 5,00 €"
   //            "Taxes and fees: $12" / "Tourist tax: 4 €"
   const parseAmt = (s: string) => {
-    const n = parseFloat(s.replace(/[€$£\s\xa0]/g, '').replace(',', '.'));
+    const n = parseMoneyAmount(s);
     return !isNaN(n) && n > 0 ? n : 0;
   };
   const patterns = [
@@ -1767,6 +1808,35 @@ export function parseAirbnbEmail(
   const serviceFee   = isFinanceType ? extractServiceFee(text) : undefined;
   const taxAmount    = isFinanceType ? extractTaxAmount(text) : undefined;
   const hostPayout   = bookingType === 'payout' ? (extractHostPayout(text) || extractHostPayout(subject)) : undefined;
+  let financeConfidencePenalty = 0;
+
+  // ── Réconciliation financière ───────────────────────────────────────────
+  // 1) Si total absent mais détail présent, on reconstitue un total estimé.
+  if (bookingType !== 'payout' && price <= 0 && nightlyRate && nights > 0) {
+    const estimatedTotal = (nightlyRate * nights) + (cleaningFee || 0) + (serviceFee || 0) + (taxAmount || 0);
+    if (estimatedTotal > 0) {
+      price = Math.round(estimatedTotal * 100) / 100;
+      warnings.push('Montant total reconstruit depuis le détail financier');
+    }
+  }
+
+  // 2) Détection d'anomalies sur les montants détaillés.
+  if (bookingType !== 'payout' && price > 0) {
+    const knownFees = (cleaningFee || 0) + (serviceFee || 0) + (taxAmount || 0);
+    if (knownFees > 0 && knownFees > price * 0.9) {
+      warnings.push('Frais/taxes anormalement élevés vs montant total');
+      financeConfidencePenalty += 5;
+    }
+  }
+
+  // 3) Versement : écart fort entre total détecté et hostPayout.
+  if (bookingType === 'payout' && hostPayout && price > 0) {
+    const gap = Math.abs(price - hostPayout);
+    if (gap > Math.max(3, hostPayout * 0.1)) {
+      warnings.push(`Écart entre montant détecté (${price}) et versement hôte (${hostPayout})`);
+      financeConfidencePenalty += 5;
+    }
+  }
 
   // ── Horaires check-in/check-out : seulement pour new/modified/reminder/checkout ─
   const needsTimes = bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder' || bookingType === 'checkout';
@@ -1888,6 +1958,10 @@ export function parseAirbnbEmail(
   if ((bookingType === 'reminder' || bookingType === 'checkout') && (!checkIn || !checkOut)) {
     confidence = Math.min(confidence, 65);
   }
+  if (financeConfidencePenalty > 0) {
+    const floor = bookingType === 'payout' ? 60 : 50;
+    confidence = Math.max(floor, confidence - financeConfidencePenalty);
+  }
 
   
     if (!propertyNameExtracted && bookingType !== 'payout' && bookingType !== 'review') warnings.push('Logement introuvable');
@@ -1953,11 +2027,8 @@ export function parseAirbnbEmail(
     // totalPrice : pertinent pour new/modified/cancelled/checkout/reminder
     // Pour review/payout, mettre 0 (pas de prix séjour dans ces emails — utiliser hostPayout pour payout)
     totalPrice: (bookingType === 'review' || bookingType === 'payout') ? 0 : price,
-    // Devise : chercher dans le corps HTML-strippé + sujet, priorité EUR > GBP > CHF > USD
-    currency:  /CHF|Fr\./i.test(text + subject) ? 'CHF'
-               : (text + subject).includes('£') ? 'GBP'
-               : (text + subject).includes('€') || /EUR/i.test(text + subject) ? 'EUR'
-               : 'USD',
+  // Devise : détection robuste depuis corps + sujet
+  currency: extractCurrency(text, subject),
     nightlyRate,
     cleaningFee,
     serviceFee,

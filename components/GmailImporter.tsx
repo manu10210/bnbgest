@@ -882,8 +882,8 @@ export default function GmailImporter() {
               )
             : undefined;
 
-        const payoutAmount = b.hostPayout || b.totalPrice || 0;
-        const payoutDateStr = b.receivedAt?.split('T')[0] ?? new Date().toISOString().split('T')[0];
+  const payoutAmount = b.hostPayout || b.totalPrice || 0;
+  const payoutDateStr = b.payoutDate || b.receivedAt?.split('T')[0] || new Date().toISOString().split('T')[0];
 
         if (payoutBooking) {
           // Mettre à jour la réservation existante avec les infos financières
@@ -932,7 +932,7 @@ export default function GmailImporter() {
       }
 
       // ── 4.h. Créer les dépenses (Expenses) pour les frais Airbnb retenus ──
-      if ((b.bookingType === 'new' || b.bookingType === 'payout') && b.totalPrice > 0) {
+    if ((b.bookingType === 'new' || b.bookingType === 'payout') && ((b.totalPrice > 0) || (b.hostPayout && b.hostPayout > 0))) {
           const pid = property?.id || defaultProperty?.id;
 
           // Frais de service (Mise en gestion/frais Airbnb)
