@@ -407,6 +407,15 @@ function enrichBookingPropertyFromContext(
   }>,
   properties: Array<{ id: number; name: string; city?: string; address?: string }>,
 ): ParsedBooking {
+  const cleanPropertyWarnings = (warnings: string[] = []) => warnings.filter((w) => {
+    const normalized = w.toLowerCase();
+    return !(
+      normalized.includes('logement introuvable') ||
+      normalized.includes('property_not_found') ||
+      normalized.includes('missing_property')
+    );
+  });
+
   const hasProperty = !!booking.propertyName?.trim();
   if (hasProperty) return booking;
 
@@ -415,7 +424,10 @@ function enrichBookingPropertyFromContext(
     return {
       ...booking,
       propertyName: contextProperty.name,
-      warnings: Array.from(new Set([...(booking.warnings || []), 'property_inferred_from_context'])),
+      warnings: Array.from(new Set([
+        ...cleanPropertyWarnings(booking.warnings || []),
+        'property_inferred_from_context',
+      ])),
     };
   }
 
@@ -424,7 +436,22 @@ function enrichBookingPropertyFromContext(
     return {
       ...booking,
       propertyName: subjectProperty.name,
-      warnings: Array.from(new Set([...(booking.warnings || []), 'property_inferred_from_subject'])),
+      warnings: Array.from(new Set([
+        ...cleanPropertyWarnings(booking.warnings || []),
+        'property_inferred_from_subject',
+      ])),
+    };
+  }
+
+  // Cas fréquent en exploitation réelle : 1 seul logement configuré.
+  if (properties.length === 1) {
+    return {
+      ...booking,
+      propertyName: properties[0].name,
+      warnings: Array.from(new Set([
+        ...cleanPropertyWarnings(booking.warnings || []),
+        'property_inferred_single_property_fallback',
+      ])),
     };
   }
 
