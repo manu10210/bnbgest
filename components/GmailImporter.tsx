@@ -141,6 +141,21 @@ const confidenceColor = (c: number) =>
 
 const ANALYSIS_START_2026 = new Date('2026-01-01T00:00:00.000Z');
 
+const FRENCH_MONTH_MAP: Record<string, number> = {
+  jan: 0, janv: 0, janvier: 0,
+  fev: 1, fév: 1, fevr: 1, févr: 1, fevrier: 1, février: 1,
+  mar: 2, mars: 2,
+  avr: 3, avril: 3,
+  mai: 4,
+  jun: 5, juin: 5,
+  jul: 6, juil: 6, juillet: 6,
+  aou: 7, août: 7, aout: 7,
+  sep: 8, sept: 8, septembre: 8,
+  oct: 9, octobre: 9,
+  nov: 10, novembre: 10,
+  dec: 11, déc: 11, decembre: 11, décembre: 11,
+};
+
 function isIsoDate(value?: string): boolean {
   return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
 }
@@ -160,6 +175,98 @@ function formatIsoDate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
+function parseIsoDateFromFrenchParts(dayInput?: string, monthInput?: string, yearInput?: string, fallbackYear?: number): string | undefined {
+  const day = Number.parseInt(dayInput || '', 10);
+  if (!Number.isFinite(day) || day < 1 || day > 31) return undefined;
+
+  if (!monthInput) return undefined;
+  const monthToken = monthInput
+    .replace(/\./g, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const monthIndex = FRENCH_MONTH_MAP[monthToken];
+  if (monthIndex === undefined) return undefined;
+
+  const inferredYear = yearInput
+    ? Number.parseInt(yearInput, 10)
+    : (fallbackYear ?? new Date().getFullYear());
+  if (!Number.isFinite(inferredYear) || inferredYear < 2020 || inferredYear > 2100) return undefined;
+
+  const candidate = new Date(Date.UTC(inferredYear, monthIndex, day));
+  if (Number.isNaN(candidate.getTime())) return undefined;
+  if (candidate.getUTCDate() !== day || candidate.getUTCMonth() !== monthIndex || candidate.getUTCFullYear() !== inferredYear) {
+    return undefined;
+  }
+
+  return formatIsoDate(candidate);
+}
+
+function parseDateRangeFromSubject(subject?: string, receivedAt?: string): { checkIn: string; checkOut: string; nights: number } | undefined {
+  if (!subject) return undefined;
+
+  const normalized = stripInvisibleUnicode(subject)
+    .replace(/[\u00A0\u202F]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .toLowerCase();
+  const fallbackYear = receivedAt ? new Date(receivedAt).getFullYear() : new Date().getFullYear();
+
+  // Ex: "du 12 mars au 15 mars", "du 28 déc 2026 au 2 janv 2027"
+  const frRange = normalized.match(/\bdu\s+(\d{1,2})\s+([a-zéû\.]+)(?:\s+(\d{4}))?\s+au\s+(\d{1,2})\s+([a-zéû\.]+)?(?:\s+(\d{4}))?/i);
+  if (frRange) {
+    const checkIn = parseIsoDateFromFrenchParts(frRange[1], frRange[2], frRange[3], fallbackYear);
+    const outMonth = frRange[5] || frRange[2];
+    let checkOut = parseIsoDateFromFrenchParts(frRange[4], outMonth, frRange[6], fallbackYear);
+
+    if (checkIn && checkOut && !frRange[6] && new Date(checkOut).getTime() <= new Date(checkIn).getTime()) {
+      // Passage d'année implicite (ex: fin déc → début janv)
+      const nextYear = (new Date(checkIn).getUTCFullYear() + 1).toString();
+      checkOut = parseIsoDateFromFrenchParts(frRange[4], outMonth, nextYear, fallbackYear);
+    }
+
+    if (isValidDateRange(checkIn, checkOut)) {
+      const nights = Math.max(1, Math.round((new Date(checkOut as string).getTime() - new Date(checkIn as string).getTime()) / (1000 * 60 * 60 * 24)));
+      return { checkIn: checkIn as string, checkOut: checkOut as string, nights };
+    }
+  }
+
+  // Ex: "du 12/03/2026 au 15/03/2026" (année optionnelle)
+  const numericRange = normalized.match(/\bdu\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+au\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/i);
+  if (numericRange) {
+    const parseYear = (raw?: string) => {
+      if (!raw) return fallbackYear;
+      const n = Number.parseInt(raw, 10);
+      if (!Number.isFinite(n)) return fallbackYear;
+      return n < 100 ? 2000 + n : n;
+    };
+
+    const inDay = Number.parseInt(numericRange[1], 10);
+    const inMonth = Number.parseInt(numericRange[2], 10) - 1;
+    const inYear = parseYear(numericRange[3]);
+    const outDay = Number.parseInt(numericRange[4], 10);
+    const outMonth = Number.parseInt(numericRange[5], 10) - 1;
+    let outYear = parseYear(numericRange[6]);
+
+    let inDate = new Date(Date.UTC(inYear, inMonth, inDay));
+    let outDate = new Date(Date.UTC(outYear, outMonth, outDay));
+    if (!numericRange[6] && outDate.getTime() <= inDate.getTime()) {
+      outYear += 1;
+      outDate = new Date(Date.UTC(outYear, outMonth, outDay));
+    }
+
+    if (!Number.isNaN(inDate.getTime()) && !Number.isNaN(outDate.getTime())) {
+      const checkIn = formatIsoDate(inDate);
+      const checkOut = formatIsoDate(outDate);
+      if (isValidDateRange(checkIn, checkOut)) {
+        const nights = Math.max(1, Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24)));
+        return { checkIn, checkOut, nights };
+      }
+    }
+  }
+
+  return undefined;
+}
+
 function parseArrivalDateFromSubject(subject?: string, receivedAt?: string): string | undefined {
   if (!subject) return undefined;
   const normalized = stripInvisibleUnicode(subject)
@@ -167,42 +274,10 @@ function parseArrivalDateFromSubject(subject?: string, receivedAt?: string): str
     .replace(/\s{2,}/g, ' ')
     .toLowerCase();
 
-  const monthMap: Record<string, number> = {
-    jan: 0, janv: 0, janvier: 0,
-    fev: 1, fév: 1, fevr: 1, févr: 1, fevrier: 1, février: 1,
-    mar: 2, mars: 2,
-    avr: 3, avril: 3,
-    mai: 4,
-    jun: 5, juin: 5,
-    jul: 6, juil: 6, juillet: 6,
-    aou: 7, août: 7, aout: 7,
-    sep: 8, sept: 8, septembre: 8,
-    oct: 9, octobre: 9,
-    nov: 10, novembre: 10,
-    dec: 11, déc: 11, decembre: 11, décembre: 11,
-  };
-
   const m = normalized.match(/\barrive\s+(?:le\s+)?(\d{1,2})\s+([a-zéû\.]+)(?:\s+(\d{4}))?/i);
   if (!m) return undefined;
-
-  const day = Number.parseInt(m[1], 10);
-  if (!Number.isFinite(day) || day < 1 || day > 31) return undefined;
-
-  const monthToken = m[2].replace(/\./g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const monthIndex = monthMap[monthToken];
-  if (monthIndex === undefined) return undefined;
-
   const fallbackYear = receivedAt ? new Date(receivedAt).getFullYear() : new Date().getFullYear();
-  const year = m[3] ? Number.parseInt(m[3], 10) : fallbackYear;
-  if (!Number.isFinite(year) || year < 2020 || year > 2100) return undefined;
-
-  const candidate = new Date(Date.UTC(year, monthIndex, day));
-  if (Number.isNaN(candidate.getTime())) return undefined;
-  if (candidate.getUTCDate() !== day || candidate.getUTCMonth() !== monthIndex || candidate.getUTCFullYear() !== year) {
-    return undefined;
-  }
-
-  return formatIsoDate(candidate);
+  return parseIsoDateFromFrenchParts(m[1], m[2], m[3], fallbackYear);
 }
 
 function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
@@ -213,6 +288,21 @@ function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
   }
 
   if (isValidDateRange(booking.checkIn, booking.checkOut)) return booking;
+
+  // 1) Inférence précise si le sujet contient explicitement une plage "du ... au ..."
+  const inferredRange = parseDateRangeFromSubject(booking.subject, booking.receivedAt);
+  if (inferredRange) {
+    return {
+      ...booking,
+      checkIn: inferredRange.checkIn,
+      checkOut: inferredRange.checkOut,
+      nights: inferredRange.nights,
+      warnings: Array.from(new Set([
+        ...(booking.warnings || []),
+        'date_range_inferred_precisely_from_subject',
+      ])),
+    };
+  }
 
   const inferredCheckIn = isIsoDate(booking.checkIn)
     ? booking.checkIn
@@ -304,6 +394,41 @@ function enrichReviewFromContext(
     nights: hasDates ? booking.nights : (inferredNights || booking.nights),
     warnings: Array.from(new Set([...(booking.warnings || []), 'review_context_inferred'])),
   };
+}
+
+function enrichBookingPropertyFromContext(
+  booking: ParsedBooking,
+  existingBookings: Array<{
+    propertyId: number;
+    checkIn: string;
+    checkOut: string;
+    specialRequests?: string;
+    guestInfo?: { name?: string };
+  }>,
+  properties: Array<{ id: number; name: string; city?: string; address?: string }>,
+): ParsedBooking {
+  const hasProperty = !!booking.propertyName?.trim();
+  if (hasProperty) return booking;
+
+  const contextProperty = inferPropertyFromContext(booking, properties, existingBookings);
+  if (contextProperty) {
+    return {
+      ...booking,
+      propertyName: contextProperty.name,
+      warnings: Array.from(new Set([...(booking.warnings || []), 'property_inferred_from_context'])),
+    };
+  }
+
+  const subjectProperty = findMatchingProperty(booking.subject, properties);
+  if (subjectProperty) {
+    return {
+      ...booking,
+      propertyName: subjectProperty.name,
+      warnings: Array.from(new Set([...(booking.warnings || []), 'property_inferred_from_subject'])),
+    };
+  }
+
+  return booking;
 }
 
 function inferPropertyFromContext<T extends { id: number; name: string; city?: string; address?: string }>(
@@ -847,7 +972,7 @@ export default function GmailImporter() {
       callbackUrl: window.location.href,
       // Forcer le consentement pour obtenir un nouveau refresh_token
     });
-  }, [existingBookings, properties]);
+  }, []);
 
   // ─── Vérifier la connexion Gmail ─────────────────────────────────────────
 
@@ -909,7 +1034,12 @@ export default function GmailImporter() {
           for (const b of data.bookings) {
             if (!seen.has(b.messageId)) {
               seen.add(b.messageId);
-              allBookings.push(enrichBookingDateRange(enrichBookingGuestName(b as ParsedBooking)));
+              const normalized = enrichBookingPropertyFromContext(
+                enrichBookingDateRange(enrichBookingGuestName(b as ParsedBooking)),
+                existingBookings,
+                properties,
+              );
+              allBookings.push(normalized);
             }
           }
           if (data.stats) setStats(s => s
@@ -1017,7 +1147,7 @@ export default function GmailImporter() {
       setError(String(e));
       setStatus('error');
     }
-  }, []);
+  }, [existingBookings, properties]);
 
   const exportRejectedAsCsv = useCallback(() => {
     if (rejectedBookings.length === 0) return;
