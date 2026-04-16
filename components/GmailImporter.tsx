@@ -857,8 +857,8 @@ export default function GmailImporter() {
         }
       }
 
-      // â”€â”€ 4.h. CrÃ©er les dÃ©penses (Expenses) p
-      // our les frais Airbnb retenus â”€â”€â”€â”€â”€â”€        for (const b of toImport) {
+      // ── 4.h. Créer les dépenses (Expenses) p
+      // our les frais Airbnb retenus ──────        for (const b of toImport) {
       await new Promise(r => setTimeout(r, 200)); // Animation de transfert visible
         if ((b.bookingType === 'new' || b.bookingType === 'payout') && b.totalPrice > 0) {
           const pid = properties.find(p => p.name === b.propertyName)?.id || defaultProperty?.id;
@@ -870,33 +870,33 @@ export default function GmailImporter() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 title: `Frais de service Airbnb (${b.guestName})`,
-                description: 'Frais de plateforme prÃ©levÃ©s par Airbnb',
+                description: 'Frais de plateforme prélevés par Airbnb',
                 amount: b.serviceFee,
                 currency: b.currency || 'EUR',
                 category: 'MANAGEMENT',
                 date: (b.bookingType === 'payout' && (b as any).payoutDate) ? (b as any).payoutDate : b.checkIn,
                 propertyId: pid,
                 vendor: 'Airbnb',
-                notes: b.confirmationCode ? `RÃ©servation: ${b.confirmationCode}` : '',
+                notes: b.confirmationCode ? `Réservation: ${b.confirmationCode}` : '',
               }),
             }).catch(console.error); // silencieux
           }
 
-          // Taxes de sÃ©jour retenues
+          // Taxes de séjour retenues
           if (b.taxAmount && b.taxAmount > 0) {
             fetch('/api/expenses', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                title: `Taxes de sÃ©jour Airbnb (${b.guestName})`,
-                description: 'Taxes retenues et reversÃ©es par Airbnb',
+                title: `Taxes de séjour Airbnb (${b.guestName})`,
+                description: 'Taxes retenues et reversées par Airbnb',
                 amount: b.taxAmount,
                 currency: b.currency || 'EUR',
                 category: 'TAX',
                 date: (b.bookingType === 'payout' && (b as any).payoutDate) ? (b as any).payoutDate : b.checkIn,
                 propertyId: pid,
                 vendor: 'Airbnb',
-                notes: b.confirmationCode ? `RÃ©servation: ${b.confirmationCode}` : '',
+                notes: b.confirmationCode ? `Réservation: ${b.confirmationCode}` : '',
               }),
             }).catch(console.error);
           }
@@ -931,7 +931,7 @@ export default function GmailImporter() {
               // Si le sujet ressemble à "Prénom arrive le...", "arrive le", "arrive demain"
               // ou tout autre sujet de rappel/voyageur, ce n'est PAS un nom de logement
               const isPersonSubject =
-                /^(?:\[[^\]]+\]\s*)?[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive|r[eé]dig|souhait|veut|aimer)/i.test(b.subject || '')
+                /^(?:\[[^\]]+\]\s*)?[A-ZÀÂÄÉÈÊËÎÏÔÙÛܟŒÆ][a-zàâäéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive|r[eé]dig|souhait|veut|aimer)/i.test(b.subject || '')
                 || /\barrive\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(b.subject || '')
                 || /^rappel\s*[:\-–]/i.test(b.subject || '')
                 || /\bpart\s+(aujourd|demain|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(b.subject || '')
