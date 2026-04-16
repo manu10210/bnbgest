@@ -7,7 +7,7 @@ import ThemeToggle from '../../components/ThemeToggle';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Home,
   Wrench, Sparkles, Calendar, Users, RefreshCw,
-  CheckCircle, Clock, Plus, X,
+  CheckCircle, Clock, Plus, X, Download, AlertTriangle,
   ArrowLeftRight
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,6 +25,13 @@ interface Cleaning {
 interface MaintenanceTask {
   id: number; propertyId: number; title: string;
   dueDate?: string | null; status: string; priority: string;
+}
+
+interface BookingConflict {
+  propertyId: number;
+  propertyName: string;
+  bookingA: Booking;
+  bookingB: Booking;
 }
 
 type ViewMode = 'week' | 'month';
@@ -143,6 +150,126 @@ export default function PlanningPage() {
     : properties.filter(p => p.id === selectedProp);
 
   const selectedPropertyIds = useMemo(() => new Set(displayedProperties.map(p => p.id)), [displayedProperties]);
+  const { days, start, end } = dateRange();
+
+  const bookingInRange = useCallback((booking: Booking) => {
+    if (!selectedPropertyIds.has(booking.propertyId)) return false;
+    const ci = new Date(booking.checkIn).getTime();
+    const co = new Date(booking.checkOut).getTime();
+    const startTs = new Date(start).getTime();
+    const endTs = new Date(end).getTime();
+    return !Number.isNaN(ci) && !Number.isNaN(co) && co > startTs && ci <= endTs;
+  }, [selectedPropertyIds, start, end]);
+
+  const visibleBookings = useMemo(() => {
+    return bookings.filter(bookingInRange);
+  }, [bookings, bookingInRange]);
+
+  const conflicts = useMemo<BookingConflict[]>(() => {
+    const list: BookingConflict[] = [];
+    for (const prop of displayedProperties) {
+      const propBookings = visibleBookings
+        .filter(b => b.propertyId === prop.id && (b.status || '').toLowerCase() !== 'cancelled')
+        .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime());
+
+      for (let i = 0; i < propBookings.length; i++) {
+        for (let j = i + 1; j < propBookings.length; j++) {
+          const a = propBookings[i];
+          const b = propBookings[j];
+          const aIn = new Date(a.checkIn).getTime();
+          const aOut = new Date(a.checkOut).getTime();
+          const bIn = new Date(b.checkIn).getTime();
+          const bOut = new Date(b.checkOut).getTime();
+          if (bIn >= aOut) break;
+          if (aIn < bOut && bIn < aOut) {
+            list.push({ propertyId: prop.id, propertyName: prop.name, bookingA: a, bookingB: b });
+          }
+        }
+      }
+    }
+    return list;
+  }, [displayedProperties, visibleBookings]);
+
+  const downloadTextFile = (filename: string, content: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportCsv = () => {
+    if (visibleBookings.length === 0) {
+      toast.info('Aucune réservation à exporter sur la période affichée.');
+      return;
+    }
+
+    const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const headers = ['id', 'property', 'guest', 'checkIn', 'checkOut', 'guests', 'status'];
+    const rows = visibleBookings.map((b) => {
+      const property = properties.find(p => p.id === b.propertyId)?.name || `Propriété #${b.propertyId}`;
+      return [b.id, property, b.guestName, b.checkIn, b.checkOut, b.guests, b.status].map(escape).join(',');
+    });
+
+    const periodTag = `${isoDay(start)}_${isoDay(end)}`;
+    downloadTextFile(
+      `planning_${periodTag}.csv`,
+      [headers.join(','), ...rows].join('\n'),
+      'text/csv;charset=utf-8;'
+    );
+    toast.success('Export CSV généré.');
+  };
+
+  const exportIcs = () => {
+    if (visibleBookings.length === 0) {
+      toast.info('Aucune réservation à exporter sur la période affichée.');
+      return;
+    }
+
+    const toIcsDate = (iso: string) => {
+      const d = new Date(`${iso}T00:00:00.000Z`);
+      return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
+    };
+
+    const sanitize = (s: string) => s
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\n/g, '\\n');
+
+    const nowStamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const events = visibleBookings.map((b) => {
+      const property = properties.find(p => p.id === b.propertyId)?.name || `Propriété #${b.propertyId}`;
+      const summary = sanitize(`${b.guestName} — ${property}`);
+      const description = sanitize(`Statut: ${b.status} | Voyageurs: ${b.guests}`);
+      return [
+        'BEGIN:VEVENT',
+        `UID:booking-${b.id}@bnbgest`,
+        `DTSTAMP:${nowStamp}`,
+        `DTSTART;VALUE=DATE:${toIcsDate(b.checkIn)}`,
+        `DTEND;VALUE=DATE:${toIcsDate(b.checkOut)}`,
+        `SUMMARY:${summary}`,
+        `DESCRIPTION:${description}`,
+        'END:VEVENT',
+      ].join('\r\n');
+    });
+
+    const content = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//BNBGest//Planning//FR',
+      'CALSCALE:GREGORIAN',
+      ...events,
+      'END:VCALENDAR',
+      '',
+    ].join('\r\n');
+
+    const periodTag = `${isoDay(start)}_${isoDay(end)}`;
+    downloadTextFile(`planning_${periodTag}.ics`, content, 'text/calendar;charset=utf-8;');
+    toast.success('Export iCal généré.');
+  };
 
   // Events per day per property
   const getBookingsForDayProp = (day: Date, propId: number) =>
@@ -163,7 +290,6 @@ export default function PlanningPage() {
   const getMaintenanceForDay = (day: Date, propId: number) =>
     maintenance.filter(m => m.propertyId === propId && m.dueDate && sameDay(new Date(m.dueDate), day));
 
-  const { days, start, end } = dateRange();
   const today = new Date(); today.setHours(0,0,0,0);
 
   const planningMetrics = (() => {
@@ -219,6 +345,7 @@ export default function PlanningPage() {
       pendingCleanings,
       urgentMaintenance,
       occupancyRate,
+      conflicts: conflicts.length,
     };
   })();
 
@@ -299,6 +426,18 @@ export default function PlanningPage() {
             <RefreshCw size={16} className={muted} />
           </button>
           <button
+            onClick={exportCsv}
+            className={`px-3 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-1.5 border ${isDark ? 'bg-white/5 border-white/10 text-gray-200 hover:bg-white/10' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+          >
+            <Download size={14} /> CSV
+          </button>
+          <button
+            onClick={exportIcs}
+            className={`px-3 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-1.5 border ${isDark ? 'bg-white/5 border-white/10 text-gray-200 hover:bg-white/10' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+          >
+            <Calendar size={14} /> iCal
+          </button>
+          <button
             onClick={() => toast.info('Création rapide d\'événement bientôt disponible')}
             className="px-3 py-2 rounded-xl bg-[#FF385C] text-white text-xs font-semibold hover:bg-[#E31C5F] transition inline-flex items-center gap-1.5"
           >
@@ -317,8 +456,23 @@ export default function PlanningPage() {
           <KpiCard label="Check-out" value={String(planningMetrics.checkouts)} tone="gray" isDark={isDark} />
           <KpiCard label="Ménages à faire" value={String(planningMetrics.pendingCleanings)} tone="purple" isDark={isDark} />
           <KpiCard label="Maintenance urgente" value={String(planningMetrics.urgentMaintenance)} tone="orange" isDark={isDark} />
+          <KpiCard label="Conflits" value={String(planningMetrics.conflicts)} tone="red" isDark={isDark} />
         </div>
       </div>
+
+      {conflicts.length > 0 && (
+        <div className="px-4 pt-2">
+          <div className={`rounded-xl border px-3 py-2 text-xs flex items-start gap-2 ${isDark ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-red-200 bg-red-50 text-red-700'}`}>
+            <AlertTriangle size={14} className="mt-0.5" />
+            <div>
+              <p className="font-semibold">{conflicts.length} conflit(s) détecté(s) sur la période affichée</p>
+              <p className={`${isDark ? 'text-red-200/90' : 'text-red-600'} mt-0.5`}>
+                Exemple : {conflicts[0].propertyName} — {conflicts[0].bookingA.guestName} chevauche {conflicts[0].bookingB.guestName}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="flex flex-wrap gap-3 px-4 pt-3 pb-1 text-xs items-center">
@@ -579,7 +733,7 @@ function KpiCard({
 }: {
   label: string;
   value: string;
-  tone: 'blue' | 'indigo' | 'green' | 'gray' | 'purple' | 'orange';
+  tone: 'blue' | 'indigo' | 'green' | 'gray' | 'purple' | 'orange' | 'red';
   isDark: boolean;
 }) {
   const toneMap: Record<typeof tone, string> = {
@@ -589,6 +743,7 @@ function KpiCard({
     gray: 'from-slate-500/20 to-gray-500/10 text-slate-300 border-slate-500/20',
     purple: 'from-purple-500/20 to-fuchsia-500/10 text-purple-300 border-purple-500/20',
     orange: 'from-orange-500/20 to-amber-500/10 text-orange-300 border-orange-500/20',
+    red: 'from-red-500/20 to-rose-500/10 text-red-300 border-red-500/20',
   };
 
   return (
