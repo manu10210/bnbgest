@@ -67,3 +67,12 @@ Cette session transforme le pipeline Gmail en système **auditable**:
 - visibilité immédiate de la qualité réelle du scan,
 - diagnostic rapide des cas rejetés,
 - export exploitable pour améliorer regex/règles parser en continu.
+
+## 🔧 Patch de stabilisation 30.1
+
+- Réinitialisation de `stats` au début de chaque scan pour éviter l'accumulation inter-scans.
+- Incrément réel de `summary.expensesCreated` lors de la création des dépenses service/taxes.
+- Affichage des champs de traçabilité parser dans le détail d'un email:
+	- `Pattern parser`
+	- `Source classif`
+	- `Règle classif`

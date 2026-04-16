@@ -464,6 +464,7 @@ export default function GmailImporter() {
   const syncGmail = useCallback(async () => {
     setStatus('syncing');
     setError(null);
+    setStats(null);
     setBookings([]);
     setSelected(new Set());
     setQualityReport(null);
@@ -1148,6 +1149,7 @@ export default function GmailImporter() {
                 notes: b.confirmationCode ? `Réservation: ${b.confirmationCode}` : '',
               }),
             }).catch(console.error); // silencieux
+            summary.expensesCreated++;
           }
 
           // Taxes de séjour retenues
@@ -1167,6 +1169,7 @@ export default function GmailImporter() {
                 notes: b.confirmationCode ? `Réservation: ${b.confirmationCode}` : '',
               }),
             }).catch(console.error);
+            summary.expensesCreated++;
           }
         }
       }
@@ -1864,6 +1867,9 @@ export default function GmailImporter() {
                                 <ParseField label="Code réservation" value={booking.confirmationCode} isDark={isDark} mono />
                                 <ParseField label="Emails fusionnés" value={booking.relatedMessageIds ? String(booking.relatedMessageIds.length) : undefined} isDark={isDark} />
                                 <ParseField label="Message ID" value={booking.messageId.slice(0, 22) + '…'} isDark={isDark} mono />
+                                <ParseField label="Pattern parser" value={booking.parserPatternVersion} isDark={isDark} mono />
+                                <ParseField label="Source classif" value={booking.classificationSource} isDark={isDark} />
+                                <ParseField label="Règle classif" value={booking.classificationRuleId} isDark={isDark} mono />
                               </div>
                               {/* ── Section: Voyageur ── */}
                               <div className="space-y-1">
