@@ -153,7 +153,7 @@ function isValidDateRange(checkIn?: string, checkOut?: string): boolean {
   const outTs = new Date(safeCheckOut).getTime();
   if (Number.isNaN(inTs) || Number.isNaN(outTs)) return false;
   const diffDays = Math.round((outTs - inTs) / (1000 * 60 * 60 * 24));
-  return diffDays >= 0 && diffDays <= 365;
+  return diffDays >= 1 && diffDays <= 365;
 }
 
 function formatIsoDate(date: Date): string {
@@ -208,7 +208,9 @@ function parseArrivalDateFromSubject(subject?: string, receivedAt?: string): str
 function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
   if (isValidDateRange(booking.checkIn, booking.checkOut)) return booking;
 
-  const inferredCheckIn = parseArrivalDateFromSubject(booking.subject, booking.receivedAt);
+  const inferredCheckIn = isIsoDate(booking.checkIn)
+    ? booking.checkIn
+    : parseArrivalDateFromSubject(booking.subject, booking.receivedAt);
   if (!inferredCheckIn) return booking;
 
   const nights = Number.isFinite(booking.nights) && booking.nights > 0 ? booking.nights : 1;
@@ -226,8 +228,55 @@ function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
     checkIn: inferredCheckIn,
     checkOut: inferredCheckOut,
     nights,
-    warnings: Array.from(new Set([...(booking.warnings || []), 'date_range_inferred_from_subject'])),
+    warnings: Array.from(new Set([
+      ...(booking.warnings || []),
+      'date_range_inferred_from_subject',
+      'checkout_inferred_from_nights',
+    ])),
   };
+}
+
+function inferPropertyFromContext<T extends { id: number; name: string; city?: string; address?: string }>(
+  booking: ParsedBooking,
+  properties: T[],
+  existingBookings: Array<{
+    propertyId: number;
+    checkIn: string;
+    checkOut: string;
+    specialRequests?: string;
+    guestInfo?: { name?: string };
+  }>,
+): T | undefined {
+  if (!booking) return undefined;
+
+  if (booking.confirmationCode) {
+    const byCode = existingBookings.find(b => b.specialRequests?.includes(booking.confirmationCode!));
+    if (byCode) return properties.find(p => p.id === byCode.propertyId);
+  }
+
+  const guest = booking.guestName?.trim().toLowerCase();
+  if (guest) {
+    const targetCheckInTs = isIsoDate(booking.checkIn) ? new Date(booking.checkIn as string).getTime() : Number.NaN;
+    const byGuest = existingBookings
+      .filter(b => (b.guestInfo?.name || '').trim().toLowerCase() === guest)
+      .sort((a, z) => {
+        const aScore = Number.isNaN(targetCheckInTs)
+          ? 0
+          : Math.abs(new Date(a.checkIn).getTime() - targetCheckInTs);
+        const zScore = Number.isNaN(targetCheckInTs)
+          ? 0
+          : Math.abs(new Date(z.checkIn).getTime() - targetCheckInTs);
+        return aScore - zScore;
+      })[0];
+
+    if (byGuest) {
+      return properties.find(p => p.id === byGuest.propertyId);
+    }
+  }
+
+  // Cas fréquent en mono-logement : fallback sûr.
+  if (properties.length === 1) return properties[0];
+  return undefined;
 }
 
 function isPlaceholderGuestName(name?: string): boolean {
@@ -1002,6 +1051,23 @@ export default function GmailImporter() {
       const useFallback = b.bookingType !== 'payout' && b.bookingType !== 'review';
       const hasDetectedPropertyName = !!b.propertyName?.trim();
       let property = findMatchingProperty(b.propertyName, properties);
+
+      if (!property) {
+        const inferred = inferPropertyFromContext(b, properties, localBookings);
+        if (inferred) {
+          property = inferred;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'success',
+            action: 'property_inferred_from_context',
+            reason: hasDetectedPropertyName ? 'property_name_unmatched_context_used' : 'property_missing_context_used',
+            receivedAt: b.receivedAt,
+          });
+        }
+      }
+
       if (!property && !hasDetectedPropertyName && useFallback) {
         property = defaultProperty;
       }
