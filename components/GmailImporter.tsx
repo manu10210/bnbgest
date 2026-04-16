@@ -390,9 +390,113 @@ function normalizeForMatch(s: string): string {
     .trim();
 }
 
-function propertyMatchScore(emailName: string, propName: string): number {
-  const e = normalizeForMatch(emailName);
-  const p = normalizeForMatch(propName);
+const PROPERTY_STOP_WORDS = new Set([
+  'les', 'des', 'une', 'pour', 'avec', 'sur', 'sous', 'dans', 'par', 'qui', 'que', 'aux',
+  'son', 'ses', 'nos', 'vos', 'leur', 'leurs', 'cette', 'cela', 'plus', 'mais', 'car',
+  'voir', 'chez', 'vers', 'ici', 'la', 'le', 'du', 'au', 'de', 'et', 'ou', 'tout', 'tous',
+]);
+
+const PROPERTY_NOISE_PATTERNS: RegExp[] = [
+  /\bairbnb\b/g,
+  /\breservation\b/g,
+  /\bbooking\b/g,
+  /\bconfirm(?:ee|e|ed)?\b/g,
+  /\barriv(?:e|es|er|ee)s?\b/g,
+  /\bdepart\b/g,
+  /\bannul(?:e|ee|ation)?\b/g,
+  /\bmodifi(?:e|ee|cation)?\b/g,
+  /\brappel\b/g,
+  /\breminder\b/g,
+  /\bcheck\s*in\b/g,
+  /\bcheck\s*out\b/g,
+  /\bversement\b/g,
+  /\bpayout\b/g,
+  /\bvoyageur\b/g,
+  /\bguest\b/g,
+];
+
+function sanitizePropertyLabel(input: string): string {
+  let value = normalizeForMatch(input);
+  for (const pattern of PROPERTY_NOISE_PATTERNS) {
+    value = value.replace(pattern, ' ');
+  }
+  return value.replace(/\s{2,}/g, ' ').trim();
+}
+
+function tokenizePropertyLabel(input: string): string[] {
+  const cleaned = sanitizePropertyLabel(input) || normalizeForMatch(input);
+  return cleaned
+    .split(/\s+/)
+    .filter(token => token.length >= 2 && !PROPERTY_STOP_WORDS.has(token));
+}
+
+function bigrams(input: string): string[] {
+  const compact = normalizeForMatch(input).replace(/\s+/g, '');
+  if (compact.length < 2) return compact ? [compact] : [];
+  const grams: string[] = [];
+  for (let i = 0; i < compact.length - 1; i++) {
+    grams.push(compact.slice(i, i + 2));
+  }
+  return grams;
+}
+
+function diceCoefficient(a: string, b: string): number {
+  const aGrams = bigrams(a);
+  const bGrams = bigrams(b);
+  if (aGrams.length === 0 || bGrams.length === 0) return 0;
+  const bCounts = new Map<string, number>();
+  for (const gram of bGrams) {
+    bCounts.set(gram, (bCounts.get(gram) || 0) + 1);
+  }
+  let common = 0;
+  for (const gram of aGrams) {
+    const count = bCounts.get(gram) || 0;
+    if (count > 0) {
+      common++;
+      bCounts.set(gram, count - 1);
+    }
+  }
+  return (2 * common) / (aGrams.length + bGrams.length);
+}
+
+function tokenOverlapScore(inputA: string, inputB: string): number {
+  const aTokens = tokenizePropertyLabel(inputA);
+  const bTokens = tokenizePropertyLabel(inputB);
+  if (aTokens.length === 0 || bTokens.length === 0) return 0;
+
+  let weightedCommon = 0;
+  const used = new Set<number>();
+
+  for (const tokenA of aTokens) {
+    let matchedIndex = -1;
+    let matchedWeight = 0;
+    for (let i = 0; i < bTokens.length; i++) {
+      if (used.has(i)) continue;
+      const tokenB = bTokens[i];
+      if (tokenA === tokenB) {
+        matchedIndex = i;
+        matchedWeight = Math.max(1, Math.min(tokenA.length, 6));
+        break;
+      }
+      if ((tokenA.length >= 4 && tokenB.includes(tokenA)) || (tokenB.length >= 4 && tokenA.includes(tokenB))) {
+        matchedIndex = i;
+        matchedWeight = 2;
+      }
+    }
+    if (matchedIndex >= 0) {
+      used.add(matchedIndex);
+      weightedCommon += matchedWeight;
+    }
+  }
+
+  const totalWeight = aTokens.reduce((acc, token) => acc + Math.max(1, Math.min(token.length, 6)), 0);
+  if (totalWeight === 0) return 0;
+  return Math.round((weightedCommon / totalWeight) * 100);
+}
+
+function propertyMatchScore(emailName: string, propName: string, hints: string[] = []): number {
+  const e = sanitizePropertyLabel(emailName) || normalizeForMatch(emailName);
+  const p = sanitizePropertyLabel(propName) || normalizeForMatch(propName);
   if (!e || !p) return 0;
 
   // ── Vérifier les aliases en priorité ─────────────────────────────────────
@@ -411,10 +515,31 @@ function propertyMatchScore(emailName: string, propName: string): number {
   if (ePrefix.length >= 4 && pPrefix.includes(ePrefix)) return 80;
   if (pPrefix.length >= 4 && ePrefix.includes(pPrefix)) return 80;
 
+  const tokenScore = tokenOverlapScore(e, p);
+  if (tokenScore >= 85) return tokenScore;
+
+  const diceScore = Math.round(diceCoefficient(e, p) * 100);
+
+  const hintScore = hints
+    .filter(Boolean)
+    .reduce((best, hint) => Math.max(best, tokenOverlapScore(e, hint)), 0);
+
+  const compactE = e.replace(/\s+/g, '');
+  const compactP = p.replace(/\s+/g, '');
+  const compactContains = compactE.length >= 5 && compactP.length >= 5 && (compactE.includes(compactP) || compactP.includes(compactE))
+    ? 78
+    : 0;
+
+  const blended = Math.max(
+    Math.round(tokenScore * 0.7 + diceScore * 0.3),
+    hintScore > 0 ? Math.round(tokenScore * 0.6 + hintScore * 0.4) : 0,
+    compactContains,
+  );
+  if (blended > 0) return blended;
+
   // Mots significatifs en commun (3+ chars, hors mots vides)
-  const stopWords = new Set(['les','des','une','pour','avec','sur','sous','dans','par','qui','que','aux','son','ses','nos','vos','leur','leurs','cette','cela','plus','mais','car','voir','chez','vers','ici','là','tres','bien','tout','tous']);
-  const eWords = e.split(/\s+/).filter(w => w.length >= 3 && !stopWords.has(w));
-  const pWords = p.split(/\s+/).filter(w => w.length >= 3 && !stopWords.has(w));
+  const eWords = e.split(/\s+/).filter(w => w.length >= 3 && !PROPERTY_STOP_WORDS.has(w));
+  const pWords = p.split(/\s+/).filter(w => w.length >= 3 && !PROPERTY_STOP_WORDS.has(w));
   const common = eWords.filter(w => pWords.some(pw => pw.includes(w) || w.includes(pw)));
   if (common.length === 0) return 0;
   // Score proportionnel au nombre de mots communs / total de mots
@@ -423,7 +548,7 @@ function propertyMatchScore(emailName: string, propName: string): number {
 }
 
 // Trouve la meilleure propriété correspondante (score ≥ 40)
-function findMatchingProperty<T extends { name: string }>(
+function findMatchingProperty<T extends { name: string; city?: string; address?: string }>(
   emailPropertyName: string | undefined,
   properties: T[],
   fallback?: T
@@ -431,11 +556,24 @@ function findMatchingProperty<T extends { name: string }>(
   if (!emailPropertyName?.trim()) return fallback;
   let best: T | undefined;
   let bestScore = 0;
+  let secondBest = 0;
   for (const p of properties) {
-    const score = propertyMatchScore(emailPropertyName, p.name);
-    if (score > bestScore) { best = p; bestScore = score; }
+    const score = propertyMatchScore(emailPropertyName, p.name, [p.city || '', p.address || '']);
+    if (score > bestScore) {
+      secondBest = bestScore;
+      best = p;
+      bestScore = score;
+    } else if (score > secondBest) {
+      secondBest = score;
+    }
   }
-  return bestScore >= 40 ? best : fallback;
+
+  // Forte confiance, ou faible ambiguïté
+  if (bestScore >= 52) return best;
+  if (bestScore >= 40 && bestScore - secondBest >= 8) return best;
+
+  // Évite les mauvais rattachements automatiques quand le nom détecté est ambigu.
+  return undefined;
 }
 
 const bookingTypeLabel: Record<ParsedBooking['bookingType'], { label: string; color: string }> = {
@@ -858,11 +996,17 @@ export default function GmailImporter() {
       await new Promise(r => setTimeout(r, 200)); // Animation de transfert visible
 
       // ── 1. Trouver le logement ────────────────────────────────────────────
-      //   Matching robuste (score ≥ 40) ou fallback sur le 1er logement.
-      //   Pour les versements (payout) : pas de fallback — pas de propertyName attendu.
-      //   Si aucune propriété → on marque "skipped" sauf pour cancel/payout
-        const useFallback = b.bookingType !== 'payout' && b.bookingType !== 'review';
-        let property = findMatchingProperty(b.propertyName, properties, useFallback ? defaultProperty : undefined);      // ── 1b. Pour les avis (review) : retrouver le logement par recoupement ──
+      //   Matching robuste sur nom détecté. Fallback par défaut seulement
+      //   si aucun nom de logement n'a été extrait.
+      //   Pour payout/review : logique spécifique ensuite.
+      const useFallback = b.bookingType !== 'payout' && b.bookingType !== 'review';
+      const hasDetectedPropertyName = !!b.propertyName?.trim();
+      let property = findMatchingProperty(b.propertyName, properties);
+      if (!property && !hasDetectedPropertyName && useFallback) {
+        property = defaultProperty;
+      }
+
+      // ── 1b. Pour les avis (review) : retrouver le logement par recoupement ──
       // L'email d'avis Airbnb ne contient pas le nom du logement.
       // Stratégie : chercher la réservation la plus récente du voyageur dans les 30j
       // avant la réception de l'email, puis utiliser son propertyId.
@@ -2341,7 +2485,7 @@ export default function GmailImporter() {
                             {booking.bookingType !== 'cancelled' && booking.bookingType !== 'payout' && properties.length > 0 && booking.propertyName && !findMatchingProperty(booking.propertyName, properties) && (
                               <div className={`mt-1 text-xs flex items-center gap-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
                                 <span>⚠️</span>
-                                <span>Logement &quot;{booking.propertyName.slice(0, 40)}&quot; non reconnu — sera associé à <strong>{properties[0]?.name ?? '—'}</strong> (premier par défaut)</span>
+                                <span>Logement &quot;{booking.propertyName.slice(0, 40)}&quot; non reconnu — cet email sera ignoré (pas de rattachement automatique risqué)</span>
                               </div>
                             )}
                             {booking.bookingType !== 'cancelled' && properties.length === 0 && (
