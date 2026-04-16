@@ -162,9 +162,17 @@ function isPlaceholderGuestName(name?: string): boolean {
   return n === '' || n === 'voyageur airbnb' || n === 'airbnb guest' || n === 'guest';
 }
 
+function stripInvisibleUnicode(value: string): string {
+  return value
+    // BiDi isolations / marks / soft formatting chars frequently found in Gmail subjects
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function cleanGuestName(candidate?: string): string | undefined {
   if (!candidate) return undefined;
-  const cleaned = candidate
+  const cleaned = stripInvisibleUnicode(candidate)
     .replace(/^[\s\-–—:;,.!?()\[\]{}"'“”‘’]+/g, '')
     .replace(/[\s\-–—:;,.!?()\[\]{}"'“”‘’]+$/g, '')
     .replace(/[|•·]+$/g, '')
@@ -181,7 +189,7 @@ function cleanGuestName(candidate?: string): string | undefined {
 
 function inferGuestNameFromSubject(subject?: string): string | undefined {
   if (!subject) return undefined;
-  const normalizedSubject = subject
+  const normalizedSubject = stripInvisibleUnicode(subject)
     .replace(/[\u00A0\u202F]/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
