@@ -35,6 +35,7 @@ interface BookingConflict {
 }
 
 type ViewMode = 'week' | 'month';
+type ExportFormat = 'csv' | 'ics';
 
 const BOOKING_STATUS_COLOR: Record<string, string> = {
   CONFIRMED:   'bg-blue-500',
@@ -83,6 +84,7 @@ export default function PlanningPage() {
   const [loading, setLoading]         = useState(true);
   const [selectedProp, setSelectedProp] = useState<number | 'all'>('all');
   const [dayDetail, setDayDetail]     = useState<{ date: Date; propId: number } | null>(null);
+  const [exporting, setExporting]     = useState<ExportFormat | null>(null);
 
   // Styles
   const card = isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200';
@@ -206,20 +208,28 @@ export default function PlanningPage() {
       return;
     }
 
-    const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const headers = ['id', 'property', 'guest', 'checkIn', 'checkOut', 'guests', 'status'];
-    const rows = visibleBookings.map((b) => {
-      const property = properties.find(p => p.id === b.propertyId)?.name || `Propriété #${b.propertyId}`;
-      return [b.id, property, b.guestName, b.checkIn, b.checkOut, b.guests, b.status].map(escape).join(',');
-    });
+    setExporting('csv');
+    try {
+      const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const headers = ['id', 'property', 'guest', 'checkIn', 'checkOut', 'guests', 'status'];
+      const rows = visibleBookings.map((b) => {
+        const property = properties.find(p => p.id === b.propertyId)?.name || `Propriété #${b.propertyId}`;
+        return [b.id, property, b.guestName, b.checkIn, b.checkOut, b.guests, b.status].map(escape).join(',');
+      });
 
-    const periodTag = `${isoDay(start)}_${isoDay(end)}`;
-    downloadTextFile(
-      `planning_${periodTag}.csv`,
-      [headers.join(','), ...rows].join('\n'),
-      'text/csv;charset=utf-8;'
-    );
-    toast.success('Export CSV généré.');
+      const periodTag = `${isoDay(start)}_${isoDay(end)}`;
+      const filename = `planning_${periodTag}.csv`;
+      downloadTextFile(
+        filename,
+        [headers.join(','), ...rows].join('\n'),
+        'text/csv;charset=utf-8;'
+      );
+      toast.success(`Export CSV généré (${visibleBookings.length} réservation(s)).`);
+    } catch {
+      toast.error('Échec de l’export CSV.');
+    } finally {
+      setExporting(null);
+    }
   };
 
   const exportIcs = () => {
@@ -228,47 +238,55 @@ export default function PlanningPage() {
       return;
     }
 
-    const toIcsDate = (iso: string) => {
-      const d = new Date(`${iso}T00:00:00.000Z`);
-      return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
-    };
+    setExporting('ics');
+    try {
+      const toIcsDate = (iso: string) => {
+        const d = new Date(`${iso}T00:00:00.000Z`);
+        return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
+      };
 
-    const sanitize = (s: string) => s
-      .replace(/\\/g, '\\\\')
-      .replace(/;/g, '\\;')
-      .replace(/,/g, '\\,')
-      .replace(/\n/g, '\\n');
+      const sanitize = (s: string) => s
+        .replace(/\\/g, '\\\\')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,')
+        .replace(/\n/g, '\\n');
 
-    const nowStamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const events = visibleBookings.map((b) => {
-      const property = properties.find(p => p.id === b.propertyId)?.name || `Propriété #${b.propertyId}`;
-      const summary = sanitize(`${b.guestName} — ${property}`);
-      const description = sanitize(`Statut: ${b.status} | Voyageurs: ${b.guests}`);
-      return [
-        'BEGIN:VEVENT',
-        `UID:booking-${b.id}@bnbgest`,
-        `DTSTAMP:${nowStamp}`,
-        `DTSTART;VALUE=DATE:${toIcsDate(b.checkIn)}`,
-        `DTEND;VALUE=DATE:${toIcsDate(b.checkOut)}`,
-        `SUMMARY:${summary}`,
-        `DESCRIPTION:${description}`,
-        'END:VEVENT',
+      const nowStamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const events = visibleBookings.map((b) => {
+        const property = properties.find(p => p.id === b.propertyId)?.name || `Propriété #${b.propertyId}`;
+        const summary = sanitize(`${b.guestName} — ${property}`);
+        const description = sanitize(`Statut: ${b.status} | Voyageurs: ${b.guests}`);
+        return [
+          'BEGIN:VEVENT',
+          `UID:booking-${b.id}@bnbgest`,
+          `DTSTAMP:${nowStamp}`,
+          `DTSTART;VALUE=DATE:${toIcsDate(b.checkIn)}`,
+          `DTEND;VALUE=DATE:${toIcsDate(b.checkOut)}`,
+          `SUMMARY:${summary}`,
+          `DESCRIPTION:${description}`,
+          'END:VEVENT',
+        ].join('\r\n');
+      });
+
+      const content = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//BNBGest//Planning//FR',
+        'CALSCALE:GREGORIAN',
+        ...events,
+        'END:VCALENDAR',
+        '',
       ].join('\r\n');
-    });
 
-    const content = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//BNBGest//Planning//FR',
-      'CALSCALE:GREGORIAN',
-      ...events,
-      'END:VCALENDAR',
-      '',
-    ].join('\r\n');
-
-    const periodTag = `${isoDay(start)}_${isoDay(end)}`;
-    downloadTextFile(`planning_${periodTag}.ics`, content, 'text/calendar;charset=utf-8;');
-    toast.success('Export iCal généré.');
+      const periodTag = `${isoDay(start)}_${isoDay(end)}`;
+      const filename = `planning_${periodTag}.ics`;
+      downloadTextFile(filename, content, 'text/calendar;charset=utf-8;');
+      toast.success(`Export iCal généré (${visibleBookings.length} réservation(s)).`);
+    } catch {
+      toast.error('Échec de l’export iCal.');
+    } finally {
+      setExporting(null);
+    }
   };
 
   // Events per day per property
@@ -360,6 +378,8 @@ export default function PlanningPage() {
   const detailCleanings  = dayDetail ? getCleaningsForDay(dayDetail.date, dayDetail.propId) : [];
   const detailMaint      = dayDetail ? getMaintenanceForDay(dayDetail.date, dayDetail.propId) : [];
   const detailProp       = dayDetail ? properties.find(p => p.id === dayDetail.propId) : null;
+  const csvDisabled = loading || exporting !== null || visibleBookings.length === 0;
+  const icsDisabled = loading || exporting !== null || visibleBookings.length === 0;
 
   return (
     <div className={`flex h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -427,15 +447,19 @@ export default function PlanningPage() {
           </button>
           <button
             onClick={exportCsv}
-            className={`px-3 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-1.5 border ${isDark ? 'bg-white/5 border-white/10 text-gray-200 hover:bg-white/10' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+            disabled={csvDisabled}
+            title={visibleBookings.length === 0 ? 'Aucune réservation visible à exporter' : 'Exporter en CSV'}
+            className={`px-3 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-1.5 border disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'bg-white/5 border-white/10 text-gray-200 hover:bg-white/10' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
           >
-            <Download size={14} /> CSV
+            {exporting === 'csv' ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />} {exporting === 'csv' ? 'CSV…' : 'CSV'}
           </button>
           <button
             onClick={exportIcs}
-            className={`px-3 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-1.5 border ${isDark ? 'bg-white/5 border-white/10 text-gray-200 hover:bg-white/10' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+            disabled={icsDisabled}
+            title={visibleBookings.length === 0 ? 'Aucune réservation visible à exporter' : 'Exporter en iCal (.ics)'}
+            className={`px-3 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-1.5 border disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'bg-white/5 border-white/10 text-gray-200 hover:bg-white/10' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
           >
-            <Calendar size={14} /> iCal
+            {exporting === 'ics' ? <RefreshCw size={14} className="animate-spin" /> : <Calendar size={14} />} {exporting === 'ics' ? 'iCal…' : 'iCal'}
           </button>
           <button
             onClick={() => toast.info('Création rapide d\'événement bientôt disponible')}
