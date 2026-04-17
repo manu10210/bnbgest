@@ -13,6 +13,7 @@ import {
   ChevronDown, ChevronUp, Download, Search, Calendar,
   Users, DollarSign, Home, Zap, Filter, Info, Sparkles, DownloadCloud, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import NewPropertyWizard, {
   analyzeAirbnbTitle,
   findNewPropertyNames,
@@ -247,7 +248,7 @@ function parseDateRangeFromSubject(subject?: string, receivedAt?: string): { che
     const outMonth = Number.parseInt(numericRange[5], 10) - 1;
     let outYear = parseYear(numericRange[6]);
 
-    let inDate = new Date(Date.UTC(inYear, inMonth, inDay));
+  const inDate = new Date(Date.UTC(inYear, inMonth, inDay));
     let outDate = new Date(Date.UTC(outYear, outMonth, outDay));
     if (!numericRange[6] && outDate.getTime() <= inDate.getTime()) {
       outYear += 1;
@@ -978,6 +979,7 @@ export default function GmailImporter() {
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
   const [gmailEmail, setGmailEmail] = useState<string>('');
   const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; skippedDuplicate: number; skippedNoProperty: number; tasksCreated: number; reviewsImported: number ; payoutsSaved: number; expensesCreated: number} | null>(null);
+  const [isExportingRejected, setIsExportingRejected] = useState(false);
   const [purgeResult, setPurgeResult] = useState<{ bookings: number; guests: number } | null>(null);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
@@ -1030,7 +1032,7 @@ export default function GmailImporter() {
     setQualityReport(null);
     setRejectedBookings([]);
     setActiveRejectReason('all');
-  setImportTrace([]);
+    setImportTrace([]);
       
     setImported([]);
     setImportSummary(null);
@@ -1176,38 +1178,45 @@ export default function GmailImporter() {
     }
   }, [existingBookings, properties]);
 
-  const exportRejectedAsCsv = useCallback(() => {
+  const exportRejectedAsCsv = useCallback(async () => {
     if (rejectedBookings.length === 0) return;
+    setIsExportingRejected(true);
+    try {
+      const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+      const header = [
+        'messageId', 'receivedAt', 'bookingType', 'confidence', 'confirmationCode',
+        'guestName', 'propertyName', 'subject', 'reasons', 'classificationSource', 'classificationRuleId', 'parserPatternVersion',
+      ];
+      const rows = rejectedBookings.map(({ booking, reasons }) => ([
+        booking.messageId || '',
+        booking.receivedAt || '',
+        booking.bookingType || '',
+        String(booking.confidence ?? ''),
+        booking.confirmationCode || '',
+        booking.guestName || '',
+        booking.propertyName || '',
+        booking.subject || '',
+        reasons.join('|'),
+        booking.classificationSource || '',
+        booking.classificationRuleId || '',
+        booking.parserPatternVersion || '',
+      ].map(v => escapeCsv(v)).join(',')));
 
-    const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
-    const header = [
-      'messageId', 'receivedAt', 'bookingType', 'confidence', 'confirmationCode',
-      'guestName', 'propertyName', 'subject', 'reasons', 'classificationSource', 'classificationRuleId', 'parserPatternVersion',
-    ];
-    const rows = rejectedBookings.map(({ booking, reasons }) => ([
-      booking.messageId || '',
-      booking.receivedAt || '',
-      booking.bookingType || '',
-      String(booking.confidence ?? ''),
-      booking.confirmationCode || '',
-      booking.guestName || '',
-      booking.propertyName || '',
-      booking.subject || '',
-      reasons.join('|'),
-      booking.classificationSource || '',
-      booking.classificationRuleId || '',
-      booking.parserPatternVersion || '',
-    ].map(v => escapeCsv(v)).join(',')));
-
-    const csv = [header.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const dateTag = new Date().toISOString().slice(0, 10);
-    link.href = url;
-    link.download = `gmail-quality-rejected-${dateTag}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+      const csv = [header.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const dateTag = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `gmail-quality-rejected-${dateTag}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Export des rejets généré (${rejectedBookings.length} email(s)).`);
+    } catch {
+      toast.error('Échec de l’export des rejets CSV.');
+    } finally {
+      setIsExportingRejected(false);
+    }
   }, [rejectedBookings]);
 
   // ─── Notification email (fire-and-forget, côté serveur) ─────────────────
@@ -2244,14 +2253,16 @@ export default function GmailImporter() {
             {qualityReport.rejected > 0 && (
               <button
                 onClick={exportRejectedAsCsv}
+                disabled={isExportingRejected}
+                title={isExportingRejected ? 'Export en cours…' : 'Exporter les emails rejetés en CSV'}
                 className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                   isDark
-                    ? 'border-amber-700 text-amber-300 hover:bg-amber-900/30'
-                    : 'border-amber-300 text-amber-700 hover:bg-amber-50'
+                    ? 'border-amber-700 text-amber-300 hover:bg-amber-900/30 disabled:opacity-60 disabled:cursor-not-allowed'
+                    : 'border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-60 disabled:cursor-not-allowed'
                 }`}
               >
-                <Database className="w-3.5 h-3.5" />
-                Export rejets CSV
+                {isExportingRejected ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
+                {isExportingRejected ? 'Export…' : 'Export rejets CSV'}
               </button>
             )}
           </div>
