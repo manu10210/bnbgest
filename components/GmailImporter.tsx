@@ -2259,6 +2259,28 @@ export default function GmailImporter() {
     return { label: 'faible', level: 'low' };
   };
 
+  const formatWarningLabel = (warning: string): string => {
+    if (warning.startsWith('property_inferred_from_context:')) {
+      const inferredName = warning.split(':').slice(1).join(':').trim();
+      return `Logement déduit du contexte${inferredName ? `: ${inferredName}` : ''}`;
+    }
+
+    const map: Record<string, string> = {
+      date_range_inferred_precisely_from_subject: 'Dates de séjour déduites précisément du sujet',
+      date_range_inferred_from_subject: 'Dates de séjour déduites du sujet',
+      checkout_inferred_from_nights: 'Date de départ calculée à partir du nombre de nuits',
+      property_inferred_from_subject: 'Logement déduit depuis le sujet',
+      property_inferred_single_property_fallback: 'Logement affecté automatiquement (mode mono-logement)',
+      guest_name_inferred_from_subject: 'Nom du voyageur déduit du sujet',
+      review_context_inferred: 'Informations d’avis enrichies depuis le contexte',
+      logement_introuvable: 'Logement introuvable',
+      property_not_found: 'Logement introuvable',
+      missing_property: 'Logement manquant',
+    };
+
+    return map[warning] || warning;
+  };
+
   // ─── Avancer dans la file de nouveaux logements ───────────────────────────
 
   const advanceQueue = useCallback(() => {
@@ -2879,6 +2901,11 @@ export default function GmailImporter() {
                     properties.length > 0 &&
                     !!booking.propertyName &&
                     !matchedProperty;
+                  const propertyWarningPattern = /logement introuvable|property_not_found|missing_property/i;
+                  const displayWarnings = (booking.warnings || []).filter((warning) => {
+                    if (!propertyWarningPattern.test(warning)) return true;
+                    return !showUnmatchedPropertyWarning;
+                  });
                   return (
                     <div key={booking.messageId} className={`rounded-xl border-2 transition-all ${isImp ? cardImported : isSel ? cardSelected : card}`}>
                       <div className="p-4">
@@ -2908,16 +2935,16 @@ export default function GmailImporter() {
 
                             <div className={`flex flex-wrap gap-4 mt-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                               {/* Dates — masquées pour les versements (pas de dates séjour) */}
-                                                            {booking.warnings && booking.warnings.length > 0 && (
+                                                            {displayWarnings.length > 0 && (
                                 <div className={`w-full mt-3 p-2.5 rounded-lg border text-xs flex flex-col gap-1 ${isDark ? 'border-amber-700/30 bg-amber-900/10 text-amber-300' : 'border-amber-200/60 bg-amber-50 text-amber-700'}`}>
-                                  {booking.warnings.map((w, idx) => (
+                                  {displayWarnings.map((w, idx) => (
                                     (() => {
                                       const isContextInferredWarning = w.startsWith('property_inferred_from_context:');
                                       const inferredPropertyName = isContextInferredWarning ? w.split(':').slice(1).join(':').trim() : '';
                                       const confidence = isContextInferredWarning ? getContextInferenceConfidence(booking) : undefined;
                                       const warningLabel = isContextInferredWarning
                                         ? `property_inferred_from_context:${inferredPropertyName}`
-                                        : w;
+                                        : formatWarningLabel(w);
 
                                       const confidenceClass = confidence?.level === 'high'
                                         ? (isDark ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/60' : 'bg-emerald-100 text-emerald-700 border border-emerald-300')
