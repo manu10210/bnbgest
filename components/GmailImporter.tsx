@@ -4,7 +4,7 @@
  * 📧 GmailImporter — Importation automatique des réservations Airbnb depuis Gmail
  */
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -679,7 +679,14 @@ const PROPERTY_ALIASES: Record<string, string> = {
   'maison de ville':                               'Maisonnette T2 quartier calme',
   'maison de ville avec terrasse':                 'Maisonnette T2 quartier calme',
   'petite terrasse couverte':                      'Maisonnette T2 quartier calme',
+  'maisonette t2 quartier calme':                  'Maisonnette T2 quartier calme',
   'maisonnette t2 quartier calme':                 'Maisonnette T2 quartier calme',
+  'maisonette t2':                                 'Maisonnette T2 quartier calme',
+  'maisonnette t2':                                'Maisonnette T2 quartier calme',
+  'maisonette quartier calme':                     'Maisonnette T2 quartier calme',
+  'maisonnette quartier calme':                    'Maisonnette T2 quartier calme',
+  'maisonettet2quartiercalme':                     'Maisonnette T2 quartier calme',
+  'maisonnettet2quartiercalme':                    'Maisonnette T2 quartier calme',
   // ── Maison T3/Climatisée/ terrasse privée ─────────────────────────────────
   'maison t3 climatisee terrasse privee':          'Maison T3/Climatisée/ terrasse privée',
   'maison t3':                                     'Maison T3/Climatisée/ terrasse privée',
@@ -687,6 +694,21 @@ const PROPERTY_ALIASES: Record<string, string> = {
   'maison avec terrasse privee':                   'Maison T3/Climatisée/ terrasse privée',
   't3 climatise terrasse privee':                  'Maison T3/Climatisée/ terrasse privée',
 };
+
+const PROPERTY_ALIAS_STORAGE_KEY = 'bnbgest.gmail.property-aliases.v1';
+const EXPERT_MODE_STORAGE_KEY = 'bnbgest.gmail.expert-mode.v1';
+let RUNTIME_PROPERTY_ALIASES: Record<string, string> = {};
+
+function setRuntimePropertyAliases(nextAliases: Record<string, string>) {
+  RUNTIME_PROPERTY_ALIASES = { ...nextAliases };
+}
+
+function getMergedPropertyAliases(): Record<string, string> {
+  return {
+    ...PROPERTY_ALIASES,
+    ...RUNTIME_PROPERTY_ALIASES,
+  };
+}
 
 function normalizeForMatch(s: string): string {
   return s.toLowerCase().trim()
@@ -727,6 +749,42 @@ function sanitizePropertyLabel(input: string): string {
     value = value.replace(pattern, ' ');
   }
   return value.replace(/\s{2,}/g, ' ').trim();
+}
+
+function resolvePropertyAliasTarget(rawLabel: string): string | undefined {
+  const aliases = getMergedPropertyAliases();
+  const normalized = normalizeForMatch(rawLabel);
+  const sanitized = sanitizePropertyLabel(rawLabel);
+  const compactNormalized = normalized.replace(/\s+/g, '');
+  const compactSanitized = sanitized.replace(/\s+/g, '');
+  const candidates = Array.from(new Set([
+    rawLabel.toLowerCase().trim(),
+    normalized,
+    sanitized,
+    compactNormalized,
+    compactSanitized,
+  ].filter(Boolean)));
+
+  for (const candidate of candidates) {
+    const target = aliases[candidate];
+    if (target) return target;
+  }
+
+  if (!sanitized || sanitized.length < 5) return undefined;
+  const ranked = Object.entries(aliases)
+    .map(([alias, target]) => ({
+      target,
+      score: tokenOverlapScore(sanitized, sanitizePropertyLabel(alias) || alias),
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  const best = ranked[0];
+  const second = ranked[1];
+  if (!best) return undefined;
+  if (best.score >= 90) return best.target;
+  if (best.score >= 80 && best.score - (second?.score ?? 0) >= 12) return best.target;
+
+  return undefined;
 }
 
 function tokenizePropertyLabel(input: string): string[] {
@@ -806,7 +864,7 @@ function propertyMatchScore(emailName: string, propName: string, hints: string[]
   if (!e || !p) return 0;
 
   // ── Vérifier les aliases en priorité ─────────────────────────────────────
-  const aliasTarget = PROPERTY_ALIASES[e] ?? PROPERTY_ALIASES[emailName.toLowerCase().trim()];
+  const aliasTarget = resolvePropertyAliasTarget(emailName);
   if (aliasTarget && normalizeForMatch(aliasTarget) === p) return 95;
 
   // Correspondance exacte
@@ -860,6 +918,13 @@ function findMatchingProperty<T extends { name: string; city?: string; address?:
   fallback?: T
 ): T | undefined {
   if (!emailPropertyName?.trim()) return fallback;
+
+  const aliasTarget = resolvePropertyAliasTarget(emailPropertyName);
+  if (aliasTarget) {
+    const aliasMatchedProperty = properties.find((p) => normalizeForMatch(p.name) === normalizeForMatch(aliasTarget));
+    if (aliasMatchedProperty) return aliasMatchedProperty;
+  }
+
   let best: T | undefined;
   let bestScore = 0;
   let secondBest = 0;
@@ -888,6 +953,14 @@ function findBestPropertyCandidate<T extends { name: string; city?: string; addr
 ): { property?: T; score: number; ambiguous: boolean; secondScore: number } {
   if (!emailPropertyName?.trim() || properties.length === 0) {
     return { property: undefined, score: 0, ambiguous: false, secondScore: 0 };
+  }
+
+  const aliasTarget = resolvePropertyAliasTarget(emailPropertyName);
+  if (aliasTarget) {
+    const aliasMatchedProperty = properties.find((p) => normalizeForMatch(p.name) === normalizeForMatch(aliasTarget));
+    if (aliasMatchedProperty) {
+      return { property: aliasMatchedProperty, score: 98, ambiguous: false, secondScore: 0 };
+    }
   }
 
   let best: T | undefined;
@@ -1039,7 +1112,7 @@ export default function GmailImporter() {
   const [imported, setImported] = useState<string[]>([]);
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
   const [gmailEmail, setGmailEmail] = useState<string>('');
-  const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; skippedDuplicate: number; skippedNoProperty: number; tasksCreated: number; reviewsImported: number ; payoutsSaved: number; expensesCreated: number} | null>(null);
+  const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; skippedDuplicate: number; skippedNoProperty: number; tasksCreated: number; reviewsImported: number ; payoutsSaved: number; expensesCreated: number; rescuedAggressive: number; rescuedSingleProperty: number } | null>(null);
   const [isExportingRejected, setIsExportingRejected] = useState(false);
   const [purgeResult, setPurgeResult] = useState<{ bookings: number; guests: number } | null>(null);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
@@ -1048,7 +1121,62 @@ export default function GmailImporter() {
   const [activeRejectReason, setActiveRejectReason] = useState<string>('all');
   const [importTrace, setImportTrace] = useState<ImportTraceEntry[]>([]);
   const [propertyOverrides, setPropertyOverrides] = useState<Record<string, number>>({});
+  const [learnedPropertyAliases, setLearnedPropertyAliases] = useState<Record<string, string>>({});
+  const [showAliasManager, setShowAliasManager] = useState(false);
+  const [expertModeAggressive, setExpertModeAggressive] = useState(true);
   const scanInFlightRef = useRef(false);
+  const aliasImportInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(EXPERT_MODE_STORAGE_KEY);
+      if (!raw) return;
+      setExpertModeAggressive(raw === '1');
+    } catch {
+      // Ignore localStorage issues
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(EXPERT_MODE_STORAGE_KEY, expertModeAggressive ? '1' : '0');
+    } catch {
+      // Ignore localStorage issues
+    }
+  }, [expertModeAggressive]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PROPERTY_ALIAS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== 'object') return;
+      const safeAliases = Object.entries(parsed as Record<string, unknown>).reduce<Record<string, string>>((acc, [k, v]) => {
+        if (typeof k !== 'string' || typeof v !== 'string') return acc;
+        const key = k.trim();
+        const value = v.trim();
+        if (!key || !value) return acc;
+        acc[key] = value;
+        return acc;
+      }, {});
+      setLearnedPropertyAliases(safeAliases);
+    } catch {
+      // Ignore silently invalid local storage payload
+    }
+  }, []);
+
+  useEffect(() => {
+    setRuntimePropertyAliases(learnedPropertyAliases);
+    return () => setRuntimePropertyAliases({});
+  }, [learnedPropertyAliases]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PROPERTY_ALIAS_STORAGE_KEY, JSON.stringify(learnedPropertyAliases));
+    } catch {
+      // Storage full/private mode: non bloquant
+    }
+  }, [learnedPropertyAliases]);
 
   // ── Détection nouveaux logements ──────────────────────────────────────────
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
@@ -1313,7 +1441,7 @@ export default function GmailImporter() {
   setStatus('importing');
     const toImport = bookings.filter(b => selected.has(b.messageId));
     const defaultProperty = properties[0];
-    const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0 };
+  const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0, rescuedAggressive: 0, rescuedSingleProperty: 0 };
     const localGuests = [...guests];
     const localBookings = [...existingBookings];
     const trace: ImportTraceEntry[] = [];
@@ -1357,6 +1485,7 @@ export default function GmailImporter() {
       const useFallback = b.bookingType !== 'payout' && b.bookingType !== 'review';
       const hasDetectedPropertyName = !!b.propertyName?.trim();
       const overridePropertyId = propertyOverrides[b.messageId];
+      const aliasTarget = hasDetectedPropertyName ? resolvePropertyAliasTarget(b.propertyName || '') : undefined;
       let property = overridePropertyId
         ? properties.find((p) => p.id === overridePropertyId)
         : findMatchingProperty(b.propertyName, properties);
@@ -1369,6 +1498,19 @@ export default function GmailImporter() {
           status: 'success',
           action: 'property_override_applied',
           reason: `property_id:${overridePropertyId}`,
+          receivedAt: b.receivedAt,
+        });
+      }
+
+      if (!overridePropertyId && property && aliasTarget && normalizeForMatch(property.name) === normalizeForMatch(aliasTarget)) {
+        const aliasSource = (b.propertyName || '').trim();
+        pushTrace({
+          messageId: b.messageId,
+          bookingType: b.bookingType,
+          guestName: b.guestName || '—',
+          status: 'success',
+          action: 'property_alias_autofix',
+          reason: `alias_match:${aliasSource}=>${property.name}`,
           receivedAt: b.receivedAt,
         });
       }
@@ -1391,8 +1533,49 @@ export default function GmailImporter() {
         }
       }
 
+      // Mode expert agressif : si le matching standard échoue, tenter un rattachement
+      // avec un seuil plus permissif mais contrôlé (score + ambiguïté).
+      if (!property && expertModeAggressive && hasDetectedPropertyName && useFallback && b.propertyName) {
+        const aggressiveCandidate = findBestPropertyCandidate(b.propertyName, properties);
+        const scoreGap = aggressiveCandidate.score - aggressiveCandidate.secondScore;
+        const hasStrongConfidence = aggressiveCandidate.score >= 40;
+        const hasSafeLead = aggressiveCandidate.score >= 30 && !aggressiveCandidate.ambiguous && scoreGap >= 10;
+
+        if (aggressiveCandidate.property && (hasStrongConfidence || hasSafeLead)) {
+          property = aggressiveCandidate.property;
+          summary.rescuedAggressive++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'success',
+            action: 'property_aggressive_autofix',
+            reason: `aggressive_match_score:${aggressiveCandidate.score}`,
+            receivedAt: b.receivedAt,
+          });
+        }
+      }
+
       if (!property && !hasDetectedPropertyName && useFallback) {
         property = defaultProperty;
+      }
+
+      // Cas extrême mono-logement: même avec un nom détecté imparfait, on force le
+      // rattachement pour éviter les imports bloqués.
+      if (!property && expertModeAggressive && hasDetectedPropertyName && useFallback && properties.length === 1) {
+        property = defaultProperty;
+        if (property) {
+          summary.rescuedSingleProperty++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'success',
+            action: 'property_single_property_force',
+            reason: `single_property_forced:${property.name}`,
+            receivedAt: b.receivedAt,
+          });
+        }
       }
 
       // ── 1b. Pour les avis (review) : retrouver le logement par recoupement ──
@@ -2171,7 +2354,7 @@ export default function GmailImporter() {
 
       setTimeout(() => setStatus('idle'), 2500);
       setStatus('done');
-  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides]);
+  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive]);
 
   // ─── Purge des données importées depuis Gmail ─────────────────────────────
   // Supprime TOUTES les réservations créées via l'import Gmail.
@@ -2203,6 +2386,124 @@ export default function GmailImporter() {
     return rejectedBookings.filter(r => r.reasons.includes(activeRejectReason));
   }, [rejectedBookings, activeRejectReason]);
 
+  const learnPropertyAlias = useCallback((rawPropertyLabel?: string, canonicalPropertyName?: string) => {
+    if (!rawPropertyLabel?.trim() || !canonicalPropertyName?.trim()) return;
+
+    const normalized = normalizeForMatch(rawPropertyLabel);
+    const sanitized = sanitizePropertyLabel(rawPropertyLabel);
+    const compactNormalized = normalized.replace(/\s+/g, '');
+    const compactSanitized = sanitized.replace(/\s+/g, '');
+    const keys = Array.from(new Set([
+      normalized,
+      sanitized,
+      compactNormalized.length >= 6 ? compactNormalized : '',
+      compactSanitized.length >= 6 ? compactSanitized : '',
+    ].filter(Boolean)));
+
+    if (keys.length === 0) return;
+
+    setLearnedPropertyAliases((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const key of keys) {
+        if (next[key] === canonicalPropertyName) continue;
+        next[key] = canonicalPropertyName;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, []);
+
+  const learnedAliasEntries = useMemo(() => {
+    return Object.entries(learnedPropertyAliases)
+      .sort((a, b) => {
+        const targetCompare = a[1].localeCompare(b[1], 'fr', { sensitivity: 'base' });
+        if (targetCompare !== 0) return targetCompare;
+        return a[0].localeCompare(b[0], 'fr', { sensitivity: 'base' });
+      });
+  }, [learnedPropertyAliases]);
+
+  const removeLearnedPropertyAlias = useCallback((aliasKey: string) => {
+    setLearnedPropertyAliases((prev) => {
+      if (!Object.prototype.hasOwnProperty.call(prev, aliasKey)) return prev;
+      const next = { ...prev };
+      delete next[aliasKey];
+      return next;
+    });
+  }, []);
+
+  const clearLearnedPropertyAliases = useCallback(() => {
+    if (learnedAliasEntries.length === 0) return;
+    setLearnedPropertyAliases({});
+    toast.success('Alias Gmail appris réinitialisés.');
+  }, [learnedAliasEntries.length]);
+
+  const exportLearnedPropertyAliases = useCallback(() => {
+    if (learnedAliasEntries.length === 0) {
+      toast.error('Aucun alias à exporter.');
+      return;
+    }
+
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      aliases: learnedPropertyAliases,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `gmail-property-aliases-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Export JSON généré (${learnedAliasEntries.length} alias).`);
+  }, [learnedAliasEntries.length, learnedPropertyAliases]);
+
+  const importLearnedPropertyAliases = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    try {
+      const raw = await file.text();
+      const parsed = JSON.parse(raw) as unknown;
+      const source = parsed && typeof parsed === 'object' && 'aliases' in parsed
+        ? (parsed as { aliases?: unknown }).aliases
+        : parsed;
+
+      if (!source || typeof source !== 'object') {
+        throw new Error('invalid_alias_format');
+      }
+
+      const normalizedEntries = Object.entries(source as Record<string, unknown>)
+        .filter(([, value]) => typeof value === 'string' && !!value.trim())
+        .map(([key, value]) => ({
+          key: normalizeForMatch(key),
+          value: (value as string).trim(),
+        }))
+        .filter((entry) => !!entry.key && !!entry.value);
+
+      if (normalizedEntries.length === 0) {
+        throw new Error('empty_alias_payload');
+      }
+
+      setLearnedPropertyAliases((prev) => {
+        const next = { ...prev };
+        for (const entry of normalizedEntries) {
+          next[entry.key] = entry.value;
+        }
+        return next;
+      });
+
+      toast.success(`${normalizedEntries.length} alias importé(s).`);
+    } catch {
+      toast.error('Import JSON invalide pour les alias Gmail.');
+    } finally {
+      input.value = '';
+    }
+  }, []);
+
   const unmatchedLabelCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const booking of bookings) {
@@ -2219,17 +2520,24 @@ export default function GmailImporter() {
   const applySuggestionToSimilarBookings = useCallback((booking: ParsedBooking, suggestedPropertyId: number) => {
     const targetLabel = normalizeForMatch(booking.propertyName || '');
     if (!targetLabel) return;
+    const suggestedProperty = properties.find((p) => p.id === suggestedPropertyId);
+    if (!suggestedProperty) return;
 
-    const similarMessageIds = bookings
+    const similarBookings = bookings
       .filter((candidate) => {
         if (candidate.bookingType === 'cancelled' || candidate.bookingType === 'payout') return false;
         if (!candidate.propertyName?.trim()) return false;
         if (findMatchingProperty(candidate.propertyName, properties)) return false;
         return normalizeForMatch(candidate.propertyName) === targetLabel;
-      })
-      .map((candidate) => candidate.messageId);
+      });
+
+    const similarMessageIds = similarBookings.map((candidate) => candidate.messageId);
 
     if (similarMessageIds.length === 0) return;
+
+    for (const candidate of similarBookings) {
+      learnPropertyAlias(candidate.propertyName, suggestedProperty.name);
+    }
 
     setPropertyOverrides((prev) => {
       const next = { ...prev };
@@ -2242,7 +2550,7 @@ export default function GmailImporter() {
     if (similarMessageIds.length > 1) {
       toast.success(`Suggestion appliquée à ${similarMessageIds.length} emails similaires.`);
     }
-  }, [bookings, properties]);
+  }, [bookings, properties, learnPropertyAlias]);
 
   const getContextInferenceConfidence = (booking: ParsedBooking): { label: 'élevée' | 'moyenne' | 'faible'; level: 'high' | 'medium' | 'low' } => {
     const hasConfirmationCode = !!booking.confirmationCode;
@@ -2279,6 +2587,100 @@ export default function GmailImporter() {
     };
 
     return map[warning] || warning;
+  };
+
+  const formatRejectReasonLabel = (reason: string): string => {
+    const map: Record<string, string> = {
+      missing_message_id: 'Message Gmail invalide (ID manquant)',
+      missing_subject: 'Sujet email manquant',
+      invalid_received_at: 'Date de réception invalide',
+      outside_2026_window: 'Hors période analysée (2026+)',
+      low_confidence: 'Confiance parser trop faible',
+      invalid_confirmation_code: 'Code de confirmation invalide',
+      missing_real_guest_name: 'Nom voyageur non fiable',
+      missing_guest_name: 'Nom voyageur manquant',
+      invalid_date_range: 'Dates de séjour invalides',
+      missing_price_or_confirmation_code: 'Prix ou code de réservation manquant',
+      review_without_rating_or_comment: 'Avis sans note ni commentaire exploitable',
+      payout_without_amount: 'Versement sans montant',
+      unsupported_booking_type: 'Type d’email non supporté',
+    };
+
+    return map[reason] || reason;
+  };
+
+  const formatImportTraceActionLabel = (action: string): string => {
+    const map: Record<string, string> = {
+      property_override_applied: 'Logement forcé appliqué',
+      property_alias_autofix: 'Logement rattaché via alias',
+      property_inferred_from_context: 'Logement déduit du contexte',
+      property_aggressive_autofix: 'Logement rattaché en mode expert',
+      property_single_property_force: 'Rattachement forcé (mono-logement)',
+      booking_created: 'Réservation créée',
+      booking_cancelled: 'Réservation annulée',
+      booking_updated: 'Réservation mise à jour',
+      booking_created_from_modified: 'Réservation créée depuis une modification',
+      booking_completed_checkout: 'Séjour marqué terminé (checkout)',
+      booking_enriched_from_reminder: 'Réservation enrichie depuis un rappel',
+      booking_created_from_reminder: 'Réservation créée depuis un rappel',
+      review_imported: 'Avis importé',
+      payout_attached_to_booking: 'Versement rattaché à une réservation',
+      payout_created_as_financial_booking: 'Versement créé en écriture financière',
+      skip_no_property: 'Import ignoré (logement introuvable)',
+      skip_duplicate: 'Import ignoré (doublon)',
+      cancel_not_found: 'Annulation ignorée (réservation introuvable)',
+      checkout_not_found: 'Checkout ignoré (réservation introuvable)',
+      payout_skipped: 'Versement ignoré',
+    };
+    return map[action] || action;
+  };
+
+  const formatImportTraceReasonLabel = (reason: string): string => {
+    if (reason.startsWith('alias_match:')) {
+      const payload = reason.slice('alias_match:'.length);
+      const [fromRaw, toRaw] = payload.split('=>');
+      const from = (fromRaw || '').trim();
+      const to = (toRaw || '').trim();
+      if (from && to) return `Alias appliqué : "${from}" → "${to}"`;
+      return 'Alias logement appliqué automatiquement';
+    }
+    if (reason.startsWith('property_id:')) {
+      return `ID logement appliqué (${reason.split(':')[1] || 'inconnu'})`;
+    }
+    if (reason.startsWith('property_name_unmatched_context_used:')) {
+      const name = reason.split(':').slice(1).join(':').trim();
+      return `Nom logement initial non reconnu, contexte utilisé${name ? ` (${name})` : ''}`;
+    }
+    if (reason.startsWith('property_missing_context_used:')) {
+      const name = reason.split(':').slice(1).join(':').trim();
+      return `Logement manquant, déduit via contexte${name ? ` (${name})` : ''}`;
+    }
+    if (reason.startsWith('aggressive_match_score:')) {
+      const score = reason.split(':')[1] || '0';
+      return `Matching expert appliqué (score ${score}%)`;
+    }
+    if (reason.startsWith('single_property_forced:')) {
+      const name = reason.split(':').slice(1).join(':').trim();
+      return `Affectation forcée (mode mono-logement)${name ? ` (${name})` : ''}`;
+    }
+
+    const map: Record<string, string> = {
+      no_matching_property: 'Aucun logement correspondant',
+      duplicate_confirmation_code: 'Doublon détecté via code de confirmation',
+      duplicate_dates_guest_property: 'Doublon détecté via dates + voyageur + logement',
+      no_matching_booking: 'Aucune réservation correspondante',
+      missing_payout_amount: 'Montant de versement absent',
+    };
+    return map[reason] || reason;
+  };
+
+  const formatImportTraceStatusLabel = (status: ImportTraceEntry['status']): string => {
+    const map: Record<ImportTraceEntry['status'], string> = {
+      success: 'Succès',
+      skipped: 'Ignoré',
+      error: 'Erreur',
+    };
+    return map[status] || status;
   };
 
   // ─── Avancer dans la file de nouveaux logements ───────────────────────────
@@ -2320,6 +2722,30 @@ export default function GmailImporter() {
   const newCount = bookings.filter(b => b.bookingType === 'new').length;
   // Sélectionnable : tout type
   const selectedNew = bookings.filter(b => selected.has(b.messageId)).length;
+
+  const importPerformance = useMemo(() => {
+    if (!importSummary || imported.length === 0) return null;
+
+    const processed = imported.length;
+    const rescuedTotal = importSummary.rescuedAggressive + importSummary.rescuedSingleProperty;
+    const noPropertySkips = importSummary.skippedNoProperty;
+    const successCount = Math.max(0, processed - noPropertySkips);
+    const successRate = processed > 0 ? Math.round((successCount / processed) * 100) : 0;
+    const rescueRate = processed > 0 ? Math.round((rescuedTotal / processed) * 100) : 0;
+
+    return {
+      processed,
+      successCount,
+      successRate,
+      rescuedTotal,
+      rescueRate,
+      aggressive: importSummary.rescuedAggressive,
+      single: importSummary.rescuedSingleProperty,
+      noPropertySkips,
+      successLevel: successRate >= 95 ? 'excellent' : successRate >= 80 ? 'warning' : 'critical',
+      rescueLevel: rescueRate <= 10 ? 'low' : rescueRate <= 25 ? 'medium' : 'high',
+    };
+  }, [importSummary, imported.length]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -2457,7 +2883,7 @@ export default function GmailImporter() {
                       }`}
                       title={reason}
                     >
-                      {reason} · {count}
+                      {formatRejectReasonLabel(reason)} · {count}
                     </button>
                   );
                 })}
@@ -2466,7 +2892,7 @@ export default function GmailImporter() {
               {qualityReport.rejected > 0 && (
                 <div className={`mt-3 rounded-lg border overflow-hidden ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <div className={`px-3 py-2 text-[11px] font-semibold ${isDark ? 'bg-gray-900/40 text-gray-300' : 'bg-gray-50 text-gray-600'}`}>
-                    Rejets filtrés ({filteredRejected.length}) — {activeRejectReason === 'all' ? 'toutes raisons' : activeRejectReason}
+                    Rejets filtrés ({filteredRejected.length}) — {activeRejectReason === 'all' ? 'toutes raisons' : formatRejectReasonLabel(activeRejectReason)}
                   </div>
                   <div className={`max-h-52 overflow-auto text-[11px] ${isDark ? 'bg-gray-800/40' : 'bg-white'}`}>
                     {filteredRejected.length === 0 ? (
@@ -2488,7 +2914,7 @@ export default function GmailImporter() {
                           <div className="mt-1 flex flex-wrap gap-1">
                             {reasons.map((reason) => (
                               <span key={`${booking.messageId}-${reason}`} className={`px-1.5 py-0.5 rounded ${isDark ? 'bg-amber-900/30 text-amber-300' : 'bg-amber-50 text-amber-700'}`}>
-                                {reason}
+                                {formatRejectReasonLabel(reason)}
                               </span>
                             ))}
                           </div>
@@ -2573,6 +2999,24 @@ export default function GmailImporter() {
               </button>
             )}
 
+            <button
+              type="button"
+              onClick={() => setExpertModeAggressive((prev) => !prev)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm border transition-colors ${
+                expertModeAggressive
+                  ? (isDark
+                    ? 'border-fuchsia-600 text-fuchsia-300 bg-fuchsia-900/20 hover:bg-fuchsia-900/35'
+                    : 'border-fuchsia-300 text-fuchsia-700 bg-fuchsia-50 hover:bg-fuchsia-100')
+                  : (isDark
+                    ? 'border-gray-600 text-gray-300 bg-gray-800 hover:bg-gray-700'
+                    : 'border-gray-300 text-gray-600 bg-white hover:bg-gray-50')
+              }`}
+              title="Active/désactive les rattachements logement agressifs"
+            >
+              <Zap className="w-4 h-4" />
+              Mode expert {expertModeAggressive ? 'ON' : 'OFF'}
+            </button>
+
             {/* ── Bouton PURGE (dev) ── */}
             {existingBookings.some(b => b.specialRequests?.includes('Importé depuis Gmail')) && (
               !showPurgeConfirm ? (
@@ -2606,6 +3050,105 @@ export default function GmailImporter() {
               )
             )}
           </div>
+
+          {(
+            <div className={`border rounded-xl p-3 ${isDark ? 'bg-violet-900/15 border-violet-700/60' : 'bg-violet-50 border-violet-200'}`}>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <div className={`text-sm font-semibold ${isDark ? 'text-violet-200' : 'text-violet-800'}`}>
+                    🧠 Alias Gmail appris ({learnedAliasEntries.length})
+                  </div>
+                  <div className={`text-[11px] mt-0.5 ${isDark ? 'text-violet-300/80' : 'text-violet-700/80'}`}>
+                    Mode expert agressif : <strong>{expertModeAggressive ? 'activé' : 'désactivé'}</strong>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={aliasImportInputRef}
+                    type="file"
+                    accept="application/json,.json"
+                    onChange={importLearnedPropertyAliases}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => aliasImportInputRef.current?.click()}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${
+                      isDark
+                        ? 'border-blue-600 text-blue-300 hover:bg-blue-900/30'
+                        : 'border-blue-300 text-blue-700 hover:bg-blue-100'
+                    }`}
+                  >
+                    Importer JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportLearnedPropertyAliases}
+                    disabled={learnedAliasEntries.length === 0}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isDark
+                        ? 'border-emerald-600 text-emerald-300 hover:bg-emerald-900/30'
+                        : 'border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                    }`}
+                  >
+                    Exporter JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAliasManager((prev) => !prev)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${
+                      isDark
+                        ? 'border-violet-600 text-violet-300 hover:bg-violet-900/30'
+                        : 'border-violet-300 text-violet-700 hover:bg-violet-100'
+                    }`}
+                  >
+                    {showAliasManager ? 'Masquer' : 'Gérer'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearLearnedPropertyAliases}
+                    disabled={learnedAliasEntries.length === 0}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isDark
+                        ? 'border-red-700 text-red-300 hover:bg-red-900/30'
+                        : 'border-red-300 text-red-700 hover:bg-red-100'
+                    }`}
+                  >
+                    Réinitialiser
+                  </button>
+                </div>
+              </div>
+
+              {showAliasManager && (
+                <div className={`mt-3 rounded-lg border overflow-hidden ${isDark ? 'border-violet-800/60 bg-gray-900/30' : 'border-violet-200 bg-white'}`}>
+                  <div className="max-h-48 overflow-auto text-[11px]">
+                    {learnedAliasEntries.map(([aliasKey, canonicalName]) => (
+                      <div
+                        key={`${aliasKey}-${canonicalName}`}
+                        className={`px-3 py-2 border-t first:border-t-0 flex items-center gap-2 ${isDark ? 'border-gray-700 text-gray-200' : 'border-gray-100 text-gray-700'}`}
+                      >
+                        <span className={`font-mono ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>{aliasKey}</span>
+                        <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>→</span>
+                        <span className="font-medium">{canonicalName}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeLearnedPropertyAlias(aliasKey)}
+                          className={`ml-auto px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+                            isDark
+                              ? 'border-gray-600 text-gray-300 hover:bg-gray-700/70'
+                              : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                          }`}
+                          title="Supprimer cet alias"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Résultat purge ── */}
           {purgeResult && (
@@ -2695,9 +3238,91 @@ export default function GmailImporter() {
       📉 {importSummary.expensesCreated} dépense{importSummary.expensesCreated > 1 ? 's' : ''} classée{importSummary.expensesCreated > 1 ? 's' : ''}
     </span>
   )}
+                {importSummary.rescuedAggressive > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-fuchsia-900/60 text-fuchsia-200' : 'bg-fuchsia-100 text-fuchsia-700'}`}>
+                    🧠 {importSummary.rescuedAggressive} rattachement{importSummary.rescuedAggressive > 1 ? 's' : ''} expert sauvé{importSummary.rescuedAggressive > 1 ? 's' : ''}
+                  </span>
+                )}
+                {importSummary.rescuedSingleProperty > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-orange-900/60 text-orange-200' : 'bg-orange-100 text-orange-700'}`}>
+                    🏡 {importSummary.rescuedSingleProperty} rattachement{importSummary.rescuedSingleProperty > 1 ? 's' : ''} forcé{importSummary.rescuedSingleProperty > 1 ? 's' : ''} (mono-logement)
+                  </span>
+                )}
 </div>
 </div>
           )}          {/* ── Nouveaux logements en attente de configuration ── */}
+
+          {importPerformance && (
+            <div className={`border rounded-xl p-4 ${isDark ? 'bg-fuchsia-900/15 border-fuchsia-700/60' : 'bg-fuchsia-50 border-fuchsia-200'}`}>
+              {(() => {
+                const successTone = importPerformance.successLevel === 'excellent'
+                  ? (isDark ? 'bg-green-800 text-green-200' : 'bg-green-100 text-green-700')
+                  : importPerformance.successLevel === 'warning'
+                    ? (isDark ? 'bg-amber-800 text-amber-200' : 'bg-amber-100 text-amber-700')
+                    : (isDark ? 'bg-red-900/70 text-red-200' : 'bg-red-100 text-red-700');
+                const successStatusLabel = importPerformance.successLevel === 'excellent'
+                  ? '🟢 Excellent'
+                  : importPerformance.successLevel === 'warning'
+                    ? '🟠 À surveiller'
+                    : '🔴 Critique';
+
+                const rescueTone = importPerformance.rescueLevel === 'low'
+                  ? (isDark ? 'bg-emerald-800 text-emerald-200' : 'bg-emerald-100 text-emerald-700')
+                  : importPerformance.rescueLevel === 'medium'
+                    ? (isDark ? 'bg-fuchsia-800 text-fuchsia-200' : 'bg-fuchsia-100 text-fuchsia-700')
+                    : (isDark ? 'bg-orange-800 text-orange-200' : 'bg-orange-100 text-orange-700');
+
+                return (
+                  <>
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <div className={`text-sm font-semibold ${isDark ? 'text-fuchsia-200' : 'text-fuchsia-800'}`}>
+                    📈 Performance import (session)
+                  </div>
+                  <div className={`text-xs mt-1 ${isDark ? 'text-fuchsia-300/90' : 'text-fuchsia-700/90'}`}>
+                    {importPerformance.successCount}/{importPerformance.processed} résolu{importPerformance.successCount > 1 ? 's' : ''} · {importPerformance.successRate}% de réussite
+                  </div>
+                </div>
+                <div className={`text-[11px] px-2 py-1 rounded-full font-semibold ${
+                  expertModeAggressive
+                    ? (isDark ? 'bg-fuchsia-800/60 text-fuchsia-100' : 'bg-fuchsia-100 text-fuchsia-700')
+                    : (isDark ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-600')
+                }`}>
+                  Mode expert {expertModeAggressive ? 'ON' : 'OFF'}
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <span className={`px-2 py-0.5 rounded-full font-medium ${successTone}`}>
+                  ✅ Taux de réussite: {importPerformance.successRate}%
+                </span>
+                <span className={`px-2 py-0.5 rounded-full font-medium ${successTone}`}>
+                  {successStatusLabel}
+                </span>
+                <span className={`px-2 py-0.5 rounded-full font-medium ${rescueTone}`}>
+                  🧠 Sauvetage expert: {importPerformance.rescueRate}% ({importPerformance.rescuedTotal})
+                </span>
+                {importPerformance.aggressive > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-purple-800 text-purple-200' : 'bg-purple-100 text-purple-700'}`}>
+                    ⚙️ Match agressif: {importPerformance.aggressive}
+                  </span>
+                )}
+                {importPerformance.single > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-orange-800 text-orange-200' : 'bg-orange-100 text-orange-700'}`}>
+                    🏡 Force mono-logement: {importPerformance.single}
+                  </span>
+                )}
+                {importPerformance.noPropertySkips > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-red-900/70 text-red-200' : 'bg-red-100 text-red-700'}`}>
+                    ⛔ Non résolus (logement): {importPerformance.noPropertySkips}
+                  </span>
+                )}
+              </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
 
           {importTrace.length > 0 && (
             <div className={`border rounded-xl ${isDark ? 'border-gray-700 bg-gray-800/40' : 'border-gray-200 bg-white'}`}>
@@ -2713,15 +3338,15 @@ export default function GmailImporter() {
                         : row.status === 'skipped'
                         ? (isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700')
                         : (isDark ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')
-                      }`}>{row.status}</span>
-                      <span className="font-medium">{row.action}</span>
-                      <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>{row.bookingType}</span>
+                      }`}>{formatImportTraceStatusLabel(row.status)}</span>
+                      <span className="font-medium">{formatImportTraceActionLabel(row.action)}</span>
+                      <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>{bookingTypeLabel[row.bookingType]?.label || row.bookingType}</span>
                       <span>{row.guestName}</span>
                       <span className={`ml-auto ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{fmt(row.receivedAt)}</span>
                     </div>
                     {row.reason && (
                       <div className={`mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                        raison: {row.reason}
+                        raison: {formatImportTraceReasonLabel(row.reason)}
                       </div>
                     )}
                   </div>
@@ -2902,10 +3527,21 @@ export default function GmailImporter() {
                     !!booking.propertyName &&
                     !matchedProperty;
                   const propertyWarningPattern = /logement introuvable|property_not_found|missing_property/i;
-                  const displayWarnings = (booking.warnings || []).filter((warning) => {
+                  const rawWarnings = booking.warnings || [];
+                  const hasDateRangeInference = rawWarnings.includes('date_range_inferred_precisely_from_subject') || rawWarnings.includes('date_range_inferred_from_subject');
+                  const displayWarnings = rawWarnings
+                    .filter((warning) => {
                     if (!propertyWarningPattern.test(warning)) return true;
                     return !showUnmatchedPropertyWarning;
-                  });
+                    })
+                    // Quand une plage de dates complète est déduite, le warning "checkout inferé depuis nights"
+                    // devient redondant visuellement pour l'utilisateur.
+                    .filter((warning) => !(warning === 'checkout_inferred_from_nights' && hasDateRangeInference))
+                    // Déduplication sur le libellé formaté pour éviter les répétitions de tags techniques.
+                    .filter((warning, index, list) => {
+                      const label = formatWarningLabel(warning);
+                      return list.findIndex((candidate) => formatWarningLabel(candidate) === label) === index;
+                    });
                   return (
                     <div key={booking.messageId} className={`rounded-xl border-2 transition-all ${isImp ? cardImported : isSel ? cardSelected : card}`}>
                       <div className="p-4">
@@ -2940,11 +3576,8 @@ export default function GmailImporter() {
                                   {displayWarnings.map((w, idx) => (
                                     (() => {
                                       const isContextInferredWarning = w.startsWith('property_inferred_from_context:');
-                                      const inferredPropertyName = isContextInferredWarning ? w.split(':').slice(1).join(':').trim() : '';
                                       const confidence = isContextInferredWarning ? getContextInferenceConfidence(booking) : undefined;
-                                      const warningLabel = isContextInferredWarning
-                                        ? `property_inferred_from_context:${inferredPropertyName}`
-                                        : formatWarningLabel(w);
+                                      const warningLabel = formatWarningLabel(w);
 
                                       const confidenceClass = confidence?.level === 'high'
                                         ? (isDark ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/60' : 'bg-emerald-100 text-emerald-700 border border-emerald-300')
@@ -3031,7 +3664,10 @@ export default function GmailImporter() {
                                     ) : (
                                       <button
                                         type="button"
-                                        onClick={() => setPropertyOverrides((prev) => ({ ...prev, [booking.messageId]: bestCandidate.property!.id }))}
+                                        onClick={() => {
+                                          setPropertyOverrides((prev) => ({ ...prev, [booking.messageId]: bestCandidate.property!.id }));
+                                          learnPropertyAlias(booking.propertyName, bestCandidate.property!.name);
+                                        }}
                                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors ${
                                           isDark
                                             ? 'border-violet-600 text-violet-300 hover:bg-violet-900/40'
