@@ -2203,6 +2203,62 @@ export default function GmailImporter() {
     return rejectedBookings.filter(r => r.reasons.includes(activeRejectReason));
   }, [rejectedBookings, activeRejectReason]);
 
+  const unmatchedLabelCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const booking of bookings) {
+      if (booking.bookingType === 'cancelled' || booking.bookingType === 'payout') continue;
+      if (!booking.propertyName?.trim()) continue;
+      if (findMatchingProperty(booking.propertyName, properties)) continue;
+      const key = normalizeForMatch(booking.propertyName);
+      if (!key) continue;
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+  }, [bookings, properties]);
+
+  const applySuggestionToSimilarBookings = useCallback((booking: ParsedBooking, suggestedPropertyId: number) => {
+    const targetLabel = normalizeForMatch(booking.propertyName || '');
+    if (!targetLabel) return;
+
+    const similarMessageIds = bookings
+      .filter((candidate) => {
+        if (candidate.bookingType === 'cancelled' || candidate.bookingType === 'payout') return false;
+        if (!candidate.propertyName?.trim()) return false;
+        if (findMatchingProperty(candidate.propertyName, properties)) return false;
+        return normalizeForMatch(candidate.propertyName) === targetLabel;
+      })
+      .map((candidate) => candidate.messageId);
+
+    if (similarMessageIds.length === 0) return;
+
+    setPropertyOverrides((prev) => {
+      const next = { ...prev };
+      for (const messageId of similarMessageIds) {
+        next[messageId] = suggestedPropertyId;
+      }
+      return next;
+    });
+
+    if (similarMessageIds.length > 1) {
+      toast.success(`Suggestion appliquée à ${similarMessageIds.length} emails similaires.`);
+    }
+  }, [bookings, properties]);
+
+  const getContextInferenceConfidence = (booking: ParsedBooking): { label: 'élevée' | 'moyenne' | 'faible'; level: 'high' | 'medium' | 'low' } => {
+    const hasConfirmationCode = !!booking.confirmationCode;
+    const hasReliableDates = isValidDateRange(booking.checkIn, booking.checkOut);
+    const hasNamedGuest = !!booking.guestName && !isPlaceholderGuestName(booking.guestName);
+
+    let score = 0;
+    if (hasConfirmationCode) score += 2;
+    if (hasReliableDates) score += 1;
+    if (hasNamedGuest) score += 1;
+
+    if (score >= 3) return { label: 'élevée', level: 'high' };
+    if (score >= 2) return { label: 'moyenne', level: 'medium' };
+    return { label: 'faible', level: 'low' };
+  };
+
   // ─── Avancer dans la file de nouveaux logements ───────────────────────────
 
   const advanceQueue = useCallback(() => {
@@ -2814,6 +2870,9 @@ export default function GmailImporter() {
                   const overrideProperty = overridePropertyId
                     ? properties.find((p) => p.id === overridePropertyId)
                     : undefined;
+                  const unmatchedLabelCount = booking.propertyName
+                    ? (unmatchedLabelCounts[normalizeForMatch(booking.propertyName)] || 0)
+                    : 0;
                   const showUnmatchedPropertyWarning =
                     booking.bookingType !== 'cancelled' &&
                     booking.bookingType !== 'payout' &&
@@ -2852,10 +2911,34 @@ export default function GmailImporter() {
                                                             {booking.warnings && booking.warnings.length > 0 && (
                                 <div className={`w-full mt-3 p-2.5 rounded-lg border text-xs flex flex-col gap-1 ${isDark ? 'border-amber-700/30 bg-amber-900/10 text-amber-300' : 'border-amber-200/60 bg-amber-50 text-amber-700'}`}>
                                   {booking.warnings.map((w, idx) => (
-                                    <div key={idx} className="flex flex-row items-start gap-1.5 leading-snug">
-                                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-[1.5px] opacity-80" />
-                                      <span className="font-medium mt-[1px]">{w}</span>
-                                    </div>
+                                    (() => {
+                                      const isContextInferredWarning = w.startsWith('property_inferred_from_context:');
+                                      const inferredPropertyName = isContextInferredWarning ? w.split(':').slice(1).join(':').trim() : '';
+                                      const confidence = isContextInferredWarning ? getContextInferenceConfidence(booking) : undefined;
+                                      const warningLabel = isContextInferredWarning
+                                        ? `property_inferred_from_context:${inferredPropertyName}`
+                                        : w;
+
+                                      const confidenceClass = confidence?.level === 'high'
+                                        ? (isDark ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/60' : 'bg-emerald-100 text-emerald-700 border border-emerald-300')
+                                        : confidence?.level === 'medium'
+                                        ? (isDark ? 'bg-amber-900/40 text-amber-300 border border-amber-700/60' : 'bg-amber-100 text-amber-700 border border-amber-300')
+                                        : (isDark ? 'bg-rose-900/40 text-rose-300 border border-rose-700/60' : 'bg-rose-100 text-rose-700 border border-rose-300');
+
+                                      return (
+                                        <div key={idx} className="flex flex-row items-start gap-1.5 leading-snug">
+                                          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-[1.5px] opacity-80" />
+                                          <div className="flex items-center gap-1.5 flex-wrap mt-[1px]">
+                                            <span className="font-medium">{warningLabel}</span>
+                                            {confidence && (
+                                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${confidenceClass}`}>
+                                                confiance {confidence.label}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })()
                                   ))}
                                 </div>
                               )}
@@ -2929,6 +3012,20 @@ export default function GmailImporter() {
                                         }`}
                                       >
                                         Utiliser cette suggestion
+                                      </button>
+                                    )}
+
+                                    {unmatchedLabelCount > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => applySuggestionToSimilarBookings(booking, bestCandidate.property!.id)}
+                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors ${
+                                          isDark
+                                            ? 'border-indigo-600 text-indigo-300 hover:bg-indigo-900/40'
+                                            : 'border-indigo-300 text-indigo-700 hover:bg-indigo-100'
+                                        }`}
+                                      >
+                                        Appliquer aux {unmatchedLabelCount} similaires
                                       </button>
                                     )}
 
