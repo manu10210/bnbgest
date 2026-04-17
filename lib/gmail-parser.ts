@@ -1268,10 +1268,50 @@ function extractGuestName(text: string, subject?: string): string {
   const normalizedText = stripInvisibleUnicode(text || '');
   const normalizedSubject = subject ? stripInvisibleUnicode(subject) : undefined;
 
+  const GUEST_PARTICLES = new Set([
+    'de', 'du', 'des', 'd', 'la', 'le', 'les', 'van', 'von', 'da', 'di', 'del', 'della', 'st', 'saint',
+  ]);
+
+  const GUEST_NAME_NOISE = /(?:airbnb|voyageur|guest|reservation|r[ée]servation|s[ée]jour|logement|annonce|versement|payout|check\s*in|check\s*out|arriv[ée]e?|d[ée]part|appartement|maisonnette|maisonette|quartier|calme|virement)/i;
+
+  const cleanGuestCandidate = (raw?: string): string | undefined => {
+    if (!raw) return undefined;
+    const cleaned = stripInvisibleUnicode(raw)
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/^[\s\-–—:;,.!?()\[\]{}"'“”‘’]+/g, '')
+      .replace(/[\s\-–—:;,.!?()\[\]{}"'“”‘’]+$/g, '')
+      .replace(/^(?:m\.?|mme\.?|mr\.?|mrs\.?|ms\.?)\s+/i, '')
+      .replace(/\s*\((?:\d+\s*(?:voyageurs?|guests?|personnes?)|airbnb[^)]*)\)\s*$/i, '')
+      .replace(/\s*[-–—|]\s*(?:arrive|part|check|arrival|departure).*/i, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    if (!cleaned || cleaned.length < 2 || cleaned.length > 60) return undefined;
+    return cleaned;
+  };
+
+  const isLikelyGuestName = (raw?: string): raw is string => {
+    const candidate = cleanGuestCandidate(raw);
+    if (!candidate) return false;
+    if (/\d/.test(candidate)) return false;
+    if (!/^[A-Za-zÀ-ÿ'’\-\s]+$/.test(candidate)) return false;
+    if (GUEST_NAME_NOISE.test(candidate)) return false;
+
+    const words = candidate
+      .split(/\s+/)
+      .map((word) => word.replace(/['’]/g, '').toLowerCase())
+      .filter(Boolean);
+
+    if (words.length < 1 || words.length > 4) return false;
+    const meaningfulWords = words.filter((word) => word.length >= 2 && !GUEST_PARTICLES.has(word));
+    if (meaningfulWords.length === 0) return false;
+
+    return true;
+  };
+
   // Regex de prénom/nom : commence par majuscule, peut avoir un nom de famille
   // Supporte les prénoms composés (Jean-Pierre), les accents, les tirets
   const NAME = `[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+)?`;
-  const NAME_RE = new RegExp(NAME);
 
   // ── 1. Depuis le SUJET (source la plus fiable) ────────────────────────────
   if (normalizedSubject) {
@@ -1292,6 +1332,8 @@ function extractGuestName(text: string, subject?: string): string {
   new RegExp(`r[eé]servation\\s+confirm[eé]e?\\s*[:\\-–]\\s*(${NAME})\\s+arrive`, 'iu'),
   // "Réservation confirmée pour Prénom Nom arrive ..."
   new RegExp(`r[eé]servation\\s+confirm[eé]e?\\s+pour\\s+(${NAME})\\s+arrive`, 'iu'),
+    // Variante tolérante (prénom en minuscules, apostrophes, particules)
+    /r[ée]servation\s+confirm[ée]e?\s*(?:[:\-–]\s*|pour\s+)([^,\n\r]{2,70})\s+arrive/i,
       // EN: "Prénom has booked your place"
       /^([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+has\s+(?:booked|reserved)/,
       // EN: "New reservation from Prénom"
@@ -1320,8 +1362,8 @@ function extractGuestName(text: string, subject?: string): string {
     for (const p of subjectPatterns) {
       const m = normalizedSubject.match(p);
       if (m) {
-        const name = stripInvisibleUnicode(m[1]).slice(0, 60);
-        if (name.length >= 2 && !/airbnb/i.test(name) && NAME_RE.test(name)) return name;
+        const name = cleanGuestCandidate(m[1]);
+        if (isLikelyGuestName(name)) return name;
       }
     }
   }
@@ -1341,6 +1383,8 @@ function extractGuestName(text: string, subject?: string): string {
     /nouveau\s+voyageur\s*[:\-]\s*([^\n\r<,]{2,60})/i,
     /invit[eé]\s*[:\-]\s*([^\n\r<,]{2,60})/i,
     /guest\s*[:\-]\s*([^\n\r<,]{2,60})/i,
+  /voyageur\s+principal\s*[:\-]\s*([^\n\r<,]{2,60})/i,
+  /guest\s+name\s*[:\-]\s*([^\n\r<,]{2,60})/i,
     /name\s*[:\-]\s*([^\n\r<,]{2,60})/i,
     // "réservation de Prénom"
     /r[eé]servation\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+)?)/i,
@@ -1357,14 +1401,8 @@ function extractGuestName(text: string, subject?: string): string {
   for (const p of bodyPatterns) {
     const m = normalizedText.match(p);
     if (m) {
-      const name = stripInvisibleUnicode(m[1].replace(/<[^>]*>/g, '')).slice(0, 60);
-      // Filtres anti-pollution: rejeter si ressemble à un payout, une phrase ou du bruit
-      if (name.length >= 2
-        && name.length <= 50
-        && !/airbnb/i.test(name)
-        && !/versement|payout|s[eé]jour|r[eé]servation|logement|annonce/i.test(name)
-        && NAME_RE.test(name)
-      ) return name;
+      const name = cleanGuestCandidate(m[1]);
+      if (isLikelyGuestName(name)) return name;
     }
   }
   return 'Voyageur Airbnb';
@@ -1601,13 +1639,18 @@ export function parseAirbnbEmail(
 
   // --- NOUVEAU: Extraction pro du JSON-LD Schema.org ---
   const jsonLdMatch = body.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i);
-  let jsonLdParsed: any = null;
+  let jsonLdParsed: unknown = null;
   if (jsonLdMatch && jsonLdMatch[1]) {
     try {
       jsonLdParsed = JSON.parse(jsonLdMatch[1]);
       // Parfois c'est un tableau de schemas
       if (Array.isArray(jsonLdParsed)) {
-        jsonLdParsed = jsonLdParsed.find((item: any) => item['@type'] === 'LodgingReservation' || item['@type'] === 'Reservation') || jsonLdParsed[0];
+        const schemaItem = jsonLdParsed.find((item: unknown) => {
+          if (!item || typeof item !== 'object') return false;
+          const typeValue = (item as { '@type'?: unknown })['@type'];
+          return typeValue === 'LodgingReservation' || typeValue === 'Reservation';
+        });
+        jsonLdParsed = schemaItem || jsonLdParsed[0];
       }
     } catch (e) {
       console.warn("Échec du parsing JSON-LD Airbnb:", e);
@@ -1984,21 +2027,34 @@ export function parseAirbnbEmail(
     if (confidence < 75) warnings.push('Parser incertain (confiance < 75%)');
 
   // --- NOUVEAU: Surcharge depuis le JSON-LD Schema.org ---
-  if (jsonLdParsed) {
-    if (jsonLdParsed.checkinTime && !checkIn) {
-      checkIn = jsonLdParsed.checkinTime.split('T')[0];
+  type JsonLdReservation = {
+    checkinTime?: string;
+    checkoutTime?: string;
+    totalPrice?: string | number;
+    lodgingUnit?: { name?: string };
+    underName?: { name?: string };
+  };
+
+  const jsonLdReservation: JsonLdReservation | undefined =
+    jsonLdParsed && typeof jsonLdParsed === 'object'
+      ? (jsonLdParsed as JsonLdReservation)
+      : undefined;
+
+  if (jsonLdReservation) {
+    if (jsonLdReservation.checkinTime && !checkIn) {
+      checkIn = jsonLdReservation.checkinTime.split('T')[0];
     }
-    if (jsonLdParsed.checkoutTime && !checkOut) {
-      checkOut = jsonLdParsed.checkoutTime.split('T')[0];
+    if (jsonLdReservation.checkoutTime && !checkOut) {
+      checkOut = jsonLdReservation.checkoutTime.split('T')[0];
     }
-    if (jsonLdParsed.totalPrice) {
-      price = parseFloat(jsonLdParsed.totalPrice);
+    if (jsonLdReservation.totalPrice !== undefined) {
+      price = parseFloat(String(jsonLdReservation.totalPrice));
     }
-    if (jsonLdParsed.lodgingUnit && jsonLdParsed.lodgingUnit.name) {
-      propertyNameExtracted = jsonLdParsed.lodgingUnit.name;
+    if (jsonLdReservation.lodgingUnit?.name) {
+      propertyNameExtracted = jsonLdReservation.lodgingUnit.name;
     }
-    if (jsonLdParsed.underName && jsonLdParsed.underName.name) {
-      guestNameExtracted = jsonLdParsed.underName.name;
+    if (jsonLdReservation.underName?.name) {
+      guestNameExtracted = jsonLdReservation.underName.name;
     }
   }
 
