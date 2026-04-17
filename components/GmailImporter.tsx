@@ -848,6 +848,33 @@ function findMatchingProperty<T extends { name: string; city?: string; address?:
   return undefined;
 }
 
+function findBestPropertyCandidate<T extends { name: string; city?: string; address?: string }>(
+  emailPropertyName: string | undefined,
+  properties: T[],
+): { property?: T; score: number; ambiguous: boolean; secondScore: number } {
+  if (!emailPropertyName?.trim() || properties.length === 0) {
+    return { property: undefined, score: 0, ambiguous: false, secondScore: 0 };
+  }
+
+  let best: T | undefined;
+  let bestScore = 0;
+  let secondBest = 0;
+
+  for (const p of properties) {
+    const score = propertyMatchScore(emailPropertyName, p.name, [p.city || '', p.address || '']);
+    if (score > bestScore) {
+      secondBest = bestScore;
+      best = p;
+      bestScore = score;
+    } else if (score > secondBest) {
+      secondBest = score;
+    }
+  }
+
+  const ambiguous = secondBest > 0 && bestScore - secondBest < 8;
+  return { property: best, score: bestScore, ambiguous, secondScore: secondBest };
+}
+
 const bookingTypeLabel: Record<ParsedBooking['bookingType'], { label: string; color: string }> = {
   new:       { label: 'Nouvelle',    color: 'bg-green-100 text-green-700' },
   cancelled: { label: 'Annulée',     color: 'bg-red-100 text-red-700' },
@@ -2723,6 +2750,18 @@ export default function GmailImporter() {
                   const isExp = expanded.has(booking.messageId);
                   const isImp = imported.includes(booking.messageId);
                   const typeInfo = bookingTypeLabel[booking.bookingType];
+                  const matchedProperty = booking.propertyName
+                    ? findMatchingProperty(booking.propertyName, properties)
+                    : undefined;
+                  const bestCandidate = !matchedProperty && booking.propertyName
+                    ? findBestPropertyCandidate(booking.propertyName, properties)
+                    : { property: undefined, score: 0, ambiguous: false, secondScore: 0 };
+                  const showUnmatchedPropertyWarning =
+                    booking.bookingType !== 'cancelled' &&
+                    booking.bookingType !== 'payout' &&
+                    properties.length > 0 &&
+                    !!booking.propertyName &&
+                    !matchedProperty;
                   return (
                     <div key={booking.messageId} className={`rounded-xl border-2 transition-all ${isImp ? cardImported : isSel ? cardSelected : card}`}>
                       <div className="p-4">
@@ -2795,10 +2834,19 @@ export default function GmailImporter() {
                               Email reçu le {fmt(booking.receivedAt)} • {booking.subject.slice(0, 80)}
                             </div>
                             {/* ── Avertissement : aucun logement correspondant (pas pour versements) ── */}
-                            {booking.bookingType !== 'cancelled' && booking.bookingType !== 'payout' && properties.length > 0 && booking.propertyName && !findMatchingProperty(booking.propertyName, properties) && (
+                            {showUnmatchedPropertyWarning && (
                               <div className={`mt-1 text-xs flex items-center gap-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
                                 <span>⚠️</span>
-                                <span>Logement &quot;{booking.propertyName.slice(0, 40)}&quot; non reconnu — cet email sera ignoré (pas de rattachement automatique risqué)</span>
+                                <span>
+                                  Logement détecté &quot;{booking.propertyName?.slice(0, 40)}&quot; non rattaché automatiquement.
+                                  {bestCandidate.property && bestCandidate.score >= 28 && (
+                                    <>
+                                      {' '}Suggestion: <strong>{bestCandidate.property.name}</strong> ({bestCandidate.score}%
+                                      {bestCandidate.ambiguous ? ', ambigu' : ''}).
+                                    </>
+                                  )}
+                                  {!bestCandidate.property || bestCandidate.score < 28 ? ' Aucune correspondance exploitable trouvée.' : ''}
+                                </span>
                               </div>
                             )}
                             {booking.bookingType !== 'cancelled' && properties.length === 0 && (
