@@ -1013,6 +1013,7 @@ export default function GmailImporter() {
   const [rejectedBookings, setRejectedBookings] = useState<RejectedBooking[]>([]);
   const [activeRejectReason, setActiveRejectReason] = useState<string>('all');
   const [importTrace, setImportTrace] = useState<ImportTraceEntry[]>([]);
+  const [propertyOverrides, setPropertyOverrides] = useState<Record<string, number>>({});
   const scanInFlightRef = useRef(false);
 
   // ── Détection nouveaux logements ──────────────────────────────────────────
@@ -1063,6 +1064,7 @@ export default function GmailImporter() {
     setRejectedBookings([]);
     setActiveRejectReason('all');
     setImportTrace([]);
+  setPropertyOverrides({});
       
     setImported([]);
     setImportSummary(null);
@@ -1320,7 +1322,22 @@ export default function GmailImporter() {
       //   Pour payout/review : logique spécifique ensuite.
       const useFallback = b.bookingType !== 'payout' && b.bookingType !== 'review';
       const hasDetectedPropertyName = !!b.propertyName?.trim();
-      let property = findMatchingProperty(b.propertyName, properties);
+      const overridePropertyId = propertyOverrides[b.messageId];
+      let property = overridePropertyId
+        ? properties.find((p) => p.id === overridePropertyId)
+        : findMatchingProperty(b.propertyName, properties);
+
+      if (overridePropertyId && property) {
+        pushTrace({
+          messageId: b.messageId,
+          bookingType: b.bookingType,
+          guestName: b.guestName || '—',
+          status: 'success',
+          action: 'property_override_applied',
+          reason: `property_id:${overridePropertyId}`,
+          receivedAt: b.receivedAt,
+        });
+      }
 
       if (!property) {
         const inferred = inferPropertyFromContext(b, properties, localBookings);
@@ -2118,7 +2135,7 @@ export default function GmailImporter() {
 
       setTimeout(() => setStatus('idle'), 2500);
       setStatus('done');
-    }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems]);
+  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides]);
 
   // ─── Purge des données importées depuis Gmail ─────────────────────────────
   // Supprime TOUTES les réservations créées via l'import Gmail.
@@ -2137,6 +2154,7 @@ export default function GmailImporter() {
     setRejectedBookings([]);
     setActiveRejectReason('all');
     setImportTrace([]);
+    setPropertyOverrides({});
   }, [purgeGmailImports]);
 
   const rejectReasonEntries = useMemo(() => {
@@ -2756,6 +2774,10 @@ export default function GmailImporter() {
                   const bestCandidate = !matchedProperty && booking.propertyName
                     ? findBestPropertyCandidate(booking.propertyName, properties)
                     : { property: undefined, score: 0, ambiguous: false, secondScore: 0 };
+                  const overridePropertyId = propertyOverrides[booking.messageId];
+                  const overrideProperty = overridePropertyId
+                    ? properties.find((p) => p.id === overridePropertyId)
+                    : undefined;
                   const showUnmatchedPropertyWarning =
                     booking.bookingType !== 'cancelled' &&
                     booking.bookingType !== 'payout' &&
@@ -2835,18 +2857,64 @@ export default function GmailImporter() {
                             </div>
                             {/* ── Avertissement : aucun logement correspondant (pas pour versements) ── */}
                             {showUnmatchedPropertyWarning && (
-                              <div className={`mt-1 text-xs flex items-center gap-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
-                                <span>⚠️</span>
-                                <span>
-                                  Logement détecté &quot;{booking.propertyName?.slice(0, 40)}&quot; non rattaché automatiquement.
-                                  {bestCandidate.property && bestCandidate.score >= 28 && (
-                                    <>
-                                      {' '}Suggestion: <strong>{bestCandidate.property.name}</strong> ({bestCandidate.score}%
-                                      {bestCandidate.ambiguous ? ', ambigu' : ''}).
-                                    </>
-                                  )}
-                                  {!bestCandidate.property || bestCandidate.score < 28 ? ' Aucune correspondance exploitable trouvée.' : ''}
-                                </span>
+                              <div className={`mt-1 text-xs rounded-lg border px-2.5 py-2 flex flex-col gap-2 ${
+                                isDark ? 'text-orange-300 border-orange-800/50 bg-orange-900/20' : 'text-orange-700 border-orange-200 bg-orange-50'
+                              }`}>
+                                <div className="flex items-start gap-1.5">
+                                  <span>⚠️</span>
+                                  <span>
+                                    Logement détecté &quot;{booking.propertyName?.slice(0, 40)}&quot; non rattaché automatiquement.
+                                    {bestCandidate.property && bestCandidate.score >= 28 && (
+                                      <>
+                                        {' '}Suggestion: <strong>{bestCandidate.property.name}</strong> ({bestCandidate.score}%
+                                        {bestCandidate.ambiguous ? ', ambigu' : ''}).
+                                      </>
+                                    )}
+                                    {!bestCandidate.property || bestCandidate.score < 28 ? ' Aucune correspondance exploitable trouvée.' : ''}
+                                  </span>
+                                </div>
+
+                                {bestCandidate.property && bestCandidate.score >= 28 && (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {overrideProperty ? (
+                                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                        isDark ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/60' : 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                      }`}>
+                                        ✅ Rattachement choisi: {overrideProperty.name}
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPropertyOverrides((prev) => ({ ...prev, [booking.messageId]: bestCandidate.property!.id }))}
+                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors ${
+                                          isDark
+                                            ? 'border-violet-600 text-violet-300 hover:bg-violet-900/40'
+                                            : 'border-violet-300 text-violet-700 hover:bg-violet-100'
+                                        }`}
+                                      >
+                                        Utiliser cette suggestion
+                                      </button>
+                                    )}
+
+                                    {overrideProperty && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPropertyOverrides((prev) => {
+                                          const next = { ...prev };
+                                          delete next[booking.messageId];
+                                          return next;
+                                        })}
+                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors ${
+                                          isDark
+                                            ? 'border-gray-600 text-gray-300 hover:bg-gray-700/70'
+                                            : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                      >
+                                        Annuler
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )}
                             {booking.bookingType !== 'cancelled' && properties.length === 0 && (
