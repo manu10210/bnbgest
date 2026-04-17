@@ -4,7 +4,7 @@
  * 📧 GmailImporter — Importation automatique des réservations Airbnb depuis Gmail
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -986,6 +986,7 @@ export default function GmailImporter() {
   const [rejectedBookings, setRejectedBookings] = useState<RejectedBooking[]>([]);
   const [activeRejectReason, setActiveRejectReason] = useState<string>('all');
   const [importTrace, setImportTrace] = useState<ImportTraceEntry[]>([]);
+  const scanInFlightRef = useRef(false);
 
   // ── Détection nouveaux logements ──────────────────────────────────────────
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
@@ -1024,6 +1025,8 @@ export default function GmailImporter() {
   // ─── Scanner les emails Airbnb ────────────────────────────────────────────
 
   const syncGmail = useCallback(async () => {
+    if (scanInFlightRef.current) return;
+    scanInFlightRef.current = true;
     setStatus('syncing');
     setError(null);
     setStats(null);
@@ -1175,6 +1178,8 @@ export default function GmailImporter() {
     } catch (e) {
       setError(String(e));
       setStatus('error');
+    } finally {
+      scanInFlightRef.current = false;
     }
   }, [existingBookings, properties]);
 
@@ -2393,10 +2398,12 @@ export default function GmailImporter() {
             )}
             <button
               onClick={syncGmail}
-              disabled={status === 'syncing' || status === 'checking'}
+              disabled={status === 'syncing' || status === 'checking' || status === 'importing'}
+              title={status === 'syncing' ? 'Scan Gmail en cours…' : 'Scanner les emails Airbnb'}
+              aria-busy={status === 'syncing'}
               className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl hover:from-red-600 hover:to-pink-600 font-semibold text-sm disabled:opacity-50 shadow-sm"
             >
-              {status === 'syncing' ? <><RefreshCw className="w-4 h-4 animate-spin" /> Analyse…</> : <><Search className="w-4 h-4" /> Scanner les emails Airbnb</>}
+              {status === 'syncing' ? <><RefreshCw className="w-4 h-4 animate-spin" /> Scan Gmail en cours…</> : <><Search className="w-4 h-4" /> Scanner les emails Airbnb</>}
             </button>
             {selectedNew > 0 && (
               <button
