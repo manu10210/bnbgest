@@ -427,7 +427,7 @@ function enrichBookingPropertyFromContext(
       propertyName: contextProperty.name,
       warnings: Array.from(new Set([
         ...cleanPropertyWarnings(booking.warnings || []),
-        'property_inferred_from_context',
+        `property_inferred_from_context:${contextProperty.name}`,
       ])),
     };
   }
@@ -468,6 +468,7 @@ function inferPropertyFromContext<T extends { id: number; name: string; city?: s
     checkOut: string;
     specialRequests?: string;
     guestInfo?: { name?: string };
+    status?: string;
   }>,
 ): T | undefined {
   if (!booking) return undefined;
@@ -480,20 +481,53 @@ function inferPropertyFromContext<T extends { id: number; name: string; city?: s
   const guest = booking.guestName?.trim().toLowerCase();
   if (guest) {
     const targetCheckInTs = isIsoDate(booking.checkIn) ? new Date(booking.checkIn as string).getTime() : Number.NaN;
+    const targetCheckOutTs = isIsoDate(booking.checkOut) ? new Date(booking.checkOut as string).getTime() : Number.NaN;
+
     const byGuest = existingBookings
       .filter(b => (b.guestInfo?.name || '').trim().toLowerCase() === guest)
-      .sort((a, z) => {
-        const aScore = Number.isNaN(targetCheckInTs)
-          ? 0
-          : Math.abs(new Date(a.checkIn).getTime() - targetCheckInTs);
-        const zScore = Number.isNaN(targetCheckInTs)
-          ? 0
-          : Math.abs(new Date(z.checkIn).getTime() - targetCheckInTs);
-        return aScore - zScore;
-      })[0];
+      .filter(b => b.status !== 'cancelled')
+      .map((b) => {
+        const property = properties.find(p => p.id === b.propertyId);
+        if (!property) return null;
 
-    if (byGuest) {
-      return properties.find(p => p.id === byGuest.propertyId);
+        let score = 0;
+
+        if (!Number.isNaN(targetCheckInTs) && isIsoDate(b.checkIn)) {
+          const diffDays = Math.abs(new Date(b.checkIn).getTime() - targetCheckInTs) / (1000 * 60 * 60 * 24);
+          if (diffDays <= 2) score += 48;
+          else if (diffDays <= 7) score += 32;
+          else if (diffDays <= 21) score += 16;
+        }
+
+        if (!Number.isNaN(targetCheckOutTs) && isIsoDate(b.checkOut)) {
+          const diffDays = Math.abs(new Date(b.checkOut).getTime() - targetCheckOutTs) / (1000 * 60 * 60 * 24);
+          if (diffDays <= 2) score += 24;
+          else if (diffDays <= 7) score += 14;
+        }
+
+        if (booking.propertyName?.trim()) {
+          const nameScore = propertyMatchScore(booking.propertyName, property.name, [property.city || '', property.address || '']);
+          score += Math.round(nameScore * 0.7);
+        }
+
+        if (booking.subject?.trim()) {
+          const subjectScore = propertyMatchScore(booking.subject, property.name, [property.city || '', property.address || '']);
+          score += Math.round(subjectScore * 0.35);
+        }
+
+        return { property, score };
+      })
+      .filter((entry): entry is { property: T; score: number } => !!entry)
+      .sort((a, z) => z.score - a.score);
+
+    const best = byGuest[0];
+    const second = byGuest[1];
+    if (best) {
+      const secondScore = second?.score ?? 0;
+      const hasClearLead = best.score - secondScore >= 10;
+      if (best.score >= 55 || (best.score >= 40 && hasClearLead)) {
+        return best.property;
+      }
     }
   }
 
@@ -1349,7 +1383,9 @@ export default function GmailImporter() {
             guestName: b.guestName || '—',
             status: 'success',
             action: 'property_inferred_from_context',
-            reason: hasDetectedPropertyName ? 'property_name_unmatched_context_used' : 'property_missing_context_used',
+            reason: hasDetectedPropertyName
+              ? `property_name_unmatched_context_used:${inferred.name}`
+              : `property_missing_context_used:${inferred.name}`,
             receivedAt: b.receivedAt,
           });
         }
