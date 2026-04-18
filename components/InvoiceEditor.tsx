@@ -494,6 +494,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Facture ${invoice.number} - BNBGest</title>
           ${styleAndLinks}
           <style>
             @page { size: A4; margin: 12mm; }
