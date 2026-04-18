@@ -2106,6 +2106,28 @@ export default function InvoiceEditor() {
             )}
           </div>
         </div>
+        {/* Toast overlay */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-2.5 rounded-2xl bg-emerald-500 text-white text-sm font-bold shadow-xl pointer-events-none">
+              {toast}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Preview modal */}
+        {preview && (
+          <PreviewModal invoice={preview} onClose={() => setPreview(null)}
+            properties={properties} bookings={bookings} />
+        )}
+
+        {/* Send modal */}
+        {sendModal && (
+          <SendModal invoice={sendModal} onClose={() => setSendModal(null)}
+            onSent={(note) => handleSent(sendModal.id, note)} />
+        )}
       </div>
     );
   }
