@@ -459,9 +459,85 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
   const isDuplicate = false; // future: detect re-sent
 
   const handlePrint = () => {
-    window.requestAnimationFrame(() => {
-      setTimeout(() => window.print(), 80);
-    });
+    const invoiceNode = document.getElementById('invoice-print');
+    if (!invoiceNode) {
+      console.error('[InvoiceEditor] PDF print aborted: #invoice-print not found.');
+      return;
+    }
+
+    const styleAndLinks = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((el) => el.outerHTML)
+      .join('\n');
+
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    document.body.appendChild(iframe);
+
+    const frameDoc = iframe.contentDocument;
+    if (!frameDoc) {
+      document.body.removeChild(iframe);
+      console.error('[InvoiceEditor] PDF print aborted: iframe document unavailable.');
+      return;
+    }
+
+    frameDoc.open();
+    frameDoc.write(`
+      <!doctype html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          ${styleAndLinks}
+          <style>
+            @page { size: A4; margin: 12mm; }
+            html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            #invoice-print { box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; }
+          </style>
+        </head>
+        <body>
+          ${invoiceNode.outerHTML}
+        </body>
+      </html>
+    `);
+    frameDoc.close();
+
+    const cleanup = () => {
+      window.setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 250);
+    };
+
+    iframe.onload = () => {
+      const frameWindow = iframe.contentWindow;
+      if (!frameWindow) {
+        cleanup();
+        console.error('[InvoiceEditor] PDF print aborted: iframe window unavailable.');
+        return;
+      }
+
+      const afterPrintHandler = () => {
+        frameWindow.removeEventListener('afterprint', afterPrintHandler);
+        cleanup();
+      };
+
+      frameWindow.addEventListener('afterprint', afterPrintHandler);
+
+      window.setTimeout(() => {
+        frameWindow.focus();
+        frameWindow.print();
+        window.setTimeout(cleanup, 3000);
+      }, 120);
+    };
   };
 
   // Layout-specific styles
