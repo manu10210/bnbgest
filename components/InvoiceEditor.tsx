@@ -458,7 +458,11 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
   const isCancelled = invoice.status === 'cancelled';
   const isDuplicate = false; // future: detect re-sent
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    window.requestAnimationFrame(() => {
+      setTimeout(() => window.print(), 80);
+    });
+  };
 
   // Layout-specific styles
   const layoutStyles = {
@@ -472,9 +476,33 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
       {/* Print-only CSS */}
       <style>{`
         @media print {
-          body > *:not(#invoice-print-root) { display: none !important; }
-          #invoice-print-root { position: fixed; inset: 0; z-index: 9999; background: white; }
-          #invoice-print { box-shadow: none !important; border-radius: 0 !important; }
+          html, body {
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          body * { visibility: hidden !important; }
+          #invoice-print-root, #invoice-print-root * { visibility: visible !important; }
+          #invoice-print-root {
+            position: static !important;
+            inset: auto !important;
+            z-index: auto !important;
+            display: block !important;
+            overflow: visible !important;
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            backdrop-filter: none !important;
+          }
+          #invoice-print-root > div {
+            width: 100% !important;
+            max-width: none !important;
+          }
+          #invoice-print {
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+          }
           .no-print { display: none !important; }
         }
       `}</style>
