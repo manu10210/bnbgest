@@ -485,11 +485,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
           <button onClick={onClose} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-colors">
             <X className="w-4 h-4" /> Fermer
           </button>
-          <div className="flex gap-2">
-            <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-sm transition-colors shadow-lg">
-              <Printer className="w-4 h-4" /> Imprimer / PDF
-            </button>
-          </div>
+          <div />
         </div>
 
         {/* A4 sheet */}
@@ -775,6 +771,13 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
             <span>{invoice.issuerName}{invoice.issuerSiret ? ` — SIRET ${invoice.issuerSiret}` : ''}</span>
             <span>{invoice.number} — {new Date(invoice.issueDate).toLocaleDateString('fr-FR')}</span>
           </div>
+        </div>
+
+        {/* Bottom print action */}
+        <div className="no-print mt-4 flex justify-center">
+          <button onClick={handlePrint} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm transition-colors shadow-lg">
+            <Printer className="w-4 h-4" /> Imprimer / PDF
+          </button>
         </div>
       </div>
     </div>
