@@ -478,7 +478,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
           .no-print { display: none !important; }
         }
       `}</style>
-    <div id="invoice-print-root" className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm p-4 py-8">
+  <div id="invoice-print-root" className="fixed inset-0 z-[500] flex items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm p-4 py-8">
       <div className="w-full max-w-3xl">
         {/* Toolbar */}
         <div className="no-print flex justify-between items-center mb-4">
