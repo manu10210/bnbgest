@@ -669,11 +669,21 @@ const PROPERTY_ALIASES: Record<string, string> = {
   'appart bleu relax':                             'APPARTEMENT BLEU RELAX',
   'appartement bleu':                              'APPARTEMENT BLEU RELAX',
   'bleu relax':                                    'APPARTEMENT BLEU RELAX',
+  'appartementbleurelax':                          'APPARTEMENT BLEU RELAX',
+  'appartbleurelax':                               'APPARTEMENT BLEU RELAX',
+  'bleurelax':                                     'APPARTEMENT BLEU RELAX',
+  'appartement bleu relaax':                       'APPARTEMENT BLEU RELAX',
+  'appartement bleu rlx':                          'APPARTEMENT BLEU RELAX',
   // ── APPARTEMENT LES CIGOGNES ──────────────────────────────────────────────
   'appartement les cigognes':                      'APPARTEMENT LES CIGOGNES',
   'appart les cigognes':                           'APPARTEMENT LES CIGOGNES',
   'les cigognes':                                  'APPARTEMENT LES CIGOGNES',
   'cigognes':                                      'APPARTEMENT LES CIGOGNES',
+  'appartementlescigognes':                        'APPARTEMENT LES CIGOGNES',
+  'appartlescigognes':                             'APPARTEMENT LES CIGOGNES',
+  'lescigognes':                                   'APPARTEMENT LES CIGOGNES',
+  'cigogne':                                       'APPARTEMENT LES CIGOGNES',
+  'appartement les cigogne':                       'APPARTEMENT LES CIGOGNES',
   // ── Maisonnette T2 quartier calme ─────────────────────────────────────────
   'maison de ville avec petite terrasse couverte': 'Maisonnette T2 quartier calme',
   'maison de ville':                               'Maisonnette T2 quartier calme',
@@ -693,6 +703,11 @@ const PROPERTY_ALIASES: Record<string, string> = {
   'maison climatisee terrasse privee':             'Maison T3/Climatisée/ terrasse privée',
   'maison avec terrasse privee':                   'Maison T3/Climatisée/ terrasse privée',
   't3 climatise terrasse privee':                  'Maison T3/Climatisée/ terrasse privée',
+  'maison t3 climatisée terrasse privée':          'Maison T3/Climatisée/ terrasse privée',
+  'maison t3 terrasse privee':                     'Maison T3/Climatisée/ terrasse privée',
+  'maisont3climatiseeterrasseprivee':              'Maison T3/Climatisée/ terrasse privée',
+  'maisont3terrasseprivee':                        'Maison T3/Climatisée/ terrasse privée',
+  't3 terrasse privee':                            'Maison T3/Climatisée/ terrasse privée',
 };
 
 const PROPERTY_ALIAS_STORAGE_KEY = 'bnbgest.gmail.property-aliases.v1';
