@@ -549,41 +549,9 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
 
   return (
     <>
-      {/* Print-only CSS */}
-      <style>{`
-        @media print {
-          html, body {
-            background: #fff !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          body * { visibility: hidden !important; }
-          #invoice-print-root, #invoice-print-root * { visibility: visible !important; }
-          #invoice-print-root {
-            position: static !important;
-            inset: auto !important;
-            z-index: auto !important;
-            display: block !important;
-            overflow: visible !important;
-            background: white !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            backdrop-filter: none !important;
-          }
-          #invoice-print-root > div {
-            width: 100% !important;
-            max-width: none !important;
-          }
-          #invoice-print {
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            margin: 0 !important;
-          }
-          .no-print { display: none !important; }
-        }
-      `}</style>
-  <div id="invoice-print-root" className="fixed inset-0 z-[500] flex items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm p-4 py-8">
-      <div className="w-full max-w-3xl">
+      {/* Print-only CSS (removed because iframe handles isolation) */}
+      <div id="invoice-print-root" className="fixed inset-0 z-[500] flex items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm p-4 py-8">
+        <div className="w-full max-w-3xl">
         {/* Toolbar */}
         <div className="no-print flex justify-between items-center mb-4">
           <button onClick={onClose} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-colors">
