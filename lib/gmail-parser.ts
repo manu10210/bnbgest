@@ -502,12 +502,13 @@ const BODY_FALLBACK_RULES: Array<{ id: string; type: BookingType; regex: RegExp 
 ];
 
 function matchSubjectClassification(subject: string): { type: BookingType; ruleId: string; regex: string } | null {
+  const normalizedSubject = normalizeForMatching(subject);
   for (const rule of SUBJECT_CLASSIFICATION_PRIORITY) {
     for (const group of rule.groups) {
       const patterns = SUBJECT_PATTERNS[group];
       for (let i = 0; i < patterns.length; i++) {
         const re = patterns[i];
-        if (re.test(subject)) {
+        if (re.test(subject) || re.test(normalizedSubject)) {
           return {
             type: rule.type,
             ruleId: `subject.${group}.${i + 1}`,
@@ -522,8 +523,9 @@ function matchSubjectClassification(subject: string): { type: BookingType; ruleI
 
 function matchBodyFallbackClassification(body: string): { type: BookingType; ruleId: string; regex: string } | null {
   const snippet = body.slice(0, 2000).toLowerCase();
+  const normalizedSnippet = normalizeForMatching(snippet).toLowerCase();
   for (const rule of BODY_FALLBACK_RULES) {
-    if (rule.regex.test(snippet)) {
+    if (rule.regex.test(snippet) || rule.regex.test(normalizedSnippet)) {
       return {
         type: rule.type,
         ruleId: rule.id,
@@ -532,6 +534,14 @@ function matchBodyFallbackClassification(body: string): { type: BookingType; rul
     }
   }
   return null;
+}
+
+function normalizeForMatching(input: string): string {
+  return input
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E]/g, '"');
 }
 
 // ─── Extracteurs de données ─────────────────────────────────────────────────
@@ -1330,7 +1340,10 @@ export function parseAirbnbEmail(
   if (!isAirbnbSender && !isAirbnbSubject) return null;
 
   // 1b. Ignorer les emails informatifs/maintenance/marketing — pas de réservation à importer
-  if (IGNORED_PATTERNS.some(p => p.test(subject))) return null;
+  const normalizedSubjectForIgnore = normalizeForMatching(subject);
+  const isLikelyPayoutSubject = SUBJECT_PATTERNS.payout.some((p) => p.test(subject) || p.test(normalizedSubjectForIgnore))
+    || /\b(?:versement|payout|virement)\b/i.test(normalizedSubjectForIgnore);
+  if (!isLikelyPayoutSubject && IGNORED_PATTERNS.some(p => p.test(subject))) return null;
 
   // 2. Déterminer le type de mail (moteur versionné + traces)
   // Hiérarchie explicite :
@@ -1355,16 +1368,33 @@ export function parseAirbnbEmail(
       classificationRuleId = bodyFallbackMatch.ruleId;
       classificationRegex = bodyFallbackMatch.regex;
     } else {
-      // Aucun type détecté ni depuis le sujet ni depuis le corps → ignorer
-      return null;
+      // Hard fallback payout : certains sujets Airbnb payout ont des variations Unicode
+      // ou de ponctuation qui peuvent rater les regex de classification standard.
+      const payoutSignalText = `${normalizeForMatching(subject)} ${normalizeForMatching(body.slice(0, 1200))}`;
+      const hasPayoutKeyword = /\b(?:versement|payout|virement|r[eé]mun[eé]ration)\b/i.test(payoutSignalText);
+      const hasMoneySignal = /(?:[€$£]|\b\d{1,4}[\s\u00a0\u202f]?[,.]\d{2}\b)/i.test(payoutSignalText);
+
+      if (hasPayoutKeyword && hasMoneySignal) {
+        bookingType = 'payout';
+        classificationSource = 'body-fallback';
+        classificationRuleId = 'fallback.payout_hard_signal';
+        classificationRegex = '(versement|payout|virement)+(money)';
+      } else {
+        // Aucun type détecté ni depuis le sujet ni depuis le corps → ignorer
+        return null;
+      }
     }
   }
 
   // 2b. Garde anti faux-positif "payout" : un email de réservation peut inclure
   // un bloc "Versement de l'hôte" dans son récap financier.
-  const hasReservationSignalsInBody = /code\s+de\s+confirmation\s*[:\-]?\s*HM[A-Z0-9]{6,12}/i.test(body)
-    || /arriv[eé]e[\s\S]{0,180}d[eé]part/i.test(body)
-    || /logement\s+entier/i.test(body);
+  const hasConfirmationCodeSignal = /code\s+de\s+confirmation\s*[:\-]?\s*HM[A-Z0-9]{6,12}/i.test(body);
+  const hasStaySignalsInBody = /arriv[eé]e[\s\S]{0,180}d[eé]part/i.test(body)
+    || /logement\s+entier/i.test(body)
+    || /r[eé]servation\s+pour/i.test(body)
+    || /check.?in[\s\S]{0,120}check.?out/i.test(body);
+  const hasReservationSignalsInBody = hasStaySignalsInBody
+    || (hasConfirmationCodeSignal && /(?:arriv[eé]e|d[eé]part|check.?in|check.?out|s[eé]jour)/i.test(body));
   if (bookingType === 'payout' && hasReservationSignalsInBody) {
     bookingType = 'new';
     classificationSource = 'body-fallback';

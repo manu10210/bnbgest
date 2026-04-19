@@ -39,6 +39,8 @@ export function extractGuestName(subject: string, body: string): string | undefi
     /Envoyez\s+[àa]\s+([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)\s+un\s+message/i,
     // "Voyageur\nFakri Ouchene"  (saut de ligne entre label et valeur)
     /Voyageur\s*\n\s*([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|$)/,
+  // "Voyageur principal : Léa O'Connor"
+  /Voyageur\s+principal\s*[:\-]\s*([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|,|$)/i,
     // "Voyageur : Fakri Ouchene" ou "Guest : Fakri Ouchene"
     /(?:Voyageur|Guest)\s*[:\-]\s*([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|,|$)/i,
     // "Nom complet : Fakri Ouchene"
