@@ -1,0 +1,1 @@
+﻿const t = 'Identité vérifiée · 2 commentaires\n\n\n\nMaison de ville avec petite Terrasse couverte\nLogement entier'; const m = t.match(/Identit[eé] v[eé]rifi[eé]e.*?(?:\r?\n)+([^\r\n]+)(?:\r?\n)+Logement entier/i); console.log(m ? m[1] : 'no match')
