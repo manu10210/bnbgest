@@ -490,9 +490,12 @@ const SUBJECT_CLASSIFICATION_PRIORITY: Array<{ type: BookingType; groups: Subjec
 
 const BODY_FALLBACK_RULES: Array<{ id: string; type: BookingType; regex: RegExp }> = [
   { id: 'body.review.1', type: 'review', regex: /home_reviews|review_received|guest.*review|avis.*re[cç]u|[eé]valuation.*[eé]toiles|avis.*[eé]toiles|has left you a review/i },
+  { id: 'body.new.0', type: 'new', regex: /code\s+de\s+confirmation\s*[:\-]?\s*HM[A-Z0-9]{6,12}/i },
+  { id: 'body.new.0b', type: 'new', regex: /arriv[eé]e[\s\S]{0,120}d[eé]part/i },
+  { id: 'body.new.0c', type: 'new', regex: /logement\s+entier[\s\S]{0,140}code\s+de\s+confirmation/i },
   { id: 'body.new.1', type: 'new', regex: /reservation_confirmation|booking_confirmation|new_reservation/i },
   { id: 'body.cancelled.1', type: 'cancelled', regex: /cancellation|booking_cancelled|reservation_cancelled/i },
-  { id: 'body.payout.1', type: 'payout', regex: /host_payout|payout_sent|versement/i },
+  { id: 'body.payout.1', type: 'payout', regex: /host_payout|payout_sent|your\s+payout\s+of|nous\s+avons\s+envoy[eé]\s+un\s+versement/i },
   { id: 'body.payout.2', type: 'payout', regex: /nous\s+avons\s+envoy[eé]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout/i },
   { id: 'body.checkout.1', type: 'checkout', regex: /checkout|check_out|s[eé]jour.*termin/i },
   { id: 'body.reminder.1', type: 'reminder', regex: /reminder|rappel.*arriv/i },
@@ -875,6 +878,8 @@ function extractCheckInTime(text: string): string | undefined {
   //   "Arrivée après 15h00" / "Check-in : 15h00" / "à partir de 15:00"
   //   "Check-in time: 3:00 PM" / "After 3 PM"
   const patterns = [
+    // Format bloc : "Arrivée\n(dim. 19 avr.)\n17:00"
+    /arriv[eé]e?\s*(?:\n\s*(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\.?\s+\d{1,2}\s+[A-Za-zÀ-ÿ.]+)?\s*\n\s*(\d{1,2}[h:]\d{2})/i,
     // Patterns avec label "heure d'arrivée" ou "check-in" → très spécifiques → extraire l'heure
     /heure(?:\s+d[''e])?\s*arriv[eé]e?\s*[:\-–]\s*(?:[àa]\s+partir\s+de\s+)?(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
     /check.?in\s*[:\-–]\s*(?:[àa]\s+partir\s+de\s+)?(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
@@ -899,6 +904,8 @@ function extractCheckOutTime(text: string): string | undefined {
   //   "Heure de départ : 11:00" / "Départ avant 11h"
   //   "Check-out : 11h00" / "before 11 AM"
   const patterns = [
+    // Format bloc : "Départ\n(ven. 24 avr.)\n10:00"
+    /d[eé]part\s*(?:\n\s*(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\.?\s+\d{1,2}\s+[A-Za-zÀ-ÿ.]+)?\s*\n\s*(\d{1,2}[h:]\d{2})/i,
     /heure(?:\s+de)?\s*d[eé]part\s*[:\-–]\s*(?:avant\s+)?(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
     /check.?out\s*[:\-–]\s*(?:avant\s+)?(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
     /check.?out\s+time\s*[:\-–]\s*(\d{1,2}[h:]\d{0,2}(?:\s*[aApP][mM])?)/i,
@@ -1353,6 +1360,18 @@ export function parseAirbnbEmail(
     }
   }
 
+  // 2b. Garde anti faux-positif "payout" : un email de réservation peut inclure
+  // un bloc "Versement de l'hôte" dans son récap financier.
+  const hasReservationSignalsInBody = /code\s+de\s+confirmation\s*[:\-]?\s*HM[A-Z0-9]{6,12}/i.test(body)
+    || /arriv[eé]e[\s\S]{0,180}d[eé]part/i.test(body)
+    || /logement\s+entier/i.test(body);
+  if (bookingType === 'payout' && hasReservationSignalsInBody) {
+    bookingType = 'new';
+    classificationSource = 'body-fallback';
+    classificationRuleId = 'override.payout_contains_reservation_signals';
+    classificationRegex = 'code_confirmation|arrivee_depart|logement_entier';
+  }
+
   // 3. Nettoyer le HTML si présent
   const text = body
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -1539,7 +1558,7 @@ export function parseAirbnbEmail(
   const cleaningFee  = isFinanceType ? extractCleaningFee(text) : undefined;
   const serviceFee   = isFinanceType ? extractServiceFee(text) : undefined;
   const taxAmount    = isFinanceType ? extractTaxAmount(text) : undefined;
-  const hostPayout   = bookingType === 'payout' ? (extractHostPayout(text) || extractHostPayout(subject)) : undefined;
+  const hostPayout   = extractHostPayout(text) || extractHostPayout(subject);
   let financeConfidencePenalty = 0;
 
   // ── Réconciliation financière ───────────────────────────────────────────
