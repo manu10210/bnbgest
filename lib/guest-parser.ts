@@ -11,44 +11,76 @@ function stripInvisible(s: string): string {
     .trim();
 }
 
+// Capture un prénom+nom : accepte minuscule, Majuscule, MAJUSCULE, accents, tiret, apostrophe
+// Exemples : "Fakri", "Fakri Ouchene", "JEAN-PIERRE Martin", "Élodie DUPONT", "O'Brien"
+const NAME_TOKEN = "[A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\\-'\u2019]{1,30}";
+const NAME_RE    = `${NAME_TOKEN}(?:\\s+${NAME_TOKEN}){0,3}`;
+
+// Mots à exclure comme premier token d'un nom capturé
+const FALSE_POS = /^(Airbnb|Nouvelle|Votre|Check|Logement|Rappel|Booking|Confirm|Reservation|Annulation|Modification|Voyageur|Guest|Demande|Bienvenue|Bonjour|Hello|France|Europe|Identit)/i;
+
 // ============================================================
 // GUEST NAME
 // ============================================================
 
 export function extractGuestName(subject: string, body: string): string | undefined {
-  // Concatène corps + sujet (les deux passés dans n'importe quel ordre côté appelant)
-  const text = stripInvisible(subject) + '\n' + stripInvisible(body);
+  const cleanSubject = stripInvisible(subject);
+  const cleanBody   = stripInvisible(body);
+  const text = cleanSubject + '\n' + cleanBody;
 
-  const patterns = [
-    // "Nouvelle réservation confirmée! Fakri arrive le 17 avr." ← sujet Airbnb hôte FR
-    /(?:Nouvelle\s+r[eé]servation\s+confirm[eé]e[^a-z]{0,3})([A-Za-z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+[A-Za-z\u00C0-\u024F][a-z\u00C0-\u024F]+)?)\s+arrive/i,
-    // "Fakri a réservé votre logement" ← sujet Airbnb hôte FR
-    /([A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+)?)\s+a\s+r[eé]serv[eé]/i,
-    // "Fakri a demandé à réserver"
-    /([A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+)?)\s+a\s+demand[eé]\s+[àa]\s+r[eé]server/i,
-    // "Le séjour de Fakri se termine"
-    /[Ll]e\s+s[eé]jour\s+de\s+([A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+)?)\s+se\s+termine/i,
-    // "Fakri part aujourd'hui"
-    /([A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+)?)\s+part\s+aujourd/i,
-    // "Fakri has booked your place" ← EN
-    /([A-Z][a-z\u00C0-\u024F]+(?:\s+[A-Z][a-z\u00C0-\u024F]+)?)\s+has\s+booked/i,
-    // Champ explicite
-    /(?:Voyageur|Guest|Nom\s+complet|Full\s+name)\s*[:\-]\s*([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\s\-']{2,50})/i,
-    // "Fakri arrives" ← EN
-    /([A-Z][a-z\u00C0-\u024F]+(?:\s+[A-Z][a-z\u00C0-\u024F]+)?)\s+arrives?\s/i,
-    // "Fakri a annulé sa réservation"
-    /([A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+)?)\s+a\s+annul[eé]/i,
-    // "Fakri souhaite changer"
-    /([A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+(?:\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+)?)\s+souhaite/i,
+  // ── 1. Champ explicite dans le corps (le plus fiable) ──────────────────
+  // Airbnb corpo: "Voyageur\nFakri Ouchene\nFrance"
+  // ou "Voyageur : Fakri Ouchene"
+  const explicitPatterns = [
+    // "Voyageur\nFakri Ouchene"  (saut de ligne entre label et valeur)
+    /Voyageur\s*\n\s*([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|$)/,
+    // "Voyageur : Fakri Ouchene" ou "Guest : Fakri Ouchene"
+    /(?:Voyageur|Guest)\s*[:\-]\s*([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|,|$)/i,
+    // "Nom complet : Fakri Ouchene"
+    /Nom\s+(?:complet|du\s+voyageur)\s*[:\-]\s*([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|,|$)/i,
+    // "Full name : Fakri Ouchene"
+    /Full\s+name\s*[:\-]\s*([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|,|$)/i,
+    // "Identité vérifiée\n\nFakri Ouchene\n" (bloc Airbnb hôte)
+    /Identit[eé]\s+v[eé]rifi[eé]e?\s*\n+([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|$)/i,
   ];
 
-  for (const pattern of patterns) {
-    const m = text.match(pattern);
-    if (m && m[1]) {
+  for (const p of explicitPatterns) {
+    const m = cleanBody.match(p);
+    if (m?.[1]) {
       const name = m[1].trim();
-      // Exclure les faux positifs évidents
-      if (name.length >= 2 && name.length <= 60 &&
-          !/^(Airbnb|Nouvelle|Votre|Check|Logement|Rappel|Booking|Confirm)/i.test(name)) {
+      if (name.length >= 2 && !FALSE_POS.test(name)) return name;
+    }
+  }
+
+  // ── 2. Patterns dans le sujet ──────────────────────────────────────────
+  const subjectPatterns = [
+    // "Nouvelle réservation confirmée! Fakri Ouchene arrive le 17 avr."
+    new RegExp(`(?:Nouvelle\\s+r[eé]servation\\s+confirm[eé]e[^a-z]{0,3})(${NAME_RE})\\s+arrive`, 'i'),
+    // "Fakri Ouchene a réservé votre logement"
+    new RegExp(`(${NAME_RE})\\s+a\\s+r[eé]serv[eé]`, 'i'),
+    // "Fakri Ouchene a annulé"
+    new RegExp(`(${NAME_RE})\\s+a\\s+annul[eé]`, 'i'),
+    // "Fakri Ouchene a modifié"
+    new RegExp(`(${NAME_RE})\\s+a\\s+modifi[eé]`, 'i'),
+    // "Fakri Ouchene souhaite changer"
+    new RegExp(`(${NAME_RE})\\s+souhaite`, 'i'),
+    // "Le séjour de Fakri Ouchene se termine"
+    new RegExp(`s[eé]jour\\s+de\\s+(${NAME_RE})\\s+(?:se\\s+)?termin`, 'i'),
+    // "Fakri Ouchene part aujourd'hui"
+    new RegExp(`(${NAME_RE})\\s+part\\s+aujourd`, 'i'),
+    // "Fakri Ouchene arrive" (EN ou FR générique)
+    new RegExp(`(${NAME_RE})\\s+arrives?\\b`, 'i'),
+    // "Fakri Ouchene has booked"
+    new RegExp(`(${NAME_RE})\\s+has\\s+booked`, 'i'),
+    // "Fakri Ouchene a demandé à réserver"
+    new RegExp(`(${NAME_RE})\\s+a\\s+demand[eé]`, 'i'),
+  ];
+
+  for (const p of subjectPatterns) {
+    const m = text.match(p);
+    if (m?.[1]) {
+      const name = m[1].trim();
+      if (name.length >= 2 && name.length <= 60 && !FALSE_POS.test(name)) {
         return name;
       }
     }
@@ -56,6 +88,7 @@ export function extractGuestName(subject: string, body: string): string | undefi
 
   return undefined;
 }
+
 
 
 // ============================================================
