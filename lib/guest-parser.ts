@@ -32,6 +32,11 @@ export function extractGuestName(subject: string, body: string): string | undefi
   // Airbnb corpo: "Voyageur\nFakri Ouchene\nFrance"
   // ou "Voyageur : Fakri Ouchene"
   const explicitPatterns = [
+    // ── Format Airbnb hôte réel (2024-2026) ──────────────────────────────
+    // "Kamel Freytag\nIdentité vérifiée · 1 commentaire"  ← NOM AVANT le label
+    /([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)\s*\n\s*Identit[eé]\s+v[eé]rifi[eé]e/i,
+    // "Envoyez à Kamel Freytag un message" ← bouton CTA dans le corps
+    /Envoyez\s+[àa]\s+([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)\s+un\s+message/i,
     // "Voyageur\nFakri Ouchene"  (saut de ligne entre label et valeur)
     /Voyageur\s*\n\s*([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|$)/,
     // "Voyageur : Fakri Ouchene" ou "Guest : Fakri Ouchene"
@@ -40,7 +45,7 @@ export function extractGuestName(subject: string, body: string): string | undefi
     /Nom\s+(?:complet|du\s+voyageur)\s*[:\-]\s*([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|,|$)/i,
     // "Full name : Fakri Ouchene"
     /Full\s+name\s*[:\-]\s*([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|,|$)/i,
-    // "Identité vérifiée\n\nFakri Ouchene\n" (bloc Airbnb hôte)
+    // "Identité vérifiée\n\nFakri Ouchene\n"  ← format ancien (nom APRÈS)
     /Identit[eé]\s+v[eé]rifi[eé]e?\s*\n+([A-Za-z\u00C0-\u024F][A-Za-z\u00C0-\u024F\-' \u2019]{2,50}?)(?:\n|$)/i,
   ];
 

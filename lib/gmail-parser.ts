@@ -1106,6 +1106,11 @@ function extractPropertyName(text: string, subject?: string): string | undefined
   //   "Logement : NomLogement"
   //   "Your listing: NomLogement"
   const bodyPatterns: RegExp[] = [
+    // ── Format Airbnb hôte 2024-2026 RÉEL : NomLogement AVANT "Logement entier" ──
+    // "Maisonnette T2 quartier calme\nLogement entier"
+    /([^\r\n<]{5,80})\r?\n\s*Logement\s+entier/i,
+    // "Appartement Bleu Relax\nLogement entier · X chambres"
+    /([^\r\n<]{5,80})\r?\n\s*Logement\s+entier\s*[·•]/i,
     // ── Format Airbnb hôte 2024-2026 : label seul sur une ligne, valeur sur la suivante ──
     // "Annonce\nAppartement Bleu Relax"  (sans deux-points)
     /(?:^|\r?\n)Annonce\s*\r?\n([^\r\n<]{5,80})/i,
@@ -1160,7 +1165,14 @@ function extractPropertyName(text: string, subject?: string): string | undefined
     if (m) {
       const c = cleanCandidate(m[1]);
       // Rejeter si contient des mots-clés de versement ou de bruit
-      if (c.length >= 5 && !/versement|payout|virement|envoy[eé]|r[eé]gl[eé]|€\s*\d|^\d+[,.]?\d*\s*[€$]/i.test(c)) return c;
+      if (c.length >= 5 && !/versement|payout|virement|envoy[eé]|r[eé]gl[eé]|€\s*\d|^\d+[,.]?\d*\s*[€$]/i.test(c)) {
+        // Rejeter si le candidat ressemble à un nom de personne (2 mots, première lettre majuscule, pas de chiffre)
+        // "Kamel Freytag" → faux positif si juste avant "Logement entier"
+        // Un nom de logement a généralement un chiffre (T2, T3) ou plus de 2 mots ou des mots communs (Appartement, Maison, etc.)
+        const isPersonName = /^[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+$/.test(c)
+          && !/\b(?:appartement|maison|maisonn?ette|villa|studio|chambre|logement|loft|t[1-9]|f[1-9]|duplex|terrasse|jardin|centre|quartier|calme|cozy|relax|cigogne|bleu)\b/i.test(c);
+        if (!isPersonName) return c;
+      }
     }
   }
 
