@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * 📧 GmailImporter — Importation automatique des réservations Airbnb depuis Gmail
@@ -539,7 +539,7 @@ function inferPropertyFromContext<T extends { id: number; name: string; city?: s
 function isPlaceholderGuestName(name?: string): boolean {
   if (!name) return true;
   const n = name.trim().toLowerCase();
-  return n === '' || n === 'voyageur airbnb' || n === 'airbnb guest' || n === 'guest';
+  return n === '' || n === 'voyageur airbnb' || n === 'airbnb guest' || n === 'guest' || n === 'inconnu';
 }
 
 function stripInvisibleUnicode(value: string): string {
@@ -574,11 +574,20 @@ function inferGuestNameFromSubject(subject?: string): string | undefined {
     .replace(/\s{2,}/g, ' ')
     .trim();
   const patterns = [
+    // "Nouvelle réservation confirmée! Fakri arrive le 17 avr." <- format Airbnb hôte FR
+    /nouvelle?\s+r[ée]servation\s+confirm[ée]e[^a-z]{0,3}([A-Za-z\u00C0-\u024F''\-]+(?:\s+[A-Za-z\u00C0-\u024F''\-]+){0,3})\s+arrive/i,
+    // "Réservation confirmée : Fakri arrive"
     /r[ée]servation\s+confirm[ée]e?\s*[:\-]\s*(.+?)\s+arrive(?:\s+le|\s+demain|\b)/i,
+    // "Réservation confirmée pour Fakri arrive"
     /r[ée]servation\s+confirm[ée]e?\s+pour\s+(.+?)\s+arrive(?:\s+le|\s+demain|\b)/i,
+    // "Booking confirmed: Fakri arrives"
     /booking\s+confirmed\s*:\s*([^:|\-]+?)\s+arrives?\b/i,
-    /:\s*([A-Za-zÀ-ÿ'’\-]+(?:\s+[A-Za-zÀ-ÿ'’\-]+){1,4})\s+arrive(?:\s+le|\s+demain|\b)/i,
-    /^\s*(?:\[[^\]]+\]\s*)?([A-Za-zÀ-ÿ'’\-]+(?:\s+[A-Za-zÀ-ÿ'’\-]+){1,3})\s+(?:arrive|a\s+r[ée]serv[ée]|a\s+annul[ée]|part)\b/i,
+    // ": Fakri arrive"
+    /:\s*([A-Za-z\u00C0-\u024F''\-]+(?:\s+[A-Za-z\u00C0-\u024F''\-]+){1,4})\s+arrive(?:\s+le|\s+demain|\b)/i,
+    // "Fakri a réservé" / "Fakri a annulé" / "Fakri arrive" / "Fakri part" (nom en début)
+    /^\s*(?:\[[^\]]+\]\s*)?([A-Za-z\u00C0-\u024F''\-]+(?:\s+[A-Za-z\u00C0-\u024F''\-]+){0,3})\s+(?:arrive|a\s+r[ée]serv[ée]|a\s+annul[ée]|a\s+modifi[ée]|souhaite|part)\b/i,
+    // "Le séjour de Fakri se termine"
+    /s[ée]jour\s+de\s+([A-Za-z\u00C0-\u024F''\-]+(?:\s+[A-Za-z\u00C0-\u024F''\-]+){0,3})\s+(?:se\s+termine|est\s+termin)/i,
   ];
 
   for (const pattern of patterns) {
@@ -588,7 +597,6 @@ function inferGuestNameFromSubject(subject?: string): string | undefined {
   }
   return undefined;
 }
-
 function enrichBookingGuestName(booking: ParsedBooking): ParsedBooking {
   if (!isPlaceholderGuestName(booking.guestName)) return booking;
   const inferred = inferGuestNameFromSubject(booking.subject);
@@ -1549,25 +1557,29 @@ export default function GmailImporter() {
       }
 
       // Mode expert agressif : si le matching standard échoue, tenter un rattachement
-      // avec un seuil plus permissif mais contrôlé (score + ambiguïté).
-      if (!property && expertModeAggressive && hasDetectedPropertyName && useFallback && b.propertyName) {
-        const aggressiveCandidate = findBestPropertyCandidate(b.propertyName, properties);
-        const scoreGap = aggressiveCandidate.score - aggressiveCandidate.secondScore;
-        const hasStrongConfidence = aggressiveCandidate.score >= 40;
-        const hasSafeLead = aggressiveCandidate.score >= 30 && !aggressiveCandidate.ambiguous && scoreGap >= 10;
+      // avec un seuil plus permissif mais contrôlé (score + ambiguïté). On teste le nom extrait ou le sujet global.
+      if (!property && expertModeAggressive && useFallback) {
+        const candidateText = b.propertyName || b.subject || '';
+        if (candidateText) {
+          const aggressiveCandidate = findBestPropertyCandidate(candidateText, properties);
+          const scoreGap = aggressiveCandidate.score - aggressiveCandidate.secondScore;
+          // Seuils rabaissés : on fait davantage confiance au meilleur candidat
+          const hasStrongConfidence = aggressiveCandidate.score >= 25;
+          const hasSafeLead = aggressiveCandidate.score >= 15 && !aggressiveCandidate.ambiguous && scoreGap >= 8;
 
-        if (aggressiveCandidate.property && (hasStrongConfidence || hasSafeLead)) {
-          property = aggressiveCandidate.property;
-          summary.rescuedAggressive++;
-          pushTrace({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'success',
-            action: 'property_aggressive_autofix',
-            reason: `aggressive_match_score:${aggressiveCandidate.score}`,
-            receivedAt: b.receivedAt,
-          });
+          if (aggressiveCandidate.property && (hasStrongConfidence || hasSafeLead)) {
+            property = aggressiveCandidate.property;
+            summary.rescuedAggressive++;
+            pushTrace({
+              messageId: b.messageId,
+              bookingType: b.bookingType,
+              guestName: b.guestName || '—',
+              status: 'success',
+              action: 'property_aggressive_autofix',
+              reason: `aggressive_match_score:${aggressiveCandidate.score}`,
+              receivedAt: b.receivedAt,
+            });
+          }
         }
       }
 
@@ -1575,9 +1587,8 @@ export default function GmailImporter() {
         property = defaultProperty;
       }
 
-      // Cas extrême mono-logement: même avec un nom détecté imparfait, on force le
-      // rattachement pour éviter les imports bloqués.
-      if (!property && expertModeAggressive && hasDetectedPropertyName && useFallback && properties.length === 1) {
+      // Cas extrême mono-logement: on force le rattachement pour éviter les imports bloqués.
+      if (!property && expertModeAggressive && useFallback && properties.length === 1) {
         property = defaultProperty;
         if (property) {
           summary.rescuedSingleProperty++;

@@ -1,4 +1,5 @@
-﻿/**
+﻿import { extractGuestCountry, detectGuestLanguage, extractGuestPhone, extractGuestEmail, extractGuestComposition, extractGuestName } from './guest-parser';
+/**
  * 📧 Gmail Parser — Extraction automatique des réservations Airbnb
  *
  * Détecte et parse les emails de confirmation Airbnb depuis Gmail API.
@@ -710,6 +711,41 @@ function parseMoneyAmount(raw: string): number {
   return (!isNaN(val) && isFinite(val) && val > 0 && val < 1000000) ? val : 0;
 }
 
+function extractConfirmationCode(text: string): string | undefined {
+  const patterns = [
+    /\bCode\s+de\s+confirmation\s*[:\-]\s*([A-Z0-9]{8,12})\b/i,
+    /\bConfirmation\s+code\s*[:\-]\s*([A-Z0-9]{8,12})\b/i,
+    /\bCode\s+de\s+r[eé]servation\s*[:\-]\s*([A-Z0-9]{8,12})\b/i,
+    /\b(HM[A-Z0-9]{8,10})\b/,
+    /\b([A-Z]{2}[A-Z0-9]{8,10})\b/,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m && m[1]) return m[1].toUpperCase();
+  }
+  return undefined;
+}
+
+function extractAirbnbListingId(body: string): string | undefined {
+  const m = body.match(/(?:rooms|listings)\/(\d{5,12})/i);
+  return m ? m[1] : undefined;
+}
+
+function extractReviewRating(text: string, subject: string): number | undefined {
+  const combined = text + ' ' + subject;
+  const m = combined.match(/(\d(?:[.,]\d)?)\s*\/\s*5|(\d)\s+[eé]toile[s]?|(\d)\s+star[s]?/i);
+  if (m) {
+    const val = parseFloat((m[1] || m[2] || m[3]).replace(',', '.'));
+    if (val >= 1 && val <= 5) return val;
+  }
+  return undefined;
+}
+
+function extractReviewComment(text: string): string | undefined {
+  const m = text.match(/(?:Commentaire|Comment|Avis|Review)\s*[:\-]\s*(.{10,500})/i);
+  return m ? m[1].trim() : undefined;
+}
+
 function extractCurrency(text: string, subject: string): string {
   const combined = `${text} ${subject}`;
   if (/CHF|\bFr\.?\b/i.test(combined)) return 'CHF';
@@ -1042,413 +1078,7 @@ function normalizePoliceName(raw: string): string {
   return raw.trim();
 }
 
-function extractGuestCountry(text: string): string | undefined {
-  // Formats : "Pays : France" / "Country: Germany" / "Nationalité : Française"
-  // Aussi : drapeaux ou mentions de pays dans le texte
-  const patterns = [
-    /pays\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
-    /country\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
-    /nationalit[eé]\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
-    /lieu\s+de\s+r[eé]sidence\s*[:\-–]\s*([^\n\r<,]{2,40})/i,
-    // "Localisation : Paris, France" → extraire "France" après la virgule
-    /localisation\s*[:\-–]\s*[^,\n\r]+,\s*([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ]{3,30})/i,
-    // "Lives in France" / "from France"
-    /\blives?\s+in\s+([A-Z][a-z]{2,30})\b/,
-    /\bfrom\s+([A-Z][a-z]{2,30})\b/,
-  ];
-  for (const p of patterns) {
-    const m = text.match(p);
-    if (m) {
-      const country = m[1].trim().replace(/<[^>]*>/g, '').slice(0, 40);
-      if (country.length >= 2 && !/airbnb|r[eé]servation|logement/i.test(country)) return country;
-    }
-  }
-  return undefined;
-}
-
-function detectGuestLanguage(text: string, subject: string): string | undefined {
-  // Détecte la langue de l'email pour inférer la langue du voyageur
-  // Un email Airbnb est envoyé dans la langue du voyageur
-  // Analyser 3000 chars pour couvrir le corps complet (au lieu de 500)
-  const combined = (subject + ' ' + text.slice(0, 3000)).toLowerCase();
-  // Indices français — mots DISTINCTIFS (pas de faux positifs EN)
-  const frScore = (combined.match(/\b(votre|vous|r[eé]servation|voyageur|bienvenue|merci|arriv[eé]e?|d[eé]part|nuit[eé]e?|logement|h[oô]te|s[eé]jour|annonce|lundi|mardi|vendredi|dimanche|pr[eé]nom)\b/g) || []).length;
-  // Indices anglais — mots DISTINCTIFS (éviter "night", "booking", "host" qui apparaissent dans des emails FR)
-  const enScore = (combined.match(/\b(your|you(?:'re|r)?|guest|welcome|thank\s+you|arrival|departure|listing|check.?in|check.?out|stay|monday|tuesday|friday|sunday|tonight|tomorrow)\b/g) || []).length;
-  // Indices allemand
-  const deScore = (combined.match(/\b(ihre|sie|buchung|gast|willkommen|danke|ankunft|abreise|nacht|unterkunft|gastgeber|aufenthalt|montag|dienstag)\b/g) || []).length;
-  // Indices espagnol
-  const esScore = (combined.match(/\b(su|usted|reserva|hu[eé]sped|bienvenido|gracias|llegada|salida|noche|alojamiento|anfitri[oó]n|estancia|lunes|martes)\b/g) || []).length;
-  // Indices italien
-  const itScore = (combined.match(/\b(tuo|voi|prenotazione|ospite|benvenuto|grazie|arrivo|partenza|notte|annuncio|host|soggiorno|luned[iì]|marted[iì])\b/g) || []).length;
-
-  const scores: Record<string, number> = { fr: frScore, en: enScore, de: deScore, es: esScore, it: itScore };
-  const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
-  // Seuil minimum de 2 occurrences pour éviter les faux positifs
-  if (best[1] >= 2) return best[0];
-  return undefined;
-}
-
-function extractGuestPhone(text: string): string | undefined {
-  const patterns = [
-    /t[eé]l[eé]phone?\s*[:\s]+([+\d\s\-\(\)]{8,20})/i,
-    /phone\s*[:\s]+([+\d\s\-\(\)]{8,20})/i,
-    /mobile\s*[:\s]+([+\d\s\-\(\)]{8,20})/i,
-    /(?:^|\s|\()(\+?[0-9]{1,3}[\s\-]?(?:\([0-9]{1,4}\)[\s\-]?)?[0-9]{6,10})\b/
-  ];
-  for (const p of patterns) {
-    const m = text.match(p);
-    if (m) {
-      const phone = m[1].trim().replace(/\s+/g, ' ').slice(0, 20);
-      if (phone.replace(/\D/g, '').length >= 8) return phone;
-    }
-  }
-  return undefined;
-}
-
-function extractGuestEmail(text: string): string | undefined {
-  // Support guest proxy emails from Airbnb (e.g. xxxx@guest.airbnb.com)
-  const patterns = [
-    /e-?mail\s+voyageur\s*[:\s]+([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
-    /guest\s+e-?mail\s*[:\s]+([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
-    /contact\s*[:\s]+([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
-    /(?:^|\s)([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})(?:\s|$)/m,
-  ];
-  for (const p of patterns) {
-    const m = text.match(p);
-    if (m) {
-      const email = m[1].trim().toLowerCase();
-      // Allow guest.airbnb.com, but block standard automated airbnb addresses
-      if (
-        (!email.includes('airbnb.com') || email.includes('guest.airbnb.com')) &&
-        !email.includes('noreply') && 
-        !email.includes('automated')
-      ) {
-        return email;
-      }
-    }
-  }
-  return undefined;
-}
-
-function extractReviewRating(text: string, subject?: string): number | undefined {
-  // Chercher la note dans le sujet EN PREMIER (très fiable : "Mélody a laissé une évaluation 4 étoiles")
-  if (subject) {
-    const subjectMatch = subject.match(/(\d)\s*[eé]toiles?/i) || subject.match(/(\d)\s*stars?/i);
-    if (subjectMatch) {
-      const rating = parseInt(subjectMatch[1]);
-      if (rating >= 1 && rating <= 5) return rating;
-    }
-  }
-  // Puis chercher dans le corps de l'email
-  const patterns = [
-    /(\d)\s*[\/\sur]\s*5\s*[eé]toile/i,
-    /(\d)\s*star[s]?\s*out\s*of\s*5/i,
-    /note\s*(?:globale)?\s*[:\-]\s*(\d)/i,
-    /overall\s+rating\s*[:\-]\s*(\d)/i,
-    /[eé]toile[s]?\s*[:\-]\s*(\d)/i,
-    /rated?\s*(\d)\s*[eé]toile/i,
-    /rated?\s*(\d)\s*star/i,
-    /(\d)\s*[★⭐]/,
-    /[★⭐]\s*(\d)/,
-    /(\d)\s*\/\s*5/,
-    /(\d)\s*[eé]toiles?/i,
-    /(\d)\s*stars?/i,
-  ];
-  for (const p of patterns) {
-    const m = text.match(p);
-    if (m) {
-      const rating = parseInt(m[1]);
-      if (rating >= 1 && rating <= 5) return rating;
-    }
-  }
-  return undefined;
-}
-
-function extractReviewComment(text: string): string | undefined {
-  // Extraire le commentaire laissé par le voyageur
-  const patterns = [
-    /(?:commentaire|comment|avis|review)\s*[:\-]\s*"([^"]{10,500})"/i,
-    /(?:ils?\s+ont?\s+(?:dit|[eé]crit)|they\s+(?:said|wrote))\s*[:\-]?\s*"([^"]{10,500})"/i,
-    /(?:a\s+(?:laiss[eé]|[eé]crit)|wrote)\s*:\s*"([^"]{10,500})"/i,
-    /"([^"]{20,400})"/,
-  ];
-  for (const p of patterns) {
-    const m = text.match(p);
-    if (m) {
-      return m[1].trim().slice(0, 500);
-    }
-  }
-  return undefined;
-}
-
-function extractAirbnbListingId(rawBody: string): string | undefined {
-  // Airbnb encode l'ID de l'annonce dans les URLs du corps de l'email.
-  // Formats observés :
-  //   https://www.airbnb.com/rooms/12345678
-  //   https://www.airbnb.fr/rooms/12345678?...
-  //   /rooms/12345678
-  //   airbnb.com/rooms/12345678/reviews
-  // On cherche dans le corps HTML BRUT (avant le strip HTML) pour avoir toutes les URLs.
-  const patterns = [
-    /airbnb\.[a-z]{2,3}\/rooms\/(\d{6,12})/i,
-    /\/rooms\/(\d{6,12})/i,
-    // URL encodée base64 (tracking Airbnb) → on ne tente pas de décoder, trop complexe
-  ];
-  for (const p of patterns) {
-    const m = rawBody.match(p);
-    if (m) return m[1];
-  }
-  return undefined;
-}
-
-function extractGuestComposition(text: string, subject?: string): {
-  guests: number;
-  guestAdults?: number;
-  guestChildren?: number;
-  guestInfants?: number;
-  guestPets?: number;
-} {
-  // Cherche le nombre total de voyageurs — additionne adultes+enfants+bébés si présents,
-  // sinon prend le premier chiffre voyageur/guest/personne trouvé.
-  // Chercher dans le corps ET dans le sujet
-  const combined = text + (subject ? ' ' + subject : '');
-  
-  // Format Airbnb récent: "1 adulte, 1 enfant" ou "2 adultes, 1 bébé"
-  const adultsM = combined.match(/(\d+)\s*adultes?/i);
-  const childM  = combined.match(/(\d+)\s*(?:enfants?|child(?:ren)?)/i);
-  const babyM   = combined.match(/(\d+)\s*(?:b[eé]b[eé]s?|infants?|nourrissons?)/i);
-  const petM    = combined.match(/(\d+)\s*(?:animaux(?:|x)|anim(?:al|aux)|pets?)/i);
-
-  if (adultsM || childM || babyM || petM) {
-    const adults   = adultsM ? parseInt(adultsM[1]) : 0;
-    // Parfois sans adultes mentionnés, il peut y avoir juste voyageurs
-    const children = childM  ? parseInt(childM[1])  : 0;
-    const babies   = babyM   ? parseInt(babyM[1])   : 0;
-    const pets     = petM    ? parseInt(petM[1])    : 0;
-    const total = adults + children + babies; // Les animaux ne comptent generalement pas dans la jauge humaine stricte, mais on les ignore pour count.
-    if (total >= 1 && total <= 50) {
-      return {
-        guests: total,
-        guestAdults: adults || undefined,
-        guestChildren: children || undefined,
-        guestInfants: babies || undefined,
-        guestPets: pets || undefined,
-      };
-    }
-  }
-
-  const patterns: Array<[RegExp, number]> = [
-    [/(\d+)\s*voyageur(?:s)?/i, 1],
-    [/(\d+)\s*guest(?:s)?/i, 1],
-    [/(\d+)\s*personne(?:s)?/i, 1],
-    [/(\d+)\s*person(?:s)?/i, 1],
-    [/nombre\s+de\s+voyageurs?\s*[:\-\u2013\u2014]\s*(\d+)/i, 1],
-    [/number\s+of\s+guests?\s*[:\-\u2013\u2014]\s*(\d+)/i, 1],
-    [/pour\s+(\d+)\s*(?:voyageur(?:s)?|personne(?:s)?|guest(?:s)?)/i, 1],
-  ];
-  for (const [p, idx] of patterns) {
-    const m = combined.match(p);
-    if (m) {
-      const v = parseInt(m[idx]);
-      if (v >= 1 && v <= 50) return { guests: v };
-    }
-  }
-  return { guests: 1 };
-}
-
-function extractGuestName(text: string, subject?: string): string {
-  const stripInvisibleUnicode = (value: string) =>
-    value
-      .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '')
-      .replace(/[\u00A0\u202F]/g, ' ')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-
-  const normalizedText = stripInvisibleUnicode(text || '');
-  const normalizedSubject = subject ? stripInvisibleUnicode(subject) : undefined;
-
-  const GUEST_PARTICLES = new Set([
-    'de', 'du', 'des', 'd', 'la', 'le', 'les', 'van', 'von', 'da', 'di', 'del', 'della', 'st', 'saint',
-  ]);
-
-  const GUEST_NAME_NOISE = /(?:airbnb|voyageur|guest|reservation|r[ée]servation|s[ée]jour|logement|annonce|versement|payout|check\s*in|check\s*out|arriv[ée]e?|d[ée]part|appartement|maisonnette|maisonette|quartier|calme|virement)/i;
-
-  const cleanGuestCandidate = (raw?: string): string | undefined => {
-    if (!raw) return undefined;
-    const cleaned = stripInvisibleUnicode(raw)
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/^[\s\-–—:;,.!?()\[\]{}"'“”‘’]+/g, '')
-      .replace(/[\s\-–—:;,.!?()\[\]{}"'“”‘’]+$/g, '')
-      .replace(/^(?:m\.?|mme\.?|mr\.?|mrs\.?|ms\.?)\s+/i, '')
-      .replace(/\s*\((?:\d+\s*(?:voyageurs?|guests?|personnes?)|airbnb[^)]*)\)\s*$/i, '')
-      .replace(/\s*[-–—|]\s*(?:arrive|part|check|arrival|departure).*/i, '')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-
-    if (!cleaned || cleaned.length < 2 || cleaned.length > 60) return undefined;
-    return cleaned;
-  };
-
-  const isLikelyGuestName = (raw?: string): raw is string => {
-    const candidate = cleanGuestCandidate(raw);
-    if (!candidate) return false;
-    if (/\d/.test(candidate)) return false;
-    if (!/^[A-Za-zÀ-ÿ'’\-\s]+$/.test(candidate)) return false;
-    if (GUEST_NAME_NOISE.test(candidate)) return false;
-
-    const words = candidate
-      .split(/\s+/)
-      .map((word) => word.replace(/['’]/g, '').toLowerCase())
-      .filter(Boolean);
-
-    if (words.length < 1 || words.length > 4) return false;
-    const meaningfulWords = words.filter((word) => word.length >= 2 && !GUEST_PARTICLES.has(word));
-    if (meaningfulWords.length === 0) return false;
-
-    return true;
-  };
-
-  // Regex de prénom/nom : commence par majuscule, peut avoir un nom de famille
-  // Supporte les prénoms composés (Jean-Pierre), les accents, les tirets
-  const NAME = `[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+)?`;
-
-  // ── 1. Depuis le SUJET (source la plus fiable) ────────────────────────────
-  if (normalizedSubject) {
-    const subjectPatterns = [
-      // 🔵 NOUVELLE RÉSERVATION — format principal Airbnb hôte
-      // "Prénom a réservé votre logement"
-      // "Marie a réservé votre logement"
-      new RegExp(`^(${NAME})\\s+a\\s+r[eé]serv[eé](?:\\s+votre\\s+logement)?`, 'u'),
-      // "Félicitations ! Marie a réservé votre logement." ← sujet avec préfixe
-      new RegExp(`f[eé]licitations[^a-z]{0,10}(${NAME})\\s+a\\s+r[eé]serv`, 'iu'),
-      // "Marie a demandé à réserver"
-      new RegExp(`^(${NAME})\\s+a\\s+demand[eé]\\s+[àa]\\s+r[eé]server`, 'u'),
-      // "Prénom souhaite réserver votre logement" (demande)
-      new RegExp(`^(${NAME})\\s+souhaite\\s+r[eé]server`, 'u'),
-      // "Nouvelle réservation de Prénom"
-      new RegExp(`nouvelle\\s+r[eé]servation\\s+de\\s+(${NAME})`, 'iu'),
-  // "Réservation confirmée : Prénom Nom arrive le ..."
-  new RegExp(`r[eé]servation\\s+confirm[eé]e?\\s*[:\\-–]\\s*(${NAME})\\s+arrive`, 'iu'),
-  // "Réservation confirmée pour Prénom Nom arrive ..."
-  new RegExp(`r[eé]servation\\s+confirm[eé]e?\\s+pour\\s+(${NAME})\\s+arrive`, 'iu'),
-    // Variante tolérante (prénom en minuscules, apostrophes, particules)
-    /r[ée]servation\s+confirm[ée]e?\s*(?:[:\-–]\s*|pour\s+)([^,\n\r]{2,70})\s+arrive/i,
-      // EN: "Prénom has booked your place"
-      /^([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+has\s+(?:booked|reserved)/,
-      // EN: "New reservation from Prénom"
-      /new\s+reservation\s+from\s+([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)/i,
-      // 🔴 ANNULATION — "Prénom a annulé sa réservation"
-      new RegExp(`^(${NAME})\\s+a\\s+annul[eé]`, 'u'),
-      // 🟡 MODIFICATION — "Prénom a modifié / souhaite changer / souhaite modifier"
-      new RegExp(`^(${NAME})\\s+a\\s+modifi[eé]`, 'u'),
-      new RegExp(`^(${NAME})\\s+souhaite\\s+(?:changer|modifier)`, 'u'),
-      // 🟤 DÉPART — "Le séjour de Prénom se termine"
-      new RegExp(`s[eé]jour\\s+de\\s+(${NAME})\\s+se\\s+termine`, 'iu'),
-      // "Prénom part aujourd'hui"
-      new RegExp(`^(${NAME})\\s+part\\s+aujourd`, 'u'),
-      // 🔔 RAPPEL — "Rappel : Prénom arrive demain"
-      new RegExp(`rappel\\s*[:\\-–]\\s*(${NAME})\\s+arrive`, 'iu'),
-      new RegExp(`(${NAME})\\s+arrive\\s+(?:demain|aujourd|dans)`, 'iu'),
-      // ⭐ AVIS — "Prénom a laissé un avis"
-      new RegExp(`^(${NAME})\\s+a\\s+laiss[eé]\\s+(?:un\\s+)?avis`, 'u'),
-      new RegExp(`^(${NAME})\\s+vous\\s+a\\s+not[eé]`, 'u'),
-      new RegExp(`^(${NAME})\\s+a\\s+[eé]valu[eé]`, 'u'),
-      // EN: "Prénom left you a review"
-      /^([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+left\s+you\s+a\s+review/,
-      // 💶 VERSEMENT — "versement pour le séjour de Prénom"
-      new RegExp(`s[eé]jour\\s+de\\s+(${NAME})`, 'iu'),
-    ];
-    for (const p of subjectPatterns) {
-      const m = normalizedSubject.match(p);
-      if (m) {
-        const name = cleanGuestCandidate(m[1]);
-        if (isLikelyGuestName(name)) return name;
-      }
-    }
-  }
-
-  // ── 2. Depuis le CORPS de l'email ─────────────────────────────────────────
-  // Basé sur les vrais formats observés dans les emails Airbnb hôte
-  const bodyPatterns = [
-    // "Prénom a réservé votre logement" dans le corps
-    new RegExp(`([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+)?)\\s+a\\s+r[eé]serv[eé](?:\\s+votre\\s+logement)?`),
-    // "Prénom souhaite réserver"
-    new RegExp(`([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+(?:\\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\\-]+)?)\\s+souhaite\\s+r[eé]server`),
-    // "Bonjour [Hôte], Prénom a réservé" → après "Bonjour"
-    /Bonjour\s+\S+,?\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+)?)\s+a\s+r[eé]serv[eé]/u,
-    // Labels explicites dans le corps
-    /voyageur[s]?\s*[:\-]\s*([^\n\r<,]{2,60})/i,
-    /nom\s+du\s+voyageur\s*[:\-]\s*([^\n\r<,]{2,60})/i,
-    /nouveau\s+voyageur\s*[:\-]\s*([^\n\r<,]{2,60})/i,
-    /invit[eé]\s*[:\-]\s*([^\n\r<,]{2,60})/i,
-    /guest\s*[:\-]\s*([^\n\r<,]{2,60})/i,
-  /voyageur\s+principal\s*[:\-]\s*([^\n\r<,]{2,60})/i,
-  /guest\s+name\s*[:\-]\s*([^\n\r<,]{2,60})/i,
-    /name\s*[:\-]\s*([^\n\r<,]{2,60})/i,
-    // "réservation de Prénom"
-    /r[eé]servation\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+)?)/i,
-    // "séjour de Prénom" (dans corps payout ou checkout)
-    /s[eé]jour\s+de\s+([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+)?)/i,
-    // "Prénom a laissé un avis"
-    /([A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+(?:\s+[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâéèêëîïôùûüÿœæ\-]+)?)\s+a\s+laiss[eé]\s+(?:un\s+)?avis/i,
-    // EN
-    /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+has\s+(?:booked|reserved)/,
-    /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+wants\s+to\s+book/,
-    /new\s+guest\s*[:\-]\s*([^\n\r<,]{2,60})/i,
-    /([A-Z][a-z\-]+(?:\s+[A-Z][a-z\-]+)?)\s+left\s+you\s+a\s+review/i,
-  ];
-  for (const p of bodyPatterns) {
-    const m = normalizedText.match(p);
-    if (m) {
-      const name = cleanGuestCandidate(m[1]);
-      if (isLikelyGuestName(name)) return name;
-    }
-  }
-  return 'Voyageur Airbnb';
-}
-
-function extractConfirmationCode(text: string): string | undefined {
-  // Codes Airbnb : format HMxxxxxxxxxx (HM + 6-10 alphanum)
-  // Vrais formats observés: HM1234567890, HMABCD123456, etc.
-  // RÈGLE DE SÉCURITÉ : on n'accepte QUE les codes avec label explicite OU le format natif HM
-  const patterns = [
-    // ① Label explicite — le plus fiable (indépendant du format du code)
-    /code\s+de\s+confirmation\s*[:\s]+([A-Z0-9]{6,12})/i,
-    /confirmation\s+code\s*[:\s]+([A-Z0-9]{6,12})/i,
-    /r[eé]f[eé]rence\s+(?:de\s+)?r[eé]servation\s*[:\s]+([A-Z0-9]{6,12})/i,
-    /n[°o]\.?\s*(?:de\s+)?r[eé]servation\s*[:\s]+([A-Z0-9]{6,12})/i,
-    /booking\s+(?:reference|id|code|#)\s*[:\s]+([A-Z0-9]{6,12})/i,
-    // ② Format natif Airbnb "HM" — UNIQUEMENT ce format sans label (très spécifique, pas de faux positifs)
-    /\b(HM[A-Z0-9]{6,12})\b/i,
-    // ③ NE PAS utiliser le pattern générique [A-Z]{2,3}[0-9]{5,9} — trop de faux positifs
-    // (IBAN partiels, codes postaux étrangers, montants…)
-  ];
-
-  // Mots à blacklister (faux positifs fréquents)
-  const BLACKLIST = /^(EUR|USD|GBP|JPY|CHF|CAD|AUD|TTC|TVA|HT|PDF|URL|API|HTML|SMS|WWW|HTTP|HTTPS|AIRBNB|IATA|ISBN|IBAN|BIC|SWIFT|VAT|REF|NO|NR|FR|EN|DE|ES|IT|PT|NL|PL|RU|ZH|JA|KO|AR|TR|ID|TH|HT|PM|AM|OK)$/;
-
-  for (const p of patterns) {
-    const m = text.match(p);
-    if (m) {
-      const code = m[1].toUpperCase();
-      if (!BLACKLIST.test(code) && code.length >= 6) return code;
-    }
-  }
-  return undefined;
-}
-
 function extractPropertyName(text: string, subject?: string): string | undefined {
-  // ── GUARD : emails de type "arrive le" / "part" → jamais de nom de logement ──────────────
-  if (subject && (
-    /\barrive\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(subject) ||
-    /\bpart\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(subject) ||
-    /^(?:\[[^\]]+\]\s*)?[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+\s+(a\s+r[eé]serv|annul|modifi|laiss|r[eé]dig|souhait)/i.test(subject) ||
-    /\bcheck[\s-]?(in|out)\b/i.test(subject)
-  )) {
-    return undefined;
-  }
-
   // ── GUARD : emails de versement → jamais de nom de logement ──────────────
   // "Nous avons envoyé un versement de X €" → return undefined immédiatement
   const PAYOUT_RE = /nous\s+avons\s+envoy[eé]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout|versement\s+de\s+[\d,.\s]+\s*[€$£]|your\s+payout\s+of/i;
@@ -1476,9 +1106,13 @@ function extractPropertyName(text: string, subject?: string): string | undefined
   //   "Logement : NomLogement"
   //   "Your listing: NomLogement"
   const bodyPatterns: RegExp[] = [
+    // Format Airbnb hôte : "Identité vérifiée\n\nLogement\nLogement entier"
+    /(?:Identit[eé]\s+v[eé]rifi[eé]e.*?(?:\r?\n)+)([^\r\n]+)(?:\r?\n)+Logement\s+entier/i,
     // Format Airbnb hôte : "Réservation pour NomLogement, 10–13 avr."
     // Le nom est entre "pour " et la virgule+date ou fin de ligne
     /r[eé]servation\s+pour\s+([^,\n\r<]{5,70})(?:,|\n|\r|$)/i,
+    // Formats d'états : "souhaite changer sa réservation" / "a réservé" etc. avec capture jusqu'à la date
+    /(?:souhaite\s+changer\s+sa\s+r[eé]servation|a\s+r[eé]serv[eé]s?|a\s+annul[eé]s?|a\s+modifi[eé]\s+sa\s+r[eé]servation)\s+([\s\S]{15,150}?)\s+(?:du |de |pour |arriv[eé]e |check[-\s]?in|voyage |\d{1,2}\s+(?:janv?|f[eé]vr?|mars|avril|avr|mai|juin|juil|ao[uû]t|sept?|oct|nov|d[eé]c))/i,
     // "Logement : NomLogement" / "Votre logement : NomLogement"
     /(?:votre\s+)?logement\s*[:\-]\s*([^\n\r<]{5,80})/i,
     // "Annonce : NomLogement" / "Votre annonce : NomLogement"
@@ -1850,7 +1484,7 @@ export function parseAirbnbEmail(
   const airbnbListingId     = extractAirbnbListingId(body);
   const guestComposition    = bookingType !== 'payout'
     ? extractGuestComposition(text, subject)
-    : { guests: 0 };
+    : { total: 0 };
 
   // ── Champs financiers : selon le type ────────────────────────────────────
   // new/modified/cancelled/reminder → détail complet des frais
@@ -2069,16 +1703,16 @@ export function parseAirbnbEmail(
     // Pour payout : le nom voyageur n'est pas toujours dans le corps → garder undefined si générique
     guestName: (bookingType === 'payout' && guestNameExtracted === 'Voyageur Airbnb')
                  ? 'Voyageur Airbnb'  // on garde le placeholder pour les payout sans nom
-                 : guestNameExtracted,
+                 : (guestNameExtracted ?? 'Voyageur Airbnb'),
     // Email/téléphone : uniquement si l'email est explicitement dans le corps
     // (pas extrait pour payout où le corps ne contient pas les infos voyageur)
     guestEmail: bookingType !== 'payout' ? extractGuestEmail(text) : undefined,
     guestPhone: bookingType !== 'payout' ? extractGuestPhone(text) : undefined,
-  guests:     guestComposition.guests,
-  guestAdults: guestComposition.guestAdults,
-  guestChildren: guestComposition.guestChildren,
-  guestInfants: guestComposition.guestInfants,
-  guestPets: guestComposition.guestPets,
+  guests:     guestComposition.total ?? 0,
+  guestAdults: guestComposition.adults ?? 0,
+  guestChildren: guestComposition.children ?? 0,
+  guestInfants: guestComposition.infants ?? 0,
+  guestPets: guestComposition.pets ?? 0,
     // Pays/langue : utile pour new, modified, reminder, cancelled, checkout
     guestCountry:  (bookingType === 'new' || bookingType === 'modified' || bookingType === 'reminder' || bookingType === 'cancelled' || bookingType === 'checkout')
                      ? guestCountry : undefined,
@@ -2180,4 +1814,5 @@ export interface GmailPayload {
   body?: { data?: string };
   parts?: GmailPayload[];
 }
+
 
