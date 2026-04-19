@@ -1106,6 +1106,19 @@ function extractPropertyName(text: string, subject?: string): string | undefined
   //   "Logement : NomLogement"
   //   "Your listing: NomLogement"
   const bodyPatterns: RegExp[] = [
+    // ── Format Airbnb hôte 2024-2026 : label seul sur une ligne, valeur sur la suivante ──
+    // "Annonce\nAppartement Bleu Relax"  (sans deux-points)
+    /(?:^|\r?\n)Annonce\s*\r?\n([^\r\n<]{5,80})/i,
+    // "Logement\nAppartement Bleu Relax"
+    /(?:^|\r?\n)Logement\s*\r?\n([^\r\n<]{5,80})/i,
+    // "Listing\nAppartement Bleu Relax"
+    /(?:^|\r?\n)Listing\s*\r?\n([^\r\n<]{5,80})/i,
+    // "Your listing\nAppartement Bleu Relax"
+    /(?:^|\r?\n)Your\s+listing\s*\r?\n([^\r\n<]{5,80})/i,
+    // "Annonce :\nAppartement Bleu Relax"  (colon + newline)
+    /(?:^|\r?\n)(?:votre\s+)?annonce\s*[:\-]\s*\r?\n([^\r\n<]{5,80})/i,
+    // "Logement :\nAppartement Bleu Relax"
+    /(?:^|\r?\n)(?:votre\s+)?logement\s*[:\-]\s*\r?\n([^\r\n<]{5,80})/i,
     // Format Airbnb hôte : "Identité vérifiée\n\nLogement\nLogement entier"
     /(?:Identit[eé]\s+v[eé]rifi[eé]e.*?(?:\r?\n)+)([^\r\n]+)(?:\r?\n)+Logement\s+entier/i,
     // Format Airbnb hôte : "Réservation pour NomLogement, 10–13 avr."
@@ -1113,7 +1126,7 @@ function extractPropertyName(text: string, subject?: string): string | undefined
     /r[eé]servation\s+pour\s+([^,\n\r<]{5,70})(?:,|\n|\r|$)/i,
     // Formats d'états : "souhaite changer sa réservation" / "a réservé" etc. avec capture jusqu'à la date
     /(?:souhaite\s+changer\s+sa\s+r[eé]servation|a\s+r[eé]serv[eé]s?|a\s+annul[eé]s?|a\s+modifi[eé]\s+sa\s+r[eé]servation)\s+([\s\S]{15,150}?)\s+(?:du |de |pour |arriv[eé]e |check[-\s]?in|voyage |\d{1,2}\s+(?:janv?|f[eé]vr?|mars|avril|avr|mai|juin|juil|ao[uû]t|sept?|oct|nov|d[eé]c))/i,
-    // "Logement : NomLogement" / "Votre logement : NomLogement"
+    // "Logement : NomLogement" / "Votre logement : NomLogement"  (inline avec deux-points)
     /(?:votre\s+)?logement\s*[:\-]\s*([^\n\r<]{5,80})/i,
     // "Annonce : NomLogement" / "Votre annonce : NomLogement"
     /(?:votre\s+)?annonce\s*[:\-]\s*([^\n\r<]{5,80})/i,
@@ -1475,7 +1488,7 @@ export function parseAirbnbEmail(
   // 6. Extraire tous les champs enrichis selon le type d'email
   let price               = extractPrice(text) || extractPrice(subject);
   const confirmationCode    = extractConfirmationCode(text) || extractConfirmationCode(subject);
-  let guestNameExtracted  = extractGuestName(text, subject);
+  let guestNameExtracted  = extractGuestName(subject, text);
   let propertyNameExtracted = extractPropertyName(text, subject);
   const guestCountry        = extractGuestCountry(text);
   const guestLanguage       = detectGuestLanguage(text, subject);
