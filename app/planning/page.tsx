@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useBNB } from '../../contexts/BNBContext';
 import ThemeToggle from '../../components/ThemeToggle';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Home,
@@ -111,16 +112,59 @@ export default function PlanningPage() {
   const router = useRouter();
   const { isDark } = useTheme();
 
+  // ── BNBContext : données déjà authentifiées et chargées ──────────────────
+  const {
+    bookings: ctxBookings,
+    maintenanceTasks: ctxMaintenance,
+    properties: ctxProperties,
+  } = useBNB();
+
   const [view, setView]               = useState<ViewMode>('week');
   const [anchor, setAnchor]           = useState(new Date());
-  const [properties, setProperties]   = useState<Property[]>([]);
-  const [bookings, setBookings]       = useState<Booking[]>([]);
   const [cleanings, setCleanings]     = useState<Cleaning[]>([]);
-  const [maintenance, setMaintenance] = useState<MaintenanceTask[]>([]);
-  const [loading, setLoading]         = useState(true);
+  const [loading, setLoading]         = useState(false);
   const [selectedProp, setSelectedProp] = useState<number | 'all'>('all');
   const [dayDetail, setDayDetail]     = useState<{ date: Date; propId: number } | null>(null);
   const [exporting, setExporting]     = useState<ExportFormat | null>(null);
+
+  // Map BNBContext types → local interfaces
+  const properties: Property[] = useMemo(() =>
+    ctxProperties.map(p => ({ id: p.id, name: p.name, city: p.city || '' })),
+    [ctxProperties]
+  );
+
+  const bookings: Booking[] = useMemo(() =>
+    ctxBookings.map(b => ({
+      id:                b.id,
+      propertyId:        b.propertyId,
+      guestName:         b.guestInfo?.name ?? 'Voyageur',
+      checkIn:           b.checkIn,
+      checkOut:          b.checkOut,
+      status:            b.status,
+      guests:            b.guests,
+      totalPrice:        b.totalPrice ?? 0,
+      confirmationCode:  null,
+      guestPhone:        b.guestInfo?.phone ?? null,
+      specialRequests:   b.specialRequests ?? null,
+      source:            undefined,
+      payments:          b.paymentStatus
+        ? [{ status: b.paymentStatus === 'paid' ? 'COMPLETED' : 'PENDING', amount: b.totalPrice ?? 0 }]
+        : [],
+    })),
+    [ctxBookings]
+  );
+
+  const maintenance: MaintenanceTask[] = useMemo(() =>
+    ctxMaintenance.map(m => ({
+      id:         m.id,
+      propertyId: m.propertyId,
+      title:      m.title,
+      dueDate:    m.scheduledDate ?? null,
+      status:     m.status,
+      priority:   m.priority,
+    })),
+    [ctxMaintenance]
+  );
 
   // Styles
   const card = isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200';
@@ -137,7 +181,6 @@ export default function PlanningPage() {
     } else {
       const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
       const end   = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
-      // Full grid: pad to Monday start
       const gridStart = startOfWeek(start);
       const gridEnd   = addDays(startOfWeek(end), 6);
       const days: Date[] = [];
@@ -147,32 +190,26 @@ export default function PlanningPage() {
     }
   }, [view, anchor]);
 
-  const fetchAll = useCallback(async () => {
+  // Only fetch cleanings (not in BNBContext) — with credentials
+  const fetchCleanings = useCallback(async () => {
     setLoading(true);
     try {
       const { start, end } = dateRange();
       const s = isoDay(addDays(start, -1));
-      const e = isoDay(addDays(end, 1));
-
-      const [propRes, bookRes, cleanRes, maintRes] = await Promise.all([
-        fetch('/api/properties?limit=100'),
-        fetch(`/api/bookings?startDate=${s}&endDate=${e}&limit=200`),
-        fetch(`/api/cleanings?startDate=${s}&endDate=${e}&limit=200`),
-        fetch(`/api/maintenance?limit=200`),
-      ]);
-
-      if (propRes.ok)  { const d = await propRes.json();  setProperties(d.properties || d || []); }
-      if (bookRes.ok)  { const d = await bookRes.json();  setBookings(d.bookings || d || []); }
-      if (cleanRes.ok) { const d = await cleanRes.json(); setCleanings(d.cleanings || d || []); }
-      if (maintRes.ok) { const d = await maintRes.json(); setMaintenance(d.tasks || d || []); }
-    } catch {
-      toast.error('Erreur lors du chargement');
-    } finally {
+      const e = isoDay(addDays(end,    1));
+      const res = await fetch(`/api/cleanings?startDate=${s}&endDate=${e}&limit=200`, {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setCleanings(d.cleanings || d || []);
+      }
+    } catch { /* ignore */ } finally {
       setLoading(false);
     }
   }, [dateRange]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { fetchCleanings(); }, [fetchCleanings]);
 
   const navigate = (dir: number) => {
     const d = new Date(anchor);
@@ -486,7 +523,7 @@ export default function PlanningPage() {
             {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
 
-          <button onClick={fetchAll} className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
+          <button onClick={fetchCleanings} className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
             <RefreshCw size={16} className={muted} />
           </button>
           <button
