@@ -17,6 +17,14 @@ interface Property { id: number; name: string; city: string }
 interface Booking {
   id: number; propertyId: number; guestName: string;
   checkIn: string; checkOut: string; status: string; guests: number;
+  totalPrice?: number;
+  nights?: number;
+  confirmationCode?: string;
+  guestPhone?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  specialRequests?: string;
+  paymentStatus?: string;
 }
 interface Cleaning {
   id: number; propertyId: number; scheduledDate: string;
@@ -289,10 +297,10 @@ export default function PlanningPage() {
     }
   };
 
-  // Events per day per property
+  // Events per day per property (propId=-1 = all properties)
   const getBookingsForDayProp = (day: Date, propId: number) =>
     bookings.filter(b => {
-      if (b.propertyId !== propId) return false;
+      if (propId !== -1 && b.propertyId !== propId) return false;
       const ci = new Date(b.checkIn);
       const co = new Date(b.checkOut);
       ci.setHours(0,0,0,0); co.setHours(0,0,0,0);
@@ -300,13 +308,13 @@ export default function PlanningPage() {
     });
 
   const getCheckinsForDay = (day: Date, propId: number) =>
-    bookings.filter(b => b.propertyId === propId && sameDay(new Date(b.checkIn), day));
+    bookings.filter(b => (propId === -1 || b.propertyId === propId) && sameDay(new Date(b.checkIn), day));
   const getCheckoutsForDay = (day: Date, propId: number) =>
-    bookings.filter(b => b.propertyId === propId && sameDay(new Date(b.checkOut), day));
+    bookings.filter(b => (propId === -1 || b.propertyId === propId) && sameDay(new Date(b.checkOut), day));
   const getCleaningsForDay = (day: Date, propId: number) =>
-    cleanings.filter(c => c.propertyId === propId && sameDay(new Date(c.scheduledDate), day));
+    cleanings.filter(c => (propId === -1 || c.propertyId === propId) && sameDay(new Date(c.scheduledDate), day));
   const getMaintenanceForDay = (day: Date, propId: number) =>
-    maintenance.filter(m => m.propertyId === propId && m.dueDate && sameDay(new Date(m.dueDate), day));
+    maintenance.filter(m => (propId === -1 || m.propertyId === propId) && m.dueDate && sameDay(new Date(m.dueDate), day));
 
   const today = new Date(); today.setHours(0,0,0,0);
 
@@ -566,52 +574,68 @@ export default function PlanningPage() {
                       return (
                         <td key={i}
                           onClick={() => hasEvents && setDayDetail({ date: day, propId: prop.id })}
-                          className={`align-top p-1.5 rounded-xl border transition-all min-h-[70px] ${
+                          className={`align-top p-1.5 rounded-xl border transition-all min-h-[80px] ${
                             isToday
                               ? isDark ? 'border-[#FF385C]/30 bg-[#FF385C]/5' : 'border-[#FF385C]/20 bg-[#FF385C]/3'
                               : isDark ? 'border-white/5 bg-white/[0.02] hover:bg-white/5' : 'border-gray-100 bg-white hover:bg-gray-50'
                           } ${hasEvents ? 'cursor-pointer' : ''}`}
                         >
-                          {/* Occupied bar */}
-                          {occupied.length > 0 && (
-                            <div className="h-1.5 rounded-full bg-blue-500/70 mb-1" title={occupied[0].guestName} />
-                          )}
-                          <div className="flex flex-wrap gap-0.5">
-                            {isTurnover && (
-                              <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[9px] font-medium leading-none">
-                                <Clock size={8} />TURN
-                              </span>
-                            )}
-                            {checkins.map(b => (
-                              <span key={`ci-${b.id}`} className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-green-500/20 text-green-400 text-[9px] font-medium leading-none">
-                                <ArrowLeftRight size={8} />IN
-                              </span>
-                            ))}
-                            {checkouts.map(b => (
-                              <span key={`co-${b.id}`} className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-gray-500/20 text-gray-400 text-[9px] font-medium leading-none">
-                                <ArrowLeftRight size={8} />OUT
-                              </span>
-                            ))}
+                          {/* Booking pills — one per overlapping booking */}
+                          {occupied.map((b, bi) => {
+                            const isCI  = sameDay(new Date(b.checkIn),  day);
+                            const isCO  = sameDay(new Date(b.checkOut), day);
+                            const nights = b.nights ?? Math.ceil((new Date(b.checkOut).getTime() - new Date(b.checkIn).getTime()) / 86400000);
+                            const pill = isCI && isCO ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                                       : isCI         ? 'bg-green-500/20 border-green-500/40 text-green-300'
+                                       : isCO         ? 'bg-gray-500/20 border-gray-500/40 text-gray-300'
+                                       :                 'bg-blue-500/15 border-blue-500/30 text-blue-200';
+                            return (
+                              <div key={`occ-${b.id}-${bi}`} className={`mb-1 px-1.5 py-1 rounded-lg border text-[10px] leading-tight ${pill}`}>
+                                <p className="font-semibold truncate max-w-[95px]">{b.guestName}</p>
+                                <p className="opacity-70 flex items-center gap-1 mt-0.5">
+                                  <span>{b.guests}👤</span>
+                                  {nights > 0 && <span>{nights}🌙</span>}
+                                  {b.totalPrice ? <span className="font-medium">{Math.round(b.totalPrice)}€</span> : null}
+                                </p>
+                                {(isCI || isCO) && (
+                                  <p className="opacity-60 mt-0.5">
+                                    {isCI && isCO ? '🔄 IN+OUT' : isCI ? `▶ ${b.checkInTime ?? ''}` : `■ ${b.checkOutTime ?? ''}`}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {/* Standalone check-ins not yet in occupied (future) */}
+                          {checkins.filter(b => !occupied.find(o => o.id === b.id)).map(b => (
+                            <div key={`ci-only-${b.id}`} className="mb-1 px-1.5 py-1 rounded-lg border text-[10px] leading-tight bg-green-500/20 border-green-500/40 text-green-300">
+                              <p className="font-semibold truncate max-w-[95px]">{b.guestName}</p>
+                              <p className="opacity-70">▶ Arrivée {b.checkInTime ?? ''}</p>
+                            </div>
+                          ))}
+                          {/* Standalone check-outs */}
+                          {checkouts.filter(b => !occupied.find(o => o.id === b.id)).map(b => (
+                            <div key={`co-only-${b.id}`} className="mb-1 px-1.5 py-1 rounded-lg border text-[10px] leading-tight bg-gray-500/20 border-gray-500/40 text-gray-300">
+                              <p className="font-semibold truncate max-w-[95px]">{b.guestName}</p>
+                              <p className="opacity-70">■ Départ {b.checkOutTime ?? ''}</p>
+                            </div>
+                          ))}
+                          {/* Cleaning / maintenance badges */}
+                          <div className="flex flex-wrap gap-0.5 mt-0.5">
                             {clean.map(c => (
                               <span key={`cl-${c.id}`} className={`flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium leading-none ${
                                 c.status === 'COMPLETED' ? 'bg-green-500/20 text-green-400' : 'bg-purple-500/20 text-purple-400'
                               }`}>
-                                <Sparkles size={8} />
-                                {c.status === 'COMPLETED' ? '✓' : 'M'}
+                                <Sparkles size={8} />{c.status === 'COMPLETED' ? '✓Ménage' : '🧹Ménage'}
                               </span>
                             ))}
                             {maint.map(m => (
                               <span key={`mt-${m.id}`} className={`flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium leading-none ${
                                 m.priority === 'URGENT' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'
                               }`}>
-                                <Wrench size={8} />
-                                {m.priority === 'URGENT' ? '!' : 'T'}
+                                <Wrench size={8} />{m.priority === 'URGENT' ? '⚠' : '🔧'}
                               </span>
                             ))}
                           </div>
-                          {occupied.length > 0 && (
-                            <p className={`text-[9px] ${muted} mt-0.5 truncate`}>{occupied[0].guestName}</p>
-                          )}
                         </td>
                       );
                     })}
@@ -644,25 +668,39 @@ export default function PlanningPage() {
 
                   return (
                     <div key={i}
-                      onClick={() => total > 0 && displayedProperties.length === 1 && setDayDetail({ date: day, propId: displayedProperties[0].id })}
-                      className={`min-h-[80px] p-1.5 rounded-xl border transition-all ${
+                      onClick={() => total > 0 && setDayDetail({ date: day, propId: displayedProperties.length === 1 ? displayedProperties[0].id : -1 })}
+                      className={`min-h-[90px] p-1.5 rounded-xl border transition-all ${
                         !isCurrentMonth ? 'opacity-30' : ''
                       } ${
                         isToday
                           ? isDark ? 'border-[#FF385C]/40 bg-[#FF385C]/8' : 'border-[#FF385C]/30 bg-[#FF385C]/5'
                           : isDark ? 'border-white/5 bg-white/[0.02] hover:bg-white/5' : 'border-gray-100 bg-white hover:bg-gray-50'
-                      } ${total > 0 && displayedProperties.length === 1 ? 'cursor-pointer' : ''}`}
+                      } ${total > 0 ? 'cursor-pointer' : ''}`}
                     >
                       <p className={`text-xs font-bold mb-1 ${isToday ? 'text-[#FF385C]' : text}`}>{day.getDate()}</p>
-                      {allBookings.length > 0 && <div className="h-1 rounded-full bg-blue-500/60 mb-0.5" />}
-                      {(allCheckins.length > 0 && allCheckouts.length > 0) && <div className="h-1 rounded-full bg-amber-400/70 mb-0.5" />}
-                      <div className="flex flex-wrap gap-0.5">
-                        {allCheckins.length  > 0 && <span className="w-1.5 h-1.5 rounded-full bg-green-400" title="Check-in" />}
-                        {allCheckouts.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-gray-400" title="Check-out" />}
-                        {allClean.length     > 0 && <span className="w-1.5 h-1.5 rounded-full bg-purple-400" title="Ménage" />}
-                        {allMaint.length     > 0 && <span className="w-1.5 h-1.5 rounded-full bg-orange-400" title="Maintenance" />}
+                      {/* Booking pills in month view */}
+                      {allBookings.slice(0, 2).map((b, bi) => {
+                        const isCI = sameDay(new Date(b.checkIn),  day);
+                        const isCO = sameDay(new Date(b.checkOut), day);
+                        const color = isCI && isCO ? 'bg-amber-500/25 text-amber-300'
+                                    : isCI         ? 'bg-green-500/20 text-green-300'
+                                    : isCO         ? 'bg-gray-500/20 text-gray-300'
+                                    :                'bg-blue-500/15 text-blue-200';
+                        return (
+                          <div key={`mb-${b.id}-${bi}`} className={`mb-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold truncate leading-snug ${color}`}>
+                            {isCI ? '▶' : isCO ? '■' : '—'} {b.guestName}
+                            {b.guests > 1 ? ` ×${b.guests}` : ''}
+                          </div>
+                        );
+                      })}
+                      {allBookings.length > 2 && (
+                        <p className={`text-[9px] ${muted} mt-0.5`}>+{allBookings.length - 2} résa.</p>
+                      )}
+                      {/* Service dots */}
+                      <div className="flex flex-wrap gap-0.5 mt-0.5">
+                        {allClean.length  > 0 && <span className="w-1.5 h-1.5 rounded-full bg-purple-400" title="Ménage" />}
+                        {allMaint.length  > 0 && <span className="w-1.5 h-1.5 rounded-full bg-orange-400" title="Maintenance" />}
                       </div>
-                      {total > 0 && <p className={`text-[9px] ${muted} mt-0.5`}>{total} évt</p>}
                     </div>
                   );
                 })}
@@ -682,7 +720,11 @@ export default function PlanningPage() {
                 <h2 className={`font-bold text-lg ${text}`}>
                   {dayDetail.date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </h2>
-                <p className={`text-sm ${muted}`}>{detailProp?.name}</p>
+                <p className={`text-sm ${muted}`}>
+                  {dayDetail.propId === -1
+                    ? `${displayedProperties.length} logement(s)`
+                    : detailProp?.name}
+                </p>
               </div>
               <button onClick={() => setDayDetail(null)} className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
                 <X size={18} className={muted} />
@@ -693,7 +735,8 @@ export default function PlanningPage() {
               {detailCheckins.length > 0 && (
                 <Section title="Check-in" icon={<ArrowLeftRight size={14} className="text-green-400" />} isDark={isDark}>
                   {detailCheckins.map(b => (
-                    <EventRow key={b.id} title={b.guestName} sub={`${b.guests} voyageur(s)`} badge="Check-in" badgeColor="bg-green-500/15 text-green-400" isDark={isDark} />
+                    <BookingCard key={b.id} booking={b} badge="Check-in" badgeColor="bg-green-500/15 text-green-400" isDark={isDark}
+                      propName={dayDetail.propId === -1 ? properties.find(p => p.id === b.propertyId)?.name : undefined} />
                   ))}
                 </Section>
               )}
@@ -701,7 +744,8 @@ export default function PlanningPage() {
               {detailCheckouts.length > 0 && (
                 <Section title="Check-out" icon={<ArrowLeftRight size={14} className="text-gray-400" />} isDark={isDark}>
                   {detailCheckouts.map(b => (
-                    <EventRow key={b.id} title={b.guestName} sub={`${b.guests} voyageur(s)`} badge="Check-out" badgeColor="bg-gray-500/15 text-gray-400" isDark={isDark} />
+                    <BookingCard key={b.id} booking={b} badge="Check-out" badgeColor="bg-gray-500/15 text-gray-400" isDark={isDark}
+                      propName={dayDetail.propId === -1 ? properties.find(p => p.id === b.propertyId)?.name : undefined} />
                   ))}
                 </Section>
               )}
@@ -709,9 +753,8 @@ export default function PlanningPage() {
               {detailBookings.filter(b => !detailCheckins.find(c => c.id === b.id) && !detailCheckouts.find(c => c.id === b.id)).length > 0 && (
                 <Section title="Occupation" icon={<Users size={14} className="text-blue-400" />} isDark={isDark}>
                   {detailBookings.filter(b => !detailCheckins.find(c => c.id === b.id) && !detailCheckouts.find(c => c.id === b.id)).map(b => (
-                    <EventRow key={b.id} title={b.guestName}
-                      sub={`jusqu'au ${new Date(b.checkOut).toLocaleDateString('fr-FR')}`}
-                      badge={b.status} badgeColor={`${BOOKING_STATUS_COLOR[b.status] || 'bg-gray-500'}/20 text-white`} isDark={isDark} />
+                    <BookingCard key={b.id} booking={b} badge={b.status} badgeColor={`${BOOKING_STATUS_COLOR[b.status] || 'bg-gray-500'}/20 text-white`} isDark={isDark}
+                      propName={dayDetail.propId === -1 ? properties.find(p => p.id === b.propertyId)?.name : undefined} />
                   ))}
                 </Section>
               )}
@@ -801,6 +844,61 @@ function EventRow({ title, sub, badge, badgeColor, isDark }: {
         {sub && <p className={`text-xs ${muted}`}>{sub}</p>}
       </div>
       <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${badgeColor}`}>{badge}</span>
+    </div>
+  );
+}
+
+function BookingCard({ booking: b, badge, badgeColor, isDark, propName }: {
+  booking: { id: number; guestName: string; guests: number; checkIn: string; checkOut: string; status: string;
+             totalPrice?: number; nights?: number; confirmationCode?: string; guestPhone?: string;
+             checkInTime?: string; checkOutTime?: string; specialRequests?: string; paymentStatus?: string; };
+  badge: string; badgeColor: string; isDark: boolean; propName?: string;
+}) {
+  const card  = isDark ? 'bg-white/5' : 'bg-gray-50';
+  const text  = isDark ? 'text-white' : 'text-gray-900';
+  const muted = isDark ? 'text-gray-400' : 'text-gray-500';
+  const sep   = isDark ? 'border-white/5' : 'border-gray-100';
+
+  const nights = b.nights ?? Math.max(1, Math.round(
+    (new Date(b.checkOut).getTime() - new Date(b.checkIn).getTime()) / 86400000));
+
+  return (
+    <div className={`rounded-xl ${card} overflow-hidden`}>
+      <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
+        <div>
+          <p className={`text-sm font-semibold ${text}`}>{b.guestName}</p>
+          {propName && <p className={`text-[10px] ${muted}`}>📍 {propName}</p>}
+        </div>
+        <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${badgeColor}`}>{badge}</span>
+      </div>
+      <div className={`grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 pb-2.5 border-t ${sep} pt-1.5`}>
+        <span className={`text-[11px] ${muted}`}>👤 {b.guests} voyageur{b.guests > 1 ? 's' : ''}</span>
+        <span className={`text-[11px] ${muted}`}>🌙 {nights} nuit{nights > 1 ? 's' : ''}</span>
+        {b.totalPrice != null && (
+          <span className={`text-[11px] font-semibold text-emerald-400`}>💶 {b.totalPrice.toLocaleString('fr-FR')} €</span>
+        )}
+        {b.paymentStatus && (
+          <span className={`text-[11px] ${muted}`}>💳 {b.paymentStatus}</span>
+        )}
+        {b.checkInTime && (
+          <span className={`text-[11px] ${muted}`}>🕐 Arrivée {b.checkInTime}</span>
+        )}
+        {b.checkOutTime && (
+          <span className={`text-[11px] ${muted}`}>🕐 Départ {b.checkOutTime}</span>
+        )}
+        {b.guestPhone && (
+          <span className={`text-[11px] ${muted} col-span-2`}>📞 {b.guestPhone}</span>
+        )}
+        {b.confirmationCode && (
+          <span className={`text-[11px] ${muted} col-span-2`}>🔑 {b.confirmationCode}</span>
+        )}
+        {b.specialRequests && (
+          <span className={`text-[11px] ${muted} col-span-2 italic`}>💬 {b.specialRequests}</span>
+        )}
+        <span className={`text-[11px] ${muted}`}>
+          📅 {new Date(b.checkIn).toLocaleDateString('fr-FR', {day:'numeric',month:'short'})} → {new Date(b.checkOut).toLocaleDateString('fr-FR', {day:'numeric',month:'short'})}
+        </span>
+      </div>
     </div>
   );
 }
