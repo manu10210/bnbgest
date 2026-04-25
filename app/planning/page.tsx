@@ -441,10 +441,23 @@ export default function PlanningPage() {
 
     const totalSlots = displayedProperties.length * days.length;
     const occupiedSlots = displayedProperties.reduce((sum, prop) => {
-      const occDays = days.filter(day => getBookingsForDayProp(day, prop.id).length > 0).length;
+      const occDays = days.filter(day => getBookingsForDayProp(day, prop.id).some(
+        b => (b.status || '').toUpperCase() !== 'CANCELLED'
+      )).length;
       return sum + occDays;
     }, 0);
-    const occupancyRate = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0;
+    // Pour la vue mois, ne compter que les jours du mois courant (pas les jours de remplissage de grille)
+    const relevantDays = view === 'month'
+      ? days.filter(d => d.getMonth() === anchor.getMonth() && d.getFullYear() === anchor.getFullYear())
+      : days;
+    const relevantSlots = displayedProperties.length * Math.max(1, relevantDays.length);
+    const relevantOccupied = displayedProperties.reduce((sum, prop) => {
+      const occDays = relevantDays.filter(day => getBookingsForDayProp(day, prop.id).some(
+        b => (b.status || '').toUpperCase() !== 'CANCELLED'
+      )).length;
+      return sum + occDays;
+    }, 0);
+    const occupancyRate = relevantSlots > 0 ? Math.round((relevantOccupied / relevantSlots) * 100) : 0;
 
     return {
       activeBookings: activeBookings.length,
@@ -640,7 +653,7 @@ export default function PlanningPage() {
                       </div>
                       <p className={`text-[10px] ${muted} pl-4`}>{prop.city}</p>
                       <p className={`text-[10px] pl-4 mt-0.5 ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>
-                        {Math.round((days.filter(d => getBookingsForDayProp(d, prop.id).length > 0).length / Math.max(1, days.length)) * 100)}% occupé
+                        {Math.round((days.filter(d => getBookingsForDayProp(d, prop.id).some(b => (b.status||'').toUpperCase() !== 'CANCELLED')).length / Math.max(1, days.length)) * 100)}% occupé
                       </p>
                     </td>
                     {days.map((day, i) => {
