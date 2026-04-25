@@ -82,15 +82,18 @@ export const BookingSchema = z.object({
     .positive('Property ID must be positive'),
   
   guestName: z.string()
-    .min(2, 'Guest name must be at least 2 characters')
+    .min(1, 'Guest name must be at least 1 character')
     .max(100, 'Guest name must be less than 100 characters'),
   
   guestEmail: z.string()
-    .email('Invalid email format'),
+    .email('Invalid email format')
+    .optional()
+    .or(z.literal('')),
   
   guestPhone: z.string()
-    .regex(/^\+?[0-9\s\-()]{8,20}$/, 'Invalid phone number format')
-    .optional(),
+    .max(50, 'Phone number too long')
+    .optional()
+    .nullable(),
   
   checkIn: z.string()
     .datetime('Invalid check-in date format'),
@@ -104,16 +107,26 @@ export const BookingSchema = z.object({
     .max(100, 'Cannot exceed 100 guests'),
   
   totalPrice: z.number()
-    .positive('Total price must be positive')
+    .min(0, 'Total price cannot be negative')
     .max(1000000, 'Total price cannot exceed 1,000,000'),
   
   notes: z.string()
     .max(2000, 'Notes must be less than 2000 characters')
-    .optional(),
+    .optional()
+    .nullable(),
   
   specialRequests: z.string()
-    .max(1000, 'Special requests must be less than 1000 characters')
+    .max(5000, 'Special requests must be less than 5000 characters')
+    .optional()
+    .nullable(),
+
+  status: z.enum(['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED', 'COMPLETED'])
     .optional(),
+
+  source: z.enum(['AIRBNB', 'BOOKING', 'DIRECT', 'VRBO', 'OTHER'])
+    .optional(),
+
+  confirmationCode: z.string().max(100).optional().nullable(),
   
 }).refine(data => {
   const checkIn = new Date(data.checkIn);
@@ -122,14 +135,6 @@ export const BookingSchema = z.object({
 }, {
   message: 'Check-out must be after check-in',
   path: ['checkOut']
-}).refine(data => {
-  const checkIn = new Date(data.checkIn);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0); // Reset to start of day
-  return checkIn >= now;
-}, {
-  message: 'Check-in cannot be in the past',
-  path: ['checkIn']
 });
 
 // Update schema without refinements to allow .partial()

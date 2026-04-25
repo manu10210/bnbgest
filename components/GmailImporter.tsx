@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * 📧 GmailImporter — Importation automatique des réservations Airbnb depuis Gmail
@@ -1432,7 +1432,7 @@ export default function GmailImporter() {
       URL.revokeObjectURL(url);
       toast.success(`Export des rejets généré (${rejectedBookings.length} email(s)).`);
     } catch {
-      toast.error('Échec de l'export des rejets CSV.');
+      toast.error("Échec de l'export des rejets CSV.");
     } finally {
       setIsExportingRejected(false);
     }
@@ -1501,30 +1501,37 @@ export default function GmailImporter() {
     // ── Persistance en base PostgreSQL ───────────────────────────────────────
     const persistToDb = async (payload: Parameters<typeof addBooking>[0], bookingType: 'new' | 'cancelled' | 'modified') => {
       try {
+        const specialReqs = payload.specialRequests ?? null;
         const body: Record<string, unknown> = {
-          propertyId:      payload.propertyId,
-          guestName:       payload.guestInfo?.name ?? 'Voyageur',
-          guestEmail:      payload.guestInfo?.email ?? '',
-          guestPhone:      payload.guestInfo?.phone ?? null,
-          checkIn:         payload.checkIn,
-          checkOut:        payload.checkOut,
-          guests:          payload.guests,
-          totalPrice:      payload.totalPrice ?? 0,
-          status:          bookingType === 'cancelled' ? 'CANCELLED'
-                         : payload.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
-          source:          'AIRBNB',
-          specialRequests: payload.specialRequests ?? null,
+          propertyId:       payload.propertyId,
+          guestName:        (payload.guestInfo?.name ?? 'Voyageur').slice(0, 100),
+          guestEmail:       payload.guestInfo?.email || undefined,
+          guestPhone:       payload.guestInfo?.phone || null,
+          checkIn:          payload.checkIn,
+          checkOut:         payload.checkOut,
+          guests:           payload.guests ?? 1,
+          totalPrice:       payload.totalPrice ?? 0,
+          status:           bookingType === 'cancelled' ? 'CANCELLED'
+                          : payload.status === 'confirmed' ? 'CONFIRMED'
+                          : payload.status === 'completed' ? 'CHECKED_OUT'
+                          : 'CONFIRMED',
+          source:           'AIRBNB',
+          specialRequests:  specialReqs ? specialReqs.slice(0, 4900) : null,
           confirmationCode: (payload as any).paymentInfo?.transactionId ?? null,
-          notes:           null,
+          notes:            null,
         };
-        await fetch('/api/bookings', {
+        const res = await fetch('/api/bookings', {
           method:      'POST',
           credentials: 'include',
           headers:     { 'Content-Type': 'application/json' },
           body:        JSON.stringify(body),
         });
-      } catch {
-        // Ne pas bloquer l'import si la DB est indisponible
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.warn(`[persistToDb] HTTP ${res.status}:`, err?.error ?? err);
+        }
+      } catch (e) {
+        console.warn('[persistToDb] Erreur réseau (non bloquant):', e);
       }
     };
 
@@ -2640,7 +2647,7 @@ export default function GmailImporter() {
       property_inferred_from_subject: 'Logement déduit depuis le sujet',
       property_inferred_single_property_fallback: 'Logement affecté automatiquement (mode mono-logement)',
       guest_name_inferred_from_subject: 'Nom du voyageur déduit du sujet',
-      review_context_inferred: 'Informations d'avis enrichies depuis le contexte',
+      review_context_inferred: "Informations d'avis enrichies depuis le contexte",
       logement_introuvable: 'Logement introuvable',
       property_not_found: 'Logement introuvable',
       missing_property: 'Logement manquant',
@@ -2663,7 +2670,7 @@ export default function GmailImporter() {
       missing_price_or_confirmation_code: 'Prix ou code de réservation manquant',
       review_without_rating_or_comment: 'Avis sans note ni commentaire exploitable',
       payout_without_amount: 'Versement sans montant',
-      unsupported_booking_type: 'Type d'email non supporté',
+      unsupported_booking_type: "Type d'email non supporté",
     };
 
     return map[reason] || reason;

@@ -96,7 +96,7 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   // 1. Rate limiting
-  const rateLimitResult = await rateLimit(request, 'strict');
+  const rateLimitResult = await rateLimit(request, 'relaxed');
   if (rateLimitResult) return rateLimitResult;
 
   // 2. Authentication
@@ -138,15 +138,17 @@ export async function POST(request: Request) {
       data: {
         propertyId: validatedData.propertyId,
         guestName: validatedData.guestName,
-        guestEmail: validatedData.guestEmail,
-        guestPhone: validatedData.guestPhone,
+        guestEmail: validatedData.guestEmail ?? '',
+        guestPhone: validatedData.guestPhone ?? null,
         checkIn: new Date(validatedData.checkIn),
         checkOut: new Date(validatedData.checkOut),
         guests: validatedData.guests,
         totalPrice: validatedData.totalPrice,
-        notes: validatedData.notes,
-        status: 'PENDING',
-        source: 'DIRECT',
+        notes: validatedData.notes ?? null,
+        specialRequests: validatedData.specialRequests ?? null,
+        confirmationCode: validatedData.confirmationCode ?? null,
+        status: (validatedData.status as any) ?? 'PENDING',
+        source: (validatedData.source as any) ?? 'DIRECT',
       },
       include: {
         property: {
@@ -164,6 +166,7 @@ export async function POST(request: Request) {
     // Envoyer email de confirmation si status CONFIRMED
     if (booking.status === 'CONFIRMED') {
       try {
+        const prop = (booking as any).property;
         await sendBookingConfirmationEmail({
           id: booking.id,
           guestName: booking.guestName,
@@ -173,9 +176,9 @@ export async function POST(request: Request) {
           guests: booking.guests,
           totalPrice: booking.totalPrice,
           property: {
-            name: booking.property.name,
-            address: booking.property.address,
-            city: booking.property.city,
+            name: prop?.name ?? '',
+            address: prop?.address ?? '',
+            city: prop?.city ?? '',
           },
         });
         console.log('✅ Email de confirmation envoyé');
