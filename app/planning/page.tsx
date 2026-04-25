@@ -320,26 +320,34 @@ export default function PlanningPage() {
 
   const planningMetrics = (() => {
     const startTs = new Date(start); startTs.setHours(0, 0, 0, 0);
-    const endTs = new Date(end); endTs.setHours(23, 59, 59, 999);
+    const endTs   = new Date(end);   endTs.setHours(23, 59, 59, 999);
 
+    // Bookings overlapping the visible range (checkIn < endOfRange AND checkOut > startOfRange)
     const activeBookings = bookings.filter(b => {
       if (!selectedPropertyIds.has(b.propertyId)) return false;
-      if ((b.status || '').toLowerCase() === 'cancelled') return false;
-      const ci = new Date(b.checkIn).getTime();
-      const co = new Date(b.checkOut).getTime();
-      return !Number.isNaN(ci) && !Number.isNaN(co) && co > startTs.getTime() && ci <= endTs.getTime();
+      if ((b.status || '').toUpperCase() === 'CANCELLED') return false;
+      const ci = new Date(b.checkIn);  ci.setHours(0,0,0,0);
+      const co = new Date(b.checkOut); co.setHours(0,0,0,0);
+      return !Number.isNaN(ci.getTime()) && !Number.isNaN(co.getTime())
+        && ci.getTime() < endTs.getTime() && co.getTime() > startTs.getTime();
     });
 
+    // Check-ins whose date falls within the range
     const checkins = bookings.filter(b => {
       if (!selectedPropertyIds.has(b.propertyId)) return false;
-      const ts = new Date(b.checkIn).getTime();
-      return !Number.isNaN(ts) && ts >= startTs.getTime() && ts <= endTs.getTime();
+      if ((b.status || '').toUpperCase() === 'CANCELLED') return false;
+      const ci = new Date(b.checkIn); ci.setHours(0,0,0,0);
+      return !Number.isNaN(ci.getTime())
+        && ci.getTime() >= startTs.getTime() && ci.getTime() <= endTs.getTime();
     }).length;
 
+    // Check-outs whose date falls within the range
     const checkouts = bookings.filter(b => {
       if (!selectedPropertyIds.has(b.propertyId)) return false;
-      const ts = new Date(b.checkOut).getTime();
-      return !Number.isNaN(ts) && ts >= startTs.getTime() && ts <= endTs.getTime();
+      if ((b.status || '').toUpperCase() === 'CANCELLED') return false;
+      const co = new Date(b.checkOut); co.setHours(0,0,0,0);
+      return !Number.isNaN(co.getTime())
+        && co.getTime() >= startTs.getTime() && co.getTime() <= endTs.getTime();
     }).length;
 
     const pendingCleanings = cleanings.filter(c => {

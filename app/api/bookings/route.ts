@@ -33,10 +33,10 @@ export async function GET(request: Request) {
         ...(status && { status: status as any }),
         ...(source && { source: source as any }),
         ...(startDate && endDate && {
-          checkIn: {
-            gte: new Date(startDate),
-            lte: new Date(endDate),
-          },
+          AND: [
+            { checkIn:  { lt: new Date(endDate)   } },
+            { checkOut: { gt: new Date(startDate) } },
+          ],
         }),
       },
       include: {
