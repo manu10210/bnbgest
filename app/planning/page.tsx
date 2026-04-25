@@ -182,17 +182,21 @@ export default function PlanningPage() {
       // Bookings
       if (bookRes.ok) {
         const d = await bookRes.json();
-        setBookings(d.bookings || d || []);
+        const list = d.bookings || d || [];
+        console.log(`[Planning] API bookings chargées: ${list.length}`, list.slice(0,3));
+        setBookings(list);
       } else {
         // Fallback : BNBContext localStorage
-        setBookings(ctxBookings.map((b: any) => ({
+        const fallback = ctxBookings.map((b: any) => ({
           id: b.id, propertyId: b.propertyId,
           guestName: b.guestInfo?.name ?? 'Voyageur',
           checkIn: b.checkIn, checkOut: b.checkOut,
           status: b.status, guests: b.guests, totalPrice: b.totalPrice ?? 0,
           confirmationCode: null, guestPhone: b.guestInfo?.phone ?? null,
           specialRequests: b.specialRequests ?? null, source: undefined, payments: [],
-        })));
+        }));
+        console.warn(`[Planning] API /api/bookings échouée (${bookRes.status}) → fallback localStorage (${fallback.length} résa)`);
+        setBookings(fallback);
       }
 
       // Cleanings
@@ -621,6 +625,24 @@ export default function PlanningPage() {
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="w-10 h-10 border-4 border-[#FF385C] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : bookings.length === 0 ? (
+        <div className={`mx-4 mb-6 p-5 rounded-2xl border-2 border-dashed ${isDark ? 'border-amber-500/40 bg-amber-500/5' : 'border-amber-400/60 bg-amber-50'} flex flex-col gap-3`}>
+          <div className="flex items-center gap-3">
+            <AlertTriangle size={22} className="text-amber-500 shrink-0" />
+            <div>
+              <p className={`font-semibold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>Aucune réservation en base de données</p>
+              <p className={`text-sm ${isDark ? 'text-amber-400/80' : 'text-amber-600'}`}>
+                Vos réservations ne sont pas encore importées dans la DB. Importez vos emails Airbnb via Gmail pour les voir ici.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push('/admin?tab=gmail')}
+            className="self-start px-4 py-2 rounded-xl bg-[#FF385C] text-white text-sm font-semibold hover:bg-[#e0314f] transition-colors"
+          >
+            📧 Importer depuis Gmail
+          </button>
         </div>
       ) : (
         <div className="overflow-x-auto px-2 pb-8">
