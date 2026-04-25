@@ -638,7 +638,7 @@ export default function PlanningPage() {
             </div>
           </div>
           <button
-            onClick={() => router.push('/admin?tab=gmail')}
+            onClick={() => router.push('/admin?tab=gmail-import')}
             className="self-start px-4 py-2 rounded-xl bg-[#FF385C] text-white text-sm font-semibold hover:bg-[#e0314f] transition-colors"
           >
             📧 Importer depuis Gmail

@@ -106,7 +106,10 @@ export default function AdminDashboard() {
 
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     // Allow deep-linking from other pages via ?tab=<id>
-    return (searchParams?.get('tab') as TabType) || 'overview';
+    const raw = searchParams?.get('tab');
+    // Alias map pour liens raccourcis
+    const aliases: Record<string, TabType> = { gmail: 'gmail-import' };
+    return (aliases[raw ?? ''] ?? raw as TabType) || 'overview';
   });
   const [settingsTab, setSettingsTab] = useState<string>('profile');
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | undefined>(undefined);
