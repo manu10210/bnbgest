@@ -1498,6 +1498,36 @@ export default function GmailImporter() {
       return nextId;
     };
 
+    // ── Persistance en base PostgreSQL ───────────────────────────────────────
+    const persistToDb = async (payload: Parameters<typeof addBooking>[0], bookingType: 'new' | 'cancelled' | 'modified') => {
+      try {
+        const body: Record<string, unknown> = {
+          propertyId:      payload.propertyId,
+          guestName:       payload.guestInfo?.name ?? 'Voyageur',
+          guestEmail:      payload.guestInfo?.email ?? '',
+          guestPhone:      payload.guestInfo?.phone ?? null,
+          checkIn:         payload.checkIn,
+          checkOut:        payload.checkOut,
+          guests:          payload.guests,
+          totalPrice:      payload.totalPrice ?? 0,
+          status:          bookingType === 'cancelled' ? 'CANCELLED'
+                         : payload.status === 'confirmed' ? 'CONFIRMED' : 'PENDING',
+          source:          'AIRBNB',
+          specialRequests: payload.specialRequests ?? null,
+          confirmationCode: (payload as any).paymentInfo?.transactionId ?? null,
+          notes:           null,
+        };
+        await fetch('/api/bookings', {
+          method:      'POST',
+          credentials: 'include',
+          headers:     { 'Content-Type': 'application/json' },
+          body:        JSON.stringify(body),
+        });
+      } catch {
+        // Ne pas bloquer l'import si la DB est indisponible
+      }
+    };
+
     for (const b of toImport) {
       await new Promise(r => setTimeout(r, 200)); // Animation de transfert visible
 
@@ -1781,6 +1811,7 @@ export default function GmailImporter() {
         };
         addBooking(bookingPayload);
         pushLocalBooking(bookingPayload);
+        await persistToDb(bookingPayload, 'new');
         summary.created++;
         pushTrace({
           messageId: b.messageId,
@@ -1911,6 +1942,7 @@ export default function GmailImporter() {
           };
           addBooking(bookingPayload);
           pushLocalBooking(bookingPayload);
+          await persistToDb(bookingPayload, 'modified');
           summary.created++;
           pushTrace({
             messageId: b.messageId,
@@ -2075,6 +2107,7 @@ export default function GmailImporter() {
           };
           addBooking(bookingPayload);
           pushLocalBooking(bookingPayload);
+          await persistToDb(bookingPayload, 'new');
           summary.created++;
           pushTrace({
             messageId: b.messageId,
@@ -2238,6 +2271,7 @@ export default function GmailImporter() {
             };
             addBooking(bookingPayload);
             pushLocalBooking(bookingPayload);
+            await persistToDb(bookingPayload, 'new');
             summary.created++;
             pushTrace({
               messageId: b.messageId,
