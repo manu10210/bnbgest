@@ -184,9 +184,25 @@ export default function PlanningPage() {
         const d = await bookRes.json();
         const list = d.bookings || d || [];
         console.log(`[Planning] API bookings chargées: ${list.length}`, list.slice(0,3));
-        setBookings(list);
+        
+        // Si la DB PostgreSQL est vide mais qu'on a des résas dans le localStorage (BNBContext)
+        // On les utiliser comme fallback temporaire pour ne pas bloquer l'affichage.
+        if (list.length === 0 && ctxBookings && ctxBookings.length > 0) {
+          const fallback = ctxBookings.map((b: any) => ({
+            id: b.id, propertyId: b.propertyId,
+            guestName: b.guestInfo?.name ?? 'Voyageur',
+            checkIn: b.checkIn, checkOut: b.checkOut,
+            status: b.status, guests: b.guests, totalPrice: b.totalPrice ?? 0,
+            confirmationCode: null, guestPhone: b.guestInfo?.phone ?? null,
+            specialRequests: b.specialRequests ?? null, source: undefined, payments: [],
+          }));
+          console.warn(`[Planning] DB vide → utilisation temporaire du fallback localStorage (${fallback.length} résa)`);
+          setBookings(fallback);
+        } else {
+          setBookings(list);
+        }
       } else {
-        // Fallback : BNBContext localStorage
+        // Fallback : BNBContext localStorage en cas d'erreur de l'API
         const fallback = ctxBookings.map((b: any) => ({
           id: b.id, propertyId: b.propertyId,
           guestName: b.guestInfo?.name ?? 'Voyageur',
@@ -633,7 +649,8 @@ export default function PlanningPage() {
             <div>
               <p className={`font-semibold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>Aucune réservation sur cette période</p>
               <p className={`text-sm ${isDark ? 'text-amber-400/80' : 'text-amber-600'}`}>
-                La base de données ne contient pas encore de réservations. Importez vos emails Airbnb via Gmail, puis revenez sur cette page.
+                La base de données ne contient pas encore de réservations. 
+                Veuillez importer vos anciens emails Airbnb via l'outil Gmail.
               </p>
             </div>
           </div>
@@ -642,7 +659,7 @@ export default function PlanningPage() {
               onClick={() => router.push('/admin?tab=gmail-import')}
               className="px-4 py-2 rounded-xl bg-[#FF385C] text-white text-sm font-semibold hover:bg-[#e0314f] transition-colors"
             >
-              📧 Importer depuis Gmail
+              📧 Aller à l'Import Gmail
             </button>
             <button
               onClick={fetchAll}
