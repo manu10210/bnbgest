@@ -27,6 +27,7 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+export type InvoiceDocType = 'invoice' | 'quote';
 
 export interface InvoiceLine {
   id: string;
@@ -41,6 +42,7 @@ export interface Invoice {
   id: string;
   number: string;
   status: InvoiceStatus;
+  documentType: InvoiceDocType; // 'invoice' = Facture | 'quote' = Devis
   // Emetteur
   issuerName: string;
   issuerAddress: string;
@@ -169,17 +171,27 @@ function saveTemplates(templates: InvoiceTemplate[]) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Retourne le libellé du document en majuscules : "FACTURE" ou "DEVIS" */
+function docLabel(inv: { documentType?: InvoiceDocType }): string {
+  return (inv.documentType ?? 'invoice') === 'quote' ? 'DEVIS' : 'FACTURE';
+}
+/** Libellé capitalisé : "Facture" ou "Devis" */
+function docLabelCap(inv: { documentType?: InvoiceDocType }): string {
+  return (inv.documentType ?? 'invoice') === 'quote' ? 'Devis' : 'Facture';
+}
+
 function newLine(): InvoiceLine {
   return { id: `line_${Date.now()}_${Math.random()}`, description: '', quantity: 1, unitPrice: 0, vatRate: 20, discount: 0 };
 }
 
-function nextInvoiceNumber(invoices: Invoice[]): string {
+function nextInvoiceNumber(invoices: Invoice[], docType: InvoiceDocType = 'invoice'): string {
   const year = new Date().getFullYear();
+  const prefix = docType === 'quote' ? 'DEV' : 'FA';
   const max = invoices
     .map(i => parseInt(i.number.replace(/\D/g, ''), 10))
     .filter(n => !isNaN(n))
     .reduce((a, b) => Math.max(a, b), 0);
-  return `FA-${year}-${String(max + 1).padStart(4, '0')}`;
+  return `${prefix}-${year}-${String(max + 1).padStart(4, '0')}`;
 }
 
 function emptyInvoice(invoices: Invoice[]): Invoice {
@@ -188,6 +200,7 @@ function emptyInvoice(invoices: Invoice[]): Invoice {
     id: `inv_${Date.now()}`,
     number: nextInvoiceNumber(invoices),
     status: 'draft',
+    documentType: 'invoice',
     issuerName:    profile.issuerName    ?? 'BNBGest',
     issuerAddress: profile.issuerAddress ?? '',
     issuerCity:    profile.issuerCity    ?? '',
@@ -494,7 +507,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>Facture ${invoice.number} - BNBGest</title>
+          <title>${docLabel(invoice)} ${invoice.number} - BNBGest</title>
           ${styleAndLinks}
           <style>
             @page { size: A4; margin: 12mm; }
@@ -584,7 +597,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
                       </div>
                   }
                   <div className="text-white">
-                    <div className="text-2xl font-black">FACTURE {invoice.number}</div>
+                  <div className="text-2xl font-black">{ docLabel(invoice) } {invoice.number}</div>
                     <div className="text-white/70 text-sm mt-1">{invoice.issuerName}</div>
                   </div>
                 </div>
@@ -617,7 +630,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
                     </div>
                   )}
                   <div>
-                    <div className="text-3xl font-black" style={{ color: invoice.accentColor }}>FACTURE</div>
+                    <div className="text-3xl font-black" style={{ color: invoice.accentColor }}>{docLabel(invoice)}</div>
                     <div className="text-xl font-bold text-gray-800 mt-1">{invoice.number}</div>
                     {prop && <div className="text-sm text-gray-500 mt-1">Bien : {prop.name}</div>}
                     {booking && <div className="text-sm text-gray-500">
@@ -643,7 +656,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
               <div className="mb-10 border-b pb-6" style={{ borderColor: `${invoice.accentColor}40` }}>
                 <div className="flex justify-between items-end">
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: invoice.accentColor }}>Facture</div>
+                    <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: invoice.accentColor }}>{docLabelCap(invoice)}</div>
                     <div className="text-2xl font-black text-gray-900">{invoice.number}</div>
                     <div className="text-sm text-gray-500 mt-1">{invoice.issuerName}</div>
                   </div>
@@ -891,7 +904,7 @@ function SendModal({ invoice, onClose, onSent }: {
               <Mail className="w-4 h-4 text-blue-400" />
             </div>
             <div>
-              <p className="font-bold text-white text-sm">Envoyer la facture</p>
+              <p className="font-bold text-white text-sm">Envoyer {docLabelCap(invoice).toLowerCase() === 'devis' ? 'le devis' : 'la facture'}</p>
               <p className="text-xs text-gray-500">{invoice.number} — {fmt(totals.ttc)} €</p>
             </div>
           </div>
@@ -909,13 +922,13 @@ function SendModal({ invoice, onClose, onSent }: {
           <div>
             <label className="block text-xs font-semibold text-gray-400 mb-1">Objet</label>
             <div className="px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-gray-300">
-              Facture {invoice.number} — {fmt(totals.ttc)} € TTC
+              {docLabelCap(invoice)} {invoice.number} — {fmt(totals.ttc)} € TTC
             </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-400 mb-1">Note / Message (optionnel)</label>
             <textarea rows={3} value={note} onChange={e => setNote(e.target.value)}
-              placeholder="Veuillez trouver ci-joint votre facture…"
+              placeholder={`Veuillez trouver ci-joint votre ${docLabelCap(invoice).toLowerCase()}…`}
               className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white placeholder-gray-600 outline-none focus:ring-2 focus:ring-blue-500/30 resize-none" />
           </div>
         </div>
@@ -1491,9 +1504,35 @@ export default function InvoiceEditor() {
                 </div>
                 <h3 className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Identité de la facture</h3>
               </div>
+
+              {/* Toggle Facture / Devis */}
+              <div className="flex gap-2 mb-4">
+                {(['invoice', 'quote'] as InvoiceDocType[]).map(dt => (
+                  <button
+                    key={dt}
+                    type="button"
+                    onClick={() => setEditing({
+                      ...editing,
+                      documentType: dt,
+                      number: dt !== editing.documentType
+                        ? nextInvoiceNumber(invoices, dt)
+                        : editing.number,
+                    })}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-bold border transition-colors ${
+                      editing.documentType === dt
+                        ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400'
+                        : isDark
+                          ? 'border-white/10 text-gray-400 hover:bg-white/5'
+                          : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    {dt === 'invoice' ? <><Receipt className="w-3.5 h-3.5" /> Facture</> : <><FileText className="w-3.5 h-3.5" /> Devis</>}
+                  </button>
+                ))}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={label}>N° de facture</label>
+                  <label className={label}>N° {editing.documentType === 'quote' ? 'de devis' : 'de facture'}</label>
                   <div className="flex gap-2">
                     <input value={numberPrefix} onChange={e => {
                       setNumberPrefix(e.target.value);
@@ -1533,7 +1572,7 @@ export default function InvoiceEditor() {
                 {/* Recurring toggle */}
                 <div className="col-span-2 flex items-center justify-between py-1">
                   <label className={`text-xs font-semibold flex items-center gap-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    <Repeat className="w-3.5 h-3.5 text-violet-400" /> Facture récurrente
+                    <Repeat className="w-3.5 h-3.5 text-violet-400" /> {editing.documentType === 'quote' ? 'Devis récurrent' : 'Facture récurrente'}
                   </label>
                   <div className="flex items-center gap-3">
                     <button onClick={() => setEditing({ ...editing, isRecurring: !editing.isRecurring })}
@@ -1914,7 +1953,7 @@ export default function InvoiceEditor() {
                       <p className="text-gray-500">{editing.issuerZip} {editing.issuerCity}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-black text-xl" style={{ color: editing.accentColor }}>FACTURE</p>
+                      <p className="font-black text-xl" style={{ color: editing.accentColor }}>{docLabel(editing)}</p>
                       <p className="font-bold">N° {editing.number}</p>
                       <div className="inline-block mt-1 px-2 py-0.5 rounded text-white text-[10px] font-bold"
                         style={{ background: editing.accentColor }}>
@@ -2217,10 +2256,13 @@ export default function InvoiceEditor() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className={`text-3xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            Éditeur de Factures
+            Factures &amp; Devis
           </h2>
           <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-            {invoices.length} facture{invoices.length !== 1 ? 's' : ''} &bull; {fmt(stats.revenue)} € encaiss&eacute;s
+            {invoices.filter(i => (i.documentType ?? 'invoice') === 'invoice').length} facture{invoices.filter(i => (i.documentType ?? 'invoice') === 'invoice').length !== 1 ? 's' : ''}
+            &nbsp;&bull;&nbsp;
+            {invoices.filter(i => i.documentType === 'quote').length} devis
+            &nbsp;&bull;&nbsp;{fmt(stats.revenue)} € encaiss&eacute;s
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -2272,6 +2314,10 @@ export default function InvoiceEditor() {
           <button onClick={createNew}
             className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-white text-sm bg-gradient-to-r from-indigo-500 to-purple-600 shadow-lg hover:shadow-indigo-500/30 transition-all hover:scale-105">
             <Plus className="w-4 h-4" /> Nouvelle facture
+          </button>
+          <button onClick={() => { const inv = { ...emptyInvoice(invoices), documentType: 'quote' as InvoiceDocType, number: nextInvoiceNumber(invoices, 'quote') }; setEditing(inv); setView('editor'); setNumberPrefix('DEV'); }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-white text-sm bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg hover:shadow-amber-500/30 transition-all hover:scale-105">
+            <Plus className="w-4 h-4" /> Nouveau devis
           </button>
         </div>
       </div>
@@ -2610,6 +2656,12 @@ export default function InvoiceEditor() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`font-bold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{inv.number}</span>
+                        {/* Facture / Devis badge */}
+                        {(inv.documentType ?? 'invoice') === 'quote' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-400">
+                            <FileText className="w-3 h-3" /> Devis
+                          </span>
+                        )}
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${meta.color}`}>
                           <Icon className="w-3 h-3" />{meta.label}
                         </span>
