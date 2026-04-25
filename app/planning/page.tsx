@@ -112,7 +112,7 @@ export default function PlanningPage() {
   const router = useRouter();
   const { isDark } = useTheme();
 
-  // ── BNBContext : données déjà authentifiées et chargées ──────────────────
+  // BNBContext = fallback localStorage (données locales)
   const {
     bookings: ctxBookings,
     maintenanceTasks: ctxMaintenance,
@@ -121,50 +121,14 @@ export default function PlanningPage() {
 
   const [view, setView]               = useState<ViewMode>('week');
   const [anchor, setAnchor]           = useState(new Date());
+  const [properties, setProperties]   = useState<Property[]>([]);
+  const [bookings, setBookings]       = useState<Booking[]>([]);
   const [cleanings, setCleanings]     = useState<Cleaning[]>([]);
-  const [loading, setLoading]         = useState(false);
+  const [maintenance, setMaintenance] = useState<MaintenanceTask[]>([]);
+  const [loading, setLoading]         = useState(true);
   const [selectedProp, setSelectedProp] = useState<number | 'all'>('all');
   const [dayDetail, setDayDetail]     = useState<{ date: Date; propId: number } | null>(null);
   const [exporting, setExporting]     = useState<ExportFormat | null>(null);
-
-  // Map BNBContext types → local interfaces
-  const properties: Property[] = useMemo(() =>
-    ctxProperties.map(p => ({ id: p.id, name: p.name, city: p.city || '' })),
-    [ctxProperties]
-  );
-
-  const bookings: Booking[] = useMemo(() =>
-    ctxBookings.map(b => ({
-      id:                b.id,
-      propertyId:        b.propertyId,
-      guestName:         b.guestInfo?.name ?? 'Voyageur',
-      checkIn:           b.checkIn,
-      checkOut:          b.checkOut,
-      status:            b.status,
-      guests:            b.guests,
-      totalPrice:        b.totalPrice ?? 0,
-      confirmationCode:  null,
-      guestPhone:        b.guestInfo?.phone ?? null,
-      specialRequests:   b.specialRequests ?? null,
-      source:            undefined,
-      payments:          b.paymentStatus
-        ? [{ status: b.paymentStatus === 'paid' ? 'COMPLETED' : 'PENDING', amount: b.totalPrice ?? 0 }]
-        : [],
-    })),
-    [ctxBookings]
-  );
-
-  const maintenance: MaintenanceTask[] = useMemo(() =>
-    ctxMaintenance.map(m => ({
-      id:         m.id,
-      propertyId: m.propertyId,
-      title:      m.title,
-      dueDate:    m.scheduledDate ?? null,
-      status:     m.status,
-      priority:   m.priority,
-    })),
-    [ctxMaintenance]
-  );
 
   // Styles
   const card = isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200';
@@ -190,26 +154,71 @@ export default function PlanningPage() {
     }
   }, [view, anchor]);
 
-  // Only fetch cleanings (not in BNBContext) — with credentials
-  const fetchCleanings = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
       const { start, end } = dateRange();
       const s = isoDay(addDays(start, -1));
       const e = isoDay(addDays(end,    1));
-      const res = await fetch(`/api/cleanings?startDate=${s}&endDate=${e}&limit=200`, {
-        credentials: 'include',
-      });
-      if (res.ok) {
-        const d = await res.json();
+
+      const opts = { credentials: 'include' as RequestCredentials };
+
+      const [propRes, bookRes, cleanRes, maintRes] = await Promise.all([
+        fetch('/api/properties?limit=100', opts),
+        fetch(`/api/bookings?startDate=${s}&endDate=${e}&limit=500`, opts),
+        fetch(`/api/cleanings?startDate=${s}&endDate=${e}&limit=200`, opts),
+        fetch('/api/maintenance?limit=200', opts),
+      ]);
+
+      // Properties
+      if (propRes.ok) {
+        const d = await propRes.json();
+        const list = d.properties || d || [];
+        setProperties(list.length > 0 ? list : ctxProperties.map((p: any) => ({ id: p.id, name: p.name, city: p.city || '' })));
+      } else {
+        setProperties(ctxProperties.map((p: any) => ({ id: p.id, name: p.name, city: p.city || '' })));
+      }
+
+      // Bookings
+      if (bookRes.ok) {
+        const d = await bookRes.json();
+        setBookings(d.bookings || d || []);
+      } else {
+        // Fallback : BNBContext localStorage
+        setBookings(ctxBookings.map((b: any) => ({
+          id: b.id, propertyId: b.propertyId,
+          guestName: b.guestInfo?.name ?? 'Voyageur',
+          checkIn: b.checkIn, checkOut: b.checkOut,
+          status: b.status, guests: b.guests, totalPrice: b.totalPrice ?? 0,
+          confirmationCode: null, guestPhone: b.guestInfo?.phone ?? null,
+          specialRequests: b.specialRequests ?? null, source: undefined, payments: [],
+        })));
+      }
+
+      // Cleanings
+      if (cleanRes.ok) {
+        const d = await cleanRes.json();
         setCleanings(d.cleanings || d || []);
       }
-    } catch { /* ignore */ } finally {
+
+      // Maintenance
+      if (maintRes.ok) {
+        const d = await maintRes.json();
+        setMaintenance(d.tasks || d || []);
+      } else {
+        setMaintenance(ctxMaintenance.map((m: any) => ({
+          id: m.id, propertyId: m.propertyId, title: m.title,
+          dueDate: m.scheduledDate ?? null, status: m.status, priority: m.priority,
+        })));
+      }
+    } catch {
+      toast.error('Erreur lors du chargement');
+    } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, ctxBookings, ctxMaintenance, ctxProperties]);
 
-  useEffect(() => { fetchCleanings(); }, [fetchCleanings]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const navigate = (dir: number) => {
     const d = new Date(anchor);
@@ -523,7 +532,7 @@ export default function PlanningPage() {
             {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
 
-          <button onClick={fetchCleanings} className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
+          <button onClick={fetchAll} className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
             <RefreshCw size={16} className={muted} />
           </button>
           <button
