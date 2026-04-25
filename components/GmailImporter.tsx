@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 /**
  * 📧 GmailImporter — Importation automatique des réservations Airbnb depuis Gmail
@@ -553,8 +553,8 @@ function stripInvisibleUnicode(value: string): string {
 function cleanGuestName(candidate?: string): string | undefined {
   if (!candidate) return undefined;
   const cleaned = stripInvisibleUnicode(candidate)
-    .replace(/^[\s\-–—:;,.!?()\[\]{}"'“”‘’]+/g, '')
-    .replace(/[\s\-–—:;,.!?()\[\]{}"'“”‘’]+$/g, '')
+    .replace(/^[\s\-–—:;,.!?()\[\]{}"'“”'']+/g, '')
+    .replace(/[\s\-–—:;,.!?()\[\]{}"'“”'']+$/g, '')
     .replace(/[|•·]+$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
@@ -562,7 +562,7 @@ function cleanGuestName(candidate?: string): string | undefined {
   // Au moins prénom + nom, et pas une phrase système
   if (!cleaned || cleaned.length < 3) return undefined;
   if (/^(r[ée]servation|booking|airbnb|arrive|check)/i.test(cleaned)) return undefined;
-  if (!/^[A-Za-zÀ-ÿ'’\-\s]+$/.test(cleaned)) return undefined;
+  if (!/^[A-Za-zÀ-ÿ''\-\s]+$/.test(cleaned)) return undefined;
 
   return cleaned;
 }
@@ -1432,7 +1432,7 @@ export default function GmailImporter() {
       URL.revokeObjectURL(url);
       toast.success(`Export des rejets généré (${rejectedBookings.length} email(s)).`);
     } catch {
-      toast.error('Échec de l’export des rejets CSV.');
+      toast.error('Échec de l'export des rejets CSV.');
     } finally {
       setIsExportingRejected(false);
     }
@@ -2640,7 +2640,7 @@ export default function GmailImporter() {
       property_inferred_from_subject: 'Logement déduit depuis le sujet',
       property_inferred_single_property_fallback: 'Logement affecté automatiquement (mode mono-logement)',
       guest_name_inferred_from_subject: 'Nom du voyageur déduit du sujet',
-      review_context_inferred: 'Informations d’avis enrichies depuis le contexte',
+      review_context_inferred: 'Informations d'avis enrichies depuis le contexte',
       logement_introuvable: 'Logement introuvable',
       property_not_found: 'Logement introuvable',
       missing_property: 'Logement manquant',
@@ -2663,7 +2663,7 @@ export default function GmailImporter() {
       missing_price_or_confirmation_code: 'Prix ou code de réservation manquant',
       review_without_rating_or_comment: 'Avis sans note ni commentaire exploitable',
       payout_without_amount: 'Versement sans montant',
-      unsupported_booking_type: 'Type d’email non supporté',
+      unsupported_booking_type: 'Type d'email non supporté',
     };
 
     return map[reason] || reason;

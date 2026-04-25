@@ -1,4 +1,4 @@
-﻿// REWRITTEN: Employee dashboard now uses real DB data via session + API calls
+// REWRITTEN: Employee dashboard now uses real DB data via session + API calls
 // Original static data replaced with live cleanings + maintenance APIs
 'use client';
 
@@ -202,7 +202,7 @@ export default function EmployeeDashboard() {
               <User size={20} className="text-white" />
             </div>
             <div>
-              <h1 className={`font-bold text-lg ${text}`}>Bonjour, {employeeName.split(' ')[0]} ðŸ‘‹</h1>
+              <h1 className={`font-bold text-lg ${text}`}>Bonjour, {employeeName.split(' ')[0]} ðŸ'‹</h1>
               <p className={`text-xs ${muted}`}>{now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
             </div>
           </div>

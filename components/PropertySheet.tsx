@@ -319,8 +319,8 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
     kitchen: 'ðŸ³ Cuisine',
     bathroom: '🚿 Salle de bain',
     cleaning: '🧹 Nettoyage',
-    electronics: 'ðŸ’¡ Électronique',
-    furniture: 'ðŸª‘ Mobilier',
+    electronics: 'ðŸ'¡ Électronique',
+    furniture: 'ðŸª' Mobilier',
     other: 'ðŸ“¦ Autre',
   };
 
@@ -484,7 +484,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         {/* Revenus 12 mois */}
         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl p-5">
           <div className="flex items-center space-x-3 mb-3">
-            <span className="text-2xl">ðŸ’¶</span>
+            <span className="text-2xl">ðŸ'¶</span>
             <span className="text-xs font-medium text-emerald-700 uppercase tracking-wide">Revenus 12 mois</span>
           </div>
           <p className="text-2xl font-bold text-emerald-800">{revenue12m.toLocaleString('fr-FR')}€</p>
@@ -604,9 +604,9 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                 { icon: '🕐', label: 'Check-in',       value: params.checkInTime },
                 { icon: '🕐š', label: 'Check-out',      value: params.checkOutTime },
                 { icon: 'ðŸ“…', label: 'Séjour min.',    value: `${params.minimumStay} nuit${Number(params.minimumStay) > 1 ? 's' : ''}` },
-                { icon: 'ðŸ’¶', label: 'Prix / nuit',    value: `${params.price}€` },
+                { icon: 'ðŸ'¶', label: 'Prix / nuit',    value: `${params.price}€` },
                 { icon: '🧹', label: 'Frais ménage',   value: `${params.cleaningFee}€` },
-                { icon: 'ðŸ”’', label: 'Caution',        value: `${params.securityDeposit}€` },
+                { icon: 'ðŸ”'', label: 'Caution',        value: `${params.securityDeposit}€` },
                 ...(params.maximumStay !== '' ? [{ icon: 'ðŸ“†', label: 'Séjour max.', value: `${params.maximumStay} nuits` }] : []),
               ].map((row, i) => (
                 <div key={i} className="flex items-center space-x-3 px-4 py-3">
@@ -643,7 +643,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
               </div>
               {/* Prix / nuit */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">ðŸ’¶ Prix / nuit (€)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">ðŸ'¶ Prix / nuit (€)</label>
                 <input
                   type="number"
                   min={0}
@@ -665,7 +665,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
               </div>
               {/* Caution */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">ðŸ”’ Caution (€)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">ðŸ”' Caution (€)</label>
                 <input
                   type="number"
                   min={0}
@@ -750,7 +750,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                     <div>
                       <p className="font-medium text-gray-900 text-sm">{booking.guestInfo.name}</p>
                       <p className="text-xs text-gray-500">
-                        {new Date(booking.checkIn).toLocaleDateString('fr-FR')} â†’ {new Date(booking.checkOut).toLocaleDateString('fr-FR')} · {nights} nuit{nights > 1 ? 's' : ''}
+                        {new Date(booking.checkIn).toLocaleDateString('fr-FR')} â†' {new Date(booking.checkOut).toLocaleDateString('fr-FR')} · {nights} nuit{nights > 1 ? 's' : ''}
                         {guest && <span className="ml-1 text-gray-400">· {guest.email}</span>}
                       </p>
                     </div>
@@ -928,7 +928,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         </h3>
         {propertyReviews.length === 0 ? (
           <div className="text-center py-8 text-gray-400">
-            <span className="text-3xl block mb-2">ðŸ’¬</span>
+            <span className="text-3xl block mb-2">ðŸ'¬</span>
             <p className="text-sm">Aucun avis pour cette propriété</p>
           </div>
         ) : (
@@ -1002,7 +1002,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                   {([
                     { id: 'airbnb',  label: 'ðŸ¡ Airbnb',       desc: 'Sections structurées avec emojis' },
                     { id: 'booking', label: '🌐 Booking.com',  desc: 'Neutre et factuel' },
-                    { id: 'luxe',    label: 'ðŸ’Ž Prestige',      desc: 'Ton élégant et haut de gamme' },
+                    { id: 'luxe',    label: 'ðŸ'Ž Prestige',      desc: 'Ton élégant et haut de gamme' },
                     { id: 'concis',  label: '⚡ Concis',        desc: 'Résumé en 4 lignes' },
                     { id: 'seo',     label: 'ðŸ” SEO',           desc: 'Optimisé moteurs de recherche' },
                   ] as { id: DescriptionStyle; label: string; desc: string }[]).map(s => (
@@ -1042,8 +1042,8 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                 <div className="mt-4 p-3 bg-white/70 rounded-xl border border-[#FF385C]/10 text-xs text-gray-500 space-y-1">
                   <p className="font-semibold text-gray-600 mb-1.5">Données intégrées :</p>
                   <p>ðŸ  {property.name} · {TYPE_LABELS[property.type]?.fr ?? property.type}</p>
-                  <p>🛏 {property.bedrooms} ch. · 🚿 {property.bathrooms} SdB · ðŸ‘¥ {property.maxGuests} pers.</p>
-                  <p>ðŸ’¶ {property.price}€/nuit · 🧹 {property.cleaningFee}€ ménage</p>
+                  <p>🛏 {property.bedrooms} ch. · 🚿 {property.bathrooms} SdB · ðŸ'¥ {property.maxGuests} pers.</p>
+                  <p>ðŸ'¶ {property.price}€/nuit · 🧹 {property.cleaningFee}€ ménage</p>
                   {property.amenities.length > 0 && <p>✅ {property.amenities.length} équipement{property.amenities.length > 1 ? 's' : ''}</p>}
                   {avgRating > 0 && <p>⭐ {avgRating.toFixed(1)}/5 · {propertyReviews.length} avis</p>}
                   {occupancy > 0 && <p>ðŸ“Š {Math.round(occupancy)}% d&apos;occupation</p>}
@@ -1094,7 +1094,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                   className="w-full px-4 py-3 bg-white border border-violet-200 rounded-xl text-sm text-gray-700 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-violet-400 resize-y shadow-sm"
                   placeholder="La description apparaîtra ici..."
                 />
-                <p className="text-xs text-gray-400">ðŸ’¡ Vous pouvez modifier le texte directement avant de le copier.</p>
+                <p className="text-xs text-gray-400">ðŸ'¡ Vous pouvez modifier le texte directement avant de le copier.</p>
               </div>
             )}
           </div>

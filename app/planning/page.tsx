@@ -312,7 +312,7 @@ export default function PlanningPage() {
       );
       toast.success(`Export CSV généré (${visibleBookings.length} réservation(s)).`);
     } catch {
-      toast.error('Échec de l’export CSV.');
+      toast.error("Échec de l'export CSV.");
     } finally {
       setExporting(null);
     }
@@ -369,7 +369,7 @@ export default function PlanningPage() {
       downloadTextFile(filename, content, 'text/calendar;charset=utf-8;');
       toast.success(`Export iCal généré (${visibleBookings.length} réservation(s)).`);
     } catch {
-      toast.error('Échec de l’export iCal.');
+      toast.error("Échec de l'export iCal.");
     } finally {
       setExporting(null);
     }

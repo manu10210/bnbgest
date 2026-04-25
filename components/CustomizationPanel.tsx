@@ -268,7 +268,7 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
                       { id: 'tasks', label: 'TÃ¢ches', icon: 'ðŸ“‹' },
                       { id: 'properties', label: 'PropriÃ©tÃ©s', icon: 'ðŸ ' },
                       { id: 'calendar', label: 'Calendrier', icon: 'ðŸ“…' },
-                      { id: 'guests', label: 'Clients', icon: 'ðŸ‘¥' },
+                      { id: 'guests', label: 'Clients', icon: 'ðŸ'¥' },
                       { id: 'reviews', label: 'Avis', icon: 'â­' }
                     ].map((widget) => (
                       <button

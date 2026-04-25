@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useMemo } from 'react';
 import { useBNB, Property } from '../contexts/BNBContext';
@@ -566,7 +566,7 @@ export default function PricingEngine() {
                     </button>
                   </div>
                   <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {season.startDay} {monthNames[season.startMonth - 1]} â†’ {season.endDay} {monthNames[season.endMonth - 1]}
+                    {season.startDay} {monthNames[season.startMonth - 1]} â†' {season.endDay} {monthNames[season.endMonth - 1]}
                   </p>
                   <div className={`mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                     season.multiplier > 1
@@ -662,7 +662,7 @@ export default function PricingEngine() {
                     {promo.discountType === 'percent' ? `-${promo.discount}%` : `-${promo.discount}â‚¬`}
                   </p>
                   <div className={`text-xs space-y-1 mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    <p>Valide: {promo.validFrom} â†’ {promo.validTo}</p>
+                    <p>Valide: {promo.validFrom} â†' {promo.validTo}</p>
                     <p>Min. {promo.minNights} nuits | {promo.usedCount}/{promo.maxUses} utilisations</p>
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${promo.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
                       {promo.active ? 'Actif' : 'Inactif'}
@@ -784,7 +784,7 @@ export default function PricingEngine() {
                       }}
                       className={`w-20 p-2 rounded-lg border text-center ${isDark ? 'bg-white/10 border-white/20 text-white' : 'bg-white border-gray-300'}`}
                     />
-                    <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>nuits â†’</span>
+                    <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>nuits â†'</span>
                     <input
                       type="number"
                       value={d.discount}
