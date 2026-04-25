@@ -631,18 +631,26 @@ export default function PlanningPage() {
           <div className="flex items-center gap-3">
             <AlertTriangle size={22} className="text-amber-500 shrink-0" />
             <div>
-              <p className={`font-semibold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>Aucune réservation en base de données</p>
+              <p className={`font-semibold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>Aucune réservation sur cette période</p>
               <p className={`text-sm ${isDark ? 'text-amber-400/80' : 'text-amber-600'}`}>
-                Vos réservations ne sont pas encore importées dans la DB. Importez vos emails Airbnb via Gmail pour les voir ici.
+                La base de données ne contient pas encore de réservations. Importez vos emails Airbnb via Gmail, puis revenez sur cette page.
               </p>
             </div>
           </div>
-          <button
-            onClick={() => router.push('/admin?tab=gmail-import')}
-            className="self-start px-4 py-2 rounded-xl bg-[#FF385C] text-white text-sm font-semibold hover:bg-[#e0314f] transition-colors"
-          >
-            📧 Importer depuis Gmail
-          </button>
+          <div className="flex gap-3 flex-wrap">
+            <button
+              onClick={() => router.push('/admin?tab=gmail-import')}
+              className="px-4 py-2 rounded-xl bg-[#FF385C] text-white text-sm font-semibold hover:bg-[#e0314f] transition-colors"
+            >
+              📧 Importer depuis Gmail
+            </button>
+            <button
+              onClick={fetchAll}
+              className={`px-4 py-2 rounded-xl border text-sm font-semibold transition-colors ${isDark ? 'border-white/20 text-white hover:bg-white/10' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+            >
+              🔄 Rafraîchir
+            </button>
+          </div>
         </div>
       ) : (
         <div className="overflow-x-auto px-2 pb-8">
