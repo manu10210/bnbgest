@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
+import BookingsManager from './BookingsManager';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
@@ -1341,3 +1342,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
