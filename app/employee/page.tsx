@@ -85,7 +85,7 @@ export default function EmployeeDashboard() {
     if (status === 'unauthenticated') router.push('/login');
   }, [status, router]);
 
-  const employeeName = session?.user?.name || session?.user?.email || 'EmployÃ©';
+  const employeeName = session?.user?.name || session?.user?.email || 'Employé';
   const isAdmin = (session?.user as { role?: string })?.role === 'admin';
   const today = new Date().toISOString().split('T')[0];
 
@@ -105,7 +105,7 @@ export default function EmployeeDashboard() {
         setMaintenance(mData.tasks || mData || []);
       }
     } catch {
-      toast.error('Erreur lors du chargement des tÃ¢ches');
+      toast.error('Erreur lors du chargement des tâches');
     } finally {
       setLoading(false);
     }
@@ -124,12 +124,12 @@ export default function EmployeeDashboard() {
       });
       if (res.ok) {
         setCleanings(prev => prev.map(c => c.id === id ? { ...c, status: newStatus as Cleaning['status'] } : c));
-        toast.success(newStatus === 'COMPLETED' ? 'âœ… MÃ©nage terminÃ© !' : 'â–¶ï¸ MÃ©nage dÃ©marrÃ©');
+        toast.success(newStatus === 'COMPLETED' ? '✅ Ménage terminé !' : '▶️ Ménage démarré');
       } else {
-        toast.error('Erreur lors de la mise Ã  jour');
+        toast.error('Erreur lors de la mise à jour');
       }
     } catch {
-      toast.error('Erreur rÃ©seau');
+      toast.error('Erreur réseau');
     }
   };
 
@@ -142,12 +142,12 @@ export default function EmployeeDashboard() {
       });
       if (res.ok) {
         setMaintenance(prev => prev.map(m => m.id === id ? { ...m, status: newStatus as Maintenance['status'] } : m));
-        toast.success(newStatus === 'COMPLETED' ? 'âœ… TÃ¢che terminÃ©e !' : 'â–¶ï¸ TÃ¢che dÃ©marrÃ©e');
+        toast.success(newStatus === 'COMPLETED' ? '✅ Tâche terminée !' : '▶️ Tâche démarrée');
       } else {
-        toast.error('Erreur lors de la mise Ã  jour');
+        toast.error('Erreur lors de la mise à jour');
       }
     } catch {
-      toast.error('Erreur rÃ©seau');
+      toast.error('Erreur réseau');
     }
   };
 
@@ -237,7 +237,7 @@ export default function EmployeeDashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { icon: <Calendar size={18} />, label: "Aujourd'hui", value: totalToday, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-            { icon: <CheckCircle size={18} />, label: 'TerminÃ©es', value: completedToday, color: 'text-green-400', bg: 'bg-green-500/10' },
+            { icon: <CheckCircle size={18} />, label: 'Terminées', value: completedToday, color: 'text-green-400', bg: 'bg-green-500/10' },
             { icon: <Flame size={18} />, label: 'Urgentes', value: urgentItems.length, color: 'text-red-400', bg: 'bg-red-500/10' },
             { icon: <Star size={18} />, label: 'Progression', value: `${totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0}%`, color: 'text-amber-400', bg: 'bg-amber-500/10' },
           ].map((s, i) => (
@@ -255,7 +255,7 @@ export default function EmployeeDashboard() {
             <AlertTriangle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-red-400 font-semibold text-sm">
-                {urgentItems.length} tÃ¢che{urgentItems.length > 1 ? 's urgentes' : ' urgente'} en attente
+                {urgentItems.length} tâche{urgentItems.length > 1 ? 's urgentes' : ' urgente'} en attente
               </p>
               <p className="text-red-400/70 text-xs mt-0.5">{urgentItems.map(u => u.title).join(' Â· ')}</p>
             </div>
@@ -266,7 +266,7 @@ export default function EmployeeDashboard() {
         <div className={`flex gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
           {([
             { id: 'today', label: "Aujourd'hui", icon: <Calendar size={15} /> },
-            { id: 'cleanings', label: 'MÃ©nages', icon: <Home size={15} /> },
+            { id: 'cleanings', label: 'Ménages', icon: <Home size={15} /> },
             { id: 'maintenance', label: 'Maintenance', icon: <Wrench size={15} /> },
           ] as { id: Tab; label: string; icon: React.ReactNode }[]).map(t => (
             <button
@@ -286,9 +286,9 @@ export default function EmployeeDashboard() {
         {/* Refresh + count */}
         <div className="flex items-center justify-between">
           <p className={`text-sm ${muted}`}>
-            {tab === 'today' ? `${totalToday} tÃ¢che${totalToday !== 1 ? 's' : ''} aujourd'hui` :
-             tab === 'cleanings' ? `${filteredCleanings.length} mÃ©nage${filteredCleanings.length !== 1 ? 's' : ''}` :
-             `${filteredMaintenance.length} tÃ¢che${filteredMaintenance.length !== 1 ? 's' : ''}`}
+            {tab === 'today' ? `${totalToday} tâche${totalToday !== 1 ? 's' : ''} aujourd'hui` :
+             tab === 'cleanings' ? `${filteredCleanings.length} ménage${filteredCleanings.length !== 1 ? 's' : ''}` :
+             `${filteredMaintenance.length} tâche${filteredMaintenance.length !== 1 ? 's' : ''}`}
           </p>
           <button onClick={fetchData} className={`flex items-center gap-1.5 text-xs ${muted} hover:text-[#FF385C] transition`}>
             <RefreshCw size={13} />Actualiser
@@ -334,7 +334,7 @@ export default function EmployeeDashboard() {
             {todayCleanings.length > 0 && (
               <section>
                 <h2 className={`font-semibold ${text} mb-3 flex items-center gap-2`}>
-                  <Home size={16} className="text-blue-400" />MÃ©nages du jour
+                  <Home size={16} className="text-blue-400" />Ménages du jour
                 </h2>
                 <div className="space-y-3">
                   {todayCleanings.map(c => (
@@ -358,8 +358,8 @@ export default function EmployeeDashboard() {
             {totalToday === 0 && (
               <div className={`${card} rounded-2xl p-10 text-center`}>
                 <CheckCircle size={40} className="text-green-400 mx-auto mb-3" />
-                <p className={`font-semibold ${text}`}>Rien Ã  faire aujourd'hui !</p>
-                <p className={`text-sm ${muted} mt-1`}>Toutes les tÃ¢ches du jour sont terminÃ©es.</p>
+                <p className={`font-semibold ${text}`}>Rien à faire aujourd'hui !</p>
+                <p className={`text-sm ${muted} mt-1`}>Toutes les tâches du jour sont terminées.</p>
               </div>
             )}
           </div>
@@ -369,7 +369,7 @@ export default function EmployeeDashboard() {
         {tab === 'cleanings' && (
           <div className="space-y-3">
             {filteredCleanings.length === 0
-              ? <EmptyState text="Aucun mÃ©nage trouvÃ©" isDark={isDark} />
+              ? <EmptyState text="Aucun ménage trouvé" isDark={isDark} />
               : filteredCleanings.map(c => (
                   <CleaningCard key={c.id} cleaning={c} isDark={isDark} onUpdate={updateCleaningStatus} />
                 ))
@@ -381,7 +381,7 @@ export default function EmployeeDashboard() {
         {tab === 'maintenance' && (
           <div className="space-y-3">
             {filteredMaintenance.length === 0
-              ? <EmptyState text="Aucune tÃ¢che trouvÃ©e" isDark={isDark} />
+              ? <EmptyState text="Aucune tâche trouvée" isDark={isDark} />
               : filteredMaintenance.map(m => (
                   <MaintenanceCard key={m.id} task={m} isDark={isDark} onUpdate={updateMaintenanceStatus} />
                 ))
@@ -394,7 +394,7 @@ export default function EmployeeDashboard() {
   );
 }
 
-// â”€â”€ Cleaning Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Cleaning Card ────────────────────────────────────────────────────────────
 
 function CleaningCard({ cleaning: c, isDark, onUpdate }: {
   cleaning: Cleaning;
@@ -413,13 +413,13 @@ function CleaningCard({ cleaning: c, isDark, onUpdate }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Home size={14} className="text-blue-400 flex-shrink-0" />
-            <span className={`font-semibold ${text} truncate`}>{c.propertyName || `PropriÃ©tÃ© #${c.propertyId}`}</span>
+            <span className={`font-semibold ${text} truncate`}>{c.propertyName || `Propriété #${c.propertyId}`}</span>
             {isToday && <span className="px-2 py-0.5 rounded-full bg-[#FF385C]/20 text-[#FF385C] text-xs font-medium">Aujourd'hui</span>}
           </div>
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             <span className={`text-xs ${muted} flex items-center gap-1`}>
               <Calendar size={11} />
-              {date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} Ã  {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              {date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} à {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
             </span>
             {c.estimatedTime && (
               <span className={`text-xs ${muted} flex items-center gap-1`}>
@@ -438,7 +438,7 @@ function CleaningCard({ cleaning: c, isDark, onUpdate }: {
               onClick={() => onUpdate(c.id, 'IN_PROGRESS')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition text-xs font-medium"
             >
-              <Play size={12} />DÃ©marrer
+              <Play size={12} />Démarrer
             </button>
           )}
           {c.status === 'IN_PROGRESS' && (
@@ -455,7 +455,7 @@ function CleaningCard({ cleaning: c, isDark, onUpdate }: {
   );
 }
 
-// â”€â”€ Maintenance Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Maintenance Card ─────────────────────────────────────────────────────────
 
 function MaintenanceCard({ task: m, isDark, onUpdate }: {
   task: Maintenance;
@@ -478,7 +478,7 @@ function MaintenanceCard({ task: m, isDark, onUpdate }: {
           </div>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <span className={`text-xs ${muted} flex items-center gap-1`}>
-              <MapPin size={11} />{m.propertyName || `PropriÃ©tÃ© #${m.propertyId}`}
+              <MapPin size={11} />{m.propertyName || `Propriété #${m.propertyId}`}
             </span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityLabel[m.priority]?.color}`}>
               {priorityLabel[m.priority]?.label}
@@ -491,7 +491,7 @@ function MaintenanceCard({ task: m, isDark, onUpdate }: {
           {m.description && <p className={`text-xs ${muted} mt-1.5 line-clamp-2`}>{m.description}</p>}
           {m.dueDate && (
             <p className={`text-xs mt-1 ${isOverdue ? 'text-red-400' : muted} flex items-center gap-1`}>
-              <Calendar size={11} />Ã‰chÃ©ance : {new Date(m.dueDate).toLocaleDateString('fr-FR')}
+              <Calendar size={11} />Échéance : {new Date(m.dueDate).toLocaleDateString('fr-FR')}
             </p>
           )}
         </div>
@@ -501,7 +501,7 @@ function MaintenanceCard({ task: m, isDark, onUpdate }: {
               onClick={() => onUpdate(m.id, 'IN_PROGRESS')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition text-xs font-medium"
             >
-              <Play size={12} />DÃ©marrer
+              <Play size={12} />Démarrer
             </button>
           )}
           {m.status === 'IN_PROGRESS' && (
@@ -518,7 +518,7 @@ function MaintenanceCard({ task: m, isDark, onUpdate }: {
   );
 }
 
-// â”€â”€ Empty State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Empty State ──────────────────────────────────────────────────────────────
 
 function EmptyState({ text, isDark }: { text: string; isDark: boolean }) {
   const card = isDark ? 'bg-white/5 border border-white/10' : 'bg-white border border-gray-200';

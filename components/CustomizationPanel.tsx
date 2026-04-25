@@ -17,10 +17,10 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
   const themeClasses = getThemeClasses();
 
   const tabs = [
-    { id: 'theme', label: 'ThÃ¨me', icon: 'ðŸŽ¨' },
+    { id: 'theme', label: 'Thème', icon: '🎨' },
     { id: 'layout', label: 'Interface', icon: 'ðŸ“' },
-    { id: 'preferences', label: 'PrÃ©fÃ©rences', icon: 'âš™ï¸' },
-    { id: 'dashboard', label: 'Tableau de bord', icon: 'ðŸ“Š' }
+    { id: 'preferences', label: 'Préférences', icon: '⚙ï¸' },
+    { id: 'dashboard', label: 'Tableau de bord', icon: '📊' }
   ];
 
   return (
@@ -36,11 +36,11 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">Personnalisation</h2>
-              <p className="text-sm text-gray-600">Adaptez l&apos;application Ã  vos prÃ©fÃ©rences</p>
+              <p className="text-sm text-gray-600">Adaptez l&apos;application à vos préférences</p>
               {hasUnsavedChanges && (
                 <div className="flex items-center space-x-2 mt-1">
                   <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs text-orange-600 font-medium">Modifications non sauvegardÃ©es</span>
+                  <span className="text-xs text-orange-600 font-medium">Modifications non sauvegardées</span>
                 </div>
               )}
             </div>
@@ -81,7 +81,7 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
                 onClick={resetToDefaults}
                 className="w-full bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
               >
-                ðŸ”„ RÃ©initialiser
+                🔄 Réinitialiser
               </button>
               <button
                 onClick={() => {
@@ -95,7 +95,7 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                âœ“ {hasUnsavedChanges ? 'Appliquer' : 'Aucune modification'}
+                ✓ {hasUnsavedChanges ? 'Appliquer' : 'Aucune modification'}
               </button>
             </div>
           </div>
@@ -105,7 +105,7 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
             {activeTab === 'theme' && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">ThÃ¨mes prÃ©dÃ©finis</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Thèmes prédéfinis</h3>
                   <div className="grid grid-cols-2 gap-4">
                     {Object.entries(themes).map(([key, theme]) => (
                       <button
@@ -129,7 +129,7 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">AperÃ§u du thÃ¨me actuel</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Aperçu du thème actuel</h3>
                   <div className={`p-6 rounded-xl ${themeClasses.background} border ${themeClasses.border}`}>
                     <div className="space-y-4">
                       <div className={`p-4 rounded-lg ${themeClasses.surface} ${themeClasses.border}`}>
@@ -139,7 +139,7 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
                       <div className="flex space-x-2">
                         <button className={`px-4 py-2 rounded-lg ${themeClasses.primary}`}>Primaire</button>
                         <button className={`px-4 py-2 rounded-lg ${themeClasses.secondary}`}>Secondaire</button>
-                        <button className={`px-4 py-2 rounded-lg ${themeClasses.success}`}>SuccÃ¨s</button>
+                        <button className={`px-4 py-2 rounded-lg ${themeClasses.success}`}>Succès</button>
                       </div>
                     </div>
                   </div>
@@ -177,8 +177,8 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
                   <div className="space-y-2">
                     {[
                       { value: 'compact', label: 'Compact', desc: 'Interface dense' },
-                      { value: 'comfortable', label: 'Confortable', desc: 'Ã‰quilibre parfait' },
-                      { value: 'spacious', label: 'AÃ©rÃ©', desc: 'Plus d\'espace' }
+                      { value: 'comfortable', label: 'Confortable', desc: 'Équilibre parfait' },
+                      { value: 'spacious', label: 'Aéré', desc: 'Plus d\'espace' }
                     ].map((option) => (
                       <button
                         key={option.value}
@@ -206,7 +206,7 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Langue</h3>
                   <div className="space-y-2">
                     {[
-                      { value: 'fr', label: 'FranÃ§ais', flag: 'ðŸ‡«ðŸ‡·' },
+                      { value: 'fr', label: 'Français', flag: 'ðŸ‡«ðŸ‡·' },
                       { value: 'en', label: 'English', flag: 'ðŸ‡¬ðŸ‡§' }
                     ].map((option) => (
                       <button
@@ -261,13 +261,13 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Widgets du tableau de bord</h3>
-                  <p className="text-gray-600 mb-4">SÃ©lectionnez les widgets Ã  afficher sur votre tableau de bord</p>
+                  <p className="text-gray-600 mb-4">Sélectionnez les widgets à afficher sur votre tableau de bord</p>
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      { id: 'stats', label: 'Statistiques', icon: 'ðŸ“Š' },
-                      { id: 'tasks', label: 'TÃ¢ches', icon: 'ðŸ“‹' },
-                      { id: 'properties', label: 'PropriÃ©tÃ©s', icon: 'ðŸ ' },
-                      { id: 'calendar', label: 'Calendrier', icon: 'ðŸ“…' },
+                      { id: 'stats', label: 'Statistiques', icon: '📊' },
+                      { id: 'tasks', label: 'Tâches', icon: '📋' },
+                      { id: 'properties', label: 'Propriétés', icon: 'ðŸ ' },
+                      { id: 'calendar', label: 'Calendrier', icon: '📅' },
                       { id: 'guests', label: 'Clients', icon: 'ðŸ'¥' },
                       { id: 'reviews', label: 'Avis', icon: 'â­' }
                     ].map((widget) => (
@@ -299,8 +299,8 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
                   <div className="space-y-2">
                     <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
                       <div>
-                        <span className="font-medium">Barre latÃ©rale rÃ©duite</span>
-                        <p className="text-sm text-gray-600">RÃ©duire l&apos;espace occupÃ© par la navigation</p>
+                        <span className="font-medium">Barre latérale réduite</span>
+                        <p className="text-sm text-gray-600">Réduire l&apos;espace occupé par la navigation</p>
                       </div>
                       <button
                         onClick={() => updateSettings({ sidebarCollapsed: !settings.sidebarCollapsed })}

@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import Image from 'next/image';
 import { useBNB, Property } from '../contexts/BNBContext';
 
-// â”€â”€ Moteur de génération de descriptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Moteur de génération de descriptions ──────────────────────────────────────
 
 type DescriptionStyle = 'airbnb' | 'booking' | 'luxe' | 'concis' | 'seo';
 type DescriptionLang = 'fr' | 'en' | 'de' | 'es';
@@ -31,15 +31,15 @@ function generateDescription(p: Property, style: DescriptionStyle, lang: Descrip
   const am   = amenityLine(p.amenities, lang);
   const rat  = avgRating > 0 ? avgRating.toFixed(1) : '';
 
-  // â”€â”€ AIRBNB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── AIRBNB ──────────────────────────────────────────────────────────────────
   if (style === 'airbnb') {
     if (lang === 'fr') return [
-      `✨ Bienvenue dans ${p.name} â€” ${type} idéal${p.type === 'villa' || p.type === 'house' ? 'e' : ''} situé${p.type === 'villa' || p.type === 'house' ? 'e' : ''} à ${p.city}.`, '',
+      `✨ Bienvenue dans ${p.name} — ${type} idéal${p.type === 'villa' || p.type === 'house' ? 'e' : ''} situé${p.type === 'villa' || p.type === 'house' ? 'e' : ''} à ${p.city}.`, '',
       `ðŸ  L'ESPACE`,
       `Ce ${type} lumineux accueille jusqu'à ${p.maxGuests} voyageur${p.maxGuests > 1 ? 's' : ''} dans ${p.bedrooms} chambre${p.bedrooms > 1 ? 's' : ''} et ${p.bathrooms} salle${p.bathrooms > 1 ? 's' : ''} de bain.${p.description ? ' ' + p.description : ''}`, '',
       `🎯 CE QUI VOUS ATTEND`,
       am, '',
-      `ðŸ“‹ INFOS PRATIQUES`,
+      `📋 INFOS PRATIQUES`,
       `• Check-in : ${p.checkInTime} | Check-out : ${p.checkOutTime}`,
       `• Séjour min. : ${p.minimumStay} nuit${p.minimumStay > 1 ? 's' : ''}${p.maximumStay ? ` | max. : ${p.maximumStay} nuits` : ''}`,
       `• Frais de ménage : ${p.cleaningFee}€ | Caution : ${p.securityDeposit}€`,
@@ -48,11 +48,11 @@ function generateDescription(p: Property, style: DescriptionStyle, lang: Descrip
     ].filter(Boolean).join('\n');
 
     if (lang === 'en') return [
-      `✨ Welcome to ${p.name} â€” a charming ${type} in ${p.city}.`, '',
+      `✨ Welcome to ${p.name} — a charming ${type} in ${p.city}.`, '',
       `ðŸ  THE SPACE`,
       `This bright ${type} sleeps up to ${p.maxGuests} guest${p.maxGuests > 1 ? 's' : ''} across ${p.bedrooms} bedroom${p.bedrooms > 1 ? 's' : ''} and ${p.bathrooms} bathroom${p.bathrooms > 1 ? 's' : ''}.${p.description ? ' ' + p.description : ''}`, '',
       `🎯 WHAT'S INCLUDED`, am, '',
-      `ðŸ“‹ PRACTICAL INFO`,
+      `📋 PRACTICAL INFO`,
       `• Check-in: ${p.checkInTime} | Check-out: ${p.checkOutTime}`,
       `• Min. stay: ${p.minimumStay} night${p.minimumStay > 1 ? 's' : ''}${p.maximumStay ? ` | Max: ${p.maximumStay}` : ''}`,
       `• Cleaning fee: €${p.cleaningFee} | Security deposit: €${p.securityDeposit}`,
@@ -61,11 +61,11 @@ function generateDescription(p: Property, style: DescriptionStyle, lang: Descrip
     ].filter(Boolean).join('\n');
 
     if (lang === 'de') return [
-      `✨ Willkommen in ${p.name} â€” ein charmantes ${type} in ${p.city}.`, '',
+      `✨ Willkommen in ${p.name} — ein charmantes ${type} in ${p.city}.`, '',
       `ðŸ  DER RAUM`,
       `Dieses ${type} bietet Platz für bis zu ${p.maxGuests} Gast${p.maxGuests > 1 ? 'e' : ''} mit ${p.bedrooms} Schlafzimmer${p.bedrooms > 1 ? 'n' : ''} und ${p.bathrooms} Badezimmer${p.bathrooms > 1 ? 'n' : ''}.${p.description ? ' ' + p.description : ''}`, '',
       `🎯 AUSSTATTUNG`, am, '',
-      `ðŸ“‹ PRAKTISCHE INFOS`,
+      `📋 PRAKTISCHE INFOS`,
       `• Check-in: ${p.checkInTime} | Check-out: ${p.checkOutTime}`,
       `• Mindestaufenthalt: ${p.minimumStay} Nacht${p.minimumStay > 1 ? 'nächte' : ''}`,
       `• Reinigungsgebühr: ${p.cleaningFee}€ | Kaution: ${p.securityDeposit}€`,
@@ -73,11 +73,11 @@ function generateDescription(p: Property, style: DescriptionStyle, lang: Descrip
     ].filter(Boolean).join('\n');
 
     return [
-      `✨ Bienvenido a ${p.name} â€” un ${type} encantador en ${p.city}.`, '',
+      `✨ Bienvenido a ${p.name} — un ${type} encantador en ${p.city}.`, '',
       `ðŸ  EL ESPACIO`,
       `Este ${type} aloja hasta ${p.maxGuests} huésped${p.maxGuests > 1 ? 'es' : ''} con ${p.bedrooms} habitación${p.bedrooms > 1 ? 'es' : ''} y ${p.bathrooms} baño${p.bathrooms > 1 ? 's' : ''}.${p.description ? ' ' + p.description : ''}`, '',
       `🎯 LO QUE ENCONTRARÁS`, am, '',
-      `ðŸ“‹ INFORMACIÃ“N PRÁCTICA`,
+      `📋 INFORMACIÓN PRÁCTICA`,
       `• Check-in: ${p.checkInTime} | Check-out: ${p.checkOutTime}`,
       `• Estancia mínima: ${p.minimumStay} noche${p.minimumStay > 1 ? 's' : ''}`,
       `• Limpieza: ${p.cleaningFee}€ | Depósito: ${p.securityDeposit}€`,
@@ -85,7 +85,7 @@ function generateDescription(p: Property, style: DescriptionStyle, lang: Descrip
     ].filter(Boolean).join('\n');
   }
 
-  // â”€â”€ BOOKING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── BOOKING ─────────────────────────────────────────────────────────────────
   if (style === 'booking') {
     const intro: Record<DescriptionLang, string> = {
       fr: `${p.name} est un${p.type === 'villa' || p.type === 'house' || p.type === 'room' ? 'e' : ''} ${type} situé${p.type === 'villa' || p.type === 'house' ? 'e' : ''} à ${p.city}, ${p.country}. L'hébergement accueille jusqu'à ${p.maxGuests} personne${p.maxGuests > 1 ? 's' : ''} avec ${p.bedrooms} chambre${p.bedrooms > 1 ? 's' : ''} et ${p.bathrooms} salle${p.bathrooms > 1 ? 's' : ''} de bain.`,
@@ -108,30 +108,30 @@ function generateDescription(p: Property, style: DescriptionStyle, lang: Descrip
     return [intro[lang], '', p.description || '', '', am, '', arrival[lang], ratLine[lang]].filter(Boolean).join('\n');
   }
 
-  // â”€â”€ LUXE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── LUXE ────────────────────────────────────────────────────────────────────
   if (style === 'luxe') {
     if (lang === 'fr') return [
-      `â€• ${p.name} â€•`, '',
-      `Niché${p.type === 'villa' || p.type === 'house' ? 'e' : ''} au cÅ“ur de ${p.city}, ${p.name} est une invitation à l'art de vivre. Ce ${type} d'exception réunit élégance et confort pour ${p.maxGuests} voyageur${p.maxGuests > 1 ? 's' : ''} exigeant${p.maxGuests > 1 ? 's' : ''}.`, '',
+      `― ${p.name} ―`, '',
+      `Niché${p.type === 'villa' || p.type === 'house' ? 'e' : ''} au cœur de ${p.city}, ${p.name} est une invitation à l'art de vivre. Ce ${type} d'exception réunit élégance et confort pour ${p.maxGuests} voyageur${p.maxGuests > 1 ? 's' : ''} exigeant${p.maxGuests > 1 ? 's' : ''}.`, '',
       `Ses ${p.bedrooms} chambre${p.bedrooms > 1 ? 's' : ''} et ${p.bathrooms} salle${p.bathrooms > 1 ? 's' : ''} de bain ont été pensées avec soin pour offrir une expérience inoubliable.`, '',
       p.description || '',
       p.amenities.length > 0 ? `Les équipements haut de gamme incluent : ${p.amenities.join(', ')}.` : '', '',
       `Tarif : ${p.price}€ / nuit  ·  Ménage : ${p.cleaningFee}€  ·  Caution : ${p.securityDeposit}€`,
       `Accueil dès ${p.checkInTime}  ·  Départ avant ${p.checkOutTime}`,
-      rat ? `\n⭐ Excellence reconnue : ${rat}/5 â€” ${reviewCount} avis de voyageurs satisfaits` : '',
+      rat ? `\n⭐ Excellence reconnue : ${rat}/5 — ${reviewCount} avis de voyageurs satisfaits` : '',
     ].filter(Boolean).join('\n');
     return [
-      `â€• ${p.name} â€•`, '',
-      `Nestled in ${p.city}, ${p.name} is more than an accommodation â€” it is an invitation to the art of living. This exceptional ${type} blends elegance and comfort for ${p.maxGuests} discerning guest${p.maxGuests > 1 ? 's' : ''}.`, '',
+      `― ${p.name} ―`, '',
+      `Nestled in ${p.city}, ${p.name} is more than an accommodation — it is an invitation to the art of living. This exceptional ${type} blends elegance and comfort for ${p.maxGuests} discerning guest${p.maxGuests > 1 ? 's' : ''}.`, '',
       `Featuring ${p.bedrooms} bedroom${p.bedrooms > 1 ? 's' : ''} and ${p.bathrooms} bathroom${p.bathrooms > 1 ? 's' : ''}, every detail has been thoughtfully curated.`, '',
       p.description || '',
       p.amenities.length > 0 ? `Premium amenities: ${p.amenities.join(', ')}.` : '', '',
       `Rate: €${p.price}/night  ·  Cleaning: €${p.cleaningFee}  ·  Deposit: €${p.securityDeposit}`,
-      rat ? `\n⭐ Rated ${rat}/5 â€” ${reviewCount} exceptional review${reviewCount > 1 ? 's' : ''}` : '',
+      rat ? `\n⭐ Rated ${rat}/5 — ${reviewCount} exceptional review${reviewCount > 1 ? 's' : ''}` : '',
     ].filter(Boolean).join('\n');
   }
 
-  // â”€â”€ CONCIS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── CONCIS ──────────────────────────────────────────────────────────────────
   if (style === 'concis') {
     const labels: Record<DescriptionLang, [string, string, string, string, string]> = {
       fr: ['ch.', 'SdB', 'pers.', 'nuit', 'avis'],
@@ -141,7 +141,7 @@ function generateDescription(p: Property, style: DescriptionStyle, lang: Descrip
     };
     const [lb, lba, lg, ln, lrev] = labels[lang];
     return [
-      `${p.name} â€” ${type} · ${p.city}`,
+      `${p.name} — ${type} · ${p.city}`,
       `${p.bedrooms} ${lb} · ${p.bathrooms} ${lba} · ${p.maxGuests} ${lg} · ${p.price}€/${ln}`,
       p.amenities.length > 0 ? p.amenities.slice(0, 8).join(' · ') : '',
       `Check-in ${p.checkInTime} / Check-out ${p.checkOutTime} · Min. ${p.minimumStay} ${ln}${p.minimumStay > 1 ? 's' : ''}`,
@@ -149,23 +149,23 @@ function generateDescription(p: Property, style: DescriptionStyle, lang: Descrip
     ].filter(Boolean).join('\n');
   }
 
-  // â”€â”€ SEO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── SEO ─────────────────────────────────────────────────────────────────────
   if (lang === 'fr') return [
-    `${p.name} | Location ${type} ${p.city} â€” ${p.bedrooms} chambre${p.bedrooms > 1 ? 's' : ''} · ${p.maxGuests} personnes`, '',
+    `${p.name} | Location ${type} ${p.city} — ${p.bedrooms} chambre${p.bedrooms > 1 ? 's' : ''} · ${p.maxGuests} personnes`, '',
     `Réservez ${p.name}, un${p.type === 'villa' || p.type === 'house' || p.type === 'room' ? 'e' : ''} ${type} à ${p.city} (${p.country}) pour ${p.maxGuests} voyageur${p.maxGuests > 1 ? 's' : ''}. ${p.bedrooms} chambre${p.bedrooms > 1 ? 's' : ''}, ${p.bathrooms} salle${p.bathrooms > 1 ? 's' : ''} de bain, à partir de ${p.price}€/nuit.`, '',
     p.description || '', '',
     p.amenities.length > 0 ? `Équipements : ${p.amenities.join(', ')}.` : '', '',
     `Mots-clés : location vacances ${p.city} · ${type} ${p.city} · hébergement ${p.city} ${p.country}`,
     `${p.bedrooms} chambres · ${p.bathrooms} SdB · ${p.maxGuests} personnes · ${p.price}€/nuit`,
-    rat ? `Note : ${rat}/5 â€” ${reviewCount} avis vérifiés` : '',
+    rat ? `Note : ${rat}/5 — ${reviewCount} avis vérifiés` : '',
   ].filter(Boolean).join('\n');
   return [
-    `${p.name} | ${type} rental ${p.city} â€” ${p.bedrooms} bedroom${p.bedrooms > 1 ? 's' : ''} · ${p.maxGuests} guests`, '',
+    `${p.name} | ${type} rental ${p.city} — ${p.bedrooms} bedroom${p.bedrooms > 1 ? 's' : ''} · ${p.maxGuests} guests`, '',
     `Book ${p.name}, a ${type} in ${p.city}, ${p.country} for ${p.maxGuests} guest${p.maxGuests > 1 ? 's' : ''}. ${p.bedrooms} bedroom${p.bedrooms > 1 ? 's' : ''}, ${p.bathrooms} bathroom${p.bathrooms > 1 ? 's' : ''}, from €${p.price}/night.`, '',
     p.description || '', '',
     p.amenities.length > 0 ? `Amenities: ${p.amenities.join(', ')}.` : '', '',
     `Keywords: vacation rental ${p.city} · ${type} ${p.city} · accommodation ${p.city} ${p.country}`,
-    rat ? `Rating: ${rat}/5 â€” ${reviewCount} verified review${reviewCount > 1 ? 's' : ''}` : '',
+    rat ? `Rating: ${rat}/5 — ${reviewCount} verified review${reviewCount > 1 ? 's' : ''}` : '',
   ].filter(Boolean).join('\n');
 }
 
@@ -178,14 +178,14 @@ interface PropertySheetProps {
 export default function PropertySheet({ propertyId, onClose, onEdit }: PropertySheetProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  // â”€â”€ Générateur de descriptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Générateur de descriptions ──────────────────────────────────────────
   const [genStyle, setGenStyle] = useState<DescriptionStyle>('airbnb');
   const [genLang, setGenLang]   = useState<DescriptionLang>('fr');
   const [genText, setGenText]   = useState('');
   const [genOpen, setGenOpen]   = useState(false);
   const [copied, setCopied]     = useState(false);
 
-  // â”€â”€ Paramètres pratiques éditables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Paramètres pratiques éditables ──────────────────────────────────────
   const [editingParams, setEditingParams] = useState(false);
   const [paramsSaved, setParamsSaved]     = useState(false);
 
@@ -204,7 +204,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
 
   const property = getProperty(propertyId);
 
-  // â”€â”€ État local des paramètres pratiques â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── État local des paramètres pratiques ──────────────────────────────────
   // Tous les hooks AVANT tout return anticipé (Rules of Hooks)
   const [params, setParams] = useState({
     checkInTime:     property?.checkInTime     ?? '14:00',
@@ -245,7 +245,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
     });
   }, [genText]);
 
-  // â”€â”€ Return anticipé si propriété introuvable (après tous les hooks) â”€â”€â”€â”€â”€â”€
+  // ── Return anticipé si propriété introuvable (après tous les hooks) ──────
   if (!property) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-gray-400">
@@ -307,10 +307,10 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
 
   const categoryLabels: Record<string, string> = {
     cleaning: '🧹 Nettoyage',
-    repair: 'ðŸ”§ Réparation',
+    repair: '🔧 Réparation',
     inspection: 'ðŸ” Inspection',
-    supplies: 'ðŸ“¦ Fournitures',
-    other: 'ðŸ“‹ Autre',
+    supplies: '📦 Fournitures',
+    other: '📋 Autre',
   };
 
   const inventoryCategoryLabels: Record<string, string> = {
@@ -321,12 +321,12 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
     cleaning: '🧹 Nettoyage',
     electronics: 'ðŸ'¡ Électronique',
     furniture: 'ðŸª' Mobilier',
-    other: 'ðŸ“¦ Autre',
+    other: '📦 Autre',
   };
 
   return (
     <div className="space-y-8">
-      {/* â”€â”€ En-tête de la fiche â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── En-tête de la fiche ────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="flex items-center space-x-4">
           <div className="w-14 h-14 bg-gradient-to-br from-[#FF385C] to-[#E31C5F] rounded-xl flex items-center justify-center text-white text-2xl shadow-lg">
@@ -365,12 +365,12 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         </div>
       </div>
 
-      {/* â”€â”€ Galerie photos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Galerie photos ────────────────────────────────────────────────── */}
       {property.images && property.images.length > 0 && (
         <div className="bg-white/80 rounded-xl border border-gray-100 p-6 shadow-sm">
           <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
             <span className="flex items-center space-x-2">
-              <span>ðŸ“·</span>
+              <span>📷</span>
               <span>Photos ({property.images.length})</span>
             </span>
           </h3>
@@ -383,7 +383,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
               >
                 <Image
                   src={src}
-                  alt={`${property.name} â€” photo ${idx + 1}`}
+                  alt={`${property.name} — photo ${idx + 1}`}
                   fill
                   sizes="(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 16vw"
                   className="object-cover group-hover:brightness-90 transition-all duration-200"
@@ -400,7 +400,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         </div>
       )}
 
-      {/* â”€â”€ Lightbox â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Lightbox ──────────────────────────────────────────────────────── */}
       {lightboxIndex !== null && property.images && (
         <div
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
@@ -433,7 +433,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
           >
             <Image
               src={property.images[lightboxIndex]}
-              alt={`${property.name} â€” photo ${lightboxIndex + 1}`}
+              alt={`${property.name} — photo ${lightboxIndex + 1}`}
               fill
               sizes="100vw"
               className="object-contain rounded-xl"
@@ -479,7 +479,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         </div>
       )}
 
-      {/* â”€â”€ KPIs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── KPIs ──────────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Revenus 12 mois */}
         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl p-5">
@@ -492,7 +492,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         {/* Réservations */}
         <div className="bg-gradient-to-br from-[#FF385C]/5 to-[#FF385C]/10 border border-[#FF385C]/10 rounded-xl p-5">
           <div className="flex items-center space-x-3 mb-3">
-            <span className="text-2xl">ðŸ“…</span>
+            <span className="text-2xl">📅</span>
             <span className="text-xs font-medium text-blue-700 uppercase tracking-wide">Réservations</span>
           </div>
           <p className="text-2xl font-bold text-blue-800">{propertyBookings.length}</p>
@@ -501,7 +501,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         {/* Taux d'occupation */}
         <div className="bg-gradient-to-br from-[#FF385C]/5 to-[#FF385C]/10 border border-[#FF385C]/10 rounded-xl p-5">
           <div className="flex items-center space-x-3 mb-3">
-            <span className="text-2xl">ðŸ“Š</span>
+            <span className="text-2xl">📊</span>
             <span className="text-xs font-medium text-violet-700 uppercase tracking-wide">Occupation</span>
           </div>
           <p className="text-2xl font-bold text-violet-800">{Math.round(occupancy)}%</p>
@@ -514,7 +514,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
             <span className="text-xs font-medium text-amber-700 uppercase tracking-wide">Note moyenne</span>
           </div>
           <p className="text-2xl font-bold text-amber-800">
-            {avgRating > 0 ? avgRating.toFixed(1) : 'â€”'}
+            {avgRating > 0 ? avgRating.toFixed(1) : '—'}
             {avgRating > 0 && <span className="text-base font-normal text-amber-600">/5</span>}
           </p>
           <p className="text-xs text-amber-600 mt-1">{propertyReviews.length} avis</p>
@@ -522,17 +522,17 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         {/* Maintenance */}
         <div className="bg-gradient-to-br from-rose-50 to-red-50 border border-rose-100 rounded-xl p-5">
           <div className="flex items-center space-x-3 mb-3">
-            <span className="text-2xl">ðŸ”§</span>
+            <span className="text-2xl">🔧</span>
             <span className="text-xs font-medium text-rose-700 uppercase tracking-wide">Maintenance</span>
           </div>
           <p className="text-2xl font-bold text-rose-800">{pendingTasks.length + inProgressTasks.length}</p>
           <p className="text-xs text-rose-600 mt-1">
-            {lowStockItems.length > 0 ? `âš ï¸ ${lowStockItems.length} stock bas` : 'stock OK'}
+            {lowStockItems.length > 0 ? `⚠ï¸ ${lowStockItems.length} stock bas` : 'stock OK'}
           </p>
         </div>
       </div>
 
-      {/* â”€â”€ Informations propriété â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Informations propriété ─────────────────────────────────────────── */}
       <div className="bg-white/80 rounded-xl border border-gray-100 p-6 shadow-sm">
         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center space-x-2">
           <span>ðŸ </span><span>Informations</span>
@@ -556,12 +556,12 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
           </div>
         </div>
 
-        {/* â”€â”€ Paramètres pratiques â”€â”€ */}
+        {/* ── Paramètres pratiques ── */}
         <div className="border border-gray-100 rounded-xl overflow-hidden mb-4">
           {/* En-tête */}
           <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
             <div className="flex items-center space-x-2">
-              <span className="text-sm font-semibold text-gray-700">ðŸ“‹ Infos pratiques</span>
+              <span className="text-sm font-semibold text-gray-700">📋 Infos pratiques</span>
               {paramsSaved && (
                 <span className="flex items-center space-x-1 text-xs text-green-600 font-medium">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -603,11 +603,11 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
               {[
                 { icon: '🕐', label: 'Check-in',       value: params.checkInTime },
                 { icon: '🕐š', label: 'Check-out',      value: params.checkOutTime },
-                { icon: 'ðŸ“…', label: 'Séjour min.',    value: `${params.minimumStay} nuit${Number(params.minimumStay) > 1 ? 's' : ''}` },
+                { icon: '📅', label: 'Séjour min.',    value: `${params.minimumStay} nuit${Number(params.minimumStay) > 1 ? 's' : ''}` },
                 { icon: 'ðŸ'¶', label: 'Prix / nuit',    value: `${params.price}€` },
                 { icon: '🧹', label: 'Frais ménage',   value: `${params.cleaningFee}€` },
                 { icon: 'ðŸ”'', label: 'Caution',        value: `${params.securityDeposit}€` },
-                ...(params.maximumStay !== '' ? [{ icon: 'ðŸ“†', label: 'Séjour max.', value: `${params.maximumStay} nuits` }] : []),
+                ...(params.maximumStay !== '' ? [{ icon: '📆', label: 'Séjour max.', value: `${params.maximumStay} nuits` }] : []),
               ].map((row, i) => (
                 <div key={i} className="flex items-center space-x-3 px-4 py-3">
                   <span className="text-base flex-shrink-0">{row.icon}</span>
@@ -676,7 +676,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
               </div>
               {/* Séjour min */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">ðŸ“… Séjour minimum (nuits)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">📅 Séjour minimum (nuits)</label>
                 <input
                   type="number"
                   min={1}
@@ -687,7 +687,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
               </div>
               {/* Séjour max (optionnel) */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">ðŸ“† Séjour maximum (nuits, optionnel)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">📆 Séjour maximum (nuits, optionnel)</label>
                 <input
                   type="number"
                   min={1}
@@ -721,11 +721,11 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         )}
       </div>
 
-      {/* â”€â”€ Réservations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Réservations ──────────────────────────────────────────────────── */}
       <div className="bg-white/80 rounded-xl border border-gray-100 p-6 shadow-sm">
         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
           <span className="flex items-center space-x-2">
-            <span>ðŸ“…</span><span>Réservations ({propertyBookings.length})</span>
+            <span>📅</span><span>Réservations ({propertyBookings.length})</span>
           </span>
           {propertyBookings.length > 8 && (
             <span className="text-xs text-gray-400 font-normal">8 dernières affichées</span>
@@ -733,7 +733,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         </h3>
         {recentBookings.length === 0 ? (
           <div className="text-center py-8 text-gray-400">
-            <span className="text-3xl block mb-2">ðŸ“­</span>
+            <span className="text-3xl block mb-2">📭</span>
             <p className="text-sm">Aucune réservation pour cette propriété</p>
           </div>
         ) : (
@@ -777,10 +777,10 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         )}
       </div>
 
-      {/* â”€â”€ Maintenance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Maintenance ───────────────────────────────────────────────────── */}
       <div className="bg-white/80 rounded-xl border border-gray-100 p-6 shadow-sm">
         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center space-x-2">
-          <span>ðŸ”§</span>
+          <span>🔧</span>
           <span>Maintenance ({maintenanceTasks.length})</span>
           <span className="flex items-center space-x-1 ml-auto">
             {pendingTasks.length > 0 && (
@@ -814,7 +814,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                     <div className="flex items-center space-x-2 mb-1">
                       <span className="text-xs">{categoryLabels[task.category]}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityColors[task.priority]}`}>
-                        {task.priority === 'urgent' ? 'ðŸ”´ Urgent' :
+                        {task.priority === 'urgent' ? '🔴 Urgent' :
                          task.priority === 'high' ? 'ðŸŸ  Haute' :
                          task.priority === 'medium' ? '🟡 Moyenne' : '🟢 Faible'}
                       </span>
@@ -833,7 +833,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                     task.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-gray-100 text-gray-600'
                   }`}>
-                    {task.status === 'completed' ? 'âœ“ Terminé' :
+                    {task.status === 'completed' ? '✓ Terminé' :
                      task.status === 'in_progress' ? '▶ En cours' :
                      task.status === 'pending' ? '⏳ En attente' : '✗ Annulé'}
                   </span>
@@ -849,22 +849,22 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         )}
       </div>
 
-      {/* â”€â”€ Inventaire â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Inventaire ────────────────────────────────────────────────────── */}
       <div className="bg-white/80 rounded-xl border border-gray-100 p-6 shadow-sm">
         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
           <span className="flex items-center space-x-2">
-            <span>ðŸ“¦</span>
+            <span>📦</span>
             <span>Inventaire ({inventoryItems.length})</span>
           </span>
           {lowStockItems.length > 0 && (
             <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs rounded-full font-medium">
-              âš ï¸ {lowStockItems.length} en stock bas
+              ⚠ï¸ {lowStockItems.length} en stock bas
             </span>
           )}
         </h3>
         {inventoryItems.length === 0 ? (
           <div className="text-center py-8 text-gray-400">
-            <span className="text-3xl block mb-2">ðŸ“­</span>
+            <span className="text-3xl block mb-2">📭</span>
             <p className="text-sm">Aucun article en inventaire</p>
           </div>
         ) : (
@@ -900,8 +900,8 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                     item.status === 'out_of_stock' ? 'bg-red-100 text-red-800' :
                     'bg-rose-100 text-rose-800'
                   }`}>
-                    {item.status === 'in_stock' ? 'âœ“ En stock' :
-                     item.status === 'low_stock' ? 'âš  Stock bas' :
+                    {item.status === 'in_stock' ? '✓ En stock' :
+                     item.status === 'low_stock' ? '⚠ Stock bas' :
                      item.status === 'out_of_stock' ? '✗ Rupture' : '⏰ Expiré'}
                   </span>
                   <span className="text-xs text-gray-400">min. {item.minimumQuantity}</span>
@@ -912,7 +912,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         )}
       </div>
 
-      {/* â”€â”€ Avis clients â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Avis clients ──────────────────────────────────────────────────── */}
       <div className="bg-white/80 rounded-xl border border-gray-100 p-6 shadow-sm">
         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
           <span className="flex items-center space-x-2">
@@ -969,7 +969,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         )}
       </div>
 
-      {/* â”€â”€ Générateur de description â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Générateur de description ─────────────────────────────────────── */}
       <div className="bg-gradient-to-br from-[#FF385C]/5 to-[#FF385C]/10 rounded-xl border border-[#FF385C]/10 shadow-sm overflow-hidden">
         {/* Titre cliquable pour ouvrir/fermer */}
         <button
@@ -1046,7 +1046,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                   <p>ðŸ'¶ {property.price}€/nuit · 🧹 {property.cleaningFee}€ ménage</p>
                   {property.amenities.length > 0 && <p>✅ {property.amenities.length} équipement{property.amenities.length > 1 ? 's' : ''}</p>}
                   {avgRating > 0 && <p>⭐ {avgRating.toFixed(1)}/5 · {propertyReviews.length} avis</p>}
-                  {occupancy > 0 && <p>ðŸ“Š {Math.round(occupancy)}% d&apos;occupation</p>}
+                  {occupancy > 0 && <p>📊 {Math.round(occupancy)}% d&apos;occupation</p>}
                 </div>
               </div>
             </div>
