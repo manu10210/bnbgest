@@ -401,7 +401,8 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
   const getBookingsByDateRange = (startDate: string, endDate: string) =>
     bookings.filter(booking =>
-      booking.checkIn >= startDate && booking.checkOut <= endDate
+      // Inclure toute réservation qui chevauche la période (pas seulement celles 100% dedans)
+      booking.checkIn < endDate && booking.checkOut > startDate
     );
 
   // Guests functions
@@ -533,20 +534,53 @@ export function BNBProvider({ children }: { children: ReactNode }) {
   // Analytics functions
   const generateFinancialReport = (startDate: string, endDate: string): FinancialReport => {
     const periodBookings = getBookingsByDateRange(startDate, endDate);
-    const revenue = periodBookings
-      .filter(b => b.status === 'completed' && b.paymentStatus === 'paid')
-      .reduce((sum, b) => sum + b.totalPrice, 0);
 
+    // ── Revenus : uniquement les réservations completed + paid ──────────────
+    const revenueBookings = periodBookings.filter(
+      b => b.status === 'completed' && b.paymentStatus === 'paid'
+    );
+    const revenue = revenueBookings.reduce((sum, b) => sum + b.totalPrice, 0);
+
+    // ── Dépenses maintenance (tâches complétées dans la période) ────────────
     const expenses = maintenanceTasks
       .filter(t => t.completedDate && t.completedDate >= startDate && t.completedDate <= endDate)
       .reduce((sum, t) => sum + (t.actualCost || t.estimatedCost), 0);
 
-    const totalDays = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
-    const bookedDays = periodBookings.reduce((sum, b) => {
-      const days = Math.ceil((new Date(b.checkOut).getTime() - new Date(b.checkIn).getTime()) / (1000 * 60 * 60 * 24));
-      return sum + days;
+    // ── Jours réservés : uniquement confirmed/completed, clampés sur la période ──
+    const totalDays = Math.ceil(
+      (new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const activeBookings = periodBookings.filter(
+      b => b.status === 'confirmed' || b.status === 'completed'
+    );
+    const bookedDays = activeBookings.reduce((sum, b) => {
+      const clampedIn  = new Date(Math.max(new Date(b.checkIn).getTime(),  new Date(startDate).getTime()));
+      const clampedOut = new Date(Math.min(new Date(b.checkOut).getTime(), new Date(endDate).getTime()));
+      const days = Math.ceil((clampedOut.getTime() - clampedIn.getTime()) / (1000 * 60 * 60 * 24));
+      return sum + Math.max(0, days);
     }, 0);
-    const occupancyRate = (bookedDays / (totalDays * properties.length)) * 100;
+
+    // ── Taux d'occupation : rapporté au nombre de logements actifs ──────────
+    const activeProperties = properties.length > 0 ? properties.length : 1;
+    const occupancyRate = totalDays > 0
+      ? Math.min(100, (bookedDays / (totalDays * activeProperties)) * 100)
+      : 0;
+
+    // ── ADR : revenu réel / nuits effectivement réservées ───────────────────
+    const averageDailyRate = bookedDays > 0 ? revenue / bookedDays : 0;
+
+    // ── Breakdown réel (somme des champs disponibles) ───────────────────────
+    const cleaningTotal = revenueBookings.reduce((s, b) => s + (b.cleaningFee || 0), 0);
+    const serviceFeeTotal = revenueBookings.reduce((s, b) => s + (b.serviceFee  || 0), 0);
+    const taxTotal        = revenueBookings.reduce((s, b) => s + (b.taxAmount   || 0), 0);
+    const accommodationTotal = revenue - cleaningTotal - serviceFeeTotal - taxTotal;
+
+    const maintenanceCost = maintenanceTasks
+      .filter(t => t.completedDate && t.completedDate >= startDate && t.completedDate <= endDate && t.category !== 'cleaning')
+      .reduce((s, t) => s + (t.actualCost || t.estimatedCost), 0);
+    const cleaningCost = maintenanceTasks
+      .filter(t => t.completedDate && t.completedDate >= startDate && t.completedDate <= endDate && t.category === 'cleaning')
+      .reduce((s, t) => s + (t.actualCost || t.estimatedCost), 0);
 
     return {
       period: `${startDate} to ${endDate}`,
@@ -554,14 +588,14 @@ export function BNBProvider({ children }: { children: ReactNode }) {
       expenses,
       profit: revenue - expenses,
       occupancyRate,
-      averageDailyRate: revenue / bookedDays || 0,
-      bookingsCount: periodBookings.length,
+      averageDailyRate,
+      bookingsCount: activeBookings.length,
       breakdown: {
-        accommodation: revenue * 0.8,
-        cleaning: revenue * 0.1,
-        maintenance: expenses * 0.6,
-        supplies: expenses * 0.3,
-        other: expenses * 0.1
+        accommodation: Math.max(0, accommodationTotal),
+        cleaning:      cleaningTotal + cleaningCost,
+        maintenance:   maintenanceCost,
+        supplies:      expenses - maintenanceCost - cleaningCost > 0 ? expenses - maintenanceCost - cleaningCost : 0,
+        other:         serviceFeeTotal + taxTotal,
       }
     };
   };
