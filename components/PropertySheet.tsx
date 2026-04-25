@@ -314,13 +314,13 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
   };
 
   const inventoryCategoryLabels: Record<string, string> = {
-    bedding: '🛏 Literie',
-    towels: 'ðŸŠ Serviettes',
-    kitchen: 'ðŸ³ Cuisine',
+    bedding: '🛏️ Literie',
+    towels: '🧺 Serviettes',
+    kitchen: '🍳 Cuisine',
     bathroom: '🚿 Salle de bain',
     cleaning: '🧹 Nettoyage',
-    electronics: 'ðŸ'¡ Électronique',
-    furniture: 'ðŸª' Mobilier',
+    electronics: '🔌 Électronique',
+    furniture: '🪑 Mobilier',
     other: '📦 Autre',
   };
 
@@ -601,12 +601,12 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
             /* Mode lecture */
             <div className="grid grid-cols-2 md:grid-cols-3 gap-0 divide-x divide-y divide-gray-100">
               {[
-                { icon: '🕐', label: 'Check-in',       value: params.checkInTime },
-                { icon: '🕐š', label: 'Check-out',      value: params.checkOutTime },
+                { icon: '🕐', label: 'Check-in',       value: params.checkInTime },
+                { icon: '🕐', label: 'Check-out',      value: params.checkOutTime },
                 { icon: '📅', label: 'Séjour min.',    value: `${params.minimumStay} nuit${Number(params.minimumStay) > 1 ? 's' : ''}` },
-                { icon: 'ðŸ'¶', label: 'Prix / nuit',    value: `${params.price}€` },
+                { icon: '💶', label: 'Prix / nuit',    value: `${params.price}€` },
                 { icon: '🧹', label: 'Frais ménage',   value: `${params.cleaningFee}€` },
-                { icon: 'ðŸ”'', label: 'Caution',        value: `${params.securityDeposit}€` },
+                { icon: '🔒', label: 'Caution',        value: `${params.securityDeposit}€` },
                 ...(params.maximumStay !== '' ? [{ icon: '📆', label: 'Séjour max.', value: `${params.maximumStay} nuits` }] : []),
               ].map((row, i) => (
                 <div key={i} className="flex items-center space-x-3 px-4 py-3">
@@ -1000,11 +1000,11 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                 <label className="block text-xs font-semibold text-violet-700 uppercase tracking-wide mb-2">Style</label>
                 <div className="grid grid-cols-1 gap-1.5">
                   {([
-                    { id: 'airbnb',  label: 'ðŸ¡ Airbnb',       desc: 'Sections structurées avec emojis' },
-                    { id: 'booking', label: '🌐 Booking.com',  desc: 'Neutre et factuel' },
-                    { id: 'luxe',    label: 'ðŸ'Ž Prestige',      desc: 'Ton élégant et haut de gamme' },
+                    { id: 'airbnb',  label: '🏠 Airbnb',       desc: 'Sections structurées avec emojis' },
+                    { id: 'booking', label: '🌐 Booking.com',  desc: 'Neutre et factuel' },
+                    { id: 'luxe',    label: '✨ Prestige',      desc: 'Ton élégant et haut de gamme' },
                     { id: 'concis',  label: '⚡ Concis',        desc: 'Résumé en 4 lignes' },
-                    { id: 'seo',     label: 'ðŸ” SEO',           desc: 'Optimisé moteurs de recherche' },
+                    { id: 'seo',     label: '🔍 SEO',           desc: 'Optimisé moteurs de recherche' },
                   ] as { id: DescriptionStyle; label: string; desc: string }[]).map(s => (
                     <button
                       key={s.id}
@@ -1041,11 +1041,11 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                 {/* Récap des données utilisées */}
                 <div className="mt-4 p-3 bg-white/70 rounded-xl border border-[#FF385C]/10 text-xs text-gray-500 space-y-1">
                   <p className="font-semibold text-gray-600 mb-1.5">Données intégrées :</p>
-                  <p>ðŸ  {property.name} · {TYPE_LABELS[property.type]?.fr ?? property.type}</p>
-                  <p>🛏 {property.bedrooms} ch. · 🚿 {property.bathrooms} SdB · ðŸ'¥ {property.maxGuests} pers.</p>
-                  <p>ðŸ'¶ {property.price}€/nuit · 🧹 {property.cleaningFee}€ ménage</p>
+                  <p>🏠 {property.name} · {TYPE_LABELS[property.type]?.fr ?? property.type}</p>
+                  <p>🛏️ {property.bedrooms} ch. · 🚿 {property.bathrooms} SdB · 👥 {property.maxGuests} pers.</p>
+                  <p>💶 {property.price}€/nuit · 🧹 {property.cleaningFee}€ ménage</p>
                   {property.amenities.length > 0 && <p>✅ {property.amenities.length} équipement{property.amenities.length > 1 ? 's' : ''}</p>}
-                  {avgRating > 0 && <p>⭐ {avgRating.toFixed(1)}/5 · {propertyReviews.length} avis</p>}
+                  {avgRating > 0 && <p>⭐ {avgRating.toFixed(1)}/5 · {propertyReviews.length} avis</p>}
                   {occupancy > 0 && <p>📊 {Math.round(occupancy)}% d&apos;occupation</p>}
                 </div>
               </div>
@@ -1094,7 +1094,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                   className="w-full px-4 py-3 bg-white border border-violet-200 rounded-xl text-sm text-gray-700 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-violet-400 resize-y shadow-sm"
                   placeholder="La description apparaîtra ici..."
                 />
-                <p className="text-xs text-gray-400">ðŸ'¡ Vous pouvez modifier le texte directement avant de le copier.</p>
+                <p className="text-xs text-gray-400">💡 Vous pouvez modifier le texte directement avant de le copier.</p>
               </div>
             )}
           </div>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useCustomization, CustomizationSettings } from '../contexts/CustomizationContext';
@@ -265,11 +265,11 @@ export default function CustomizationPanel({ isOpen, onClose }: CustomizationPan
                   <div className="grid grid-cols-2 gap-3">
                     {[
                       { id: 'stats', label: 'Statistiques', icon: '📊' },
-                      { id: 'tasks', label: 'Tâches', icon: '📋' },
+                      { id: 'tasks', label: 'T⭐ches', icon: '📋' },
                       { id: 'properties', label: 'Propriétés', icon: 'ðŸ ' },
                       { id: 'calendar', label: 'Calendrier', icon: '📅' },
-                      { id: 'guests', label: 'Clients', icon: 'ðŸ'¥' },
-                      { id: 'reviews', label: 'Avis', icon: 'â­' }
+                      { id: 'guests', label: 'Clients', icon: '👥' },
+                      { id: 'reviews', label: 'Avis', icon: '⭐' }
                     ].map((widget) => (
                       <button
                         key={widget.id}
