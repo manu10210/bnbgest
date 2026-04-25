@@ -42,7 +42,7 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
 import { useState, useMemo, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import type { TabType } from './AdminDashboard';
 
 // Routes that open dedicated pages instead of in-dashboard tabs
@@ -62,7 +62,15 @@ interface AdminSidebarProps {
 }
 
 export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: AdminSidebarProps) {
-  const safeSetActiveTab = (tab: TabType) => setActiveTab?.(tab);
+  const router = useRouter();
+  const safeSetActiveTab = (tab: TabType) => {
+    if (setActiveTab) {
+      setActiveTab(tab);
+    } else {
+      // On a standalone page — navigate to admin dashboard with the target tab
+      router.push(`/admin?tab=${tab}`);
+    }
+  };
   const { isDark } = useTheme();
   const { bookings, maintenanceTasks, reviews } = useBNB();
   const [isCollapsed, setIsCollapsed] = useState(false);

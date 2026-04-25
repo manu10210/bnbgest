@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
 const BookingManager = dynamic(() => import('./BookingManager'), { ssr: false });
@@ -101,8 +102,12 @@ export default function AdminDashboard() {
 
   const { isDark } = useTheme();
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    // Allow deep-linking from other pages via ?tab=<id>
+    return (searchParams?.get('tab') as TabType) || 'overview';
+  });
   const [settingsTab, setSettingsTab] = useState<string>('profile');
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | undefined>(undefined);
   const [propertyToDelete, setPropertyToDelete] = useState<number | null>(null);
