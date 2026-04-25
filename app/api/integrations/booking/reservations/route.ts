@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * 🏨 Booking.com Reservations API
  * ✅ Protected: Auth required, Rate limited (normal: 30/10s)

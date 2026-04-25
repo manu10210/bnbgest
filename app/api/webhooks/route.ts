@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * 🔔 Generic Webhooks Handler
  * ✅ Protected: Rate limited (webhook: 50/10s), Signature verification

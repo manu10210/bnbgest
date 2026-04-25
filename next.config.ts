@@ -49,7 +49,6 @@ const nextConfig: NextConfig = {
   
   // React optimizations
   reactStrictMode: true,
-  swcMinify: true,
   
   // Webpack optimizations
   webpack: (config, { dev, isServer }) => {

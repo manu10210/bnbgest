@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * 🧪 Booking.com Connection Test
  * ✅ Protected: Auth required, Rate limited (normal: 30/10s)

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * 🏠 Airbnb Listings Sync
  * Synchroniser les propriétés Airbnb

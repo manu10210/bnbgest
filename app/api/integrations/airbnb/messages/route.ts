@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * 💬 Airbnb Messages
  * Gérer les messages avec les invités

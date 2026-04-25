@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 // Cron Job : Rappels check-in 48h avant
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';

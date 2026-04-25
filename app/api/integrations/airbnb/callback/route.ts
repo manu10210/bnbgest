@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * 🔐 Airbnb OAuth Callback
  * Route pour recevoir le code d'autorisation OAuth2

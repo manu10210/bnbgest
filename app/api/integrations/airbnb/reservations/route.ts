@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * 📅 Airbnb Reservations Sync
  * Synchroniser les réservations Airbnb

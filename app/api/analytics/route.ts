@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /**
  * 📊 Analytics API
  * ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)

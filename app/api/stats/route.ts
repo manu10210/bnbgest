@@ -4,6 +4,8 @@
  * ✅ Cached: 120s revalidation (stats change less frequently)
  */
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-middleware';
