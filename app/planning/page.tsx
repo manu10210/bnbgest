@@ -17,14 +17,42 @@ interface Property { id: number; name: string; city: string }
 interface Booking {
   id: number; propertyId: number; guestName: string;
   checkIn: string; checkOut: string; status: string; guests: number;
-  totalPrice?: number;
-  nights?: number;
-  confirmationCode?: string;
-  guestPhone?: string;
-  checkInTime?: string;
-  checkOutTime?: string;
-  specialRequests?: string;
-  paymentStatus?: string;
+  totalPrice: number;
+  confirmationCode?: string | null;
+  guestPhone?: string | null;
+  specialRequests?: string | null;
+  source?: string;
+  payments?: { status: string; amount: number }[];
+}
+
+/** Helpers dérivés depuis les champs réels */
+function bookingNights(b: Booking): number {
+  return Math.max(1, Math.round(
+    (new Date(b.checkOut).getTime() - new Date(b.checkIn).getTime()) / 86400000
+  ));
+}
+function bookingTimeStr(iso: string): string {
+  const d = new Date(iso);
+  const h = d.getHours(), m = d.getMinutes();
+  if (h === 0 && m === 0) return '';          // minuit = pas d'heure significative
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function bookingPaymentStatus(b: Booking): string {
+  if (!b.payments || b.payments.length === 0) return '';
+  const completed = b.payments.filter(p => p.status === 'COMPLETED');
+  if (completed.length === b.payments.length) return '✅ Payé';
+  if (completed.length > 0) return '⚡ Partiel';
+  return '⏳ En attente';
+}
+function sourceLabel(s?: string): string {
+  if (!s) return '';
+  const map: Record<string, string> = {
+    AIRBNB:      '🏠 Airbnb',
+    BOOKING_COM: '🔵 Booking',
+    DIRECT:      '✉️ Direct',
+    OTHER:       '🔗 Autre',
+  };
+  return map[s.toUpperCase()] ?? s;
 }
 interface Cleaning {
   id: number; propertyId: number; scheduledDate: string;
@@ -589,10 +617,12 @@ export default function PlanningPage() {
                           } ${hasEvents ? 'cursor-pointer' : ''}`}
                         >
                           {/* Booking pills — one per overlapping booking */}
-                          {occupied.map((b, bi) => {
+                          {occupied.filter(b => (b.status||'').toUpperCase() !== 'CANCELLED').map((b, bi) => {
                             const isCI  = sameDay(new Date(b.checkIn),  day);
                             const isCO  = sameDay(new Date(b.checkOut), day);
-                            const nights = b.nights ?? Math.ceil((new Date(b.checkOut).getTime() - new Date(b.checkIn).getTime()) / 86400000);
+                            const nights = bookingNights(b);
+                            const ciTime = bookingTimeStr(b.checkIn);
+                            const coTime = bookingTimeStr(b.checkOut);
                             const pill = isCI && isCO ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
                                        : isCI         ? 'bg-green-500/20 border-green-500/40 text-green-300'
                                        : isCO         ? 'bg-gray-500/20 border-gray-500/40 text-gray-300'
@@ -602,29 +632,32 @@ export default function PlanningPage() {
                                 <p className="font-semibold truncate max-w-[95px]">{b.guestName}</p>
                                 <p className="opacity-70 flex items-center gap-1 mt-0.5">
                                   <span>{b.guests}👤</span>
-                                  {nights > 0 && <span>{nights}🌙</span>}
-                                  {b.totalPrice ? <span className="font-medium">{Math.round(b.totalPrice)}€</span> : null}
+                                  <span>{nights}🌙</span>
+                                  <span className="font-medium">{Math.round(b.totalPrice)}€</span>
                                 </p>
+                                {b.source && <p className="opacity-50 truncate">{sourceLabel(b.source)}</p>}
                                 {(isCI || isCO) && (
                                   <p className="opacity-60 mt-0.5">
-                                    {isCI && isCO ? '🔄 IN+OUT' : isCI ? `▶ ${b.checkInTime ?? ''}` : `■ ${b.checkOutTime ?? ''}`}
+                                    {isCI && isCO ? '🔄 IN+OUT'
+                                      : isCI  ? `▶${ciTime ? ' ' + ciTime : ''}`
+                                      : `■${coTime ? ' ' + coTime : ''}`}
                                   </p>
                                 )}
                               </div>
                             );
                           })}
                           {/* Standalone check-ins not yet in occupied (future) */}
-                          {checkins.filter(b => !occupied.find(o => o.id === b.id)).map(b => (
+                          {checkins.filter(b => (b.status||'').toUpperCase() !== 'CANCELLED' && !occupied.find(o => o.id === b.id)).map(b => (
                             <div key={`ci-only-${b.id}`} className="mb-1 px-1.5 py-1 rounded-lg border text-[10px] leading-tight bg-green-500/20 border-green-500/40 text-green-300">
                               <p className="font-semibold truncate max-w-[95px]">{b.guestName}</p>
-                              <p className="opacity-70">▶ Arrivée {b.checkInTime ?? ''}</p>
+                              <p className="opacity-70">▶ Arrivée{bookingTimeStr(b.checkIn) ? ' ' + bookingTimeStr(b.checkIn) : ''}</p>
                             </div>
                           ))}
                           {/* Standalone check-outs */}
-                          {checkouts.filter(b => !occupied.find(o => o.id === b.id)).map(b => (
+                          {checkouts.filter(b => (b.status||'').toUpperCase() !== 'CANCELLED' && !occupied.find(o => o.id === b.id)).map(b => (
                             <div key={`co-only-${b.id}`} className="mb-1 px-1.5 py-1 rounded-lg border text-[10px] leading-tight bg-gray-500/20 border-gray-500/40 text-gray-300">
                               <p className="font-semibold truncate max-w-[95px]">{b.guestName}</p>
-                              <p className="opacity-70">■ Départ {b.checkOutTime ?? ''}</p>
+                              <p className="opacity-70">■ Départ{bookingTimeStr(b.checkOut) ? ' ' + bookingTimeStr(b.checkOut) : ''}</p>
                             </div>
                           ))}
                           {/* Cleaning / maintenance badges */}
@@ -667,12 +700,24 @@ export default function PlanningPage() {
                   const isCurrentMonth = day.getMonth() === anchor.getMonth();
                   const isToday = sameDay(day, today);
                   // All events across all displayed properties
-                  const allBookings  = displayedProperties.flatMap(p => getBookingsForDayProp(day, p.id));
-                  const allCheckins  = displayedProperties.flatMap(p => getCheckinsForDay(day, p.id));
-                  const allCheckouts = displayedProperties.flatMap(p => getCheckoutsForDay(day, p.id));
+                  const allBookings  = displayedProperties.flatMap(p => getBookingsForDayProp(day, p.id))
+                    .filter(b => (b.status||'').toUpperCase() !== 'CANCELLED');
+                  const allCheckins  = displayedProperties.flatMap(p => getCheckinsForDay(day, p.id))
+                    .filter(b => (b.status||'').toUpperCase() !== 'CANCELLED');
+                  const allCheckouts = displayedProperties.flatMap(p => getCheckoutsForDay(day, p.id))
+                    .filter(b => (b.status||'').toUpperCase() !== 'CANCELLED');
                   const allClean     = displayedProperties.flatMap(p => getCleaningsForDay(day, p.id));
                   const allMaint     = displayedProperties.flatMap(p => getMaintenanceForDay(day, p.id));
-                  const total = allBookings.length + allCheckins.length + allClean.length + allMaint.length;
+
+                  // checkoutOnly = guests leaving but NOT arriving (not in allBookings occupied range)
+                  const checkoutOnly = allCheckouts.filter(b => !allBookings.find(o => o.id === b.id));
+
+                  // Pills to show: occupied bookings + checkout-only entries
+                  const pillsAll = [
+                    ...allBookings.map(b => ({ b, type: 'occ' as const })),
+                    ...checkoutOnly.map(b => ({ b, type: 'co' as const })),
+                  ];
+                  const total = pillsAll.length + allClean.length + allMaint.length;
 
                   return (
                     <div key={i}
@@ -687,22 +732,24 @@ export default function PlanningPage() {
                     >
                       <p className={`text-xs font-bold mb-1 ${isToday ? 'text-[#FF385C]' : text}`}>{day.getDate()}</p>
                       {/* Booking pills in month view */}
-                      {allBookings.slice(0, 2).map((b, bi) => {
-                        const isCI = sameDay(new Date(b.checkIn),  day);
-                        const isCO = sameDay(new Date(b.checkOut), day);
+                      {pillsAll.slice(0, 3).map(({ b, type }, bi) => {
+                        const isCI = type === 'occ' && sameDay(new Date(b.checkIn),  day);
+                        const isCO = type === 'co'  || sameDay(new Date(b.checkOut), day);
                         const color = isCI && isCO ? 'bg-amber-500/25 text-amber-300'
-                                    : isCI         ? 'bg-green-500/20 text-green-300'
-                                    : isCO         ? 'bg-gray-500/20 text-gray-300'
-                                    :                'bg-blue-500/15 text-blue-200';
+                                    : isCI          ? 'bg-green-500/20 text-green-300'
+                                    : isCO          ? 'bg-gray-500/20 text-gray-300'
+                                    :                 'bg-blue-500/15 text-blue-200';
+                        const icon  = isCI && isCO ? '🔄' : isCI ? '▶' : isCO ? '■' : '—';
+                        const nights = bookingNights(b);
                         return (
-                          <div key={`mb-${b.id}-${bi}`} className={`mb-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold truncate leading-snug ${color}`}>
-                            {isCI ? '▶' : isCO ? '■' : '—'} {b.guestName}
-                            {b.guests > 1 ? ` ×${b.guests}` : ''}
+                          <div key={`mb-${b.id}-${bi}`} className={`mb-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold leading-snug ${color}`}>
+                            <span className="truncate block">{icon} {b.guestName}</span>
+                            <span className="opacity-60">{b.guests}👤 {nights}🌙 {Math.round(b.totalPrice)}€</span>
                           </div>
                         );
                       })}
-                      {allBookings.length > 2 && (
-                        <p className={`text-[9px] ${muted} mt-0.5`}>+{allBookings.length - 2} résa.</p>
+                      {pillsAll.length > 3 && (
+                        <p className={`text-[9px] ${muted} mt-0.5`}>+{pillsAll.length - 3} résa.</p>
                       )}
                       {/* Service dots */}
                       <div className="flex flex-wrap gap-0.5 mt-0.5">
@@ -857,9 +904,7 @@ function EventRow({ title, sub, badge, badgeColor, isDark }: {
 }
 
 function BookingCard({ booking: b, badge, badgeColor, isDark, propName }: {
-  booking: { id: number; guestName: string; guests: number; checkIn: string; checkOut: string; status: string;
-             totalPrice?: number; nights?: number; confirmationCode?: string; guestPhone?: string;
-             checkInTime?: string; checkOutTime?: string; specialRequests?: string; paymentStatus?: string; };
+  booking: Booking;
   badge: string; badgeColor: string; isDark: boolean; propName?: string;
 }) {
   const card  = isDark ? 'bg-white/5' : 'bg-gray-50';
@@ -867,8 +912,11 @@ function BookingCard({ booking: b, badge, badgeColor, isDark, propName }: {
   const muted = isDark ? 'text-gray-400' : 'text-gray-500';
   const sep   = isDark ? 'border-white/5' : 'border-gray-100';
 
-  const nights = b.nights ?? Math.max(1, Math.round(
-    (new Date(b.checkOut).getTime() - new Date(b.checkIn).getTime()) / 86400000));
+  const nights  = bookingNights(b);
+  const ciTime  = bookingTimeStr(b.checkIn);
+  const coTime  = bookingTimeStr(b.checkOut);
+  const payment = bookingPaymentStatus(b);
+  const src     = sourceLabel(b.source);
 
   return (
     <div className={`rounded-xl ${card} overflow-hidden`}>
@@ -876,24 +924,19 @@ function BookingCard({ booking: b, badge, badgeColor, isDark, propName }: {
         <div>
           <p className={`text-sm font-semibold ${text}`}>{b.guestName}</p>
           {propName && <p className={`text-[10px] ${muted}`}>📍 {propName}</p>}
+          {src && <p className={`text-[10px] ${muted}`}>{src}</p>}
         </div>
         <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${badgeColor}`}>{badge}</span>
       </div>
-      <div className={`grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 pb-2.5 border-t ${sep} pt-1.5`}>
+      <div className={`grid grid-cols-2 gap-x-3 gap-y-1 px-3 pb-2.5 border-t ${sep} pt-1.5`}>
         <span className={`text-[11px] ${muted}`}>👤 {b.guests} voyageur{b.guests > 1 ? 's' : ''}</span>
         <span className={`text-[11px] ${muted}`}>🌙 {nights} nuit{nights > 1 ? 's' : ''}</span>
-        {b.totalPrice != null && (
-          <span className={`text-[11px] font-semibold text-emerald-400`}>💶 {b.totalPrice.toLocaleString('fr-FR')} €</span>
-        )}
-        {b.paymentStatus && (
-          <span className={`text-[11px] ${muted}`}>💳 {b.paymentStatus}</span>
-        )}
-        {b.checkInTime && (
-          <span className={`text-[11px] ${muted}`}>🕐 Arrivée {b.checkInTime}</span>
-        )}
-        {b.checkOutTime && (
-          <span className={`text-[11px] ${muted}`}>🕐 Départ {b.checkOutTime}</span>
-        )}
+        <span className="text-[11px] font-semibold text-emerald-400 col-span-2">
+          💶 {b.totalPrice.toLocaleString('fr-FR')} €
+        </span>
+        {payment && <span className={`text-[11px] ${muted} col-span-2`}>{payment}</span>}
+        {ciTime  && <span className={`text-[11px] ${muted}`}>🕐 Arrivée {ciTime}</span>}
+        {coTime  && <span className={`text-[11px] ${muted}`}>🕐 Départ {coTime}</span>}
         {b.guestPhone && (
           <span className={`text-[11px] ${muted} col-span-2`}>📞 {b.guestPhone}</span>
         )}
@@ -903,8 +946,10 @@ function BookingCard({ booking: b, badge, badgeColor, isDark, propName }: {
         {b.specialRequests && (
           <span className={`text-[11px] ${muted} col-span-2 italic`}>💬 {b.specialRequests}</span>
         )}
-        <span className={`text-[11px] ${muted}`}>
-          📅 {new Date(b.checkIn).toLocaleDateString('fr-FR', {day:'numeric',month:'short'})} → {new Date(b.checkOut).toLocaleDateString('fr-FR', {day:'numeric',month:'short'})}
+        <span className={`text-[11px] ${muted} col-span-2`}>
+          📅 {new Date(b.checkIn).toLocaleDateString('fr-FR', {day:'numeric',month:'short'})}
+          {' → '}
+          {new Date(b.checkOut).toLocaleDateString('fr-FR', {day:'numeric',month:'short'})}
         </span>
       </div>
     </div>
