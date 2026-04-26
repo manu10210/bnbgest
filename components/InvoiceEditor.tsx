@@ -604,7 +604,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
                 <div className="text-right text-white">
                   <div className="text-white/80 text-sm">Date : <span className="font-bold text-white">{new Date(invoice.issueDate).toLocaleDateString('fr-FR')}</span></div>
                   <div className="text-white/80 text-sm">Éch. : <span className="font-bold text-white">{new Date(invoice.dueDate).toLocaleDateString('fr-FR')}</span></div>
-                  <div className="mt-2 inline-flex px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold">
+                  <div className={`mt-2 inline-flex px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold ${invoice.status === 'draft' ? 'print:hidden' : ''}`}>
                     {STATUS_META[invoice.status].label}
                   </div>
                 </div>
@@ -639,7 +639,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3"
+                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3 ${invoice.status === 'draft' ? 'print:hidden' : ''}`}
                     style={{ background: `${invoice.accentColor}18`, color: invoice.accentColor }}>
                     {STATUS_META[invoice.status].label}
                   </div>
@@ -662,7 +662,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
                   </div>
                   <div className="text-right text-sm text-gray-500">
                     <div>{new Date(invoice.issueDate).toLocaleDateString('fr-FR')} → {new Date(invoice.dueDate).toLocaleDateString('fr-FR')}</div>
-                    <span className="inline-flex mt-1 px-2 py-0.5 rounded text-xs font-bold" style={{ background: `${invoice.accentColor}15`, color: invoice.accentColor }}>
+                    <span className={`inline-flex mt-1 px-2 py-0.5 rounded text-xs font-bold ${invoice.status === 'draft' ? 'print:hidden' : ''}`} style={{ background: `${invoice.accentColor}15`, color: invoice.accentColor }}>
                       {STATUS_META[invoice.status].label}
                     </span>
                   </div>
