@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useMemo } from 'react';
 import { useBNB, Booking } from '../contexts/BNBContext';
@@ -59,20 +59,20 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
 
   const getStatusBadge = (status: Booking['status']) => {
     switch (status) {
-      case 'confirmed': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-500`}><CheckCircle className="w-3 h-3 inline mr-1"/>Confirm�</span>;
+      case 'confirmed': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-500`}><CheckCircle className="w-3 h-3 inline mr-1"/>Confirmé</span>;
       case 'pending': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-500`}><Clock className="w-3 h-3 inline mr-1"/>En attente</span>;
-      case 'cancelled': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-500`}><XCircle className="w-3 h-3 inline mr-1"/>Annul�</span>;
-      case 'completed': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-500`}><CheckCircle className="w-3 h-3 inline mr-1"/>Termin�</span>;
+      case 'cancelled': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-500`}><XCircle className="w-3 h-3 inline mr-1"/>Annulé</span>;
+      case 'completed': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-500`}><CheckCircle className="w-3 h-3 inline mr-1"/>Terminé</span>;
       default: return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-gray-500/20 text-gray-500`}>{status}</span>;
     }
   };
 
   const getPaymentBadge = (status: Booking['paymentStatus']) => {
     switch (status) {
-      case 'paid': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-500`}>Pay�</span>;
+      case 'paid': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-500`}>Payé</span>;
       case 'pending': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-500`}>Attente</span>;
       case 'partial': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-500`}>Partiel</span>;
-      case 'refunded': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-gray-500/20 text-gray-500`}>Rembours�</span>;
+      case 'refunded': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-gray-500/20 text-gray-500`}>Remboursé</span>;
       default: return null;
     }
   };
@@ -81,11 +81,11 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
     <div className={`glass-pro rounded-2xl p-6 border-gradient`}>
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>R�servations</h2>
-          <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>G�rez et suivez toutes vos r�servations</p>
+          <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Réservations</h2>
+          <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>Gérez et suivez toutes vos Réservations</p>
         </div>
         <Button onClick={onNewBooking} className="flex items-center gap-2 hover-lift shrink-0">
-          <Plus className="w-4 h-4" /> Nouvelle R�servation
+          <Plus className="w-4 h-4" /> Nouvelle Réservation
         </Button>
       </div>
 
@@ -96,7 +96,7 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
           <p className={`text-2xl font-bold mt-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{stats.total}</p>
         </div>
         <div className={`p-4 rounded-2xl border ${isDark ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
-          <p className={`text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Confirm�es</p>
+          <p className={`text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Confirmées</p>
           <p className={`text-2xl font-bold mt-1 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{stats.confirmed}</p>
         </div>
         <div className={`p-4 rounded-2xl border ${isDark ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-100'}`}>
@@ -104,12 +104,12 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
           <p className={`text-2xl font-bold mt-1 ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>{stats.pending}</p>
         </div>
         <div className={`p-4 rounded-2xl border ${isDark ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-100'}`}>
-          <p className={`text-sm font-medium ${isDark ? 'text-red-400' : 'text-red-600'}`}>Annul�es</p>
+          <p className={`text-sm font-medium ${isDark ? 'text-red-400' : 'text-red-600'}`}>Annulées</p>
           <p className={`text-2xl font-bold mt-1 ${isDark ? 'text-red-300' : 'text-red-700'}`}>{stats.cancelled}</p>
         </div>
         <div className={`p-4 rounded-2xl border ${isDark ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100'}`}>
           <p className={`text-sm font-medium ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>Revenus</p>
-          <p className={`text-2xl font-bold mt-1 ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>{stats.revenue.toLocaleString('fr-FR')} �</p>
+          <p className={`text-2xl font-bold mt-1 ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>{stats.revenue.toLocaleString('fr-FR')} €</p>
         </div>
       </div>
 
@@ -126,7 +126,7 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
-              {tab === 'all' ? 'Toutes' : tab === 'confirmed' ? 'Confirm�es' : tab === 'pending' ? 'En attente' : tab === 'completed' ? 'Termin�es' : 'Annul�es'}
+              {tab === 'all' ? 'Toutes' : tab === 'confirmed' ? 'Confirmées' : tab === 'pending' ? 'En attente' : tab === 'completed' ? 'Terminées' : 'Annulées'}
             </button>
           ))}
         </div>
@@ -151,8 +151,8 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
             <Calendar className={`w-8 h-8 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
           </div>
-          <h3 className={`text-lg font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Aucune r�servation trouv�e</h3>
-          <p className={isDark ? 'text-gray-500' : 'text-gray-500'}>Modifiez vos filtres ou cr�ez une nouvelle r�servation.</p>
+          <h3 className={`text-lg font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Aucune Réservation trouvée</h3>
+          <p className={isDark ? 'text-gray-500' : 'text-gray-500'}>Modifiez vos filtres ou créez une nouvelle Réservation.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-8 animate-fadeIn">
@@ -211,7 +211,7 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
                 <div className="flex items-center justify-between w-full md:w-auto gap-4">
                   <div className="text-right">
                     <p className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                      {booking.totalPrice.toLocaleString('fr-FR')} �
+                      {booking.totalPrice.toLocaleString('fr-FR')} €
                     </p>
                     <div className="mt-1 flex justify-end">
                       {getPaymentBadge(booking.paymentStatus)}
@@ -237,3 +237,4 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
     </div>
   );
 }
+
