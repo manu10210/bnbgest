@@ -502,153 +502,105 @@ export default function AdminDashboard() {
            {/* Content Area */}
            <div className="animate-fadeIn">
             {/* Bookings Tab */}
-            {activeTab === 'bookings' && (
-              <div className={`glass-pro rounded-2xl p-6 border-gradient`}>
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Réservations</h2>
-                    <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>{filteredBookings.length} réservation{filteredBookings.length > 1 ? 's' : ''}</p>
-                  </div>
-                  <Button onClick={handleNewBooking} className="flex items-center gap-2">
-                    <Plus className="w-4 h-4" /> Nouvelle Réservation
-                  </Button>
-                </div>
-                {filteredBookings.length === 0 ? (
-                  <div className={`text-center py-12 rounded-xl ${isDark ? 'bg-white/[0.02]' : 'bg-[#f7f7f7]'}`}>
-                    <div className="w-16 h-16 rounded-2xl bg-[#FF385C]/10 flex items-center justify-center mx-auto mb-4">
-                      <Calendar className="w-7 h-7 text-[#FF385C]" />
-                    </div>
-                    <p className={`text-lg font-bold ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Aucune réservation</p>
-                    <p className={`text-sm mt-1 ${isDark ? 'text-gray-600' : 'text-[#b0b0b0]'}`}>Créez votre première réservation</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 stagger-children">
-                    {filteredBookings.map(booking => {
-                      const prop = properties.find(p => p.id === booking.propertyId);
-                      return (
-                        <div key={booking.id} className={`border rounded-xl p-4 flex items-center justify-between transition-all hover-lift card-shine ${isDark ? 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04]' : 'bg-white/70 border-[#ebebeb] hover:bg-white'}`}>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3">
-                              <span className={`font-bold ${isDark ? 'text-white' : 'text-[#222222]'}`}>{booking.guestInfo?.name ?? 'Client'}</span>
-                              <span className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{prop?.name ?? `Propriété #${booking.propertyId}`}</span>
-                            </div>
-                            <div className={`flex items-center gap-4 mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                              <span>{new Date(booking.checkIn).toLocaleDateString('fr-FR')} &rarr; {new Date(booking.checkOut).toLocaleDateString('fr-FR')}</span>
-                              <span className={`font-semibold ${isDark ? 'text-white' : 'text-[#222222]'}`}>{booking.totalPrice.toLocaleString('fr-FR')}&euro;</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                              booking.status === 'confirmed' ? 'bg-emerald-500/20 text-emerald-300' :
-                              booking.status === 'pending' ? 'bg-amber-500/20 text-amber-300' :
-                              booking.status === 'cancelled' ? 'bg-red-500/20 text-red-300' :
-                              'bg-blue-500/20 text-blue-300'
-                            }`}>
-                              {booking.status === 'confirmed' ? 'Confirmé' : booking.status === 'pending' ? 'En attente' : booking.status === 'cancelled' ? 'Annulé' : 'Terminé'}
-                            </span>
-                            <button onClick={() => setBookingToEdit(booking)} className={`p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-white/[0.06] text-[#717171] hover:text-white' : 'hover:bg-gray-200 text-[#b0b0b0] hover:text-[#222222]'}`}>
-                              <Edit className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
+             {activeTab === 'bookings' && (
+                <BookingsManager
+                  filteredBookings={filteredBookings}
+                  onEditBooking={setBookingToEdit}
+                  onNewBooking={handleNewBooking}
+                />
+              )}
 
-            {/* Properties Tab */}
-            {activeTab === 'properties' && (
-              <div className={`glass-pro rounded-2xl p-6 border-gradient animate-fadeInUp`}>
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Gestion des Propriétés</h2>
-                    <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>Gérez vos <span className="font-bold text-[#FF385C]">{properties.length}</span> propriété{properties.length > 1 ? 's' : ''}</p>
-                  </div>
-                  <Button onClick={() => setShowPropertyConfigurator(true)} className="flex items-center gap-2 hover-lift">
-                    <Plus className="w-4 h-4" /> Ajouter une Propriété
-                  </Button>
-                </div>
-                {properties.length === 0 ? (
-                  <div className={`text-center py-16 rounded-2xl border-gradient ${isDark ? 'bg-white/[0.02]' : 'bg-[#f7f7f7]'}`}>
-                    <div className="w-20 h-20 rounded-2xl aurora-bg flex items-center justify-center mx-auto mb-4 animate-float pulse-ring">
-                      <Building2 className="w-9 h-9 text-white" />
+              {/* Properties Tab */}
+              {activeTab === 'properties' && (
+                <div className={`glass-pro rounded-2xl p-6 border-gradient animate-fadeInUp`}>
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Gestion des Propriétés</h2>
+                      <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>Gérez vos <span className="font-bold text-[#FF385C]">{properties.length}</span> propriété{properties.length > 1 ? 's' : ''}</p>
                     </div>
-                    <p className={`text-lg font-black ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Aucune propriété</p>
-                    <p className={`text-sm mt-1 ${isDark ? 'text-gray-600' : 'text-[#b0b0b0]'}`}>Ajoutez votre première propriété</p>
+                    <Button onClick={() => setShowPropertyConfigurator(true)} className="flex items-center gap-2 hover-lift">
+                      <Plus className="w-4 h-4" /> Ajouter une Propriété
+                    </Button>
                   </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 gap-4 stagger-children">
-                    {properties.map(property => {
-                      const revenue = getRevenueByProperty(property.id, yearStart, yearEnd);
-                      const propBookings = bookings.filter(b => b.propertyId === property.id);
-                      return (
-                        <div key={property.id} className={`group relative rounded-3xl p-6 transition-all duration-300 border hover:-translate-y-1 ${
-                          isDark 
-                            ? 'bg-[#1e1e2d] border-white/[0.06] hover:border-indigo-500/30' 
-                            : 'bg-white border-gray-100 hover:border-indigo-200 shadow-xl shadow-gray-200/50'
-                        }`}>
-                          {/* Background Glow Effect on Hover */}
-                          <div className={`absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ${
-                            isDark ? 'bg-indigo-500/[0.03]' : 'bg-gradient-to-br from-indigo-50 to-transparent'
-                          }`} />
-                          
-                          <div className="relative z-10">
-                            <div className="flex items-start justify-between mb-6">
-                              <div className="flex items-center gap-4">
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
-                                  isDark ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white' : 'bg-gradient-to-br from-white to-indigo-50 text-indigo-600 border border-indigo-100'
-                                }`}>
-                                  <Building2 className="w-7 h-7" />
-                                </div>
-                                <div>
-                                  <h3 className={`font-black text-xl tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{property.name}</h3>
-                                  <div className={`flex items-center gap-1.5 mt-1 text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                    <MapPin className="w-3.5 h-3.5 text-indigo-500" />
-                                    {property.address}
+                  {properties.length === 0 ? (
+                    <div className={`text-center py-16 rounded-2xl border-gradient ${isDark ? 'bg-white/[0.02]' : 'bg-[#f7f7f7]'}`}>
+                      <div className="w-20 h-20 rounded-2xl aurora-bg flex items-center justify-center mx-auto mb-4 animate-float pulse-ring">
+                        <Building2 className="w-9 h-9 text-white" />
+                      </div>
+                      <p className={`text-lg font-black ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Aucune propriété</p>
+                      <p className={`text-sm mt-1 ${isDark ? 'text-gray-600' : 'text-[#b0b0b0]'}`}>Ajoutez votre première propriété</p>
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-4 stagger-children">
+                      {properties.map(property => {
+                        const revenue = getRevenueByProperty(property.id, yearStart, yearEnd);
+                        const propBookings = bookings.filter(b => b.propertyId === property.id);
+                        return (
+                          <div key={property.id} className={`group relative rounded-3xl p-6 transition-all duration-300 border hover:-translate-y-1 ${
+                            isDark 
+                              ? 'bg-[#1e1e2d] border-white/[0.06] hover:border-indigo-500/30' 
+                              : 'bg-white border-gray-100 hover:border-indigo-200 shadow-xl shadow-gray-200/50'
+                          }`}>
+                            {/* Background Glow Effect on Hover */}
+                            <div className={`absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ${
+                              isDark ? 'bg-indigo-500/[0.03]' : 'bg-gradient-to-br from-indigo-50 to-transparent'
+                            }`} />
+                            
+                            <div className="relative z-10">
+                              <div className="flex items-start justify-between mb-6">
+                                <div className="flex items-center gap-4">
+                                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                                    isDark ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white' : 'bg-gradient-to-br from-white to-indigo-50 text-indigo-600 border border-indigo-100'
+                                  }`}>
+                                    <Building2 className="w-7 h-7" />
+                                  </div>
+                                  <div>
+                                    <h3 className={`font-black text-xl tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{property.name}</h3>
+                                    <div className={`flex items-center gap-1.5 mt-1 text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                      <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                                      {property.address}
+                                    </div>
                                   </div>
                                 </div>
+                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                                  <button onClick={() => setPropertyToEdit(property)} className={`p-2.5 rounded-xl transition-all hover:scale-110 ${
+                                    isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-gray-50 hover:bg-white text-gray-600 shadow-sm border border-gray-100'
+                                  }`}>
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => setPropertyToDelete(property.id)} className={`p-2.5 rounded-xl transition-all hover:scale-110 ${
+                                    isDark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-500'
+                                  }`}>
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
-                                <button onClick={() => setPropertyToEdit(property)} className={`p-2.5 rounded-xl transition-all hover:scale-110 ${
-                                  isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-gray-50 hover:bg-white text-gray-600 shadow-sm border border-gray-100'
-                                }`}>
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => setPropertyToDelete(property.id)} className={`p-2.5 rounded-xl transition-all hover:scale-110 ${
-                                  isDark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-500'
-                                }`}>
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
 
-                            <div className="grid grid-cols-3 gap-3 mb-6">
-                              <div className={`rounded-2xl p-3 text-center transition-colors ${
-                                isDark ? 'bg-white/[0.03] group-hover:bg-white/[0.06]' : 'bg-gray-50 group-hover:bg-gray-100'
-                              }`}>
-                                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Réservations</p>
-                                <p className={`font-black text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{propBookings.length}</p>
+                              <div className="grid grid-cols-3 gap-3 mb-6">
+                                <div className={`rounded-2xl p-3 text-center transition-colors ${
+                                  isDark ? 'bg-white/[0.03] group-hover:bg-white/[0.06]' : 'bg-gray-50 group-hover:bg-gray-100'
+                                }`}>
+                                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Réservations</p>
+                                  <p className={`font-black text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{propBookings.length}</p>
+                                </div>
+                                <div className={`rounded-2xl p-3 text-center transition-colors ${
+                                  isDark ? 'bg-white/[0.03] group-hover:bg-white/[0.06]' : 'bg-gray-50 group-hover:bg-gray-100'
+                                }`}>
+                                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Revenus</p>
+                                  <p className="font-black text-lg text-emerald-500">{revenue.toLocaleString('fr-FR')}&euro;</p>
+                                </div>
+                                <div className={`rounded-2xl p-3 text-center transition-colors ${
+                                  isDark ? 'bg-white/[0.03] group-hover:bg-white/[0.06]' : 'bg-gray-50 group-hover:bg-gray-100'
+                                }`}>
+                                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Capacité</p>
+                                  <p className={`font-black text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{property.maxGuests}</p>
+                                </div>
                               </div>
-                              <div className={`rounded-2xl p-3 text-center transition-colors ${
-                                isDark ? 'bg-white/[0.03] group-hover:bg-white/[0.06]' : 'bg-gray-50 group-hover:bg-gray-100'
-                              }`}>
-                                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Revenus</p>
-                                <p className="font-black text-lg text-emerald-500">{revenue.toLocaleString('fr-FR')}&euro;</p>
-                              </div>
-                              <div className={`rounded-2xl p-3 text-center transition-colors ${
-                                isDark ? 'bg-white/[0.03] group-hover:bg-white/[0.06]' : 'bg-gray-50 group-hover:bg-gray-100'
-                              }`}>
-                                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Capacité</p>
-                                <p className={`font-black text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{property.maxGuests}</p>
-                              </div>
-                            </div>
 
-                            <div className="flex items-center justify-between pt-4 border-t border-dashed border-gray-500/20">
-                              <div className={`px-4 py-1.5 rounded-full text-sm font-bold ${
-                                isDark ? 'bg-white/5 text-gray-300' : 'bg-gray-100 text-gray-600'
-                              }`}>
+                              <div className="flex items-center justify-between pt-4 border-t border-dashed border-gray-500/20">
+                                <div className={`px-4 py-1.5 rounded-full text-sm font-bold ${
+                                  isDark ? 'bg-white/5 text-gray-300' : 'bg-gray-100 text-gray-600'
+                                }`}>
                                 {property.price}€ <span className="opacity-60 text-xs font-normal">/ nuit</span>
                               </div>
                               <button
