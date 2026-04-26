@@ -1019,21 +1019,21 @@ export default function AdminDashboard() {
             <div className="space-y-4">
               <div>
                 <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Nom complet</label>
-                <input type="text" value={guestToEdit.name} onChange={(e) => setGuestToEdit({...guestToEdit, name: e.target.value})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
+                <input type="text" value={guestToEdit.name} onChange={(e) => setGuestToEdit(guestToEdit ? {...guestToEdit, name: e.target.value} : null)} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Email</label>
-                  <input type="email" value={guestToEdit.email} onChange={(e) => setGuestToEdit({...guestToEdit, email: e.target.value})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
+                  <input type="email" value={guestToEdit.email} onChange={(e) => setGuestToEdit(guestToEdit ? {...guestToEdit, email: e.target.value} : null)} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
                 </div>
                 <div>
                   <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Téléphone</label>
-                  <input type="tel" value={guestToEdit.phone} onChange={(e) => setGuestToEdit({...guestToEdit, phone: e.target.value})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
+                  <input type="tel" value={guestToEdit.phone} onChange={(e) => setGuestToEdit(guestToEdit ? {...guestToEdit, phone: e.target.value} : null)} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222]'}`} />
                 </div>
               </div>
               <div>
                 <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-[#222222]'}`}>Statut</label>
-                <select value={guestToEdit.status} onChange={(e) => setGuestToEdit({...guestToEdit, status: e.target.value as Guest['status']})} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] [&>option]:bg-white'}`}>
+                <select value={guestToEdit.status} onChange={(e) => setGuestToEdit(guestToEdit ? {...guestToEdit, status: e.target.value as Guest['status']} : null)} className={`w-full border rounded-lg px-3 py-2 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-[#f7f7f7] border-[#dddddd] text-[#222222] [&>option]:bg-white'}`}>
                   <option value="active">Actif</option>
                   <option value="inactive">Inactif</option>
                   <option value="blocked">Bloqué</option>
