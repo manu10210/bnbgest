@@ -708,6 +708,7 @@ const PROPERTY_ALIASES: Record<string, string> = {
   // ── Maison T3/Climatisée/ terrasse privée ─────────────────────────────────
   'maison t3 climatisee terrasse privee':          'Maison T3/Climatisée/ terrasse privée',
   'maison t3':                                     'Maison T3/Climatisée/ terrasse privée',
+  'la maison t3':                                  'Maison T3/Climatisée/ terrasse privée',
   'maison climatisee terrasse privee':             'Maison T3/Climatisée/ terrasse privée',
   'maison avec terrasse privee':                   'Maison T3/Climatisée/ terrasse privée',
   't3 climatise terrasse privee':                  'Maison T3/Climatisée/ terrasse privée',

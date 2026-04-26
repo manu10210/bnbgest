@@ -59,7 +59,7 @@ function generateICS(events: CalendarEvent[], monthLabel: string): void {
 }
 
 export default function InteractiveCalendar() {
-  const { properties, bookings, maintenanceTasks, updateProperty } = useBNB();
+  const { properties, bookings, maintenanceTasks, updateProperty, updateBooking } = useBNB();
   const { isDark } = useTheme();
 
   const [viewMode, setViewMode] = useState<ViewMode>('month');
@@ -79,8 +79,71 @@ export default function InteractiveCalendar() {
   const isDragging = useRef(false);
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [tooltip, setTooltip] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
+  const [tooltip, setTooltip] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);       
   const tooltipTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
+
+  const handleEventDragStart = (e: React.DragEvent, event: CalendarEvent) => {
+    // Only allow dragging bookings
+    if (event.type !== 'booking') {
+      e.preventDefault();
+      return;
+    }
+    e.stopPropagation();
+    setDraggedEvent(event);
+    e.dataTransfer.effectAllowed = 'move';
+    
+    // Ghost image setup for a smoother drag experience
+    if (e.target instanceof HTMLElement) {
+      e.dataTransfer.setDragImage(e.target, 10, 10);
+    }
+
+    setTimeout(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    }, 0);
+  };
+
+  const handleEventDrop = (e: React.DragEvent, targetDate: Date) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedEvent || draggedEvent.type !== 'booking') {
+      setDraggedEvent(null);
+      return;
+    }
+
+    const b = draggedEvent.data as Booking;
+    const originalStart = parseISO(b.checkIn);
+    const originalEnd = parseISO(b.checkOut);
+    const diffDays = differenceInDays(targetDate, originalStart);
+
+    if (diffDays !== 0) {
+      const newStart = addDays(originalStart, diffDays);
+      const newEnd = addDays(originalEnd, diffDays);
+      
+      // Update local state right away for snappy feeling
+      updateBooking(b.id, {
+        checkIn: format(newStart, 'yyyy-MM-dd'),
+        checkOut: format(newEnd, 'yyyy-MM-dd')
+      });
+
+      // API fetch in background
+      fetch(`/api/bookings/${b.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          checkIn: format(newStart, 'yyyy-MM-dd'),
+          checkOut: format(newEnd, 'yyyy-MM-dd')
+        })
+      }).catch(err => console.error("Could not update booking API:", err));
+    }
+    setDraggedEvent(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
 
   const propColors = useMemo(() => {
     const map: Record<number, string> = {};
@@ -466,6 +529,8 @@ export default function InteractiveCalendar() {
                   return (
                     <div key={idx}
                       className={`min-h-[80px] md:min-h-[90px] p-1.5 cursor-pointer transition-all select-none ${isDark ? 'bg-[#0f0f1a]' : 'bg-white'} ${!isCurrentMonth ? 'opacity-40' : ''} ${isTodayDate ? isDark ? '!bg-indigo-950/80' : '!bg-indigo-50/60' : ''} ${isSelected ? isDark ? '!bg-indigo-900/40' : '!bg-indigo-50' : ''} ${isDragSel ? isDark ? '!bg-rose-900/30' : '!bg-rose-50' : ''}`}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleEventDrop(e, day)}
                       onClick={() => setSelectedDate(day)}
                       onMouseDown={() => handleMouseDown(day)}
                       onMouseEnter={() => handleMouseEnter(day)}>
@@ -475,6 +540,8 @@ export default function InteractiveCalendar() {
                       <div className="space-y-0.5">
                         {dayEvents.slice(0, 3).map((ev, i) => (
                           <div key={`${ev.id}-${i}`}
+                            draggable={ev.type === 'booking'}
+                            onDragStart={(e) => handleEventDragStart(e, ev)}
                             onClick={e => { e.stopPropagation(); setDetailEvent(ev); }}
                             onMouseEnter={e => {
                               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -505,13 +572,18 @@ export default function InteractiveCalendar() {
                   const dayRevenue = revenueByDay[format(day, 'yyyy-MM-dd')];
                   return (
                     <div key={idx} onClick={() => setSelectedDate(day)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleEventDrop(e, day)}
                       className={`min-h-[260px] rounded-xl p-2 cursor-pointer transition-colors border flex flex-col ${isTodayDate ? isDark ? 'border-indigo-500/50 bg-indigo-950/40' : 'border-indigo-300 bg-indigo-50/50' : isDark ? 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05]' : 'border-gray-100 bg-white hover:bg-gray-50'} ${isSelected && !isTodayDate ? isDark ? '!border-indigo-400/60' : '!border-indigo-400' : ''}`}>
                       <div className={`text-xs font-bold mb-2 w-7 h-7 flex items-center justify-center rounded-full ${isTodayDate ? 'bg-indigo-500 text-white' : sub}`}>
                         {format(day, 'd')}
                       </div>
                       <div className="space-y-1 flex-1">
                         {dayEvents.map((ev, i) => (
-                          <div key={`${ev.id}-${i}`} onClick={e => { e.stopPropagation(); setDetailEvent(ev); }}
+                          <div key={`${ev.id}-${i}`} 
+                            draggable={ev.type === 'booking'}
+                            onDragStart={(e) => handleEventDragStart(e, ev)}
+                            onClick={e => { e.stopPropagation(); setDetailEvent(ev); }}
                             className="w-full rounded-lg px-1.5 py-1 text-[11px] font-semibold cursor-pointer truncate hover:opacity-80"
                             style={{ background: `${ev.color}20`, color: ev.color, borderLeft: `3px solid ${ev.color}` }}>
                             {ev.title}
