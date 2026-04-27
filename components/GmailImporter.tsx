@@ -98,6 +98,12 @@ interface ImportTraceEntry {
   receivedAt: string;
 }
 
+interface GmailPropertyDecisionsPayload {
+  aliases: Record<string, string>;
+  rejectedLabels: string[];
+  updatedAt?: string;
+}
+
 // ─── Composant ParseField — affiche un champ extrait par le parser ────────────
 // Affiche uniquement si value est défini et non vide.
 // highlight : couleur du badge de valeur (green, amber, red, blue)
@@ -723,7 +729,10 @@ const PROPERTY_ALIASES: Record<string, string> = {
 };
 
 const PROPERTY_ALIAS_STORAGE_KEY = 'bnbgest.gmail.property-aliases.v1';
+const PROPERTY_REJECTED_STORAGE_KEY = 'bnbgest.gmail.property-rejected-labels.v1';
 const EXPERT_MODE_STORAGE_KEY = 'bnbgest.gmail.expert-mode.v1';
+const PROPERTY_DECISIONS_API = '/api/gmail/property-decisions';
+const DEFAULT_REJECTED_PROPERTY_LABELS = ['CÉLINE Saint-Julien-les-Villas Maison'];
 let RUNTIME_PROPERTY_ALIASES: Record<string, string> = {};
 
 function setRuntimePropertyAliases(nextAliases: Record<string, string>) {
@@ -743,6 +752,18 @@ function normalizeForMatch(s: string): string {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+function normalizeRejectedPropertyLabels(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return Array.from(
+    new Set(
+      input
+        .filter((entry): entry is string => typeof entry === 'string')
+        .map((entry) => normalizeForMatch(entry))
+        .filter(Boolean)
+    )
+  );
 }
 
 const PROPERTY_STOP_WORDS = new Set([
@@ -1150,9 +1171,12 @@ export default function GmailImporter() {
   const [importTrace, setImportTrace] = useState<ImportTraceEntry[]>([]);
   const [propertyOverrides, setPropertyOverrides] = useState<Record<string, number>>({});
   const [learnedPropertyAliases, setLearnedPropertyAliases] = useState<Record<string, string>>({});
+  const [rejectedPropertyLabels, setRejectedPropertyLabels] = useState<string[]>([]);
+  const [manualPropertySelection, setManualPropertySelection] = useState<Record<string, number>>({});
   const [showAliasManager, setShowAliasManager] = useState(false);
   const [expertModeAggressive, setExpertModeAggressive] = useState(true);
   const scanInFlightRef = useRef(false);
+  const propertyDecisionsHydratedRef = useRef(false);
   const aliasImportInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -1179,9 +1203,14 @@ export default function GmailImporter() {
       if (!raw) return;
       const parsed = JSON.parse(raw) as unknown;
       if (!parsed || typeof parsed !== 'object') return;
-      const safeAliases = Object.entries(parsed as Record<string, unknown>).reduce<Record<string, string>>((acc, [k, v]) => {
+      const source = parsed && typeof parsed === 'object' && 'aliases' in parsed
+        ? (parsed as { aliases?: unknown }).aliases
+        : parsed;
+      if (!source || typeof source !== 'object') return;
+
+      const safeAliases = Object.entries(source as Record<string, unknown>).reduce<Record<string, string>>((acc, [k, v]) => {
         if (typeof k !== 'string' || typeof v !== 'string') return acc;
-        const key = k.trim();
+        const key = normalizeForMatch(k);
         const value = v.trim();
         if (!key || !value) return acc;
         acc[key] = value;
@@ -1191,6 +1220,71 @@ export default function GmailImporter() {
     } catch {
       // Ignore silently invalid local storage payload
     }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PROPERTY_REJECTED_STORAGE_KEY);
+      const defaults = normalizeRejectedPropertyLabels(DEFAULT_REJECTED_PROPERTY_LABELS);
+      if (!raw) {
+        if (defaults.length > 0) {
+          setRejectedPropertyLabels(defaults);
+        }
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as unknown;
+      const normalized = normalizeRejectedPropertyLabels(parsed);
+      setRejectedPropertyLabels(Array.from(new Set([...defaults, ...normalized])));
+    } catch {
+      // Ignore silently invalid local storage payload
+    }
+  }, []);
+
+  useEffect(() => {
+    let isCancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(PROPERTY_DECISIONS_API, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        if (!res.ok) return;
+
+        const payload = (await res.json()) as { decisions?: Partial<GmailPropertyDecisionsPayload> };
+        const decisions = payload.decisions;
+        if (!decisions || isCancelled) return;
+
+        const dbAliases = Object.entries(decisions.aliases || {}).reduce<Record<string, string>>((acc, [k, v]) => {
+          if (typeof k !== 'string' || typeof v !== 'string') return acc;
+          const key = normalizeForMatch(k);
+          const value = v.trim();
+          if (!key || !value) return acc;
+          acc[key] = value;
+          return acc;
+        }, {});
+
+        const dbRejected = normalizeRejectedPropertyLabels(decisions.rejectedLabels || []);
+
+        setLearnedPropertyAliases((prev) => ({
+          ...prev,
+          ...dbAliases,
+        }));
+        setRejectedPropertyLabels((prev) =>
+          Array.from(new Set([...prev, ...dbRejected]))
+        );
+      } catch {
+        // Ne bloque pas l'import Gmail si la persistance distante échoue.
+      } finally {
+        if (!isCancelled) {
+          propertyDecisionsHydratedRef.current = true;
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -1205,6 +1299,34 @@ export default function GmailImporter() {
       // Storage full/private mode: non bloquant
     }
   }, [learnedPropertyAliases]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PROPERTY_REJECTED_STORAGE_KEY, JSON.stringify(rejectedPropertyLabels));
+    } catch {
+      // Storage full/private mode: non bloquant
+    }
+  }, [rejectedPropertyLabels]);
+
+  useEffect(() => {
+    if (!propertyDecisionsHydratedRef.current) return;
+
+    const timer = window.setTimeout(() => {
+      fetch(PROPERTY_DECISIONS_API, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          aliases: learnedPropertyAliases,
+          rejectedLabels: rejectedPropertyLabels,
+        } satisfies GmailPropertyDecisionsPayload),
+      }).catch(() => {
+        // non bloquant
+      });
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [learnedPropertyAliases, rejectedPropertyLabels]);
 
   // ── Détection nouveaux logements ──────────────────────────────────────────
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
@@ -2536,13 +2658,19 @@ export default function GmailImporter() {
       // On prend TOUS les bookings importés (toImport) avec
       // un propertyName détecté mais inconnu — pour ne rater aucun nouveau logement
       const allCandidates = toImport
-        .filter(b => b.propertyName?.trim() && !isKnownProperty(b.propertyName) && b.bookingType !== 'review' && b.bookingType !== 'payout');
+        .filter(b => {
+          if (!b.propertyName?.trim()) return false;
+          if (b.bookingType === 'review' || b.bookingType === 'payout') return false;
+          if (isKnownProperty(b.propertyName)) return false;
+          const normalizedLabel = normalizeForMatch(b.propertyName);
+          return !rejectedPropertySet.has(normalizedLabel);
+        });
 
       const allNamesForWizard = allCandidates.map(b => b.propertyName!.trim());
 
       // Cas aucun logement configuré : si aucun nom extrait mais des emails sans logement,
       // proposer le wizard avec les noms uniques trouvés dans les sujets des emails
-      if (allNamesForWizard.length === 0 && summary.skippedNoProperty > 0) {
+  if (allNamesForWizard.length === 0 && summary.skippedNoProperty > 0) {
         // Extraire les noms uniques depuis les sujets des emails skippés
         const fallbackNames = Array.from(new Set(
           toImport
@@ -2569,7 +2697,8 @@ export default function GmailImporter() {
                 .trim()
                 .slice(0, 60) || '';
             })
-            .filter(n => n.length >= 5 && !/[?=&%]|https?:/.test(n) && !(n.length > 50 && !n.includes(' ')))
+      .filter(n => n.length >= 5 && !/[?=&%]|https?:/.test(n) && !(n.length > 50 && !n.includes(' ')))
+      .filter((name) => !rejectedPropertySet.has(normalizeForMatch(name)))
         ));
         if (fallbackNames.length > 0) {
           const queue = fallbackNames.map(n => analyzeAirbnbTitle(n));
@@ -2595,7 +2724,7 @@ export default function GmailImporter() {
 
       setTimeout(() => setStatus('idle'), 2500);
       setStatus('done');
-  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive, ensureDefaultProperty]);
+  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive, ensureDefaultProperty, rejectedPropertySet]);
 
   // ─── Purge des données importées depuis Gmail ─────────────────────────────
   // Supprime TOUTES les réservations créées via l'import Gmail.
@@ -2626,6 +2755,11 @@ export default function GmailImporter() {
     if (activeRejectReason === 'all') return rejectedBookings;
     return rejectedBookings.filter(r => r.reasons.includes(activeRejectReason));
   }, [rejectedBookings, activeRejectReason]);
+
+  const rejectedPropertySet = useMemo(
+    () => new Set(rejectedPropertyLabels.map((label) => normalizeForMatch(label)).filter(Boolean)),
+    [rejectedPropertyLabels]
+  );
 
   const learnPropertyAlias = useCallback((rawPropertyLabel?: string, canonicalPropertyName?: string) => {
     if (!rawPropertyLabel?.trim() || !canonicalPropertyName?.trim()) return;
@@ -2745,6 +2879,71 @@ export default function GmailImporter() {
     }
   }, []);
 
+  const rejectDetectedPropertyLabel = useCallback((rawLabel?: string) => {
+    const normalized = normalizeForMatch(rawLabel || '');
+    if (!normalized) return;
+
+    setRejectedPropertyLabels((prev) => {
+      if (prev.includes(normalized)) return prev;
+      return [...prev, normalized];
+    });
+
+    setPropertyOverrides((prev) => {
+      if (!rawLabel?.trim()) return prev;
+      const next = { ...prev };
+      for (const booking of bookings) {
+        if (normalizeForMatch(booking.propertyName || '') !== normalized) continue;
+        delete next[booking.messageId];
+      }
+      return next;
+    });
+
+    toast.success(`Libellé ignoré: "${rawLabel || normalized}"`);
+  }, [bookings]);
+
+  const restoreRejectedPropertyLabel = useCallback((rawLabel?: string) => {
+    const normalized = normalizeForMatch(rawLabel || '');
+    if (!normalized) return;
+    setRejectedPropertyLabels((prev) => prev.filter((entry) => entry !== normalized));
+    toast.success(`Libellé réactivé: "${rawLabel || normalized}"`);
+  }, []);
+
+  const unresolvedPropertyDetections = useMemo(() => {
+    const byLabel = new Map<string, { label: string; count: number }>();
+
+    for (const booking of bookings) {
+      if (booking.bookingType === 'cancelled' || booking.bookingType === 'payout' || booking.bookingType === 'review') continue;
+      if (!booking.propertyName?.trim()) continue;
+      if (findMatchingProperty(booking.propertyName, properties)) continue;
+
+      const normalized = normalizeForMatch(booking.propertyName);
+      if (!normalized) continue;
+
+      const existing = byLabel.get(normalized);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        byLabel.set(normalized, {
+          label: booking.propertyName.trim(),
+          count: 1,
+        });
+      }
+    }
+
+    return Array.from(byLabel.entries())
+      .map(([normalized, payload]) => {
+        const bestCandidate = findBestPropertyCandidate(payload.label, properties);
+        return {
+          normalized,
+          label: payload.label,
+          count: payload.count,
+          bestCandidate,
+          isRejected: rejectedPropertySet.has(normalized),
+        };
+      })
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'fr', { sensitivity: 'base' }));
+  }, [bookings, properties, rejectedPropertySet]);
+
   const unmatchedLabelCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const booking of bookings) {
@@ -2753,10 +2952,46 @@ export default function GmailImporter() {
       if (findMatchingProperty(booking.propertyName, properties)) continue;
       const key = normalizeForMatch(booking.propertyName);
       if (!key) continue;
+      if (rejectedPropertySet.has(key)) continue;
       counts[key] = (counts[key] || 0) + 1;
     }
     return counts;
-  }, [bookings, properties]);
+  }, [bookings, properties, rejectedPropertySet]);
+
+  const validateDetectedPropertyLabel = useCallback((normalizedLabel: string, fallbackPropertyId?: number) => {
+    const selectedPropertyId = manualPropertySelection[normalizedLabel] ?? fallbackPropertyId;
+    if (!selectedPropertyId) {
+      toast.error('Choisis un logement avant de valider.');
+      return;
+    }
+
+    const selectedProperty = properties.find((property) => property.id === selectedPropertyId);
+    if (!selectedProperty) {
+      toast.error('Logement sélectionné introuvable.');
+      return;
+    }
+
+    const relatedBookings = bookings.filter((booking) => normalizeForMatch(booking.propertyName || '') === normalizedLabel);
+    if (relatedBookings.length === 0) {
+      toast.error('Aucun email correspondant à ce libellé.');
+      return;
+    }
+
+    for (const booking of relatedBookings) {
+      learnPropertyAlias(booking.propertyName, selectedProperty.name);
+    }
+
+    setPropertyOverrides((prev) => {
+      const next = { ...prev };
+      for (const booking of relatedBookings) {
+        next[booking.messageId] = selectedProperty.id;
+      }
+      return next;
+    });
+
+    setRejectedPropertyLabels((prev) => prev.filter((entry) => entry !== normalizedLabel));
+    toast.success(`Rattachement validé: ${selectedProperty.name} (${relatedBookings.length} email(s)).`);
+  }, [bookings, learnPropertyAlias, manualPropertySelection, properties]);
 
   const applySuggestionToSimilarBookings = useCallback((booking: ParsedBooking, suggestedPropertyId: number) => {
     const targetLabel = normalizeForMatch(booking.propertyName || '');
@@ -2779,6 +3014,8 @@ export default function GmailImporter() {
     for (const candidate of similarBookings) {
       learnPropertyAlias(candidate.propertyName, suggestedProperty.name);
     }
+
+    setRejectedPropertyLabels((prev) => prev.filter((entry) => entry !== targetLabel));
 
     setPropertyOverrides((prev) => {
       const next = { ...prev };
@@ -3391,6 +3628,129 @@ export default function GmailImporter() {
             </div>
           )}
 
+          {unresolvedPropertyDetections.length > 0 && (
+            <div className={`border rounded-xl p-3 ${isDark ? 'bg-amber-900/15 border-amber-700/60' : 'bg-amber-50 border-amber-200'}`}>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <div className={`text-sm font-semibold ${isDark ? 'text-amber-200' : 'text-amber-800'}`}>
+                    🏷️ Logements détectés à valider ({unresolvedPropertyDetections.length})
+                  </div>
+                  <div className={`text-[11px] mt-0.5 ${isDark ? 'text-amber-300/80' : 'text-amber-700/80'}`}>
+                    Valide un rattachement vers un logement existant, ou refuse ce libellé pour ne plus proposer de création.
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {unresolvedPropertyDetections.map((detection) => {
+                  const suggestedId = detection.bestCandidate.property?.id;
+                  const selectedId = manualPropertySelection[detection.normalized] ?? suggestedId ?? 0;
+                  const hasStrongSuggestion = !!detection.bestCandidate.property && detection.bestCandidate.score >= 28;
+
+                  return (
+                    <div
+                      key={detection.normalized}
+                      className={`rounded-lg border px-3 py-2 ${isDark ? 'border-amber-800/70 bg-gray-900/20' : 'border-amber-200 bg-white'}`}
+                    >
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-xs font-semibold ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>
+                          {detection.label}
+                        </span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                          {detection.count} email{detection.count > 1 ? 's' : ''}
+                        </span>
+                        {detection.isRejected && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${isDark ? 'bg-rose-900/40 text-rose-300 border border-rose-700/60' : 'bg-rose-100 text-rose-700 border border-rose-300'}`}>
+                            refusé manuellement
+                          </span>
+                        )}
+                        {hasStrongSuggestion && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${isDark ? 'bg-violet-900/35 text-violet-300 border border-violet-700/60' : 'bg-violet-100 text-violet-700 border border-violet-300'}`}>
+                            suggestion: {detection.bestCandidate.property?.name} ({detection.bestCandidate.score}%)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <select
+                          value={selectedId}
+                          onChange={(event) => {
+                            const value = Number.parseInt(event.target.value, 10);
+                            setManualPropertySelection((prev) => ({
+                              ...prev,
+                              [detection.normalized]: Number.isFinite(value) ? value : 0,
+                            }));
+                          }}
+                          className={`min-w-[220px] text-xs rounded-md border px-2 py-1.5 ${isDark ? 'bg-gray-800 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-700'}`}
+                        >
+                          <option value={0}>Choisir un logement…</option>
+                          {properties.map((property) => (
+                            <option key={property.id} value={property.id}>{property.name}</option>
+                          ))}
+                        </select>
+
+                        <button
+                          type="button"
+                          disabled={selectedId <= 0}
+                          onClick={() => validateDetectedPropertyLabel(detection.normalized, suggestedId)}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            isDark
+                              ? 'border-emerald-600 text-emerald-300 hover:bg-emerald-900/35'
+                              : 'border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                          }`}
+                        >
+                          ✅ Valider ce rattachement
+                        </button>
+
+                        {detection.isRejected ? (
+                          <button
+                            type="button"
+                            onClick={() => restoreRejectedPropertyLabel(detection.label)}
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors ${
+                              isDark
+                                ? 'border-gray-600 text-gray-300 hover:bg-gray-700/70'
+                                : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            ↩️ Réactiver
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => rejectDetectedPropertyLabel(detection.label)}
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors ${
+                              isDark
+                                ? 'border-rose-700 text-rose-300 hover:bg-rose-900/35'
+                                : 'border-rose-300 text-rose-700 hover:bg-rose-100'
+                            }`}
+                          >
+                            ⛔ Refuser ce libellé
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const queue = [analyzeAirbnbTitle(detection.label)];
+                            setPropertyQueue(queue.slice(1));
+                            setCurrentWizard(queue[0]);
+                          }}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors ${
+                            isDark
+                              ? 'border-violet-600 text-violet-300 hover:bg-violet-900/35'
+                              : 'border-violet-300 text-violet-700 hover:bg-violet-100'
+                          }`}
+                        >
+                          🏠 Créer nouvelle propriété
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* ── Résultat purge ── */}
           {purgeResult && (
             <div className={`border rounded-xl p-3 flex items-center gap-3 text-sm ${isDark ? 'bg-orange-900/30 border-orange-700 text-orange-300' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
@@ -3779,12 +4139,16 @@ export default function GmailImporter() {
                   const unmatchedLabelCount = booking.propertyName
                     ? (unmatchedLabelCounts[normalizeForMatch(booking.propertyName)] || 0)
                     : 0;
+                  const isRejectedPropertyLabel = booking.propertyName
+                    ? rejectedPropertySet.has(normalizeForMatch(booking.propertyName))
+                    : false;
                   const showUnmatchedPropertyWarning =
                     booking.bookingType !== 'cancelled' &&
                     booking.bookingType !== 'payout' &&
                     properties.length > 0 &&
                     !!booking.propertyName &&
-                    !matchedProperty;
+                    !matchedProperty &&
+                    !isRejectedPropertyLabel;
                   const propertyWarningPattern = /logement introuvable|property_not_found|missing_property/i;
                   const rawWarnings = booking.warnings || [];
                   const hasDateRangeInference = rawWarnings.includes('date_range_inferred_precisely_from_subject') || rawWarnings.includes('date_range_inferred_from_subject');
@@ -3893,6 +4257,16 @@ export default function GmailImporter() {
                             <div className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                               Email reçu le {fmt(booking.receivedAt)} • {booking.subject.slice(0, 80)}
                             </div>
+                            {isRejectedPropertyLabel && (
+                              <div className={`mt-1 text-xs rounded-lg border px-2.5 py-2 flex items-center gap-1.5 ${
+                                isDark ? 'text-rose-300 border-rose-800/50 bg-rose-900/20' : 'text-rose-700 border-rose-200 bg-rose-50'
+                              }`}>
+                                <span>⛔</span>
+                                <span>
+                                  Libellé logement ignoré manuellement (non proposé comme nouvelle propriété).
+                                </span>
+                              </div>
+                            )}
                             {/* ── Avertissement : aucun logement correspondant (pas pour versements) ── */}
                             {showUnmatchedPropertyWarning && (
                               <div className={`mt-1 text-xs rounded-lg border px-2.5 py-2 flex flex-col gap-2 ${
