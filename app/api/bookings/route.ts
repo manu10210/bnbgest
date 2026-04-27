@@ -2,10 +2,18 @@ export const dynamic = 'force-dynamic';
 
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { BookingSource, BookingStatus } from '@prisma/client';
 import { sendBookingConfirmationEmail } from '@/lib/email-notifications';
 import { requireAuth } from '@/lib/auth-middleware';
 import { rateLimit } from '@/lib/rate-limit';
 import { BookingSchema, validateRequest } from '@/lib/validations';
+import {
+  bookingContainsConfirmationCode,
+  computeGuestIdentityCandidates,
+  normalizeConfirmationCode,
+  normalizeGuestEmail,
+  normalizeGuestPhone,
+} from '@/lib/guest-identity';
 
 /**
  * GET /api/bookings
@@ -32,8 +40,8 @@ export async function GET(request: Request) {
     const bookings = await prisma.booking.findMany({
       where: {
         ...(propertyId && { propertyId: parseInt(propertyId) }),
-        ...(status && { status: status as any }),
-        ...(source && { source: source as any }),
+        ...(status && { status: status as BookingStatus }),
+        ...(source && { source: source as BookingSource }),
         ...(startDate && endDate && {
           AND: [
             { checkIn:  { lt: new Date(endDate)   } },
@@ -106,6 +114,101 @@ export async function POST(request: Request) {
   try {
     // 3. Validation with Zod
     const validatedData = await validateRequest(BookingSchema, request);
+    const sessionUserId = authResult.user.id;
+
+    const normalizedGuestName = validatedData.guestName.trim();
+    const normalizedGuestEmail = normalizeGuestEmail(validatedData.guestEmail) || '';
+    const normalizedGuestPhone = normalizeGuestPhone(validatedData.guestPhone);
+    const normalizedConfirmationCode = normalizeConfirmationCode(validatedData.confirmationCode);
+
+    // Déduplication primaire via code de confirmation Airbnb
+    if (normalizedConfirmationCode) {
+      const duplicateByCode = await prisma.booking.findFirst({
+        where: {
+          propertyId: validatedData.propertyId,
+          OR: [
+            { confirmationCode: { equals: normalizedConfirmationCode, mode: 'insensitive' } },
+            { specialRequests: { contains: normalizedConfirmationCode, mode: 'insensitive' } },
+          ],
+        },
+        include: {
+          property: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              city: true,
+              price: true,
+            },
+          },
+        },
+      });
+
+      if (duplicateByCode) {
+        return NextResponse.json({
+          success: true,
+          duplicate: true,
+          dedupeReason: 'confirmation_code',
+          booking: duplicateByCode,
+        });
+      }
+    }
+
+    // Déduplication secondaire via identité voyageur + même plage de dates
+    const incomingIdentityKeys = computeGuestIdentityCandidates({
+      name: normalizedGuestName,
+      email: normalizedGuestEmail,
+      phone: normalizedGuestPhone,
+    });
+
+    if (incomingIdentityKeys.length > 0) {
+      const sameRangeCandidates = await prisma.booking.findMany({
+        where: {
+          propertyId: validatedData.propertyId,
+          checkIn: new Date(validatedData.checkIn),
+          checkOut: new Date(validatedData.checkOut),
+        },
+        include: {
+          property: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              city: true,
+              price: true,
+            },
+          },
+        },
+      });
+
+      const duplicateByIdentity = sameRangeCandidates.find((candidate) => {
+        const candidateIdentityKeys = computeGuestIdentityCandidates({
+          name: candidate.guestName,
+          email: candidate.guestEmail,
+          phone: candidate.guestPhone,
+        });
+
+        const hasIdentityMatch = candidateIdentityKeys.some((key) => incomingIdentityKeys.includes(key));
+        if (hasIdentityMatch) return true;
+
+        return (
+          !!normalizedConfirmationCode
+          && (
+            normalizeConfirmationCode(candidate.confirmationCode) === normalizedConfirmationCode
+            || bookingContainsConfirmationCode(candidate.specialRequests, normalizedConfirmationCode)
+          )
+        );
+      });
+
+      if (duplicateByIdentity) {
+        return NextResponse.json({
+          success: true,
+          duplicate: true,
+          dedupeReason: 'identity_and_date_range',
+          booking: duplicateByIdentity,
+        });
+      }
+    }
 
     // Vérifier disponibilité
     const overlappingBookings = await prisma.booking.findMany({
@@ -136,19 +239,20 @@ export async function POST(request: Request) {
 
     const booking = await prisma.booking.create({
       data: {
+        userId: sessionUserId,
         propertyId: validatedData.propertyId,
-        guestName: validatedData.guestName,
-        guestEmail: validatedData.guestEmail ?? '',
-        guestPhone: validatedData.guestPhone ?? null,
+        guestName: normalizedGuestName,
+        guestEmail: normalizedGuestEmail,
+        guestPhone: normalizedGuestPhone,
         checkIn: new Date(validatedData.checkIn),
         checkOut: new Date(validatedData.checkOut),
         guests: validatedData.guests,
         totalPrice: validatedData.totalPrice,
         notes: validatedData.notes ?? null,
         specialRequests: validatedData.specialRequests ?? null,
-        confirmationCode: validatedData.confirmationCode ?? null,
-        status: (validatedData.status as any) ?? 'PENDING',
-        source: (validatedData.source as any) ?? 'DIRECT',
+        confirmationCode: normalizedConfirmationCode,
+        status: (validatedData.status as BookingStatus) ?? 'PENDING',
+        source: (validatedData.source as BookingSource) ?? 'DIRECT',
       },
       include: {
         property: {
@@ -166,7 +270,7 @@ export async function POST(request: Request) {
     // Envoyer email de confirmation si status CONFIRMED
     if (booking.status === 'CONFIRMED') {
       try {
-        const prop = (booking as any).property;
+        const prop = booking.property;
         await sendBookingConfirmationEmail({
           id: booking.id,
           guestName: booking.guestName,

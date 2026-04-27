@@ -5,6 +5,12 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-middleware';
 import { rateLimit } from '@/lib/rate-limit';
+import {
+  computeGuestIdentityCandidates,
+  computeGuestIdentityKey,
+  normalizeGuestEmail,
+  normalizeGuestName,
+} from '@/lib/guest-identity';
 
 type GuestStatus = 'active' | 'inactive' | 'blocked';
 
@@ -35,35 +41,6 @@ type UpsertPayload = {
   previousIdentity?: PreviousIdentity;
 };
 
-function normalizeEmail(value?: string | null): string | null {
-  if (!value) return null;
-  const normalized = value.trim().toLowerCase();
-  return normalized.length > 0 ? normalized : null;
-}
-
-function normalizeName(value?: string | null): string | null {
-  if (!value) return null;
-  const normalized = value.trim().toLowerCase().replace(/\s+/g, ' ');
-  return normalized.length > 0 ? normalized : null;
-}
-
-function normalizePhone(value?: string | null): string | null {
-  if (!value) return null;
-  const digits = value.replace(/[^\d+]/g, '');
-  return digits.length > 0 ? digits : null;
-}
-
-function computeIdentityKey(input: { name?: string | null; email?: string | null; phone?: string | null }): string | null {
-  const email = normalizeEmail(input.email);
-  if (email) return `email:${email}`;
-
-  const name = normalizeName(input.name);
-  if (!name) return null;
-
-  const phone = normalizePhone(input.phone);
-  return phone ? `name:${name}|phone:${phone}` : `name:${name}`;
-}
-
 function toGuestStatus(status?: string | null): GuestStatus {
   const normalized = (status || '').toLowerCase();
   if (normalized === 'blocked') return 'blocked';
@@ -81,7 +58,7 @@ function hashString(input: string): number {
 }
 
 function buildIdentityWhere(identity: PreviousIdentity | GuestPayload): Prisma.BookingWhereInput {
-  const normalizedEmail = normalizeEmail(identity.email);
+  const normalizedEmail = normalizeGuestEmail(identity.email);
   const name = identity.name?.trim();
   const phone = identity.phone?.trim();
 
@@ -237,7 +214,7 @@ export async function GET(request: Request) {
     }
 
     for (const booking of bookings) {
-      const identityKey = computeIdentityKey({
+      const identityKey = computeGuestIdentityKey({
         name: booking.guestName,
         email: booking.guestEmail,
         phone: booking.guestPhone,
@@ -268,7 +245,7 @@ export async function GET(request: Request) {
 
     const reviewByName = new Map<string, { sum: number; count: number }>();
     for (const review of reviews) {
-      const normalizedName = normalizeName(review.guestName);
+      const normalizedName = normalizeGuestName(review.guestName);
       if (!normalizedName) continue;
       const existing = reviewByName.get(normalizedName) || { sum: 0, count: 0 };
       existing.sum += review.rating;
@@ -277,7 +254,7 @@ export async function GET(request: Request) {
     }
 
     for (const thread of threads) {
-      const identityKey = computeIdentityKey({
+      const identityKey = computeGuestIdentityKey({
         name: thread.guestName,
         email: thread.guestEmail,
       });
@@ -290,7 +267,7 @@ export async function GET(request: Request) {
 
     const guests = Array.from(guestMap.values())
       .map((guest) => {
-        const reviewStats = reviewByName.get(normalizeName(guest.name) || '');
+        const reviewStats = reviewByName.get(normalizeGuestName(guest.name) || '');
         const rating = reviewStats && reviewStats.count > 0
           ? Number((reviewStats.sum / reviewStats.count).toFixed(2))
           : guest.rating;
@@ -363,7 +340,7 @@ export async function POST(request: Request) {
 
     const guest = body.guest;
     const previousIdentity = body.previousIdentity;
-    const nextIdentityKey = computeIdentityKey(guest);
+    const nextIdentityKey = computeGuestIdentityKey(guest);
 
     if (!nextIdentityKey) {
       return NextResponse.json(
@@ -372,16 +349,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const previousIdentityKey = previousIdentity ? computeIdentityKey(previousIdentity) : null;
+    const candidateIdentityKeys = computeGuestIdentityCandidates(guest);
+    const previousIdentityKeys = previousIdentity ? computeGuestIdentityCandidates(previousIdentity) : [];
 
     const persisted = await prisma.$transaction(async (tx) => {
       const existingProfile = await tx.guestProfile.findFirst({
         where: {
           userId: sessionUserId,
-          OR: [
-            { identityKey: nextIdentityKey },
-            ...(previousIdentityKey ? [{ identityKey: previousIdentityKey }] : []),
-          ],
+          OR: Array.from(new Set([...candidateIdentityKeys, ...previousIdentityKeys])).map((identityKey) => ({
+            identityKey,
+          })),
         },
       });
 
@@ -390,7 +367,7 @@ export async function POST(request: Request) {
             where: { id: existingProfile.id },
             data: {
               identityKey: nextIdentityKey,
-              emailNormalized: normalizeEmail(guest.email),
+              emailNormalized: normalizeGuestEmail(guest.email),
               name: guest.name.trim(),
               email: guest.email?.trim() || null,
               phone: guest.phone?.trim() || null,
@@ -408,7 +385,7 @@ export async function POST(request: Request) {
         : await tx.guestProfile.create({
             data: {
               identityKey: nextIdentityKey,
-              emailNormalized: normalizeEmail(guest.email),
+              emailNormalized: normalizeGuestEmail(guest.email),
               name: guest.name.trim(),
               email: guest.email?.trim() || null,
               phone: guest.phone?.trim() || null,
