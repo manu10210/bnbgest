@@ -376,9 +376,40 @@ type ApiBookingPayload = {
   confirmationCode?: string;
 };
 
+type ApiGuestPayload = {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  language?: string;
+  status?: string;
+  nationality?: string;
+  totalBookings?: number;
+  totalSpent?: number;
+  rating?: number;
+  createdAt?: string;
+  lastBooking?: string;
+  preferences?: Guest['preferences'];
+};
+
 function toNumber(value: unknown, fallback = 0): number {
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeGuestStatus(status?: string | null): Guest['status'] {
+  const normalized = (status || '').toLowerCase();
+  if (normalized === 'blocked') return 'blocked';
+  if (normalized === 'inactive') return 'inactive';
+  return 'active';
+}
+
+function normalizeGuestIdentity(input: Pick<Guest, 'name' | 'email' | 'phone'>): string {
+  const email = input.email?.trim().toLowerCase();
+  if (email) return `email:${email}`;
+  const normalizedName = input.name.trim().toLowerCase().replace(/\s+/g, ' ');
+  const normalizedPhone = (input.phone || '').replace(/[^\d+]/g, '');
+  return normalizedPhone ? `name:${normalizedName}|phone:${normalizedPhone}` : `name:${normalizedName}`;
 }
 
 export function BNBProvider({ children }: { children: ReactNode }) {
@@ -395,16 +426,18 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
     const hydrateFromApi = async () => {
       try {
-        const [propertiesRes, bookingsRes] = await Promise.all([
+        const [propertiesRes, bookingsRes, guestsRes] = await Promise.all([
           fetch('/api/properties', { credentials: 'include' }),
           fetch('/api/bookings', { credentials: 'include' }),
+          fetch('/api/guests', { credentials: 'include' }),
         ]);
 
         if (!propertiesRes.ok || !bookingsRes.ok) return;
 
-        const [propertiesPayload, bookingsPayload] = await Promise.all([
+        const [propertiesPayload, bookingsPayload, guestsPayload] = await Promise.all([
           propertiesRes.json(),
           bookingsRes.json(),
+          guestsRes.ok ? guestsRes.json() : Promise.resolve(null),
         ]);
 
         if (cancelled) return;
@@ -414,6 +447,9 @@ export function BNBProvider({ children }: { children: ReactNode }) {
           : [];
         const apiBookingsRaw = Array.isArray(bookingsPayload?.bookings)
           ? (bookingsPayload.bookings as ApiBookingPayload[])
+          : [];
+        const apiGuestsRaw = Array.isArray(guestsPayload?.guests)
+          ? (guestsPayload.guests as ApiGuestPayload[])
           : [];
 
         const apiProperties: Property[] = apiPropertiesRaw
@@ -493,6 +529,29 @@ export function BNBProvider({ children }: { children: ReactNode }) {
             };
           });
 
+        const apiGuests: Guest[] = apiGuestsRaw
+          .filter((g) => typeof g?.id === 'number' && !!g?.name)
+          .map((g) => ({
+            id: g.id,
+            name: g.name,
+            email: g.email || '',
+            phone: g.phone || '',
+            language: g.language || 'fr',
+            nationality: g.nationality,
+            totalBookings: toNumber(g.totalBookings, 0),
+            totalSpent: toNumber(g.totalSpent, 0),
+            rating: toNumber(g.rating, 0),
+            status: normalizeGuestStatus(g.status),
+            createdAt: g.createdAt ? new Date(g.createdAt).toISOString() : new Date().toISOString(),
+            lastBooking: g.lastBooking ? new Date(g.lastBooking).toISOString().slice(0, 10) : undefined,
+            preferences: g.preferences || {
+              smoking: false,
+              pets: false,
+              parties: false,
+              preferredAmenities: [],
+            },
+          }));
+
         setProperties((prev) => {
           if (apiProperties.length === 0) return prev;
           const prevById = new Map(prev.map((p) => [p.id, p]));
@@ -541,6 +600,36 @@ export function BNBProvider({ children }: { children: ReactNode }) {
           }
 
           return Array.from(mergedById.values());
+        });
+
+        setGuests((prev) => {
+          if (apiGuests.length === 0) return prev;
+          const mergedByIdentity = new Map<string, Guest>(
+            prev.map((guest) => [normalizeGuestIdentity(guest), guest]),
+          );
+
+          for (const apiGuest of apiGuests) {
+            const key = normalizeGuestIdentity(apiGuest);
+            const existing = mergedByIdentity.get(key);
+            if (!existing) {
+              mergedByIdentity.set(key, apiGuest);
+              continue;
+            }
+
+            mergedByIdentity.set(key, {
+              ...existing,
+              ...apiGuest,
+              id: apiGuest.id,
+              totalBookings: apiGuest.totalBookings,
+              totalSpent: apiGuest.totalSpent,
+              rating: apiGuest.rating,
+              status: apiGuest.status,
+              createdAt: existing.createdAt || apiGuest.createdAt,
+              lastBooking: apiGuest.lastBooking || existing.lastBooking,
+            });
+          }
+
+          return Array.from(mergedByIdentity.values());
         });
       } catch {
         // Mode local/offline ou non authentifié: on garde le store local.
@@ -674,25 +763,68 @@ export function BNBProvider({ children }: { children: ReactNode }) {
       booking.checkIn < endDate && booking.checkOut > startDate
     );
 
+  const persistGuestToApi = async (
+    guest: Guest,
+    previousIdentity?: Pick<Guest, 'name' | 'email' | 'phone'>,
+  ) => {
+    try {
+      await fetch('/api/guests', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          guest: {
+            id: guest.id,
+            name: guest.name,
+            email: guest.email,
+            phone: guest.phone,
+            language: guest.language,
+            nationality: guest.nationality,
+            status: guest.status,
+            totalBookings: guest.totalBookings,
+            totalSpent: guest.totalSpent,
+            rating: guest.rating,
+            createdAt: guest.createdAt,
+            lastBooking: guest.lastBooking,
+            preferences: guest.preferences,
+          },
+          previousIdentity,
+        }),
+      });
+    } catch {
+      // Hors ligne / non authentifié : on conserve la source locale sans bloquer l'UI.
+    }
+  };
+
   // Guests functions
   const addGuest = (guest: Omit<Guest, 'id' | 'createdAt' | 'totalBookings' | 'totalSpent' | 'rating'>) => {
-    setGuests(prev => {
-      const newGuest: Guest = {
-        ...guest,
-        id: Math.max(...prev.map(g => g.id), 0) + 1,
-        createdAt: new Date().toISOString(),
-        totalBookings: 0,
-        totalSpent: 0,
-        rating: 0
-      };
-      return [...prev, newGuest];
-    });
+    const newGuest: Guest = {
+      ...guest,
+      id: Math.max(...guests.map(g => g.id), 0) + 1,
+      createdAt: new Date().toISOString(),
+      totalBookings: 0,
+      totalSpent: 0,
+      rating: 0,
+    };
+
+    setGuests(prev => [...prev, newGuest]);
+    void persistGuestToApi(newGuest);
   };
 
   const updateGuest = (id: number, updates: Partial<Guest>) => {
+    const existing = guests.find((guest) => guest.id === id);
+    if (!existing) return;
+
+    const updatedGuest: Guest = { ...existing, ...updates };
     setGuests(prev => prev.map(guest =>
-      guest.id === id ? { ...guest, ...updates } : guest
+      guest.id === id ? updatedGuest : guest
     ));
+
+    void persistGuestToApi(updatedGuest, {
+      name: existing.name,
+      email: existing.email,
+      phone: existing.phone,
+    });
   };
 
   const getGuest = (id: number) => guests.find(guest => guest.id === id);

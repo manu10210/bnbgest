@@ -59,6 +59,30 @@ interface ExtendedGuest extends Guest {
   customFields?: { [key: string]: string };
 }
 
+interface GuestInsightTimelineItem {
+  type: 'booking' | 'message' | 'review';
+  date: string;
+  title: string;
+  description?: string;
+}
+
+interface GuestInsightData {
+  score: number;
+  scoreLabel: string;
+  metrics: {
+    totalBookings: number;
+    cancelledBookings: number;
+    upcomingBookings: number;
+    totalSpent: number;
+    averageStay: number;
+    cancellationRate: number;
+    averageRating: number;
+    messageThreads: number;
+    reviews: number;
+  };
+  timeline: GuestInsightTimelineItem[];
+}
+
 const NATIONALITY_FLAGS: { [key: string]: string } = {
   'FR': '🇫🇷', 'GB': '🇬🇧', 'US': '🇺🇸', 'DE': '🇩🇪', 'ES': '🇪🇸',
   'IT': '🇮🇹', 'PT': '🇵🇹', 'BE': '🇧🇪', 'NL': '🇳🇱', 'CH': '🇨🇭',
@@ -91,6 +115,9 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
   >(null);
   const [selectedGuests, setSelectedGuests] = useState<Set<number>>(new Set());
   const [showFiltersPanel, setShowFiltersPanel] = useState(showFilters);
+  const [guestInsight, setGuestInsight] = useState<GuestInsightData | null>(null);
+  const [guestInsightLoading, setGuestInsightLoading] = useState(false);
+  const [guestInsightError, setGuestInsightError] = useState<string | null>(null);
 
   // États pour le formulaire
   const [editForm, setEditForm] = useState<Partial<ExtendedGuest>>({});
@@ -125,6 +152,56 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
       };
     }
   }, [showModal]);
+
+  useEffect(() => {
+    if (showModal !== 'details' || !selectedGuest) {
+      setGuestInsight(null);
+      setGuestInsightError(null);
+      setGuestInsightLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchGuestInsight = async () => {
+      setGuestInsightLoading(true);
+      setGuestInsightError(null);
+
+      try {
+        const params = new URLSearchParams();
+        if (selectedGuest.email) params.set('email', selectedGuest.email);
+        if (selectedGuest.name) params.set('name', selectedGuest.name);
+        if (selectedGuest.phone) params.set('phone', selectedGuest.phone);
+
+        const query = params.toString();
+        const response = await fetch(`/api/guests/${selectedGuest.id}${query ? `?${query}` : ''}`, {
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const payload = await response.json() as { insights?: GuestInsightData };
+        if (cancelled) return;
+        setGuestInsight(payload.insights || null);
+      } catch {
+        if (cancelled) return;
+        setGuestInsightError('Impossible de charger les insights DB en temps réel.');
+        setGuestInsight(null);
+      } finally {
+        if (!cancelled) {
+          setGuestInsightLoading(false);
+        }
+      }
+    };
+
+    void fetchGuestInsight();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showModal, selectedGuest]);
 
   // Enrichir les données guests
   const extendedGuests: ExtendedGuest[] = useMemo(() => {
@@ -1132,6 +1209,85 @@ export default function GuestManager({ compact = false, showFilters = true }: Gu
                       )}
                     </div>
                   </div>
+                </div>
+
+                <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-900/20 p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-indigo-600 dark:text-indigo-300" />
+                      Analyse experte (DB)
+                    </h4>
+                    {guestInsightLoading && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Chargement...</span>
+                    )}
+                  </div>
+
+                  {!guestInsightLoading && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="rounded-lg bg-white/80 dark:bg-gray-900/50 border border-indigo-100 dark:border-indigo-900 p-4">
+                        <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Score voyageur</p>
+                        <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
+                          {guestInsight?.score ?? Math.max(40, Math.min(95,
+                            Math.round(
+                              (100 - ((selectedGuest.cancellationRate || 0) * 1.4)) * 0.45 +
+                              ((selectedGuest.rating || 0) * 20) * 0.35 +
+                              Math.min(100, (selectedGuest.totalBookings || 0) * 8) * 0.2,
+                            ),
+                          ))}
+                          <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/100</span>
+                        </p>
+                        <p className="text-xs mt-1 text-gray-600 dark:text-gray-400">
+                          {guestInsight?.scoreLabel || 'estimation locale'}
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg bg-white/80 dark:bg-gray-900/50 border border-indigo-100 dark:border-indigo-900 p-4">
+                        <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Fiabilité</p>
+                        <p className="text-sm text-gray-900 dark:text-white mt-1">
+                          Taux annulation: <span className="font-semibold">{(guestInsight?.metrics.cancellationRate ?? selectedGuest.cancellationRate ?? 0).toFixed(1)}%</span>
+                        </p>
+                        <p className="text-sm text-gray-900 dark:text-white">
+                          Réservations à venir: <span className="font-semibold">{guestInsight?.metrics.upcomingBookings ?? 0}</span>
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg bg-white/80 dark:bg-gray-900/50 border border-indigo-100 dark:border-indigo-900 p-4">
+                        <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Engagement</p>
+                        <p className="text-sm text-gray-900 dark:text-white mt-1">
+                          Messages: <span className="font-semibold">{guestInsight?.metrics.messageThreads ?? 0}</span>
+                        </p>
+                        <p className="text-sm text-gray-900 dark:text-white">
+                          Avis: <span className="font-semibold">{guestInsight?.metrics.reviews ?? 0}</span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {guestInsightError && (
+                    <p className="text-xs text-amber-700 dark:text-amber-300">{guestInsightError}</p>
+                  )}
+
+                  {guestInsight && guestInsight.timeline.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">Historique récent</p>
+                      <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                        {guestInsight.timeline.slice(0, 5).map((item, index) => (
+                          <div
+                            key={`${item.type}-${item.date}-${index}`}
+                            className="rounded-lg bg-white/70 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 p-3"
+                          >
+                            <div className="flex justify-between gap-3">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{item.title}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(item.date)}</p>
+                            </div>
+                            {item.description && (
+                              <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{item.description}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
