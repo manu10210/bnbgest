@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import BookingsManager from './BookingsManager';
 import { useSearchParams } from 'next/navigation';
+import NextLink from 'next/link';
 import dynamic from 'next/dynamic';
 
 const BookingManager = dynamic(() => import('./BookingManager'), { ssr: false });
@@ -147,6 +148,8 @@ export default function AdminDashboard() {
 
   // Quick actions
   const [quickActionsCollapsed, setQuickActionsCollapsed] = useState(false);
+  const [propertySearch, setPropertySearch] = useState('');
+  const [propertySort, setPropertySort] = useState<'revenue-desc' | 'bookings-desc' | 'name-asc' | 'price-desc'>('revenue-desc');
 
   // New booking form
   const [newBooking, setNewBooking] = useState({
@@ -305,7 +308,46 @@ export default function AdminDashboard() {
   const yearStart = `${currentYear}-01-01`;
   const yearEnd = `${currentYear}-12-31`;
   const totalRevenue = properties.reduce((sum, p) => sum + getRevenueByProperty(p.id, yearStart, yearEnd), 0);
+  const propertiesFiltered = properties
+    .filter((property) => {
+      if (!propertySearch.trim()) return true;
+      const q = propertySearch.toLowerCase().trim();
+      return (
+        property.name.toLowerCase().includes(q) ||
+        (property.address || '').toLowerCase().includes(q) ||
+        (property.city || '').toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      if (propertySort === 'name-asc') return a.name.localeCompare(b.name, 'fr');
+      if (propertySort === 'price-desc') return (b.price || 0) - (a.price || 0);
+      if (propertySort === 'bookings-desc') {
+        return bookings.filter(x => x.propertyId === b.id).length - bookings.filter(x => x.propertyId === a.id).length;
+      }
+      // revenue-desc (default)
+      return getRevenueByProperty(b.id, yearStart, yearEnd) - getRevenueByProperty(a.id, yearStart, yearEnd);
+    });
   const averageRating = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : '0';
+
+  const propertyToEditForConfigurator = propertyToEdit
+    ? {
+        id: propertyToEdit.id,
+        name: propertyToEdit.name,
+        address: propertyToEdit.address,
+        type: (['apartment', 'house', 'studio', 'villa', 'room'].includes(String(propertyToEdit.type))
+          ? String(propertyToEdit.type)
+          : 'apartment') as 'apartment' | 'house' | 'studio' | 'villa' | 'room',
+        bedrooms: propertyToEdit.bedrooms,
+        bathrooms: propertyToEdit.bathrooms,
+        maxGuests: propertyToEdit.maxGuests,
+        amenities: propertyToEdit.amenities,
+        price: propertyToEdit.price,
+        description: propertyToEdit.description,
+        images: propertyToEdit.images,
+        status: (propertyToEdit.status === 'blocked' ? 'inactive' : propertyToEdit.status) as 'active' | 'inactive' | 'maintenance',
+        createdAt: propertyToEdit.createdAt,
+      }
+    : undefined;
   const pendingTasks = maintenanceTasks.filter(t => t.status === 'pending').length;
 
   const tabs: { id: TabType; name: string; icon: React.ReactNode }[] = [
@@ -440,9 +482,9 @@ export default function AdminDashboard() {
             <div className={`h-8 w-[1px] ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
             <LanguageSelector size="sm" />
             <ThemeToggle size="sm" />
-            <a href="/" className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:bg-white/10 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+            <NextLink href="/" className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:bg-white/10 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
               <Home className="w-4 h-4" />
-            </a>
+            </NextLink>
           </div>
         </header>
 
@@ -450,12 +492,12 @@ export default function AdminDashboard() {
         <nav aria-label="Fil d'Ariane" className={`px-6 py-3 border-b ${isDark ? 'border-white/5' : 'border-gray-200'}`}>
           <ol className="flex items-center gap-2 text-sm">
             <li>
-              <a 
+              <NextLink 
                 href="/admin" 
                 className={`transition-colors ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
               >
                 Accueil
-              </a>
+              </NextLink>
             </li>
             <li className={isDark ? 'text-gray-600' : 'text-gray-400'}>/</li>
             <li aria-current="page" className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -516,12 +558,48 @@ export default function AdminDashboard() {
                   <div className="flex items-center justify-between mb-6">
                     <div>
                       <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Gestion des Propriétés</h2>
-                      <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>Gérez vos <span className="font-bold text-[#FF385C]">{properties.length}</span> propriété{properties.length > 1 ? 's' : ''}</p>
+                      <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>
+                        Gérez vos <span className="font-bold text-[#FF385C]">{properties.length}</span> propriété{properties.length > 1 ? 's' : ''}
+                        {properties.length > 0 && (
+                          <span className="ml-2">• <span className="font-semibold">{propertiesFiltered.length}</span> affichée{propertiesFiltered.length > 1 ? 's' : ''}</span>
+                        )}
+                      </p>
                     </div>
                     <Button onClick={() => setShowPropertyConfigurator(true)} className="flex items-center gap-2 hover-lift">
                       <Plus className="w-4 h-4" /> Ajouter une Propriété
                     </Button>
                   </div>
+
+                  {properties.length > 0 && (
+                    <div className="mb-5 grid md:grid-cols-3 gap-3">
+                      <div className={`flex items-center gap-2 rounded-xl px-3 py-2 border ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'}`}>
+                        <Search className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+                        <input
+                          value={propertySearch}
+                          onChange={(e) => setPropertySearch(e.target.value)}
+                          placeholder="Rechercher (nom, ville, adresse)"
+                          className={`w-full bg-transparent text-sm outline-none ${isDark ? 'text-white placeholder:text-gray-500' : 'text-gray-800 placeholder:text-gray-400'}`}
+                        />
+                      </div>
+                      <select
+                        value={propertySort}
+                        onChange={(e) => setPropertySort(e.target.value as 'revenue-desc' | 'bookings-desc' | 'name-asc' | 'price-desc')}
+                        className={`rounded-xl px-3 py-2 text-sm border outline-none ${isDark ? 'bg-white/[0.03] border-white/10 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                      >
+                        <option value="revenue-desc">Trier: Revenus décroissants</option>
+                        <option value="bookings-desc">Trier: Réservations décroissantes</option>
+                        <option value="price-desc">Trier: Prix/nuit décroissant</option>
+                        <option value="name-asc">Trier: Nom A → Z</option>
+                      </select>
+                      <div className={`rounded-xl px-3 py-2 text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
+                        <span>Revenus annuels (vue)</span>
+                        <span className="font-bold text-emerald-500">
+                          {propertiesFiltered.reduce((sum, p) => sum + getRevenueByProperty(p.id, yearStart, yearEnd), 0).toLocaleString('fr-FR')}€
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {properties.length === 0 ? (
                     <div className={`text-center py-16 rounded-2xl border-gradient ${isDark ? 'bg-white/[0.02]' : 'bg-[#f7f7f7]'}`}>
                       <div className="w-20 h-20 rounded-2xl aurora-bg flex items-center justify-center mx-auto mb-4 animate-float pulse-ring">
@@ -530,14 +608,36 @@ export default function AdminDashboard() {
                       <p className={`text-lg font-black ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Aucune propriété</p>
                       <p className={`text-sm mt-1 ${isDark ? 'text-gray-600' : 'text-[#b0b0b0]'}`}>Ajoutez votre première propriété</p>
                     </div>
+                  ) : propertiesFiltered.length === 0 ? (
+                    <div className={`text-center py-12 rounded-2xl border ${isDark ? 'bg-white/[0.02] border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+                      <p className={`text-lg font-black ${isDark ? 'text-white/70' : 'text-gray-700'}`}>Aucun résultat</p>
+                      <p className={`text-sm mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                        Essayez un autre mot-clé ou réinitialisez votre recherche.
+                      </p>
+                      <button
+                        onClick={() => setPropertySearch('')}
+                        className={`mt-4 px-3 py-1.5 rounded-lg text-sm font-semibold ${isDark ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+                      >
+                        Réinitialiser
+                      </button>
+                    </div>
                   ) : (
                     <div className="grid md:grid-cols-2 gap-4 stagger-children">
-                      {properties.map(property => {
+                      {propertiesFiltered.map(property => {
                         const revenue = getRevenueByProperty(property.id, yearStart, yearEnd);
                         const propBookings = bookings.filter(b => b.propertyId === property.id);
+                        
+                        // Trouver la prochaine réservation (ou en cours)
+                        const nextBooking = propBookings
+                          .filter(b => ['confirmed', 'pending'].includes(b.status))
+                          .filter(b => new Date(b.checkOut).getTime() >= new Date().setHours(0,0,0,0))
+                          .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime())[0];
+                          
+                        const nights = nextBooking ? Math.max(1, Math.round((new Date(nextBooking.checkOut).getTime() - new Date(nextBooking.checkIn).getTime()) / 86400000)) : 0;
+
                         return (
                           <div key={property.id} className={`group relative rounded-3xl p-6 transition-all duration-300 border hover:-translate-y-1 ${
-                            isDark 
+                            isDark
                               ? 'bg-[#1e1e2d] border-white/[0.06] hover:border-indigo-500/30' 
                               : 'bg-white border-gray-100 hover:border-indigo-200 shadow-xl shadow-gray-200/50'
                           }`}>
@@ -596,6 +696,37 @@ export default function AdminDashboard() {
                                   <p className={`font-black text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{property.maxGuests}</p>
                                 </div>
                               </div>
+
+                              {/* Affichage de la prochaine réservation inline */}
+                              {nextBooking ? (
+                                <div className={`mb-6 p-4 rounded-2xl border ${isDark ? 'bg-indigo-500/5 border-indigo-500/10' : 'bg-indigo-50/50 border-indigo-100'}`}>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Calendar className={`w-4 h-4 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
+                                    <span className={`text-xs font-bold uppercase tracking-wide ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                                      En cours / À venir
+                                    </span>
+                                  </div>
+                                  <div className={`flex flex-col gap-1 text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-bold">{nextBooking.guestInfo.name}</span>
+                                      <span className="font-bold text-emerald-500">{nextBooking.totalPrice.toLocaleString('fr-FR')} €</span>
+                                    </div>
+                                    <div className="flex justify-between items-center opacity-80">
+                                      <span>
+                                        {new Date(nextBooking.checkIn).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} &rarr; {new Date(nextBooking.checkOut).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} ({nights}n)
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {nextBooking.guests}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className={`mb-6 p-4 rounded-2xl border border-dashed flex flex-col items-center justify-center text-center ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
+                                  <span className="text-xl mb-1 block">🏖️</span>
+                                  <span className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Aucune prochaine réservation</span>
+                                </div>
+                              )}
 
                               <div className="flex items-center justify-between pt-4 border-t border-dashed border-gray-500/20">
                                 <div className={`px-4 py-1.5 rounded-full text-sm font-bold ${
@@ -1268,7 +1399,7 @@ export default function AdminDashboard() {
       {/* Property Edit via Configurator */}
       {propertyToEdit && (
         <Modal isOpen={true} onClose={() => setPropertyToEdit(null)}>
-          <PropertyConfigurator initialProperty={propertyToEdit as any} mode="edit" onPropertyCreated={() => setPropertyToEdit(null)} onCancel={() => setPropertyToEdit(null)} />
+          <PropertyConfigurator initialProperty={propertyToEditForConfigurator} mode="edit" onPropertyCreated={() => setPropertyToEdit(null)} onCancel={() => setPropertyToEdit(null)} />
         </Modal>
       )}
 
