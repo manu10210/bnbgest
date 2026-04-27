@@ -531,15 +531,24 @@ export function BNBProvider({ children }: { children: ReactNode }) {
     return propertyReviews.reduce((sum, review) => sum + review.rating, 0) / propertyReviews.length;
   };
 
+  const getReceivedBookingAmount = (booking: Booking): number => {
+    const isReceived = booking.paymentStatus === 'paid' || booking.paymentStatus === 'partial' || !!booking.payoutConfirmed;
+    if (!isReceived || booking.paymentStatus === 'refunded') return 0;
+
+    if (booking.hostPayout && booking.hostPayout > 0) return booking.hostPayout;
+    if (booking.paymentStatus === 'partial') return booking.paymentInfo?.amount ?? booking.totalPrice ?? 0;
+    return booking.totalPrice ?? 0;
+  };
+
   // Analytics functions
   const generateFinancialReport = (startDate: string, endDate: string): FinancialReport => {
     const periodBookings = getBookingsByDateRange(startDate, endDate);
 
-    // ── Revenus : uniquement les réservations completed + paid ──────────────
+    // ── Revenus perçus : paid/partial/payoutConfirmed (hors refunded) ──────
     const revenueBookings = periodBookings.filter(
-      b => b.status === 'completed' && b.paymentStatus === 'paid'
+      b => b.status !== 'cancelled'
     );
-    const revenue = revenueBookings.reduce((sum, b) => sum + b.totalPrice, 0);
+    const revenue = revenueBookings.reduce((sum, b) => sum + getReceivedBookingAmount(b), 0);
 
     // ── Dépenses maintenance (tâches complétées dans la période) ────────────
     const expenses = maintenanceTasks
@@ -618,12 +627,11 @@ export function BNBProvider({ children }: { children: ReactNode }) {
   const getRevenueByProperty = (propertyId: number, startDate: string, endDate: string): number => {
     return getBookingsByProperty(propertyId)
       .filter(b =>
-        b.status === 'completed' &&
-        b.paymentStatus === 'paid' &&
+        b.status !== 'cancelled' &&
         b.checkOut >= startDate &&
         b.checkIn <= endDate
       )
-      .reduce((sum, b) => sum + b.totalPrice, 0);
+      .reduce((sum, b) => sum + getReceivedBookingAmount(b), 0);
   };
 
   // Utility functions
