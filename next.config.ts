@@ -53,13 +53,7 @@ const nextConfig: NextConfig = {
   // Webpack optimizations
   webpack: (config, { dev, isServer }) => {
     // Tree shaking optimizations
-    config.optimization = {
-      ...config.optimization,
-      usedExports: true,
-      sideEffects: false,
-    };
-
-    // Advanced code splitting for client bundles only
+// Advanced code splitting for client bundles only
     if (!isServer && !dev) {
       config.optimization.splitChunks = {
         chunks: 'all',
@@ -156,3 +150,4 @@ const nextConfig: NextConfig = {
 };
 
 export default withBundleAnalyzer(nextConfig);
+

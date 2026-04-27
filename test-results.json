@@ -1,7 +1,7 @@
 {
   "config": {
-    "configFile": "C:\\Users\\claus\\BNBGEST\\playwright.config.ts",
-    "rootDir": "C:/Users/claus/BNBGEST/tests",
+    "configFile": "C:\\Users\\claus\\BNBGEST\\playwright.performance.config.ts",
+    "rootDir": "C:/Users/claus/BNBGEST/tests/performance",
     "forbidOnly": false,
     "fullyParallel": false,
     "globalSetup": null,
@@ -20,77 +20,7 @@
         "metadata": {},
         "id": "chromium",
         "name": "chromium",
-        "testDir": "C:/Users/claus/BNBGEST/tests",
-        "testIgnore": [],
-        "testMatch": [
-          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
-        ],
-        "timeout": 30000
-      },
-      {
-        "outputDir": "C:/Users/claus/BNBGEST/test-results",
-        "repeatEach": 1,
-        "retries": 0,
-        "metadata": {},
-        "id": "firefox",
-        "name": "firefox",
-        "testDir": "C:/Users/claus/BNBGEST/tests",
-        "testIgnore": [],
-        "testMatch": [
-          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
-        ],
-        "timeout": 30000
-      },
-      {
-        "outputDir": "C:/Users/claus/BNBGEST/test-results",
-        "repeatEach": 1,
-        "retries": 0,
-        "metadata": {},
-        "id": "webkit",
-        "name": "webkit",
-        "testDir": "C:/Users/claus/BNBGEST/tests",
-        "testIgnore": [],
-        "testMatch": [
-          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
-        ],
-        "timeout": 30000
-      },
-      {
-        "outputDir": "C:/Users/claus/BNBGEST/test-results",
-        "repeatEach": 1,
-        "retries": 0,
-        "metadata": {},
-        "id": "Mobile Chrome",
-        "name": "Mobile Chrome",
-        "testDir": "C:/Users/claus/BNBGEST/tests",
-        "testIgnore": [],
-        "testMatch": [
-          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
-        ],
-        "timeout": 30000
-      },
-      {
-        "outputDir": "C:/Users/claus/BNBGEST/test-results",
-        "repeatEach": 1,
-        "retries": 0,
-        "metadata": {},
-        "id": "Mobile Safari",
-        "name": "Mobile Safari",
-        "testDir": "C:/Users/claus/BNBGEST/tests",
-        "testIgnore": [],
-        "testMatch": [
-          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
-        ],
-        "timeout": 30000
-      },
-      {
-        "outputDir": "C:/Users/claus/BNBGEST/test-results",
-        "repeatEach": 1,
-        "retries": 0,
-        "metadata": {},
-        "id": "Tablet",
-        "name": "Tablet",
-        "testDir": "C:/Users/claus/BNBGEST/tests",
+        "testDir": "C:/Users/claus/BNBGEST/tests/performance",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -101,12 +31,6 @@
     "quiet": false,
     "reporter": [
       [
-        "html",
-        {
-          "outputFolder": "playwright-report"
-        }
-      ],
-      [
         "list",
         null
       ],
@@ -114,6 +38,13 @@
         "json",
         {
           "outputFile": "test-results.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report",
+          "open": "never"
         }
       ]
     ],
@@ -126,26 +57,258 @@
     "updateSnapshots": "missing",
     "updateSourceMethod": "patch",
     "version": "1.59.1",
-    "workers": 3,
-    "webServer": {
-      "command": "npm run dev",
-      "url": "http://localhost:3000",
-      "reuseExistingServer": true,
-      "timeout": 120000
-    }
+    "workers": 1,
+    "webServer": null
   },
-  "suites": [],
-  "errors": [
+  "suites": [
     {
-      "message": "Error: Process from config.webServer exited early.",
-      "stack": "Error: Process from config.webServer exited early."
+      "title": "core-vitals.spec.ts",
+      "file": "core-vitals.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Core Web Vitals - Homepage",
+          "file": "core-vitals.spec.ts",
+          "line": 20,
+          "column": 6,
+          "specs": [
+            {
+              "title": "LCP should be under 2.5s",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a6763374692fe75c3663-ba725a05e1532d2fc22c",
+              "file": "core-vitals.spec.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "FCP should be under 1.8s",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a6763374692fe75c3663-f3cd13af91e08153d91a",
+              "file": "core-vitals.spec.ts",
+              "line": 41,
+              "column": 7
+            },
+            {
+              "title": "TTFB should be under 800ms",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a6763374692fe75c3663-f4444e01ece9c5037221",
+              "file": "core-vitals.spec.ts",
+              "line": 60,
+              "column": 7
+            },
+            {
+              "title": "CLS should be under 0.1",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a6763374692fe75c3663-b70bc78810c114140df4",
+              "file": "core-vitals.spec.ts",
+              "line": 70,
+              "column": 7
+            },
+            {
+              "title": "Page load should complete in under 3s",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a6763374692fe75c3663-20696dfef4299479fce0",
+              "file": "core-vitals.spec.ts",
+              "line": 98,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Core Web Vitals - Admin Dashboard",
+          "file": "core-vitals.spec.ts",
+          "line": 109,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Admin LCP should be under 3s",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a6763374692fe75c3663-970b7f4ace64f8428354",
+              "file": "core-vitals.spec.ts",
+              "line": 110,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Bundle Performance",
+          "file": "core-vitals.spec.ts",
+          "line": 132,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Total JavaScript size should be reasonable",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a6763374692fe75c3663-fba689b948f11429ab51",
+              "file": "core-vitals.spec.ts",
+              "line": 133,
+              "column": 7
+            },
+            {
+              "title": "Total CSS size should be reasonable",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a6763374692fe75c3663-9af0b9292b816225183a",
+              "file": "core-vitals.spec.ts",
+              "line": 157,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Resource Loading",
+          "file": "core-vitals.spec.ts",
+          "line": 182,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Images should be lazy loaded",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a6763374692fe75c3663-db899776b4866767ecc6",
+              "file": "core-vitals.spec.ts",
+              "line": 183,
+              "column": 7
+            },
+            {
+              "title": "Fonts should be optimized",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a6763374692fe75c3663-3fba80a7c03568d29d79",
+              "file": "core-vitals.spec.ts",
+              "line": 196,
+              "column": 7
+            }
+          ]
+        }
+      ]
     }
   ],
+  "errors": [],
   "stats": {
-    "startTime": "2026-04-13T19:35:47.442Z",
-    "duration": 7747.025999999999,
+    "startTime": "2026-04-27T16:15:15.465Z",
+    "duration": 38.141000000000076,
     "expected": 0,
-    "skipped": 0,
+    "skipped": 10,
     "unexpected": 0,
     "flaky": 0
   }
