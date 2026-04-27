@@ -6,7 +6,7 @@
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useSession, signIn } from 'next-auth/react';
-import { useBNB } from '../contexts/BNBContext';
+import { useBNB, type Property } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
   Mail, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
@@ -1120,6 +1120,7 @@ export default function GmailImporter() {
   const {
     addBooking, updateBooking, cancelBooking,
     addGuest, updateGuest, guests,
+    addProperty,
     addMaintenanceTask,
     addReview,
     inventory, updateInventoryItem, getLowStockItems,
@@ -1462,12 +1463,87 @@ export default function GmailImporter() {
     }).catch(() => { /* silencieux — non bloquant */ });
   }, []);
 
+  const ensureDefaultProperty = useCallback(async (): Promise<Property | undefined> => {
+    if (properties.length > 0) return properties[0];
+
+    const ownerIdFromSession = Number.parseInt((session as { user?: { id?: string | number } })?.user?.id as string, 10);
+    const ownerId = Number.isFinite(ownerIdFromSession) && ownerIdFromSession > 0 ? ownerIdFromSession : 1;
+    const nowIso = new Date().toISOString();
+
+    const defaultPropertyPayload: Omit<Property, 'id' | 'createdAt' | 'updatedAt'> = {
+      name: 'Mon logement principal',
+      address: 'Adresse à compléter',
+      city: 'Ville à compléter',
+      country: 'France',
+      type: 'apartment',
+      bedrooms: 1,
+      bathrooms: 1,
+      maxGuests: 2,
+      amenities: [],
+      price: 90,
+      description: 'Logement créé automatiquement depuis GmailImporter.',
+      images: [],
+      status: 'active',
+      ownerId,
+      checkInTime: '15:00',
+      checkOutTime: '11:00',
+      cleaningFee: 0,
+      securityDeposit: 0,
+      minimumStay: 1,
+      availabilityCalendar: [],
+      rules: [],
+    };
+
+    addProperty(defaultPropertyPayload);
+
+    // Tentative de persistance côté API (non bloquant)
+    fetch('/api/properties', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: defaultPropertyPayload.name,
+        description: defaultPropertyPayload.description,
+        address: defaultPropertyPayload.address,
+        city: defaultPropertyPayload.city,
+        country: defaultPropertyPayload.country,
+        zipCode: '',
+        bedrooms: defaultPropertyPayload.bedrooms,
+        bathrooms: defaultPropertyPayload.bathrooms,
+        maxGuests: defaultPropertyPayload.maxGuests,
+        pricePerNight: defaultPropertyPayload.price,
+        ownerId: defaultPropertyPayload.ownerId,
+        status: 'ACTIVE',
+      }),
+    }).catch(() => {
+      // API indisponible/non configurée: la propriété locale suffit pour l'import.
+    });
+
+    toast.success('Aucun logement détecté : propriété par défaut créée automatiquement.');
+
+    return {
+      ...defaultPropertyPayload,
+      id: Math.max(...properties.map((p) => p.id), 0) + 1,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+  }, [properties, addProperty, session]);
+
   // ─── Importer les réservations sélectionnées ──────────────────────────────
 
   const importSelected = useCallback(async () => {
   setStatus('importing');
     const toImport = bookings.filter(b => selected.has(b.messageId));
-    const defaultProperty = properties[0];
+    let runtimeProperties = properties;
+    let defaultProperty = properties[0];
+
+    if (!defaultProperty) {
+      const createdDefaultProperty = await ensureDefaultProperty();
+      if (createdDefaultProperty) {
+        runtimeProperties = [createdDefaultProperty];
+        defaultProperty = createdDefaultProperty;
+      }
+    }
+
   const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0, rescuedAggressive: 0, rescuedSingleProperty: 0 };
     const localGuests = [...guests];
     const localBookings = [...existingBookings];
@@ -1551,8 +1627,8 @@ export default function GmailImporter() {
       const overridePropertyId = propertyOverrides[b.messageId];
       const aliasTarget = hasDetectedPropertyName ? resolvePropertyAliasTarget(b.propertyName || '') : undefined;
       let property = overridePropertyId
-        ? properties.find((p) => p.id === overridePropertyId)
-        : findMatchingProperty(b.propertyName, properties);
+        ? runtimeProperties.find((p) => p.id === overridePropertyId)
+        : findMatchingProperty(b.propertyName, runtimeProperties);
 
       if (overridePropertyId && property) {
         pushTrace({
@@ -1580,7 +1656,7 @@ export default function GmailImporter() {
       }
 
       if (!property) {
-        const inferred = inferPropertyFromContext(b, properties, localBookings);
+        const inferred = inferPropertyFromContext(b, runtimeProperties, localBookings);
         if (inferred) {
           property = inferred;
           pushTrace({
@@ -1602,7 +1678,7 @@ export default function GmailImporter() {
       if (!property && expertModeAggressive && useFallback) {
         const candidateText = b.propertyName || b.subject || '';
         if (candidateText) {
-          const aggressiveCandidate = findBestPropertyCandidate(candidateText, properties);
+          const aggressiveCandidate = findBestPropertyCandidate(candidateText, runtimeProperties);
           const scoreGap = aggressiveCandidate.score - aggressiveCandidate.secondScore;
           // Seuils rabaissés : on fait davantage confiance au meilleur candidat
           const hasStrongConfidence = aggressiveCandidate.score >= 25;
@@ -1629,7 +1705,7 @@ export default function GmailImporter() {
       }
 
       // Cas extrême mono-logement: on force le rattachement pour éviter les imports bloqués.
-      if (!property && expertModeAggressive && useFallback && properties.length === 1) {
+      if (!property && expertModeAggressive && useFallback && runtimeProperties.length === 1) {
         property = defaultProperty;
         if (property) {
           summary.rescuedSingleProperty++;
@@ -1663,7 +1739,7 @@ export default function GmailImporter() {
           .sort((a, z) => new Date(z.checkOut).getTime() - new Date(a.checkOut).getTime())[0];
 
         if (recentBooking) {
-          property = properties.find(p => p.id === recentBooking.propertyId) ?? defaultProperty;
+          property = runtimeProperties.find(p => p.id === recentBooking.propertyId) ?? defaultProperty;
         } else {
           // Dernier recours : utiliser le logement par défaut (hôte gère 1 logement)
           property = defaultProperty;
@@ -2257,7 +2333,7 @@ export default function GmailImporter() {
         } else if (payoutAmount > 0) {
           // Aucune réservation trouvée → créer une réservation "fantôme" financière
           // pour tracer le versement dans les données
-          const pid = property?.id ?? (properties[0]?.id ?? 0);
+          const pid = property?.id ?? (runtimeProperties[0]?.id ?? 0);
           if (pid) {
             const bookingPayload: Parameters<typeof addBooking>[0] = {
               propertyId: pid,
@@ -2361,7 +2437,7 @@ export default function GmailImporter() {
       // Tous les emails (importés ou non) avec un propertyName qui ne correspond
       // à aucun logement existant → proposer le wizard de création.
       const isKnownProperty = (name: string) =>
-        findMatchingProperty(name, properties) !== undefined;
+        findMatchingProperty(name, runtimeProperties) !== undefined;
 
       // On prend TOUS les bookings importés (toImport) avec
       // un propertyName détecté mais inconnu — pour ne rater aucun nouveau logement
@@ -2416,7 +2492,7 @@ export default function GmailImporter() {
         return;
       }
 
-      const newNames = findNewPropertyNames(allNamesForWizard, properties);
+  const newNames = findNewPropertyNames(allNamesForWizard, runtimeProperties);
       if (newNames.length > 0) {
         const queue = newNames.map(n => analyzeAirbnbTitle(n));
         setPropertyQueue(queue.slice(1));
@@ -2425,7 +2501,7 @@ export default function GmailImporter() {
 
       setTimeout(() => setStatus('idle'), 2500);
       setStatus('done');
-  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive]);
+  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive, ensureDefaultProperty]);
 
   // ─── Purge des données importées depuis Gmail ─────────────────────────────
   // Supprime TOUTES les réservations créées via l'import Gmail.

@@ -16,6 +16,19 @@ interface BookingsManagerProps {
 
 type TabType = 'all' | 'confirmed' | 'pending' | 'completed' | 'cancelled';
 
+function getReceivedAmount(booking: Booking): number {
+  const isReceived = booking.paymentStatus === 'paid' || booking.paymentStatus === 'partial' || !!booking.payoutConfirmed;
+  if (!isReceived || booking.paymentStatus === 'refunded') return 0;
+
+  const effectiveAmount = (booking.hostPayout && booking.hostPayout > 0)
+    ? booking.hostPayout
+    : booking.paymentStatus === 'partial'
+      ? (booking.paymentInfo?.amount ?? booking.totalPrice)
+      : booking.totalPrice;
+
+  return Number.isFinite(effectiveAmount) ? effectiveAmount : 0;
+}
+
 export default function BookingsManager({ onEditBooking, onNewBooking, filteredBookings }: BookingsManagerProps) {
   const { isDark } = useTheme();
   const { properties } = useBNB();
@@ -43,7 +56,7 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
       confirmed: filteredBookings.filter(b => b.status === 'confirmed').length,
       pending: filteredBookings.filter(b => b.status === 'pending').length,
       cancelled: filteredBookings.filter(b => b.status === 'cancelled').length,
-      revenue: filteredBookings.filter(b => b.status === 'confirmed' || b.status === 'completed').reduce((s, b) => s + b.totalPrice, 0)
+      revenue: filteredBookings.reduce((sum, booking) => sum + getReceivedAmount(booking), 0),
     };
   }, [filteredBookings]);
 
@@ -59,18 +72,7 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
 
   const monthReceivedAmounts = useMemo(() => {
     return Object.entries(groupedBookings).reduce((acc, [month, monthBookings]) => {
-      const totalReceived = monthBookings.reduce((sum, booking) => {
-        const isReceived = booking.paymentStatus === 'paid' || booking.paymentStatus === 'partial' || !!booking.payoutConfirmed;
-        if (!isReceived) return sum;
-
-        const effectiveAmount = (booking.hostPayout && booking.hostPayout > 0)
-          ? booking.hostPayout
-          : booking.paymentStatus === 'partial'
-            ? (booking.paymentInfo?.amount ?? booking.totalPrice)
-            : booking.totalPrice;
-
-        return sum + (Number.isFinite(effectiveAmount) ? effectiveAmount : 0);
-      }, 0);
+      const totalReceived = monthBookings.reduce((sum, booking) => sum + getReceivedAmount(booking), 0);
 
       acc[month] = totalReceived;
       return acc;
@@ -128,7 +130,7 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
           <p className={`text-2xl font-bold mt-1 ${isDark ? 'text-red-300' : 'text-red-700'}`}>{stats.cancelled}</p>
         </div>
         <div className={`p-4 rounded-2xl border ${isDark ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100'}`}>
-          <p className={`text-sm font-medium ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>Revenus</p>
+          <p className={`text-sm font-medium ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>Revenus perçus</p>
           <p className={`text-2xl font-bold mt-1 ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>{stats.revenue.toLocaleString('fr-FR')} €</p>
         </div>
       </div>
