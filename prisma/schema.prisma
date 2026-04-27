@@ -8,15 +8,15 @@ datasource db {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
+  id            String         @id @default(cuid())
+  email         String         @unique
   name          String?
   password      String?
   image         String?
-  role          Role          @default(USER)
+  role          Role           @default(USER)
   emailVerified DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   accounts      Account[]
   bookings      Booking[]
   invoices      Invoice[]
@@ -31,24 +31,24 @@ model User {
 }
 
 model GuestProfile {
-  id             Int      @id @default(autoincrement())
-  userId         String?
-  identityKey    String   @unique
+  id              Int       @id @default(autoincrement())
+  userId          String?
+  identityKey     String    @unique
   emailNormalized String?
-  name           String
-  email          String?
-  phone          String?
-  language       String   @default("fr")
-  nationality    String?
-  status         String   @default("active")
-  totalBookings  Int      @default(0)
-  totalSpent     Float    @default(0)
-  rating         Float    @default(0)
-  lastBooking    DateTime?
-  preferences    Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name            String
+  email           String?
+  phone           String?
+  language        String    @default("fr")
+  nationality     String?
+  status          String    @default("active")
+  totalBookings   Int       @default(0)
+  totalSpent      Float     @default(0)
+  rating          Float     @default(0)
+  lastBooking     DateTime?
+  preferences     Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([emailNormalized])
@@ -232,6 +232,9 @@ model Booking {
   invoices           Invoice[]
 
   @@index([propertyId])
+  @@index([propertyId, confirmationCode], map: "bookings_propertyId_confirmationCode_idx")
+  @@index([propertyId, guestEmail, checkIn, checkOut], map: "bookings_propertyId_guestEmail_checkIn_checkOut_idx")
+  @@index([propertyId, guestName, checkIn, checkOut], map: "bookings_propertyId_guestName_checkIn_checkOut_idx")
   @@index([checkIn, checkOut])
   @@index([status])
   @@map("bookings")
