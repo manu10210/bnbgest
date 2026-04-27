@@ -38,8 +38,9 @@
     "test:mobile-chrome": "playwright test --project=\"Mobile Chrome\"",
     "test:mobile-safari": "playwright test --project=\"Mobile Safari\"",
     "test:tablet": "playwright test --project=\"Tablet\"",
-    "test:performance": "playwright test tests/performance",
-    "test:perf": "playwright test tests/performance --project=chromium",
+  "test:performance": "playwright test --config=playwright.performance.config.ts",
+  "test:performance:ci": "playwright test --config=playwright.performance.config.ts --project=chromium",
+  "test:perf": "playwright test --config=playwright.performance.config.ts --project=chromium",
     "test:api": "playwright test tests/api-performance.spec.ts"
     ,"test:gmail-parser": "tsx tests/parser/gmail-parser-quality.ts"
   },
