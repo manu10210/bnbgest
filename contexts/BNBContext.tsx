@@ -277,6 +277,110 @@ function getMonthKeyFromIso(dateIso?: string): string | null {
   return `${y}-${m}`;
 }
 
+function normalizeBookingStatus(status?: string | null): Booking['status'] {
+  switch ((status || '').toUpperCase()) {
+    case 'CONFIRMED':
+    case 'CHECKED_IN':
+      return 'confirmed';
+    case 'CHECKED_OUT':
+      return 'completed';
+    case 'CANCELLED':
+      return 'cancelled';
+    case 'NO_SHOW':
+      return 'no_show';
+    case 'PENDING':
+    default:
+      return 'pending';
+  }
+}
+
+function normalizePaymentStatus(
+  bookingLike: {
+    status?: string | null;
+    totalPrice?: number | null;
+    specialRequests?: string | null;
+    payments?: Array<{ status?: string | null; amount?: number | null }>;
+  },
+): Booking['paymentStatus'] {
+  const paidPayment = bookingLike.payments?.find((p) => (p.status || '').toUpperCase() === 'PAID');
+  if (paidPayment) return 'paid';
+
+  const refundedPayment = bookingLike.payments?.find((p) => (p.status || '').toUpperCase() === 'REFUNDED');
+  if (refundedPayment) return 'refunded';
+
+  const partialPayment = bookingLike.payments?.find((p) => (p.status || '').toUpperCase() === 'PARTIAL');
+  if (partialPayment) return 'partial';
+
+  const normalizedStatus = normalizeBookingStatus(bookingLike.status || undefined);
+  const hasPayoutMarker = /\[(?:VERSEMENT|PAYOUT)\s+[\d.,]+\s*€?/i.test(bookingLike.specialRequests || '');
+  const hasPositiveAmount = (bookingLike.totalPrice ?? 0) > 0;
+
+  if ((normalizedStatus === 'completed' || hasPayoutMarker) && hasPositiveAmount) return 'paid';
+  return 'pending';
+}
+
+function extractPayoutFromNotes(specialRequests?: string | null): number | undefined {
+  if (!specialRequests) return undefined;
+  const match = specialRequests.match(/\[(?:VERSEMENT|PAYOUT)\s+([\d.,]+)\s*€?/i);
+  if (!match?.[1]) return undefined;
+  const normalized = match[1].replace(/\s/g, '').replace(',', '.');
+  const value = Number.parseFloat(normalized);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+type ApiPropertyPayload = {
+  id: number;
+  name: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  maxGuests?: number;
+  capacity?: number;
+  amenities?: string[];
+  pricePerNight?: number;
+  price?: number;
+  description?: string;
+  images?: string[];
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  userId?: string | number;
+  cleaningFee?: number;
+};
+
+type ApiPaymentPayload = {
+  status?: string;
+  amount?: number;
+  method?: string;
+  transactionId?: string;
+};
+
+type ApiBookingPayload = {
+  id: number;
+  propertyId: number;
+  status?: string;
+  totalPrice?: number;
+  specialRequests?: string | null;
+  notes?: string | null;
+  payments?: ApiPaymentPayload[];
+  checkIn?: string;
+  checkOut?: string;
+  guests?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  guestName?: string;
+  guestEmail?: string;
+  guestPhone?: string;
+  confirmationCode?: string;
+};
+
+function toNumber(value: unknown, fallback = 0): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 export function BNBProvider({ children }: { children: ReactNode }) {
   const [properties, setProperties] = useState<Property[]>(() => loadFromStorage('bnbgest_properties', []));
   const [bookings, setBookings] = useState<Booking[]>(() => loadFromStorage('bnbgest_bookings', []));
@@ -284,6 +388,171 @@ export function BNBProvider({ children }: { children: ReactNode }) {
   const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceTask[]>(() => loadFromStorage('bnbgest_maintenance', []));
   const [inventory, setInventory] = useState<InventoryItem[]>(() => loadFromStorage('bnbgest_inventory', []));
   const [reviews, setReviews] = useState<Review[]>(() => loadFromStorage('bnbgest_reviews', []));
+
+  // Hydratation DB (si session/auth active) pour garder le front aligné avec PostgreSQL.
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateFromApi = async () => {
+      try {
+        const [propertiesRes, bookingsRes] = await Promise.all([
+          fetch('/api/properties', { credentials: 'include' }),
+          fetch('/api/bookings', { credentials: 'include' }),
+        ]);
+
+        if (!propertiesRes.ok || !bookingsRes.ok) return;
+
+        const [propertiesPayload, bookingsPayload] = await Promise.all([
+          propertiesRes.json(),
+          bookingsRes.json(),
+        ]);
+
+        if (cancelled) return;
+
+        const apiPropertiesRaw = Array.isArray(propertiesPayload?.properties)
+          ? (propertiesPayload.properties as ApiPropertyPayload[])
+          : [];
+        const apiBookingsRaw = Array.isArray(bookingsPayload?.bookings)
+          ? (bookingsPayload.bookings as ApiBookingPayload[])
+          : [];
+
+        const apiProperties: Property[] = apiPropertiesRaw
+          .filter((p) => typeof p?.id === 'number' && !!p?.name)
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            address: p.address || '',
+            city: p.city || '',
+            country: p.country || 'France',
+            type: 'apartment',
+            bedrooms: toNumber(p.bedrooms, 1),
+            bathrooms: toNumber(p.bathrooms, 1),
+            maxGuests: toNumber(p.maxGuests, toNumber(p.capacity, 2)),
+            amenities: Array.isArray(p.amenities) ? p.amenities : [],
+            price: toNumber(p.pricePerNight, toNumber(p.price, 0)),
+            description: p.description || '',
+            images: Array.isArray(p.images) ? p.images : [],
+            status: (p.status || 'ACTIVE').toString().toLowerCase() === 'maintenance'
+              ? 'maintenance'
+              : (p.status || 'ACTIVE').toString().toLowerCase() === 'inactive'
+                ? 'inactive'
+                : 'active',
+            createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
+            updatedAt: p.updatedAt ? new Date(p.updatedAt).toISOString() : new Date().toISOString(),
+            ownerId: Number.parseInt(String(p.userId || 1), 10) || 1,
+            checkInTime: '15:00',
+            checkOutTime: '11:00',
+            cleaningFee: toNumber(p.cleaningFee, 0),
+            securityDeposit: 0,
+            minimumStay: 1,
+            availabilityCalendar: [],
+            rules: [],
+          }));
+
+        const apiBookings: Booking[] = apiBookingsRaw
+          .filter((b) => typeof b?.id === 'number' && typeof b?.propertyId === 'number')
+          .map((b) => {
+            const inferredPaymentStatus = normalizePaymentStatus({
+              status: b.status,
+              totalPrice: b.totalPrice,
+              specialRequests: b.specialRequests,
+              payments: Array.isArray(b.payments) ? b.payments : [],
+            });
+            const paidPayment = Array.isArray(b.payments)
+              ? b.payments.find((p) => (p?.status || '').toUpperCase() === 'PAID' && Number.isFinite(p?.amount))
+              : undefined;
+            const payoutFromNotes = extractPayoutFromNotes(b.specialRequests);
+
+            return {
+              id: b.id,
+              propertyId: b.propertyId,
+              guestId: 0,
+              checkIn: b.checkIn ? new Date(b.checkIn).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+              checkOut: b.checkOut ? new Date(b.checkOut).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+              guests: toNumber(b.guests, 1),
+              totalPrice: toNumber(b.totalPrice, 0),
+              status: normalizeBookingStatus(b.status),
+              paymentStatus: inferredPaymentStatus,
+              createdAt: b.createdAt ? new Date(b.createdAt).toISOString() : new Date().toISOString(),
+              updatedAt: b.updatedAt ? new Date(b.updatedAt).toISOString() : new Date().toISOString(),
+              specialRequests: b.specialRequests || b.notes || '',
+              guestInfo: {
+                name: b.guestName || 'Voyageur',
+                email: b.guestEmail || '',
+                phone: b.guestPhone || '',
+              },
+              paymentInfo: paidPayment
+                ? {
+                    method: String(paidPayment.method || 'airbnb'),
+                    transactionId: String(paidPayment.transactionId || b.confirmationCode || ''),
+                    amount: toNumber(paidPayment.amount, toNumber(b.totalPrice, 0)),
+                  }
+                : undefined,
+              hostPayout: payoutFromNotes,
+              payoutConfirmed: !!payoutFromNotes,
+            };
+          });
+
+        setProperties((prev) => {
+          if (apiProperties.length === 0) return prev;
+          const prevById = new Map(prev.map((p) => [p.id, p]));
+          const merged = [...prev];
+          for (const apiProp of apiProperties) {
+            const existing = prevById.get(apiProp.id);
+            if (!existing) {
+              merged.push(apiProp);
+              continue;
+            }
+            const index = merged.findIndex((p) => p.id === apiProp.id);
+            if (index >= 0) {
+              merged[index] = {
+                ...apiProp,
+                ...existing,
+                id: apiProp.id,
+                updatedAt: existing.updatedAt || apiProp.updatedAt,
+              };
+            }
+          }
+          return merged;
+        });
+
+        setBookings((prev) => {
+          if (apiBookings.length === 0) return prev;
+          const mergedById = new Map<number, Booking>(prev.map((b) => [b.id, b]));
+
+          for (const apiBooking of apiBookings) {
+            const existing = mergedById.get(apiBooking.id);
+            if (!existing) {
+              mergedById.set(apiBooking.id, apiBooking);
+              continue;
+            }
+
+            mergedById.set(apiBooking.id, {
+              ...apiBooking,
+              ...existing,
+              id: apiBooking.id,
+              propertyId: apiBooking.propertyId,
+              status: existing.status || apiBooking.status,
+              paymentStatus: existing.paymentStatus || apiBooking.paymentStatus,
+              hostPayout: existing.hostPayout ?? apiBooking.hostPayout,
+              payoutConfirmed: existing.payoutConfirmed ?? apiBooking.payoutConfirmed,
+              updatedAt: existing.updatedAt || apiBooking.updatedAt,
+            });
+          }
+
+          return Array.from(mergedById.values());
+        });
+      } catch {
+        // Mode local/offline ou non authentifié: on garde le store local.
+      }
+    };
+
+    hydrateFromApi();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Persistance automatique dans localStorage
   useEffect(() => { saveToStorage('bnbgest_properties', properties); }, [properties]);
@@ -532,10 +801,26 @@ export function BNBProvider({ children }: { children: ReactNode }) {
   };
 
   const getReceivedBookingAmount = (booking: Booking): number => {
-    const isReceived = booking.paymentStatus === 'paid' || booking.paymentStatus === 'partial' || !!booking.payoutConfirmed;
+    const hasLegacyPayoutMarker = /\[(?:VERSEMENT|PAYOUT)\s+[\d.,]+\s*€?/i.test(booking.specialRequests || '');
+    const isLegacyCompleted = booking.status === 'completed' && (booking.totalPrice ?? 0) > 0;
+    const isPastConfirmed =
+      booking.status === 'confirmed' &&
+      (booking.totalPrice ?? 0) > 0 &&
+      new Date(booking.checkOut).getTime() < Date.now();
+
+    const isReceived =
+      booking.paymentStatus === 'paid' ||
+      booking.paymentStatus === 'partial' ||
+      !!booking.payoutConfirmed ||
+      hasLegacyPayoutMarker ||
+      isLegacyCompleted ||
+      isPastConfirmed;
+
     if (!isReceived || booking.paymentStatus === 'refunded') return 0;
 
     if (booking.hostPayout && booking.hostPayout > 0) return booking.hostPayout;
+    const payoutFromNotes = extractPayoutFromNotes(booking.specialRequests);
+    if (payoutFromNotes && payoutFromNotes > 0) return payoutFromNotes;
     if (booking.paymentStatus === 'partial') return booking.paymentInfo?.amount ?? booking.totalPrice ?? 0;
     return booking.totalPrice ?? 0;
   };
@@ -702,12 +987,9 @@ export function BNBProvider({ children }: { children: ReactNode }) {
       remainingBookingsAfterPurge.map(b => b.guestId)
     );
     const orphanGuestIds = [...gmailGuestIds].filter(id => !guestIdsWithOtherBookings.has(id));
-    let removedGuests = 0;
     if (orphanGuestIds.length > 0) {
       setGuests(prev => {
-        const filtered = prev.filter(g => !orphanGuestIds.includes(g.id));
-        removedGuests = prev.length - filtered.length;
-        return filtered;
+        return prev.filter(g => !orphanGuestIds.includes(g.id));
       });
     }
 

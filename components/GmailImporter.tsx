@@ -1547,6 +1547,7 @@ export default function GmailImporter() {
   const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0, rescuedAggressive: 0, rescuedSingleProperty: 0 };
     const localGuests = [...guests];
     const localBookings = [...existingBookings];
+    const localToDbBookingId = new Map<number, number>();
     const trace: ImportTraceEntry[] = [];
 
     const pushTrace = (entry: Omit<ImportTraceEntry, 'receivedAt'> & { receivedAt?: string }) => {
@@ -1579,7 +1580,7 @@ export default function GmailImporter() {
     };
 
     // ── Persistance en base PostgreSQL ───────────────────────────────────────
-    const persistToDb = async (payload: Parameters<typeof addBooking>[0], bookingType: 'new' | 'cancelled' | 'modified') => {
+    const persistToDb = async (payload: Parameters<typeof addBooking>[0], bookingType: 'new' | 'cancelled' | 'modified'): Promise<number | undefined> => {
       try {
         const specialReqs = payload.specialRequests ?? null;
         const body: Record<string, unknown> = {
@@ -1597,7 +1598,7 @@ export default function GmailImporter() {
                           : 'CONFIRMED',
           source:           'AIRBNB',
           specialRequests:  specialReqs ? specialReqs.slice(0, 4900) : null,
-          confirmationCode: (payload as any).paymentInfo?.transactionId ?? null,
+          confirmationCode: payload.paymentInfo?.transactionId ?? null,
           notes:            null,
         };
         const res = await fetch('/api/bookings', {
@@ -1609,9 +1610,49 @@ export default function GmailImporter() {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           console.warn(`[persistToDb] HTTP ${res.status}:`, err?.error ?? err);
+          return undefined;
         }
+
+        const data = await res.json().catch(() => ({}));
+        const dbId = Number((data as { booking?: { id?: number } })?.booking?.id);
+        return Number.isFinite(dbId) && dbId > 0 ? dbId : undefined;
       } catch (e) {
         console.warn('[persistToDb] Erreur réseau (non bloquant):', e);
+        return undefined;
+      }
+    };
+
+    const persistUpdateToDb = async (
+      bookingId: number,
+      updates: {
+        checkIn?: string;
+        checkOut?: string;
+        guests?: number;
+        totalPrice?: number;
+        status?: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED';
+        specialRequests?: string;
+        notes?: string;
+        cancellationReason?: string;
+        paymentStatus?: 'pending' | 'paid' | 'partial' | 'refunded';
+        paymentAmount?: number;
+        paymentTransactionId?: string;
+      }
+    ) => {
+      try {
+        const dbBookingId = localToDbBookingId.get(bookingId) ?? bookingId;
+        const res = await fetch(`/api/bookings/${dbBookingId}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.warn(`[persistUpdateToDb] HTTP ${res.status}:`, err?.error ?? err);
+        }
+      } catch (e) {
+        console.warn('[persistUpdateToDb] Erreur réseau (non bloquant):', e);
       }
     };
 
@@ -1897,8 +1938,11 @@ export default function GmailImporter() {
           } : {}),
         };
         addBooking(bookingPayload);
-        pushLocalBooking(bookingPayload);
-        await persistToDb(bookingPayload, 'new');
+        const localBookingId = pushLocalBooking(bookingPayload);
+        const dbBookingId = await persistToDb(bookingPayload, 'new');
+        if (dbBookingId) {
+          localToDbBookingId.set(localBookingId, dbBookingId);
+        }
         summary.created++;
         pushTrace({
           messageId: b.messageId,
@@ -1956,8 +2000,14 @@ export default function GmailImporter() {
         }
 
         if (match && match.status !== 'cancelled') {
-          cancelBooking(match.id, `Annulé via Gmail — ${notes}`);
+          const cancelReason = `Annulé via Gmail — ${notes}`;
+          cancelBooking(match.id, cancelReason);
           touchLocalBooking(match.id, { status: 'cancelled' });
+          await persistUpdateToDb(match.id, {
+            status: 'CANCELLED',
+            specialRequests: (match.specialRequests || '').slice(0, 4900),
+            cancellationReason: cancelReason.slice(0, 1900),
+          });
           summary.cancelled++;
           pushTrace({
             messageId: b.messageId,
@@ -1991,19 +2041,28 @@ export default function GmailImporter() {
             );
 
         if (match) {
+          const patchedSpecialRequests = `[MODIFIÉ] ${notes}`;
           updateBooking(match.id, {
             checkIn: b.checkIn,
             checkOut: b.checkOut,
             guests: b.guests,
             totalPrice: b.totalPrice || match.totalPrice,
-            specialRequests: `[MODIFIÉ] ${notes}`,
+            specialRequests: patchedSpecialRequests,
           });
           touchLocalBooking(match.id, {
             checkIn: b.checkIn,
             checkOut: b.checkOut,
             guests: b.guests,
             totalPrice: b.totalPrice || match.totalPrice,
-            specialRequests: `[MODIFIÉ] ${notes}`,
+            specialRequests: patchedSpecialRequests,
+          });
+          await persistUpdateToDb(match.id, {
+            checkIn: b.checkIn,
+            checkOut: b.checkOut,
+            guests: b.guests,
+            totalPrice: b.totalPrice || match.totalPrice,
+            status: 'CONFIRMED',
+            specialRequests: patchedSpecialRequests.slice(0, 4900),
           });
           summary.created++;
           pushTrace({
@@ -2028,8 +2087,11 @@ export default function GmailImporter() {
             guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
           };
           addBooking(bookingPayload);
-          pushLocalBooking(bookingPayload);
-          await persistToDb(bookingPayload, 'modified');
+          const localBookingId = pushLocalBooking(bookingPayload);
+          const dbBookingId = await persistToDb(bookingPayload, 'modified');
+          if (dbBookingId) {
+            localToDbBookingId.set(localBookingId, dbBookingId);
+          }
           summary.created++;
           pushTrace({
             messageId: b.messageId,
@@ -2055,18 +2117,28 @@ export default function GmailImporter() {
             );
 
         if (match && match.status !== 'completed' && match.status !== 'cancelled') {
+          const checkoutSpecialRequests = `${match.specialRequests || ''} | [TERMINÉ] Départ confirmé Gmail`;
+          const checkoutTotalPrice = b.hostPayout || b.totalPrice || match.totalPrice;
           // Marquer comme terminée + montant réel reçu (hostPayout si dispo)
           updateBooking(match.id, {
             status: 'completed',
             paymentStatus: 'paid',
-            totalPrice: b.hostPayout || b.totalPrice || match.totalPrice,
-            specialRequests: `${match.specialRequests || ''} | [TERMINÉ] Départ confirmé Gmail`,
+            totalPrice: checkoutTotalPrice,
+            specialRequests: checkoutSpecialRequests,
           });
           touchLocalBooking(match.id, {
             status: 'completed',
             paymentStatus: 'paid',
-            totalPrice: b.hostPayout || b.totalPrice || match.totalPrice,
-            specialRequests: `${match.specialRequests || ''} | [TERMINÉ] Départ confirmé Gmail`,
+            totalPrice: checkoutTotalPrice,
+            specialRequests: checkoutSpecialRequests,
+          });
+          await persistUpdateToDb(match.id, {
+            status: 'CHECKED_OUT',
+            totalPrice: checkoutTotalPrice,
+            specialRequests: checkoutSpecialRequests.slice(0, 4900),
+            paymentStatus: 'paid',
+            paymentAmount: checkoutTotalPrice,
+            paymentTransactionId: b.confirmationCode,
           });
           summary.created++;
           pushTrace({
@@ -2156,6 +2228,13 @@ export default function GmailImporter() {
           if (Object.keys(updates).length > 0) {
             updateBooking(matchedReminder.id, updates as Parameters<typeof updateBooking>[1]);
             touchLocalBooking(matchedReminder.id, updates);
+            await persistUpdateToDb(matchedReminder.id, {
+              ...(typeof updates.checkIn === 'string' ? { checkIn: updates.checkIn } : {}),
+              ...(typeof updates.checkOut === 'string' ? { checkOut: updates.checkOut } : {}),
+              ...(typeof updates.guests === 'number' ? { guests: updates.guests } : {}),
+              ...(typeof updates.totalPrice === 'number' ? { totalPrice: updates.totalPrice } : {}),
+              status: 'CONFIRMED',
+            });
           }
           summary.created++; // compté comme une action (enrichissement)
           pushTrace({
@@ -2193,8 +2272,11 @@ export default function GmailImporter() {
             guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
           };
           addBooking(bookingPayload);
-          pushLocalBooking(bookingPayload);
-          await persistToDb(bookingPayload, 'new');
+          const localBookingId = pushLocalBooking(bookingPayload);
+          const dbBookingId = await persistToDb(bookingPayload, 'new');
+          if (dbBookingId) {
+            localToDbBookingId.set(localBookingId, dbBookingId);
+          }
           summary.created++;
           pushTrace({
             messageId: b.messageId,
@@ -2267,6 +2349,9 @@ export default function GmailImporter() {
         if (matchedBooking && matchedBooking.status !== 'completed' && matchedBooking.status !== 'cancelled') {
           updateBooking(matchedBooking.id, { status: 'completed' });
           touchLocalBooking(matchedBooking.id, { status: 'completed' });
+          await persistUpdateToDb(matchedBooking.id, {
+            status: 'CHECKED_OUT',
+          });
         }
 
         summary.reviewsImported++;
@@ -2296,6 +2381,11 @@ export default function GmailImporter() {
   const payoutDateStr = b.payoutDate || b.receivedAt?.split('T')[0] || new Date().toISOString().split('T')[0];
 
         if (payoutBooking) {
+          const payoutSpecialRequests = [
+            payoutBooking.specialRequests || '',
+            `[VERSEMENT ${payoutAmount}€ le ${payoutDateStr}]`,
+          ].filter(Boolean).join(' | ');
+
           // Mettre à jour la réservation existante avec les infos financières
           updateBooking(payoutBooking.id, {
             paymentStatus: 'paid',
@@ -2304,10 +2394,7 @@ export default function GmailImporter() {
             ...(b.serviceFee  ? { serviceFee:  b.serviceFee  } : {}),
             payoutDate: payoutDateStr,
             payoutConfirmed: true,
-            specialRequests: [
-              payoutBooking.specialRequests || '',
-              `[VERSEMENT ${payoutAmount}€ le ${payoutDateStr}]`,
-            ].filter(Boolean).join(' | '),
+            specialRequests: payoutSpecialRequests,
           });
           touchLocalBooking(payoutBooking.id, {
             paymentStatus: 'paid',
@@ -2316,10 +2403,14 @@ export default function GmailImporter() {
             ...(b.serviceFee  ? { serviceFee:  b.serviceFee  } : {}),
             payoutDate: payoutDateStr,
             payoutConfirmed: true,
-            specialRequests: [
-              payoutBooking.specialRequests || '',
-              `[VERSEMENT ${payoutAmount}€ le ${payoutDateStr}]`,
-            ].filter(Boolean).join(' | '),
+            specialRequests: payoutSpecialRequests,
+          });
+          await persistUpdateToDb(payoutBooking.id, {
+            totalPrice: payoutAmount,
+            specialRequests: payoutSpecialRequests.slice(0, 4900),
+            paymentStatus: 'paid',
+            paymentAmount: payoutAmount,
+            paymentTransactionId: b.confirmationCode,
           });
           summary.payoutsSaved++;
           pushTrace({
@@ -2357,8 +2448,11 @@ export default function GmailImporter() {
               guestInfo: { name: b.guestName || 'Airbnb Payout', email: b.guestEmail || '', phone: '' },
             };
             addBooking(bookingPayload);
-            pushLocalBooking(bookingPayload);
-            await persistToDb(bookingPayload, 'new');
+            const localBookingId = pushLocalBooking(bookingPayload);
+            const dbBookingId = await persistToDb(bookingPayload, 'new');
+            if (dbBookingId) {
+              localToDbBookingId.set(localBookingId, dbBookingId);
+            }
             summary.created++;
             pushTrace({
               messageId: b.messageId,
