@@ -3328,6 +3328,24 @@ export default function GmailImporter() {
           {/* ── Succès import ── */}
           {imported.length > 0 && importSummary && (
             <div className={`border rounded-xl p-4 space-y-2 ${isDark ? 'bg-green-900/30 border-green-700' : 'bg-green-50 border-green-200'}`}>
+              {(() => {
+                const actionableCount =
+                  importSummary.created +
+                  importSummary.cancelled +
+                  importSummary.reviewsImported +
+                  importSummary.payoutsSaved;
+                const successCount = Math.max(0, imported.length - importSummary.skipped);
+                const successRate = imported.length > 0
+                  ? Math.round((successCount / imported.length) * 100)
+                  : 0;
+
+                return (
+                  <div className={`text-xs rounded-lg px-3 py-2 border ${isDark ? 'bg-green-900/40 border-green-800 text-green-200' : 'bg-white/70 border-green-200 text-green-800'}`}>
+                    <span className="font-semibold">✨ Synthèse rapide :</span>{' '}
+                    {successCount}/{imported.length} email{imported.length > 1 ? 's' : ''} exploité{successCount > 1 ? 's' : ''} ({successRate}%) · {actionableCount} action{actionableCount > 1 ? 's' : ''} appliquée{actionableCount > 1 ? 's' : ''} · {importSummary.skipped} ignoré{importSummary.skipped > 1 ? 's' : ''}
+                  </div>
+                );
+              })()}
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
                 <span className={`font-semibold ${isDark ? 'text-green-300' : 'text-green-800'}`}>
