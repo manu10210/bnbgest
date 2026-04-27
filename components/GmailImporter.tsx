@@ -182,6 +182,43 @@ function formatIsoDate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
+function deriveNightsFromIsoRange(checkIn?: string, checkOut?: string): number | undefined {
+  if (!isValidDateRange(checkIn, checkOut)) return undefined;
+
+  const safeCheckIn = checkIn as string;
+  const safeCheckOut = checkOut as string;
+  const [inYear, inMonth, inDay] = safeCheckIn.split('-').map((part) => Number.parseInt(part, 10));
+  const [outYear, outMonth, outDay] = safeCheckOut.split('-').map((part) => Number.parseInt(part, 10));
+
+  if (
+    !Number.isFinite(inYear) || !Number.isFinite(inMonth) || !Number.isFinite(inDay) ||
+    !Number.isFinite(outYear) || !Number.isFinite(outMonth) || !Number.isFinite(outDay)
+  ) {
+    return undefined;
+  }
+
+  const inUtc = Date.UTC(inYear, inMonth - 1, inDay);
+  const outUtc = Date.UTC(outYear, outMonth - 1, outDay);
+  const diffDays = Math.round((outUtc - inUtc) / (1000 * 60 * 60 * 24));
+
+  if (!Number.isFinite(diffDays) || diffDays < 1 || diffDays > 365) return undefined;
+  return diffDays;
+}
+
+function ensureBookingNightsConsistency(booking: ParsedBooking): ParsedBooking {
+  const derivedNights = deriveNightsFromIsoRange(booking.checkIn, booking.checkOut);
+  if (!derivedNights) return booking;
+  if (booking.nights === derivedNights) return booking;
+  return {
+    ...booking,
+    nights: derivedNights,
+    warnings: Array.from(new Set([
+      ...(booking.warnings || []),
+      'nights_recomputed_from_dates',
+    ])),
+  };
+}
+
 function parseIsoDateFromFrenchParts(dayInput?: string, monthInput?: string, yearInput?: string, fallbackYear?: number): string | undefined {
   const day = Number.parseInt(dayInput || '', 10);
   if (!Number.isFinite(day) || day < 1 || day > 31) return undefined;
@@ -1179,6 +1216,11 @@ export default function GmailImporter() {
   const propertyDecisionsHydratedRef = useRef(false);
   const aliasImportInputRef = useRef<HTMLInputElement | null>(null);
 
+  const rejectedPropertySet = useMemo(
+    () => new Set(rejectedPropertyLabels.map((label) => normalizeForMatch(label)).filter(Boolean)),
+    [rejectedPropertyLabels]
+  );
+
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(EXPERT_MODE_STORAGE_KEY);
@@ -1407,11 +1449,11 @@ export default function GmailImporter() {
           for (const b of data.bookings) {
             if (!seen.has(b.messageId)) {
               seen.add(b.messageId);
-              const normalized = enrichBookingPropertyFromContext(
+              const normalized = ensureBookingNightsConsistency(enrichBookingPropertyFromContext(
                 enrichBookingDateRange(enrichBookingGuestName(b as ParsedBooking)),
                 existingBookings,
                 properties,
-              );
+              ));
               allBookings.push(normalized);
             }
           }
@@ -1501,7 +1543,9 @@ export default function GmailImporter() {
         }
       }
 
-  const enrichedFinalBookings = finalBookings.map(b => enrichReviewFromContext(b, existingBookings, properties));
+  const enrichedFinalBookings = finalBookings.map((b) =>
+    ensureBookingNightsConsistency(enrichReviewFromContext(b, existingBookings, properties))
+  );
 
   setBookings(enrichedFinalBookings);
       // Auto-sélectionner uniquement :
@@ -2756,11 +2800,6 @@ export default function GmailImporter() {
     return rejectedBookings.filter(r => r.reasons.includes(activeRejectReason));
   }, [rejectedBookings, activeRejectReason]);
 
-  const rejectedPropertySet = useMemo(
-    () => new Set(rejectedPropertyLabels.map((label) => normalizeForMatch(label)).filter(Boolean)),
-    [rejectedPropertyLabels]
-  );
-
   const learnPropertyAlias = useCallback((rawPropertyLabel?: string, canonicalPropertyName?: string) => {
     if (!rawPropertyLabel?.trim() || !canonicalPropertyName?.trim()) return;
 
@@ -3055,6 +3094,7 @@ export default function GmailImporter() {
       date_range_inferred_precisely_from_subject: 'Dates de séjour déduites précisément du sujet',
       date_range_inferred_from_subject: 'Dates de séjour déduites du sujet',
       checkout_inferred_from_nights: 'Date de départ calculée à partir du nombre de nuits',
+      nights_recomputed_from_dates: 'Nombre de nuitées recalculé depuis les dates de séjour',
       property_inferred_from_subject: 'Logement déduit depuis le sujet',
       property_inferred_single_property_fallback: 'Logement affecté automatiquement (mode mono-logement)',
       guest_name_inferred_from_subject: 'Nom du voyageur déduit du sujet',
@@ -4151,6 +4191,7 @@ export default function GmailImporter() {
                     !isRejectedPropertyLabel;
                   const propertyWarningPattern = /logement introuvable|property_not_found|missing_property/i;
                   const rawWarnings = booking.warnings || [];
+                  const hasNightsRecomputed = rawWarnings.includes('nights_recomputed_from_dates');
                   const hasDateRangeInference = rawWarnings.includes('date_range_inferred_precisely_from_subject') || rawWarnings.includes('date_range_inferred_from_subject');
                   const displayWarnings = rawWarnings
                     .filter((warning) => {
@@ -4186,6 +4227,16 @@ export default function GmailImporter() {
                                 <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
                                   #{booking.confirmationCode}
                                 </span>
+                              )}
+                              {hasNightsRecomputed && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpand(booking.messageId)}
+                                  className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${isDark ? 'bg-cyan-900/50 text-cyan-200 border border-cyan-700/60 hover:bg-cyan-900/70' : 'bg-cyan-100 text-cyan-700 border border-cyan-300 hover:bg-cyan-200'}`}
+                                  title={isExp ? 'Masquer les détails' : 'Voir les détails'}
+                                >
+                                  🛠 Durée corrigée
+                                </button>
                               )}
                               <span className={`text-xs font-medium ml-auto ${confidenceColor(booking.confidence)}`}>
                                 {booking.confidence}% confiance
