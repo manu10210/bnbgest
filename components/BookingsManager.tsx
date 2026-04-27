@@ -57,6 +57,26 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
     }, {} as Record<string, Booking[]>);
   }, [displayedBookings]);
 
+  const monthReceivedAmounts = useMemo(() => {
+    return Object.entries(groupedBookings).reduce((acc, [month, monthBookings]) => {
+      const totalReceived = monthBookings.reduce((sum, booking) => {
+        const isReceived = booking.paymentStatus === 'paid' || booking.paymentStatus === 'partial' || !!booking.payoutConfirmed;
+        if (!isReceived) return sum;
+
+        const effectiveAmount = (booking.hostPayout && booking.hostPayout > 0)
+          ? booking.hostPayout
+          : booking.paymentStatus === 'partial'
+            ? (booking.paymentInfo?.amount ?? booking.totalPrice)
+            : booking.totalPrice;
+
+        return sum + (Number.isFinite(effectiveAmount) ? effectiveAmount : 0);
+      }, 0);
+
+      acc[month] = totalReceived;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [groupedBookings]);
+
   const getStatusBadge = (status: Booking['status']) => {
     switch (status) {
       case 'confirmed': return <span className={`px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-500`}><CheckCircle className="w-3 h-3 inline mr-1"/>Confirmé</span>;
@@ -166,6 +186,10 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${isDark ? 'bg-white/5 text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
                   {monthBookings.length}
                 </span>
+                <div className={`ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isDark ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                  <DollarSign className="w-3.5 h-3.5" />
+                  Montant perçu : {monthReceivedAmounts[monthYear]?.toLocaleString('fr-FR') || 0} €
+                </div>
               </div>
               <div className="grid grid-cols-1 gap-3 stagger-children">
                 {monthBookings.map(booking => {
