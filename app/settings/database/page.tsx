@@ -32,6 +32,41 @@ interface Backup {
   status: 'completed' | 'failed';
 }
 
+const DEFAULT_BACKUPS: Backup[] = [
+  {
+    id: '1',
+    name: 'backup-2024-01-20-03-00',
+    date: '2024-01-20 03:00:00',
+    size: '45.2 MB',
+    type: 'auto',
+    status: 'completed'
+  },
+  {
+    id: '2',
+    name: 'backup-2024-01-19-03-00',
+    date: '2024-01-19 03:00:00',
+    size: '44.8 MB',
+    type: 'auto',
+    status: 'completed'
+  },
+  {
+    id: '3',
+    name: 'backup-manual-2024-01-18',
+    date: '2024-01-18 14:30:00',
+    size: '44.5 MB',
+    type: 'manual',
+    status: 'completed'
+  },
+  {
+    id: '4',
+    name: 'backup-2024-01-17-03-00',
+    date: '2024-01-17 03:00:00',
+    size: '43.9 MB',
+    type: 'auto',
+    status: 'failed'
+  }
+];
+
 export default function DatabaseSettingsPage() {
   const { isDark } = useTheme();
   const router = useRouter();
@@ -45,42 +80,7 @@ export default function DatabaseSettingsPage() {
   const [backupTime, setBackupTime] = useState('03:00');
   const [retentionDays, setRetentionDays] = useState('30');
   const [isLoaded, setIsLoaded] = useState(false);
-
-  const defaultBackups: Backup[] = [
-    {
-      id: '1',
-      name: 'backup-2024-01-20-03-00',
-      date: '2024-01-20 03:00:00',
-      size: '45.2 MB',
-      type: 'auto',
-      status: 'completed'
-    },
-    {
-      id: '2',
-      name: 'backup-2024-01-19-03-00',
-      date: '2024-01-19 03:00:00',
-      size: '44.8 MB',
-      type: 'auto',
-      status: 'completed'
-    },
-    {
-      id: '3',
-      name: 'backup-manual-2024-01-18',
-      date: '2024-01-18 14:30:00',
-      size: '44.5 MB',
-      type: 'manual',
-      status: 'completed'
-    },
-    {
-      id: '4',
-      name: 'backup-2024-01-17-03-00',
-      date: '2024-01-17 03:00:00',
-      size: '43.9 MB',
-      type: 'auto',
-      status: 'failed'
-    }
-  ];
-  const [backups, setBackups] = useState<Backup[]>(defaultBackups);
+  const [backups, setBackups] = useState<Backup[]>(DEFAULT_BACKUPS);
 
   useEffect(() => {
     const localLoaded = loadClientSetting('database', {
@@ -88,14 +88,14 @@ export default function DatabaseSettingsPage() {
       backupFrequency: 'daily',
       backupTime: '03:00',
       retentionDays: '30',
-      backups: defaultBackups,
+      backups: DEFAULT_BACKUPS,
     });
 
-  setAutoBackup(localLoaded.autoBackup);
-  setBackupFrequency(localLoaded.backupFrequency);
-  setBackupTime(localLoaded.backupTime);
-  setRetentionDays(localLoaded.retentionDays);
-  setBackups(localLoaded.backups);
+    setAutoBackup(localLoaded.autoBackup);
+    setBackupFrequency(localLoaded.backupFrequency);
+    setBackupTime(localLoaded.backupTime);
+    setRetentionDays(localLoaded.retentionDays);
+    setBackups(localLoaded.backups);
 
     const loadFromServer = async () => {
       const server = await fetchServerSettings();

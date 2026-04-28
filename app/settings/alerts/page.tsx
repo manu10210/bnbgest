@@ -8,12 +8,10 @@ import {
   ArrowLeft,
   Bell,
   Plus,
-  Edit,
   Trash2,
   CheckCircle,
   AlertCircle,
   Clock,
-  Zap,
   Mail,
   Webhook,
   Save,
@@ -35,50 +33,49 @@ interface Alert {
   lastTriggered?: string;
 }
 
+const DEFAULT_ALERTS: Alert[] = [
+  {
+    id: '1',
+    name: 'Temps de réponse élevé',
+    metric: 'responseTime',
+    condition: 'above',
+    threshold: 200,
+    enabled: true,
+    notificationMethod: 'email',
+    notificationTarget: 'admin@bnbgest.com',
+    createdAt: '2026-03-30T10:00:00Z',
+    lastTriggered: '2026-03-31T08:15:00Z'
+  },
+  {
+    id: '2',
+    name: 'Taux d\'erreur critique',
+    metric: 'errorRate',
+    condition: 'above',
+    threshold: 1,
+    enabled: true,
+    notificationMethod: 'webhook',
+    notificationTarget: 'https://hooks.slack.com/services/xxx',
+    createdAt: '2026-03-30T10:30:00Z'
+  },
+  {
+    id: '3',
+    name: 'Uptime faible',
+    metric: 'uptime',
+    condition: 'below',
+    threshold: 99.5,
+    enabled: false,
+    notificationMethod: 'email',
+    notificationTarget: 'admin@bnbgest.com',
+    createdAt: '2026-03-30T11:00:00Z'
+  }
+];
+
 export default function AlertsPage() {
   const { isDark } = useTheme();
   const router = useRouter();
-  
-  const defaultAlerts: Alert[] = [
-    {
-      id: '1',
-      name: 'Temps de réponse élevé',
-      metric: 'responseTime',
-      condition: 'above',
-      threshold: 200,
-      enabled: true,
-      notificationMethod: 'email',
-      notificationTarget: 'admin@bnbgest.com',
-      createdAt: '2026-03-30T10:00:00Z',
-      lastTriggered: '2026-03-31T08:15:00Z'
-    },
-    {
-      id: '2',
-      name: 'Taux d\'erreur critique',
-      metric: 'errorRate',
-      condition: 'above',
-      threshold: 1,
-      enabled: true,
-      notificationMethod: 'webhook',
-      notificationTarget: 'https://hooks.slack.com/services/xxx',
-      createdAt: '2026-03-30T10:30:00Z'
-    },
-    {
-      id: '3',
-      name: 'Uptime faible',
-      metric: 'uptime',
-      condition: 'below',
-      threshold: 99.5,
-      enabled: false,
-      notificationMethod: 'email',
-      notificationTarget: 'admin@bnbgest.com',
-      createdAt: '2026-03-30T11:00:00Z'
-    }
-  ];
-  const [alerts, setAlerts] = useState<Alert[]>(defaultAlerts);
+  const [alerts, setAlerts] = useState<Alert[]>(DEFAULT_ALERTS);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [newAlert, setNewAlert] = useState<Partial<Alert>>({
     name: '',
@@ -91,7 +88,7 @@ export default function AlertsPage() {
   });
 
   useEffect(() => {
-    const loaded = loadClientSetting('alerts', defaultAlerts);
+    const loaded = loadClientSetting('alerts', DEFAULT_ALERTS);
     setAlerts(loaded);
 
     const loadFromServer = async () => {

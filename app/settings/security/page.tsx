@@ -42,6 +42,50 @@ interface ApiKey {
   lastUsed: string;
 }
 
+const DEFAULT_SESSIONS: Session[] = [
+  {
+    id: '1',
+    device: 'Windows PC - Chrome',
+    location: 'Paris, France',
+    ip: '192.168.1.100',
+    lastActive: 'À l\'instant',
+    current: true
+  },
+  {
+    id: '2',
+    device: 'iPhone 13 - Safari',
+    location: 'Paris, France',
+    ip: '192.168.1.101',
+    lastActive: 'Il y a 2 heures',
+    current: false
+  },
+  {
+    id: '3',
+    device: 'MacBook Pro - Chrome',
+    location: 'Lyon, France',
+    ip: '192.168.1.102',
+    lastActive: 'Il y a 1 jour',
+    current: false
+  }
+];
+
+const DEFAULT_API_KEYS: ApiKey[] = [
+  {
+    id: '1',
+    name: 'API Production',
+    key: 'bnb_prod_xxxxxxxxxxxx',
+    created: '2024-01-15',
+    lastUsed: '2024-01-20'
+  },
+  {
+    id: '2',
+    name: 'API Development',
+    key: 'bnb_dev_xxxxxxxxxxxx',
+    created: '2024-01-10',
+    lastUsed: '2024-01-19'
+  }
+];
+
 export default function SecuritySettingsPage() {
   const { isDark } = useTheme();
   const router = useRouter();
@@ -58,58 +102,14 @@ export default function SecuritySettingsPage() {
   });
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-
-  const defaultSessions: Session[] = [
-    {
-      id: '1',
-      device: 'Windows PC - Chrome',
-      location: 'Paris, France',
-      ip: '192.168.1.100',
-      lastActive: 'À l\'instant',
-      current: true
-    },
-    {
-      id: '2',
-      device: 'iPhone 13 - Safari',
-      location: 'Paris, France',
-      ip: '192.168.1.101',
-      lastActive: 'Il y a 2 heures',
-      current: false
-    },
-    {
-      id: '3',
-      device: 'MacBook Pro - Chrome',
-      location: 'Lyon, France',
-      ip: '192.168.1.102',
-      lastActive: 'Il y a 1 jour',
-      current: false
-    }
-  ];
-  const [sessions, setSessions] = useState<Session[]>(defaultSessions);
-
-  const defaultApiKeys: ApiKey[] = [
-    {
-      id: '1',
-      name: 'API Production',
-      key: 'bnb_prod_xxxxxxxxxxxx',
-      created: '2024-01-15',
-      lastUsed: '2024-01-20'
-    },
-    {
-      id: '2',
-      name: 'API Development',
-      key: 'bnb_dev_xxxxxxxxxxxx',
-      created: '2024-01-10',
-      lastUsed: '2024-01-19'
-    }
-  ];
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>(defaultApiKeys);
+  const [sessions, setSessions] = useState<Session[]>(DEFAULT_SESSIONS);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>(DEFAULT_API_KEYS);
 
   useEffect(() => {
     const localLoaded = loadClientSetting('security', {
       twoFactorEnabled: false,
-      sessions: defaultSessions,
-      apiKeys: defaultApiKeys,
+      sessions: DEFAULT_SESSIONS,
+      apiKeys: DEFAULT_API_KEYS,
     });
 
     setTwoFactorEnabled(localLoaded.twoFactorEnabled);

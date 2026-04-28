@@ -34,162 +34,161 @@ interface NotificationSetting {
   }[];
 }
 
+const DEFAULT_NOTIFICATIONS: NotificationSetting[] = [
+  {
+    id: 'bookings',
+    category: 'Réservations',
+    icon: Calendar,
+    settings: [
+      {
+        id: 'new_booking',
+        name: 'Nouvelle réservation',
+        description: 'Recevoir une notification lors d\'une nouvelle réservation',
+        email: true,
+        sms: true,
+        push: true
+      },
+      {
+        id: 'booking_cancelled',
+        name: 'Annulation de réservation',
+        description: 'Être alerté en cas d\'annulation',
+        email: true,
+        sms: true,
+        push: false
+      },
+      {
+        id: 'booking_modified',
+        name: 'Modification de réservation',
+        description: 'Notification lorsqu\'une réservation est modifiée',
+        email: true,
+        sms: false,
+        push: false
+      },
+      {
+        id: 'checkin_reminder',
+        name: 'Rappel check-in',
+        description: 'Rappel 24h avant l\'arrivée d\'un client',
+        email: true,
+        sms: false,
+        push: true
+      },
+      {
+        id: 'checkout_reminder',
+        name: 'Rappel check-out',
+        description: 'Rappel le jour du départ',
+        email: true,
+        sms: false,
+        push: true
+      }
+    ]
+  },
+  {
+    id: 'guests',
+    category: 'Clients',
+    icon: Users,
+    settings: [
+      {
+        id: 'new_message',
+        name: 'Nouveau message client',
+        description: 'Notification pour les messages des clients',
+        email: true,
+        sms: false,
+        push: true
+      },
+      {
+        id: 'review_received',
+        name: 'Nouvel avis reçu',
+        description: 'Être notifié des nouveaux avis clients',
+        email: true,
+        sms: false,
+        push: true
+      },
+      {
+        id: 'payment_received',
+        name: 'Paiement reçu',
+        description: 'Confirmation de réception de paiement',
+        email: true,
+        sms: true,
+        push: false
+      }
+    ]
+  },
+  {
+    id: 'property',
+    category: 'Propriété',
+    icon: Home,
+    settings: [
+      {
+        id: 'cleaning_scheduled',
+        name: 'Nettoyage programmé',
+        description: 'Rappel de nettoyage prévu',
+        email: true,
+        sms: false,
+        push: true
+      },
+      {
+        id: 'cleaning_completed',
+        name: 'Nettoyage terminé',
+        description: 'Confirmation de fin de nettoyage',
+        email: false,
+        sms: false,
+        push: true
+      },
+      {
+        id: 'maintenance_due',
+        name: 'Maintenance à effectuer',
+        description: 'Alerte pour les tâches de maintenance',
+        email: true,
+        sms: false,
+        push: true
+      },
+      {
+        id: 'inventory_low',
+        name: 'Stock faible',
+        description: 'Alerte quand un article est en rupture',
+        email: true,
+        sms: false,
+        push: false
+      }
+    ]
+  },
+  {
+    id: 'system',
+    category: 'Système',
+    icon: AlertCircle,
+    settings: [
+      {
+        id: 'system_updates',
+        name: 'Mises à jour système',
+        description: 'Notifications des nouvelles fonctionnalités',
+        email: true,
+        sms: false,
+        push: false
+      },
+      {
+        id: 'system_alerts',
+        name: 'Alertes système',
+        description: 'Alertes de sécurité et problèmes techniques',
+        email: true,
+        sms: true,
+        push: true
+      },
+      {
+        id: 'backup_completed',
+        name: 'Sauvegardes',
+        description: 'Confirmation des sauvegardes automatiques',
+        email: true,
+        sms: false,
+        push: false
+      }
+    ]
+  }
+];
+
 export default function NotificationsSettingsPage() {
   const { isDark } = useTheme();
   const router = useRouter();
-  
-  const defaultNotifications: NotificationSetting[] = [
-    {
-      id: 'bookings',
-      category: 'Réservations',
-      icon: Calendar,
-      settings: [
-        {
-          id: 'new_booking',
-          name: 'Nouvelle réservation',
-          description: 'Recevoir une notification lors d\'une nouvelle réservation',
-          email: true,
-          sms: true,
-          push: true
-        },
-        {
-          id: 'booking_cancelled',
-          name: 'Annulation de réservation',
-          description: 'Être alerté en cas d\'annulation',
-          email: true,
-          sms: true,
-          push: false
-        },
-        {
-          id: 'booking_modified',
-          name: 'Modification de réservation',
-          description: 'Notification lorsqu\'une réservation est modifiée',
-          email: true,
-          sms: false,
-          push: false
-        },
-        {
-          id: 'checkin_reminder',
-          name: 'Rappel check-in',
-          description: 'Rappel 24h avant l\'arrivée d\'un client',
-          email: true,
-          sms: false,
-          push: true
-        },
-        {
-          id: 'checkout_reminder',
-          name: 'Rappel check-out',
-          description: 'Rappel le jour du départ',
-          email: true,
-          sms: false,
-          push: true
-        }
-      ]
-    },
-    {
-      id: 'guests',
-      category: 'Clients',
-      icon: Users,
-      settings: [
-        {
-          id: 'new_message',
-          name: 'Nouveau message client',
-          description: 'Notification pour les messages des clients',
-          email: true,
-          sms: false,
-          push: true
-        },
-        {
-          id: 'review_received',
-          name: 'Nouvel avis reçu',
-          description: 'Être notifié des nouveaux avis clients',
-          email: true,
-          sms: false,
-          push: true
-        },
-        {
-          id: 'payment_received',
-          name: 'Paiement reçu',
-          description: 'Confirmation de réception de paiement',
-          email: true,
-          sms: true,
-          push: false
-        }
-      ]
-    },
-    {
-      id: 'property',
-      category: 'Propriété',
-      icon: Home,
-      settings: [
-        {
-          id: 'cleaning_scheduled',
-          name: 'Nettoyage programmé',
-          description: 'Rappel de nettoyage prévu',
-          email: true,
-          sms: false,
-          push: true
-        },
-        {
-          id: 'cleaning_completed',
-          name: 'Nettoyage terminé',
-          description: 'Confirmation de fin de nettoyage',
-          email: false,
-          sms: false,
-          push: true
-        },
-        {
-          id: 'maintenance_due',
-          name: 'Maintenance à effectuer',
-          description: 'Alerte pour les tâches de maintenance',
-          email: true,
-          sms: false,
-          push: true
-        },
-        {
-          id: 'inventory_low',
-          name: 'Stock faible',
-          description: 'Alerte quand un article est en rupture',
-          email: true,
-          sms: false,
-          push: false
-        }
-      ]
-    },
-    {
-      id: 'system',
-      category: 'Système',
-      icon: AlertCircle,
-      settings: [
-        {
-          id: 'system_updates',
-          name: 'Mises à jour système',
-          description: 'Notifications des nouvelles fonctionnalités',
-          email: true,
-          sms: false,
-          push: false
-        },
-        {
-          id: 'system_alerts',
-          name: 'Alertes système',
-          description: 'Alertes de sécurité et problèmes techniques',
-          email: true,
-          sms: true,
-          push: true
-        },
-        {
-          id: 'backup_completed',
-          name: 'Sauvegardes',
-          description: 'Confirmation des sauvegardes automatiques',
-          email: true,
-          sms: false,
-          push: false
-        }
-      ]
-    }
-  ];
-
-  const [notifications, setNotifications] = useState<NotificationSetting[]>(defaultNotifications);
+  const [notifications, setNotifications] = useState<NotificationSetting[]>(DEFAULT_NOTIFICATIONS);
 
   const [emailAddress, setEmailAddress] = useState('admin@bnbgest.com');
   const [smsNumber, setSmsNumber] = useState('+33 6 12 34 56 78');
@@ -197,7 +196,7 @@ export default function NotificationsSettingsPage() {
 
   useEffect(() => {
     const localLoaded = loadClientSetting('notifications', {
-      notifications: defaultNotifications,
+      notifications: DEFAULT_NOTIFICATIONS,
       emailAddress: 'admin@bnbgest.com',
       smsNumber: '+33 6 12 34 56 78',
     });
