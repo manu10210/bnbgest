@@ -20,34 +20,33 @@ import {
   X
 } from 'lucide-react';
 
+const DEFAULT_PROFILE = {
+  name: 'Emmanuel Claustre',
+  email: 'claustre.emmanuel@gmail.com',
+  phone: '+33 6 12 34 56 78',
+  company: 'BNBGEST',
+  address: '123 Rue de la Paix',
+  city: 'Paris',
+  postalCode: '75001',
+  country: 'France',
+  website: 'https://bnbgest.vercel.app',
+  bio: 'Gestionnaire de propriétés Airbnb depuis 2020. Passionné par l\'hospitalité et l\'expérience client.',
+  timezone: 'Europe/Paris',
+  language: 'fr',
+  currency: 'EUR'
+};
+
 export default function ProfileSettingsPage() {
   const { isDark } = useTheme();
   const router = useRouter();
   
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  
-  const defaultProfile = {
-    name: 'Emmanuel Claustre',
-    email: 'claustre.emmanuel@gmail.com',
-    phone: '+33 6 12 34 56 78',
-    company: 'BNBGEST',
-    address: '123 Rue de la Paix',
-    city: 'Paris',
-    postalCode: '75001',
-    country: 'France',
-    website: 'https://bnbgest.vercel.app',
-    bio: 'Gestionnaire de propriétés Airbnb depuis 2020. Passionné par l\'hospitalité et l\'expérience client.',
-    timezone: 'Europe/Paris',
-    language: 'fr',
-    currency: 'EUR'
-  };
-
-  const [profile, setProfile] = useState(defaultProfile);
-  const [savedProfile, setSavedProfile] = useState(defaultProfile);
+  const [profile, setProfile] = useState(DEFAULT_PROFILE);
+  const [savedProfile, setSavedProfile] = useState(DEFAULT_PROFILE);
 
   useEffect(() => {
-    const localLoaded = loadClientSetting('profile', defaultProfile);
+    const localLoaded = loadClientSetting('profile', DEFAULT_PROFILE);
     setProfile(localLoaded);
     setSavedProfile(localLoaded);
 

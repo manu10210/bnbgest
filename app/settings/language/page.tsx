@@ -18,24 +18,25 @@ import {
   Save
 } from 'lucide-react';
 
+const DEFAULT_LANGUAGE_SETTINGS = {
+  language: 'fr',
+  timezone: 'Europe/Paris',
+  currency: 'EUR',
+  dateFormat: 'DD/MM/YYYY',
+  timeFormat: '24h',
+  numberFormat: 'space',
+  firstDayOfWeek: '1'
+};
+
 export default function LanguageSettingsPage() {
   const { isDark } = useTheme();
   const router = useRouter();
   
   const [saving, setSaving] = useState(false);
-  const defaultSettings = {
-    language: 'fr',
-    timezone: 'Europe/Paris',
-    currency: 'EUR',
-    dateFormat: 'DD/MM/YYYY',
-    timeFormat: '24h',
-    numberFormat: 'space',
-    firstDayOfWeek: '1'
-  };
-  const [settings, setSettings] = useState(defaultSettings);
+  const [settings, setSettings] = useState(DEFAULT_LANGUAGE_SETTINGS);
 
   useEffect(() => {
-    const localLoaded = loadClientSetting('language', defaultSettings);
+    const localLoaded = loadClientSetting('language', DEFAULT_LANGUAGE_SETTINGS);
     setSettings(localLoaded);
 
     const loadFromServer = async () => {
