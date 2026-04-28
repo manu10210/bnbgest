@@ -23,9 +23,13 @@ export async function GET(req: NextRequest) {
   const year       = parseInt(searchParams.get('year')  || String(new Date().getFullYear()));
   const propertyId = searchParams.get('propertyId');
   const months     = parseInt(searchParams.get('months') || '12');
+  const startMonth = parseInt(searchParams.get('startMonth') || '1');
 
-  const startDate = new Date(year, 0, 1);
-  const endDate   = new Date(year, months, 0, 23, 59, 59); // fin du dernier mois
+  const safeMonths = Number.isFinite(months) ? Math.min(Math.max(months, 1), 12) : 12;
+  const safeStartMonth = Number.isFinite(startMonth) ? Math.min(Math.max(startMonth, 1), 12) : 1;
+
+  const startDate = new Date(year, safeStartMonth - 1, 1);
+  const endDate   = new Date(year, safeStartMonth - 1 + safeMonths, 0, 23, 59, 59); // fin du dernier mois
 
   try {
     // ── Propriétés
@@ -80,7 +84,7 @@ export async function GET(req: NextRequest) {
       const pBookings = bookings.filter(b => b.propertyId === prop.id);
       const pExpenses = expenses.filter(e => e.propertyId === prop.id);
 
-      const totalNights   = months * 30; // approx jours disponibles
+  const totalNights   = safeMonths * 30; // approx jours disponibles
       const bookedNights  = pBookings.reduce((s, b) => s + nights(b.checkIn, b.checkOut), 0);
       const occupancyRate = totalNights > 0 ? (bookedNights / totalNights) * 100 : 0;
 
@@ -132,11 +136,12 @@ export async function GET(req: NextRequest) {
       bookings: number; occupancy: number;
     }> = [];
 
-    for (let m = 0; m < months; m++) {
-      const mStart = new Date(year, m, 1);
-      const mEnd   = new Date(year, m + 1, 0, 23, 59, 59);
+    for (let m = 0; m < safeMonths; m++) {
+      const monthOffset = safeStartMonth - 1 + m;
+      const mStart = new Date(year, monthOffset, 1);
+      const mEnd   = new Date(year, monthOffset + 1, 0, 23, 59, 59);
       const label  = mStart.toLocaleDateString('fr-FR', { month: 'short' });
-      const daysInMonth = new Date(year, m + 1, 0).getDate();
+      const daysInMonth = new Date(year, monthOffset + 1, 0).getDate();
 
       const mBookings = bookings.filter(b => {
         const ci = new Date(b.checkIn);
@@ -153,7 +158,7 @@ export async function GET(req: NextRequest) {
       const mOccupancy = properties.length > 0 ? (mNights / (daysInMonth * properties.length)) * 100 : 0;
 
       monthly.push({
-        month: `${year}-${String(m + 1).padStart(2, '0')}`,
+  month: `${mStart.getFullYear()}-${String(mStart.getMonth() + 1).padStart(2, '0')}`,
         label,
         revenue:   Math.round(mRevenue),
         expenses:  Math.round(mExp),
@@ -175,7 +180,9 @@ export async function GET(req: NextRequest) {
       ? byProperty.reduce((s, p) => s + p.adr, 0) / byProperty.length : 0;
 
     return NextResponse.json({
-      year, months,
+  year,
+  months: safeMonths,
+  startMonth: safeStartMonth,
       properties:  byProperty,
       monthly,
       summary: {

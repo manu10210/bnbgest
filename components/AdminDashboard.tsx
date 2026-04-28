@@ -895,7 +895,7 @@ export default function AdminDashboard() {
             {activeTab === 'inventory' && <InventoryManager />}
 
             {/* Financial Tab */}
-            {activeTab === 'financial' && <FinancialReports />}
+            {activeTab === 'financial' && <FinancialReports propertyId={selectedPropertyId} />}
 
             {/* QR Check-in Tab */}
             {activeTab === 'qrcheckin' && <QRCheckIn />}

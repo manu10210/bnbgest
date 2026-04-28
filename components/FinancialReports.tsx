@@ -1,15 +1,14 @@
 ﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useBNB, FinancialReport } from '../contexts/BNBContext';
+import { FinancialReport } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { motion } from 'framer-motion';
 import {
   BarChart, Bar, PieChart as RechartsPie, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart,
-  LineChart, Line
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart
 } from 'recharts';
 import {
   TrendingUp,
@@ -36,14 +35,42 @@ interface FinancialReportsProps {
   propertyId?: number;
 }
 
+interface RentabilitePropertyRow {
+  property: { id: number; name: string };
+  bookingsCount: number;
+  occupancyRate: number;
+  grossRevenue: number;
+  totalExpenses: number;
+  netProfit: number;
+  revPAR: number;
+  adr: number;
+  expByCategory: Record<string, number>;
+}
+
+interface RentabiliteMonthlyRow {
+  month: string;
+  label: string;
+  revenue: number;
+  expenses: number;
+  profit: number;
+  bookings: number;
+  occupancy: number;
+}
+
+interface RentabiliteResponse {
+  properties: RentabilitePropertyRow[];
+  monthly: RentabiliteMonthlyRow[];
+  summary: {
+    totalRevenue: number;
+    totalExpenses: number;
+    totalProfit: number;
+    avgOccupancy: number;
+    avgADR: number;
+    totalBookings: number;
+  };
+}
+
 export default function FinancialReports({ propertyId }: FinancialReportsProps) {
-  const {
-    generateFinancialReport,
-    getOccupancyRate,
-    getRevenueByProperty,
-    properties,
-    bookings,
-  } = useBNB();
   const { isDark } = useTheme();
 
   const [selectedPeriod, setSelectedPeriod] = useState<'month' | 'quarter' | 'year'>('month');
@@ -51,7 +78,69 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [report, setReport] = useState<FinancialReport | null>(null);
   const [previousReport, setPreviousReport] = useState<FinancialReport | null>(null);
+  const [occupancyData, setOccupancyData] = useState<Array<{ name: string; occupancy: number; revenue: number }>>([]);
+  const [monthlyTrend, setMonthlyTrend] = useState<Array<{ month: string; revenue: number; bookings: number }>>([]);
   const [loading, setLoading] = useState(false);
+
+  const buildReportFromApi = (payload: RentabiliteResponse, periodStart: string, periodEnd: string): FinancialReport => {
+    const categoryTotals = payload.properties.reduce<Record<string, number>>((acc, row) => {
+      Object.entries(row.expByCategory || {}).forEach(([category, amount]) => {
+        const key = category.toLowerCase();
+        acc[key] = (acc[key] || 0) + Number(amount || 0);
+      });
+      return acc;
+    }, {});
+
+    const cleaning = (categoryTotals.cleaning || 0) + (categoryTotals.nettoyage || 0);
+    const maintenance =
+      (categoryTotals.maintenance || 0) +
+      (categoryTotals.repair || 0) +
+      (categoryTotals.reparation || 0);
+    const supplies =
+      (categoryTotals.supplies || 0) +
+      (categoryTotals.stock || 0) +
+      (categoryTotals.inventory || 0) +
+      (categoryTotals.fournitures || 0);
+
+    const categorizedExpenses = cleaning + maintenance + supplies;
+    const other = Math.max(0, payload.summary.totalExpenses - categorizedExpenses);
+
+    return {
+      period: `${periodStart} to ${periodEnd}`,
+      revenue: payload.summary.totalRevenue,
+      expenses: payload.summary.totalExpenses,
+      profit: payload.summary.totalProfit,
+      occupancyRate: payload.summary.avgOccupancy,
+      averageDailyRate: payload.summary.avgADR,
+      bookingsCount: payload.summary.totalBookings,
+      breakdown: {
+        accommodation: payload.summary.totalRevenue,
+        cleaning,
+        maintenance,
+        supplies,
+        other,
+      },
+    };
+  };
+
+  const fetchRentabilite = useCallback(async (year: number, months: number, startMonth: number): Promise<RentabiliteResponse> => {
+    const qs = new URLSearchParams({
+      year: String(year),
+      months: String(months),
+      startMonth: String(startMonth),
+    });
+
+    if (propertyId) {
+      qs.set('propertyId', String(propertyId));
+    }
+
+    const res = await fetch(`/api/rentabilite?${qs.toString()}`, { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error('Impossible de récupérer la rentabilité');
+    }
+
+    return await res.json();
+  }, [propertyId]);
 
   const generateReport = useCallback(async () => {
     setLoading(true);
@@ -91,16 +180,53 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
         prevEndDate = startDate;
       }
 
-      const generatedReport = generateFinancialReport(startDate, endDate);
-      const prevReport = generateFinancialReport(prevStartDate, prevEndDate);
-      setReport(generatedReport);
-      setPreviousReport(prevReport);
+      const currentMonths =
+        selectedPeriod === 'month' ? 1 :
+        selectedPeriod === 'quarter' ? 3 : 12;
+
+      const currentStartMonth =
+        selectedPeriod === 'month' ? selectedMonth :
+        selectedPeriod === 'quarter' ? Math.floor((selectedMonth - 1) / 3) * 3 + 1 :
+        1;
+
+      const prevStartDateObj = new Date(prevStartDate);
+      const previousStartMonth = prevStartDateObj.getMonth() + 1;
+      const previousYear = prevStartDateObj.getFullYear();
+
+      const [currentPayload, previousPayload, yearlyPayload] = await Promise.all([
+        fetchRentabilite(selectedYear, currentMonths, currentStartMonth),
+        fetchRentabilite(previousYear, currentMonths, previousStartMonth),
+        fetchRentabilite(selectedYear, 12, 1),
+      ]);
+
+      setReport(buildReportFromApi(currentPayload, startDate, endDate));
+      setPreviousReport(buildReportFromApi(previousPayload, prevStartDate, prevEndDate));
+      setOccupancyData(
+        currentPayload.properties
+          .map((row) => ({
+            name: row.property.name,
+            occupancy: row.occupancyRate,
+            revenue: row.grossRevenue,
+          }))
+          .sort((a, b) => b.revenue - a.revenue)
+      );
+      setMonthlyTrend(
+        yearlyPayload.monthly.map((row) => ({
+          month: row.label,
+          revenue: row.revenue,
+          bookings: row.bookings,
+        }))
+      );
     } catch (error) {
       console.error('Erreur lors de la génération du rapport:', error);
+      setReport(null);
+      setPreviousReport(null);
+      setOccupancyData([]);
+      setMonthlyTrend([]);
     } finally {
       setLoading(false);
     }
-  }, [selectedPeriod, selectedYear, selectedMonth, generateFinancialReport]);
+  }, [selectedPeriod, selectedYear, selectedMonth, fetchRentabilite]);
 
   useEffect(() => {
     generateReport();
@@ -160,39 +286,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
     }
   };
 
-  const getOccupancyData = () => {
-    if (!report) return [];
-
-    return properties.map(property => ({
-      name: property.name,
-      occupancy: getOccupancyRate(property.id, report.period.split(' to ')[0], report.period.split(' to ')[1]),
-      revenue: getRevenueByProperty(property.id, report.period.split(' to ')[0], report.period.split(' to ')[1])
-    })).sort((a, b) => b.revenue - a.revenue);
-  };
-
-  const getMonthlyTrend = useMemo(() => {
-    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-    return months.map((month, index) => {
-      const startDate = `${selectedYear}-${(index + 1).toString().padStart(2, '0')}-01`;
-      const nextMonth = index === 11 ? 1 : index + 2;
-      const nextYear = index === 11 ? selectedYear + 1 : selectedYear;
-      const endDate = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-01`;
-
-      const monthBookings = bookings.filter(b => {
-        const checkIn = new Date(b.checkIn);
-        return checkIn >= new Date(startDate) && checkIn < new Date(endDate) &&
-               (b.status === 'confirmed' || b.status === 'completed');
-      });
-      const revenue = monthBookings.reduce((sum, b) => sum + b.totalPrice, 0);
-      return {
-        month,
-        revenue,
-        bookings: monthBookings.length
-      };
-    });
-  }, [bookings, selectedYear]);
-
-  const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'];
+  const getMonthlyTrend = useMemo(() => monthlyTrend, [monthlyTrend]);
 
   const pieData = useMemo(() => {
     if (!report) return [];
@@ -334,6 +428,9 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
 
   // Best month
   const bestMonth = useMemo(() => {
+    if (getMonthlyTrend.length === 0) {
+      return { month: '-', revenue: 0, bookings: 0 };
+    }
     return getMonthlyTrend.reduce((best, m) => m.revenue > best.revenue ? m : best, getMonthlyTrend[0]);
   }, [getMonthlyTrend]);
 
@@ -608,10 +705,10 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
                   <Home className="h-4 w-4 mr-2 text-[#FF385C]" />
                   Performance par propriété
                 </h3>
-                {getOccupancyData().length > 0 ? (
+                {occupancyData.length > 0 ? (
                   <>
                     <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={getOccupancyData()} layout="vertical" margin={{ left: 0, right: 10 }}>
+                      <BarChart data={occupancyData} layout="vertical" margin={{ left: 0, right: 10 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.06)' : '#f0f0f0'} horizontal={false} />
                         <XAxis type="number" tick={{ fill: isDark ? '#94a3b8' : '#717171', fontSize: 11 }} axisLine={false} tickLine={false} />
                         <YAxis type="category" dataKey="name" tick={{ fill: isDark ? '#94a3b8' : '#717171', fontSize: 11 }} width={80} axisLine={false} tickLine={false} />
@@ -623,7 +720,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
                       </BarChart>
                     </ResponsiveContainer>
                     <div className="space-y-3 mt-3">
-                      {getOccupancyData().map((property, index) => (
+                      {occupancyData.map((property, index) => (
                         <div key={index}>
                           <div className="flex justify-between items-center mb-1">
                             <span className={`text-xs font-medium ${isDark ? 'text-white' : 'text-[#222222]'}`}>{property.name}</span>
@@ -757,7 +854,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
             </div>
           </motion.div>
           {/* ═══ TOP PROPERTIES PODIUM ═══ */}
-          {getOccupancyData().length >= 2 && (
+          {occupancyData.length >= 2 && (
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
               <Card hover={false}>
                 <div className="p-6">
@@ -767,7 +864,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
                     <span className={`ml-auto text-xs font-normal px-2 py-1 rounded-full ${isDark ? 'bg-white/[0.06] text-gray-400' : 'bg-[#f7f7f7] text-[#717171]'}`}>{getPeriodLabel()}</span>
                   </h3>
                   <div className="flex items-end justify-center gap-4">
-                    {getOccupancyData().slice(0, 3).map((prop, i) => {
+                    {occupancyData.slice(0, 3).map((prop, i) => {
                       const podiumOrder = [1, 0, 2]; // 2nd, 1st, 3rd visual layout
                       const displayIdx = podiumOrder.indexOf(i);
                       const heights = ['h-24', 'h-32', 'h-16'];
@@ -778,7 +875,7 @@ export default function FinancialReports({ propertyId }: FinancialReportsProps) 
                         isDark ? 'bg-orange-500/20 border-orange-500/40' : 'bg-orange-50 border-orange-200',
                       ];
                       const actualIdx = podiumOrder[displayIdx];
-                      const actualProp = getOccupancyData()[actualIdx];
+                      const actualProp = occupancyData[actualIdx];
                       if (!actualProp) return null;
                       return (
                         <div key={actualIdx} className="flex flex-col items-center gap-2 flex-1 max-w-[160px]">
