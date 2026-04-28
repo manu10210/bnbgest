@@ -8,10 +8,11 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useSession, signIn } from 'next-auth/react';
 import { useBNB, type Property } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { 
+import {
   Mail, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
   ChevronDown, ChevronUp, Download, Search, Calendar,
-  Users, DollarSign, Home, Zap, Filter, Info, Sparkles, DownloadCloud, Database } from 'lucide-react';
+  Users, DollarSign, Home, Zap, Filter, Info, Sparkles, DownloadCloud, Database,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import NewPropertyWizard, {
@@ -810,6 +811,7 @@ const PROPERTY_REJECTED_STORAGE_KEY = 'bnbgest.gmail.property-rejected-labels.v1
 const EXPERT_MODE_STORAGE_KEY = 'bnbgest.gmail.expert-mode.v1';
 const PROPERTY_DECISIONS_API = '/api/gmail/property-decisions';
 const DEFAULT_REJECTED_PROPERTY_LABELS = ['CÉLINE Saint-Julien-les-Villas Maison'];
+const CANONICAL_T3_PROPERTY_NAME = 'Maison T3/Climatisée/ terrasse privée';
 let RUNTIME_PROPERTY_ALIASES: Record<string, string> = {};
 
 function setRuntimePropertyAliases(nextAliases: Record<string, string>) {
@@ -829,6 +831,25 @@ function normalizeForMatch(s: string): string {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+function isT3PropertyLabel(value?: string): boolean {
+  if (!value?.trim()) return false;
+  const normalized = normalizeForMatch(value);
+  if (!normalized) return false;
+
+  if (
+    normalized === 't3'
+    || normalized.includes('maison t3')
+    || normalized.includes('t3 terrasse privee')
+    || normalized.includes('t3 climatisee')
+    || normalized.includes('climatisee terrasse privee')
+  ) {
+    return true;
+  }
+
+  return /(^|\s)t3(\s|$)/.test(normalized)
+    && (normalized.includes('maison') || normalized.includes('terrasse') || normalized.includes('climat'));
 }
 
 function normalizeRejectedPropertyLabels(input: unknown): string[] {
@@ -1734,6 +1755,96 @@ export default function GmailImporter() {
     };
   }, [properties, addProperty, session]);
 
+  const ensureCanonicalT3Property = useCallback(async (
+    parsedBookings: ParsedBooking[],
+    runtimeProps: Property[],
+  ): Promise<Property[]> => {
+    const hasT3Mentions = parsedBookings.some((booking) => (
+      isT3PropertyLabel(booking.propertyName)
+      || isT3PropertyLabel(booking.subject)
+    ));
+    if (!hasT3Mentions) return runtimeProps;
+
+    const existingT3 = runtimeProps.find((property) => (
+      normalizeForMatch(property.name) === normalizeForMatch(CANONICAL_T3_PROPERTY_NAME)
+      || isT3PropertyLabel(property.name)
+    ));
+
+    if (existingT3) return runtimeProps;
+
+    const ownerIdFromSession = Number.parseInt((session as { user?: { id?: string | number } })?.user?.id as string, 10);
+    const ownerId = Number.isFinite(ownerIdFromSession) && ownerIdFromSession > 0
+      ? ownerIdFromSession
+      : (runtimeProps[0]?.ownerId || 1);
+
+    const nowIso = new Date().toISOString();
+    const t3PropertyPayload: Omit<Property, 'id' | 'createdAt' | 'updatedAt'> = {
+      name: CANONICAL_T3_PROPERTY_NAME,
+      address: 'Adresse T3 à compléter',
+      city: runtimeProps[0]?.city || 'Ville à compléter',
+      country: runtimeProps[0]?.country || 'France',
+      type: 'house',
+      bedrooms: 2,
+      bathrooms: 1,
+      maxGuests: 6,
+      amenities: [],
+      price: runtimeProps[0]?.price || 120,
+      description: 'Logement T3 intégré automatiquement depuis les emails Gmail Airbnb.',
+      images: [],
+      status: 'active',
+      ownerId,
+      checkInTime: '15:00',
+      checkOutTime: '11:00',
+      cleaningFee: 0,
+      securityDeposit: 0,
+      minimumStay: 1,
+      availabilityCalendar: [],
+      rules: [],
+    };
+
+    addProperty(t3PropertyPayload);
+
+    fetch('/api/properties', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: t3PropertyPayload.name,
+        description: t3PropertyPayload.description,
+        address: t3PropertyPayload.address,
+        city: t3PropertyPayload.city,
+        country: t3PropertyPayload.country,
+        zipCode: '',
+        bedrooms: t3PropertyPayload.bedrooms,
+        bathrooms: t3PropertyPayload.bathrooms,
+        maxGuests: t3PropertyPayload.maxGuests,
+        pricePerNight: t3PropertyPayload.price,
+        ownerId: t3PropertyPayload.ownerId,
+        status: 'ACTIVE',
+      }),
+    }).catch(() => {
+      // API indisponible/non configurée: la propriété locale suffit pour l'import.
+    });
+
+    setLearnedPropertyAliases((prev) => ({
+      ...prev,
+      'maison t3': CANONICAL_T3_PROPERTY_NAME,
+      't3': CANONICAL_T3_PROPERTY_NAME,
+      'maison t3 climatisee terrasse privee': CANONICAL_T3_PROPERTY_NAME,
+      't3 terrasse privee': CANONICAL_T3_PROPERTY_NAME,
+    }));
+
+    toast.success('Propriété T3 détectée et intégrée automatiquement dans vos logements.');
+
+    const localT3Property: Property = {
+      ...t3PropertyPayload,
+      id: Math.max(...runtimeProps.map((p) => p.id), 0) + 1,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    return [...runtimeProps, localT3Property];
+  }, [addProperty, session]);
+
   // ─── Importer les réservations sélectionnées ──────────────────────────────
 
   const importSelected = useCallback(async () => {
@@ -1748,6 +1859,11 @@ export default function GmailImporter() {
         runtimeProperties = [createdDefaultProperty];
         defaultProperty = createdDefaultProperty;
       }
+    }
+
+    runtimeProperties = await ensureCanonicalT3Property(toImport, runtimeProperties);
+    if (!defaultProperty && runtimeProperties.length > 0) {
+      defaultProperty = runtimeProperties[0];
     }
 
   const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0, rescuedAggressive: 0, rescuedSingleProperty: 0 };
@@ -2870,7 +2986,7 @@ export default function GmailImporter() {
 
       setTimeout(() => setStatus('idle'), 2500);
       setStatus('done');
-  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive, ensureDefaultProperty, rejectedPropertySet]);
+  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive, ensureDefaultProperty, ensureCanonicalT3Property, rejectedPropertySet]);
 
   // ─── Purge des données importées depuis Gmail ─────────────────────────────
   // Supprime TOUTES les réservations créées via l'import Gmail.
