@@ -1,10 +1,12 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import PushNotificationButton from '@/components/PushNotificationButton';
+import { toast } from 'sonner';
+import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
 import {
   ArrowLeft,
   Bell,
@@ -39,7 +41,7 @@ export default function NotificationsSettingsPage() {
   const { isDark } = useTheme();
   const router = useRouter();
   
-  const [notifications, setNotifications] = useState<NotificationSetting[]>([
+  const defaultNotifications: NotificationSetting[] = [
     {
       id: 'bookings',
       category: 'Réservations',
@@ -188,11 +190,25 @@ export default function NotificationsSettingsPage() {
         }
       ]
     }
-  ]);
+  ];
+
+  const [notifications, setNotifications] = useState<NotificationSetting[]>(defaultNotifications);
 
   const [emailAddress, setEmailAddress] = useState('admin@bnbgest.com');
   const [smsNumber, setSmsNumber] = useState('+33 6 12 34 56 78');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const loaded = loadClientSetting('notifications', {
+      notifications: defaultNotifications,
+      emailAddress: 'admin@bnbgest.com',
+      smsNumber: '+33 6 12 34 56 78',
+    });
+
+    setNotifications(loaded.notifications);
+    setEmailAddress(loaded.emailAddress);
+    setSmsNumber(loaded.smsNumber);
+  }, []);
 
   const handleToggle = (categoryId: string, settingId: string, channel: 'email' | 'sms' | 'push') => {
     setNotifications(notifications.map(cat => {
@@ -218,7 +234,12 @@ export default function NotificationsSettingsPage() {
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
-      // TODO: Sauvegarder en base de données
+      saveClientSetting('notifications', {
+        notifications,
+        emailAddress,
+        smsNumber,
+      });
+      toast.success('Préférences de notifications sauvegardées');
     }, 1000);
   };
 

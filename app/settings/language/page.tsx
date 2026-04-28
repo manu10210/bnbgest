@@ -1,9 +1,11 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
 import {
   ArrowLeft,
   Globe,
@@ -20,7 +22,7 @@ export default function LanguageSettingsPage() {
   const router = useRouter();
   
   const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState({
+  const defaultSettings = {
     language: 'fr',
     timezone: 'Europe/Paris',
     currency: 'EUR',
@@ -28,7 +30,13 @@ export default function LanguageSettingsPage() {
     timeFormat: '24h',
     numberFormat: 'space',
     firstDayOfWeek: '1'
-  });
+  };
+  const [settings, setSettings] = useState(defaultSettings);
+
+  useEffect(() => {
+    const loaded = loadClientSetting('language', defaultSettings);
+    setSettings(loaded);
+  }, []);
 
   const languages = [
     { code: 'fr', name: 'Français', flag: '🇫🇷' },
@@ -85,8 +93,8 @@ export default function LanguageSettingsPage() {
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
-      alert('Paramètres sauvegardés avec succès');
-      // TODO: Sauvegarder en base de données
+      saveClientSetting('language', settings);
+      toast.success('Paramètres régionaux sauvegardés');
     }, 1000);
   };
 
@@ -142,7 +150,7 @@ export default function LanguageSettingsPage() {
           <div className="flex items-center gap-3 mb-6">
             <Languages size={24} className="text-indigo-500" />
             <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Langue de l'interface
+              Langue de l&apos;interface
             </h2>
           </div>
 
@@ -303,7 +311,7 @@ export default function LanguageSettingsPage() {
 
             <div>
               <label className={`block text-sm font-semibold mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                Format d'heure
+                Format d&apos;heure
               </label>
               <div className="space-y-2">
                 {timeFormats.map((format) => (
@@ -436,8 +444,8 @@ export default function LanguageSettingsPage() {
                 🌍 Paramètres régionaux
               </h3>
               <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-700'}`}>
-                Ces paramètres affectent l'affichage des dates, heures, nombres et devises dans toute l'application.
-                Les changements prennent effet immédiatement après l'enregistrement.
+                Ces paramètres affectent l&apos;affichage des dates, heures, nombres et devises dans toute l&apos;application.
+                Les changements prennent effet immédiatement après l&apos;enregistrement.
               </p>
             </div>
           </div>

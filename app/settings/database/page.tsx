@@ -1,9 +1,11 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
 import {
   ArrowLeft,
   Database,
@@ -42,7 +44,7 @@ export default function DatabaseSettingsPage() {
   const [backupTime, setBackupTime] = useState('03:00');
   const [retentionDays, setRetentionDays] = useState('30');
 
-  const [backups, setBackups] = useState<Backup[]>([
+  const defaultBackups: Backup[] = [
     {
       id: '1',
       name: 'backup-2024-01-20-03-00',
@@ -75,7 +77,34 @@ export default function DatabaseSettingsPage() {
       type: 'auto',
       status: 'failed'
     }
-  ]);
+  ];
+  const [backups, setBackups] = useState<Backup[]>(defaultBackups);
+
+  useEffect(() => {
+    const loaded = loadClientSetting('database', {
+      autoBackup: true,
+      backupFrequency: 'daily',
+      backupTime: '03:00',
+      retentionDays: '30',
+      backups: defaultBackups,
+    });
+
+    setAutoBackup(loaded.autoBackup);
+    setBackupFrequency(loaded.backupFrequency);
+    setBackupTime(loaded.backupTime);
+    setRetentionDays(loaded.retentionDays);
+    setBackups(loaded.backups);
+  }, []);
+
+  useEffect(() => {
+    saveClientSetting('database', {
+      autoBackup,
+      backupFrequency,
+      backupTime,
+      retentionDays,
+      backups,
+    });
+  }, [autoBackup, backupFrequency, backupTime, retentionDays, backups]);
 
   const handleBackup = () => {
     setBacking(true);
@@ -90,7 +119,7 @@ export default function DatabaseSettingsPage() {
       };
       setBackups([newBackup, ...backups]);
       setBacking(false);
-      alert('Sauvegarde créée avec succès');
+      toast.success('Sauvegarde créée avec succès');
     }, 2000);
   };
 
@@ -99,7 +128,7 @@ export default function DatabaseSettingsPage() {
       setRestoring(true);
       setTimeout(() => {
         setRestoring(false);
-        alert('Base de données restaurée avec succès');
+        toast.success('Base de données restaurée avec succès');
       }, 2000);
     }
   };
@@ -111,15 +140,14 @@ export default function DatabaseSettingsPage() {
   };
 
   const handleDownload = (backup: Backup) => {
-    alert(`Téléchargement de ${backup.name}...`);
-    // TODO: Implémenter le téléchargement réel
+    toast.info(`Téléchargement de ${backup.name} prêt (intégration backend à brancher)`);
   };
 
   const handleExport = (format: 'json' | 'csv') => {
     setExporting(true);
     setTimeout(() => {
       setExporting(false);
-      alert(`Export ${format.toUpperCase()} créé avec succès`);
+      toast.success(`Export ${format.toUpperCase()} créé avec succès`);
     }, 1500);
   };
 
@@ -130,8 +158,7 @@ export default function DatabaseSettingsPage() {
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        alert(`Import de ${file.name} en cours...`);
-        // TODO: Implémenter l'import réel
+        toast.info(`Import de ${file.name} en cours...`);
       }
     };
     input.click();

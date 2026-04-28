@@ -1,10 +1,12 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { toast } from 'sonner';
+import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
 import {
   ArrowLeft,
   User,
@@ -28,7 +30,7 @@ export default function ProfileSettingsPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   
-  const [profile, setProfile] = useState({
+  const defaultProfile = {
     name: 'Emmanuel Claustre',
     email: 'claustre.emmanuel@gmail.com',
     phone: '+33 6 12 34 56 78',
@@ -42,20 +44,31 @@ export default function ProfileSettingsPage() {
     timezone: 'Europe/Paris',
     language: 'fr',
     currency: 'EUR'
-  });
+  };
+
+  const [profile, setProfile] = useState(defaultProfile);
+  const [savedProfile, setSavedProfile] = useState(defaultProfile);
+
+  useEffect(() => {
+    const loaded = loadClientSetting('profile', defaultProfile);
+    setProfile(loaded);
+    setSavedProfile(loaded);
+  }, []);
 
   const handleSave = () => {
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
       setEditing(false);
-      // TODO: Sauvegarder en base de données
+      setSavedProfile(profile);
+      saveClientSetting('profile', profile);
+      toast.success('Profil sauvegardé avec succès');
     }, 1000);
   };
 
   const handleCancel = () => {
+    setProfile(savedProfile);
     setEditing(false);
-    // TODO: Recharger les données originales
   };
 
   return (

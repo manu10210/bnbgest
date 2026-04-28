@@ -19,6 +19,7 @@ import {
   Save,
   X
 } from 'lucide-react';
+import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
 
 interface Alert {
   id: string;
@@ -37,7 +38,7 @@ export default function AlertsPage() {
   const { isDark } = useTheme();
   const router = useRouter();
   
-  const [alerts, setAlerts] = useState<Alert[]>([
+  const defaultAlerts: Alert[] = [
     {
       id: '1',
       name: 'Temps de réponse élevé',
@@ -72,7 +73,8 @@ export default function AlertsPage() {
       notificationTarget: 'admin@bnbgest.com',
       createdAt: '2026-03-30T11:00:00Z'
     }
-  ]);
+  ];
+  const [alerts, setAlerts] = useState<Alert[]>(defaultAlerts);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
@@ -85,6 +87,15 @@ export default function AlertsPage() {
     notificationMethod: 'email',
     notificationTarget: ''
   });
+
+  useEffect(() => {
+    const loaded = loadClientSetting('alerts', defaultAlerts);
+    setAlerts(loaded);
+  }, []);
+
+  useEffect(() => {
+    saveClientSetting('alerts', alerts);
+  }, [alerts]);
 
   const metricLabels = {
     responseTime: 'Temps de réponse',
@@ -396,7 +407,7 @@ export default function AlertsPage() {
                     </label>
                     <select
                       value={newAlert.metric}
-                      onChange={(e) => setNewAlert({ ...newAlert, metric: e.target.value as any })}
+                      onChange={(e) => setNewAlert({ ...newAlert, metric: e.target.value as Alert['metric'] })}
                       className={`w-full px-4 py-3 rounded-lg ${
                         isDark 
                           ? 'bg-white/5 border border-white/10 text-white' 
@@ -416,7 +427,7 @@ export default function AlertsPage() {
                     </label>
                     <select
                       value={newAlert.condition}
-                      onChange={(e) => setNewAlert({ ...newAlert, condition: e.target.value as any })}
+                      onChange={(e) => setNewAlert({ ...newAlert, condition: e.target.value as Alert['condition'] })}
                       className={`w-full px-4 py-3 rounded-lg ${
                         isDark 
                           ? 'bg-white/5 border border-white/10 text-white' 
@@ -453,7 +464,7 @@ export default function AlertsPage() {
                   </label>
                   <select
                     value={newAlert.notificationMethod}
-                    onChange={(e) => setNewAlert({ ...newAlert, notificationMethod: e.target.value as any })}
+                    onChange={(e) => setNewAlert({ ...newAlert, notificationMethod: e.target.value as Alert['notificationMethod'] })}
                     className={`w-full px-4 py-3 rounded-lg ${
                       isDark 
                         ? 'bg-white/5 border border-white/10 text-white' 

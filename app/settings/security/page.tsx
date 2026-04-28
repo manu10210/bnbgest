@@ -1,10 +1,11 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
 import {
   ArrowLeft,
   Shield,
@@ -56,7 +57,7 @@ export default function SecuritySettingsPage() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
-  const [sessions, setSessions] = useState<Session[]>([
+  const defaultSessions: Session[] = [
     {
       id: '1',
       device: 'Windows PC - Chrome',
@@ -81,9 +82,10 @@ export default function SecuritySettingsPage() {
       lastActive: 'Il y a 1 jour',
       current: false
     }
-  ]);
+  ];
+  const [sessions, setSessions] = useState<Session[]>(defaultSessions);
 
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([
+  const defaultApiKeys: ApiKey[] = [
     {
       id: '1',
       name: 'API Production',
@@ -98,7 +100,24 @@ export default function SecuritySettingsPage() {
       created: '2024-01-10',
       lastUsed: '2024-01-19'
     }
-  ]);
+  ];
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>(defaultApiKeys);
+
+  useEffect(() => {
+    const loaded = loadClientSetting('security', {
+      twoFactorEnabled: false,
+      sessions: defaultSessions,
+      apiKeys: defaultApiKeys,
+    });
+
+    setTwoFactorEnabled(loaded.twoFactorEnabled);
+    setSessions(loaded.sessions);
+    setApiKeys(loaded.apiKeys);
+  }, []);
+
+  useEffect(() => {
+    saveClientSetting('security', { twoFactorEnabled, sessions, apiKeys });
+  }, [twoFactorEnabled, sessions, apiKeys]);
 
   const handlePasswordChange = async () => {
     setPasswordError('');
@@ -144,8 +163,9 @@ export default function SecuritySettingsPage() {
 
   const handleToggleTwoFactor = () => {
     if (!twoFactorEnabled) {
-      // Simuler l'activation 2FA
-      alert('Code QR affiché. Scannez avec votre app d\'authentification.');
+      toast.info('QR 2FA prêt : scannez-le avec votre app d’authentification.');
+    } else {
+      toast.info('Authentification 2FA désactivée.');
     }
     setTwoFactorEnabled(!twoFactorEnabled);
   };
@@ -158,7 +178,7 @@ export default function SecuritySettingsPage() {
 
   const handleCopyKey = (key: string) => {
     navigator.clipboard.writeText(key);
-    alert('Clé API copiée dans le presse-papiers');
+    toast.success('Clé API copiée dans le presse-papiers');
   };
 
   const handleRevokeKey = (keyId: string) => {
@@ -178,6 +198,7 @@ export default function SecuritySettingsPage() {
         lastUsed: 'Jamais'
       };
       setApiKeys([...apiKeys, newKey]);
+      toast.success('Nouvelle clé API générée');
     }
   };
 
@@ -514,7 +535,7 @@ export default function SecuritySettingsPage() {
               </h3>
               <ul className={`text-sm space-y-2 ${isDark ? 'text-gray-400' : 'text-gray-700'}`}>
                 <li>• Utilisez un mot de passe unique et complexe</li>
-                <li>• Activez l'authentification à deux facteurs</li>
+                <li>• Activez l&apos;authentification à deux facteurs</li>
                 <li>• Ne partagez jamais vos clés API publiquement</li>
                 <li>• Révoquez les sessions inconnues immédiatement</li>
                 <li>• Changez votre mot de passe régulièrement</li>
