@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
+import { fetchServerSettings, saveServerSettings } from '@/lib/settings-api';
 import {
   ArrowLeft,
   User,
@@ -14,9 +14,7 @@ import {
   Phone,
   MapPin,
   Building,
-  Globe,
   Camera,
-  Save,
   Edit,
   Check,
   X
@@ -25,7 +23,6 @@ import {
 export default function ProfileSettingsPage() {
   const { isDark } = useTheme();
   const router = useRouter();
-  const { data: session } = useSession();
   
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -50,20 +47,44 @@ export default function ProfileSettingsPage() {
   const [savedProfile, setSavedProfile] = useState(defaultProfile);
 
   useEffect(() => {
-    const loaded = loadClientSetting('profile', defaultProfile);
-    setProfile(loaded);
-    setSavedProfile(loaded);
+    const localLoaded = loadClientSetting('profile', defaultProfile);
+    setProfile(localLoaded);
+    setSavedProfile(localLoaded);
+
+    const loadFromServer = async () => {
+      const server = await fetchServerSettings();
+      const serverProfile = server?.profile;
+      if (!serverProfile) return;
+
+      const merged = {
+        ...localLoaded,
+        ...serverProfile,
+      };
+
+      setProfile(merged);
+      setSavedProfile(merged);
+      saveClientSetting('profile', merged);
+    };
+
+    loadFromServer();
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
+
+    const response = await saveServerSettings({ profile });
+
+    if (!response.ok) {
       setSaving(false);
-      setEditing(false);
-      setSavedProfile(profile);
-      saveClientSetting('profile', profile);
-      toast.success('Profil sauvegardé avec succès');
-    }, 1000);
+      toast.error(response.error || 'Impossible de sauvegarder le profil');
+      return;
+    }
+
+    setSaving(false);
+    setEditing(false);
+    setSavedProfile(profile);
+    saveClientSetting('profile', profile);
+    toast.success('Profil sauvegardé avec succès');
   };
 
   const handleCancel = () => {

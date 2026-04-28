@@ -6,6 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
+import { fetchServerSettings, saveServerSettings } from '@/lib/settings-api';
 import {
   ArrowLeft,
   Shield,
@@ -48,6 +49,7 @@ export default function SecuritySettingsPage() {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   
   const [passwordData, setPasswordData] = useState({
     current: '',
@@ -104,20 +106,51 @@ export default function SecuritySettingsPage() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>(defaultApiKeys);
 
   useEffect(() => {
-    const loaded = loadClientSetting('security', {
+    const localLoaded = loadClientSetting('security', {
       twoFactorEnabled: false,
       sessions: defaultSessions,
       apiKeys: defaultApiKeys,
     });
 
-    setTwoFactorEnabled(loaded.twoFactorEnabled);
-    setSessions(loaded.sessions);
-    setApiKeys(loaded.apiKeys);
+    setTwoFactorEnabled(localLoaded.twoFactorEnabled);
+    setSessions(localLoaded.sessions);
+    setApiKeys(localLoaded.apiKeys);
+
+    const loadFromServer = async () => {
+      const server = await fetchServerSettings();
+      if (!server?.security) return;
+
+      setTwoFactorEnabled(Boolean(server.security.twoFactorEnabled));
+
+      if (Array.isArray(server.security.sessions)) {
+        setSessions(server.security.sessions as Session[]);
+      }
+
+      if (Array.isArray(server.security.apiKeys)) {
+        setApiKeys(server.security.apiKeys as ApiKey[]);
+      }
+    };
+
+    loadFromServer().finally(() => setIsHydrated(true));
   }, []);
 
   useEffect(() => {
     saveClientSetting('security', { twoFactorEnabled, sessions, apiKeys });
-  }, [twoFactorEnabled, sessions, apiKeys]);
+
+    if (!isHydrated) return;
+
+    const persist = async () => {
+      await saveServerSettings({
+        security: {
+          twoFactorEnabled,
+          sessions,
+          apiKeys,
+        },
+      });
+    };
+
+    persist();
+  }, [twoFactorEnabled, sessions, apiKeys, isHydrated]);
 
   const handlePasswordChange = async () => {
     setPasswordError('');
@@ -161,13 +194,24 @@ export default function SecuritySettingsPage() {
     }
   };
 
-  const handleToggleTwoFactor = () => {
-    if (!twoFactorEnabled) {
+  const handleToggleTwoFactor = async () => {
+    const nextValue = !twoFactorEnabled;
+
+    if (nextValue) {
       toast.info('QR 2FA prêt : scannez-le avec votre app d’authentification.');
     } else {
       toast.info('Authentification 2FA désactivée.');
     }
-    setTwoFactorEnabled(!twoFactorEnabled);
+
+    setTwoFactorEnabled(nextValue);
+    saveClientSetting('security', { twoFactorEnabled: nextValue, sessions, apiKeys });
+
+    if (isHydrated) {
+      const response = await saveServerSettings({ security: { twoFactorEnabled: nextValue } });
+      if (!response.ok) {
+        toast.error(response.error || 'Impossible de synchroniser la sécurité');
+      }
+    }
   };
 
   const handleRevokeSession = (sessionId: string) => {

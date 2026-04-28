@@ -6,6 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
+import { fetchServerSettings, saveServerSettings } from '@/lib/settings-api';
 import {
   ArrowLeft,
   Database,
@@ -43,6 +44,7 @@ export default function DatabaseSettingsPage() {
   const [backupFrequency, setBackupFrequency] = useState('daily');
   const [backupTime, setBackupTime] = useState('03:00');
   const [retentionDays, setRetentionDays] = useState('30');
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const defaultBackups: Backup[] = [
     {
@@ -81,7 +83,7 @@ export default function DatabaseSettingsPage() {
   const [backups, setBackups] = useState<Backup[]>(defaultBackups);
 
   useEffect(() => {
-    const loaded = loadClientSetting('database', {
+    const localLoaded = loadClientSetting('database', {
       autoBackup: true,
       backupFrequency: 'daily',
       backupTime: '03:00',
@@ -89,11 +91,28 @@ export default function DatabaseSettingsPage() {
       backups: defaultBackups,
     });
 
-    setAutoBackup(loaded.autoBackup);
-    setBackupFrequency(loaded.backupFrequency);
-    setBackupTime(loaded.backupTime);
-    setRetentionDays(loaded.retentionDays);
-    setBackups(loaded.backups);
+  setAutoBackup(localLoaded.autoBackup);
+  setBackupFrequency(localLoaded.backupFrequency);
+  setBackupTime(localLoaded.backupTime);
+  setRetentionDays(localLoaded.retentionDays);
+  setBackups(localLoaded.backups);
+
+    const loadFromServer = async () => {
+      const server = await fetchServerSettings();
+      const serverDb = server?.database;
+      if (!serverDb) return;
+
+      setAutoBackup(Boolean(serverDb.autoBackup));
+      setBackupFrequency(String(serverDb.backupFrequency || 'daily'));
+      setBackupTime(String(serverDb.backupTime || '03:00'));
+      setRetentionDays(String(serverDb.retentionDays || '30'));
+
+      if (Array.isArray(serverDb.backups)) {
+        setBackups(serverDb.backups as Backup[]);
+      }
+    };
+
+    loadFromServer().finally(() => setIsLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -105,6 +124,24 @@ export default function DatabaseSettingsPage() {
       backups,
     });
   }, [autoBackup, backupFrequency, backupTime, retentionDays, backups]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const persistServer = async () => {
+      await saveServerSettings({
+        database: {
+          autoBackup,
+          backupFrequency,
+          backupTime,
+          retentionDays,
+          backups,
+        },
+      });
+    };
+
+    persistServer();
+  }, [isLoaded, autoBackup, backupFrequency, backupTime, retentionDays, backups]);
 
   const handleBackup = () => {
     setBacking(true);
@@ -123,7 +160,7 @@ export default function DatabaseSettingsPage() {
     }, 2000);
   };
 
-  const handleRestore = (backupId: string) => {
+  const handleRestore = (_backupId: string) => {
     if (confirm('⚠️ ATTENTION : La restauration remplacera toutes les données actuelles. Voulez-vous continuer ?')) {
       setRestoring(true);
       setTimeout(() => {

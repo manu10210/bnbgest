@@ -20,6 +20,7 @@ import {
   X
 } from 'lucide-react';
 import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
+import { fetchServerSettings, saveServerSettings } from '@/lib/settings-api';
 
 interface Alert {
   id: string;
@@ -78,6 +79,7 @@ export default function AlertsPage() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAlert, setEditingAlert] = useState<Alert | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [newAlert, setNewAlert] = useState<Partial<Alert>>({
     name: '',
     metric: 'responseTime',
@@ -91,11 +93,34 @@ export default function AlertsPage() {
   useEffect(() => {
     const loaded = loadClientSetting('alerts', defaultAlerts);
     setAlerts(loaded);
+
+    const loadFromServer = async () => {
+      const server = await fetchServerSettings();
+      const serverAlerts = server?.alerts?.items;
+
+      if (Array.isArray(serverAlerts)) {
+        setAlerts(serverAlerts as Alert[]);
+        saveClientSetting('alerts', serverAlerts);
+      }
+    };
+
+    loadFromServer().finally(() => setIsHydrated(true));
   }, []);
 
   useEffect(() => {
     saveClientSetting('alerts', alerts);
-  }, [alerts]);
+
+    if (!isHydrated) return;
+
+    const persist = async () => {
+      const response = await saveServerSettings({ alerts: { items: alerts } });
+      if (!response.ok) {
+        console.error('Sync alerts error:', response.error || 'Unknown error');
+      }
+    };
+
+    persist();
+  }, [alerts, isHydrated]);
 
   const metricLabels = {
     responseTime: 'Temps de réponse',

@@ -6,6 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
+import { fetchServerSettings, saveServerSettings } from '@/lib/settings-api';
 import {
   ArrowLeft,
   Globe,
@@ -34,8 +35,24 @@ export default function LanguageSettingsPage() {
   const [settings, setSettings] = useState(defaultSettings);
 
   useEffect(() => {
-    const loaded = loadClientSetting('language', defaultSettings);
-    setSettings(loaded);
+    const localLoaded = loadClientSetting('language', defaultSettings);
+    setSettings(localLoaded);
+
+    const loadFromServer = async () => {
+      const server = await fetchServerSettings();
+      const serverLanguage = server?.language;
+      if (!serverLanguage) return;
+
+      const merged = {
+        ...localLoaded,
+        ...serverLanguage,
+      };
+
+      setSettings(merged);
+      saveClientSetting('language', merged);
+    };
+
+    loadFromServer();
   }, []);
 
   const languages = [
@@ -89,13 +106,19 @@ export default function LanguageSettingsPage() {
     { value: '6', label: 'Samedi' }
   ];
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
+
+    const response = await saveServerSettings({ language: settings });
+    if (!response.ok) {
       setSaving(false);
-      saveClientSetting('language', settings);
-      toast.success('Paramètres régionaux sauvegardés');
-    }, 1000);
+      toast.error(response.error || 'Impossible de sauvegarder les paramètres régionaux');
+      return;
+    }
+
+    setSaving(false);
+    saveClientSetting('language', settings);
+    toast.success('Paramètres régionaux sauvegardés');
   };
 
   return (

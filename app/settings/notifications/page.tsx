@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import PushNotificationButton from '@/components/PushNotificationButton';
 import { toast } from 'sonner';
 import { loadClientSetting, saveClientSetting } from '@/lib/client-settings';
+import { fetchServerSettings, saveServerSettings } from '@/lib/settings-api';
 import {
   ArrowLeft,
   Bell,
@@ -14,12 +15,8 @@ import {
   MessageSquare,
   Calendar,
   AlertCircle,
-  CheckCircle,
-  Clock,
   Users,
   Home,
-  Wrench,
-  Star,
   Save
 } from 'lucide-react';
 
@@ -199,15 +196,45 @@ export default function NotificationsSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const loaded = loadClientSetting('notifications', {
+    const localLoaded = loadClientSetting('notifications', {
       notifications: defaultNotifications,
       emailAddress: 'admin@bnbgest.com',
       smsNumber: '+33 6 12 34 56 78',
     });
 
-    setNotifications(loaded.notifications);
-    setEmailAddress(loaded.emailAddress);
-    setSmsNumber(loaded.smsNumber);
+    setNotifications(localLoaded.notifications);
+    setEmailAddress(localLoaded.emailAddress);
+    setSmsNumber(localLoaded.smsNumber);
+
+    const loadFromServer = async () => {
+      const server = await fetchServerSettings();
+      const serverNotif = server?.notifications;
+      if (!serverNotif) return;
+
+      if (Array.isArray(serverNotif.matrix)) {
+        setNotifications(serverNotif.matrix as NotificationSetting[]);
+      } else {
+        setNotifications((prev) => prev.map((cat) => ({
+          ...cat,
+          settings: cat.settings.map((setting) => ({
+            ...setting,
+            email: Boolean(serverNotif.emailNotifications),
+            sms: Boolean(serverNotif.smsNotifications),
+            push: Boolean(serverNotif.pushNotifications),
+          })),
+        })));
+      }
+
+      const contacts = serverNotif.contacts as { emailAddress?: string; smsNumber?: string } | null;
+      if (contacts?.emailAddress) {
+        setEmailAddress(contacts.emailAddress);
+      }
+      if (contacts?.smsNumber) {
+        setSmsNumber(contacts.smsNumber);
+      }
+    };
+
+    loadFromServer();
   }, []);
 
   const handleToggle = (categoryId: string, settingId: string, channel: 'email' | 'sms' | 'push') => {
@@ -230,17 +257,36 @@ export default function NotificationsSettingsPage() {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
+
+    const firstSetting = notifications[0]?.settings?.[0];
+    const response = await saveServerSettings({
+      notifications: {
+        emailNotifications: firstSetting?.email ?? true,
+        smsNotifications: firstSetting?.sms ?? false,
+        pushNotifications: firstSetting?.push ?? true,
+        matrix: notifications,
+        contacts: {
+          emailAddress,
+          smsNumber,
+        },
+      },
+    });
+
+    if (!response.ok) {
       setSaving(false);
-      saveClientSetting('notifications', {
-        notifications,
-        emailAddress,
-        smsNumber,
-      });
-      toast.success('Préférences de notifications sauvegardées');
-    }, 1000);
+      toast.error(response.error || 'Impossible de sauvegarder les notifications');
+      return;
+    }
+
+    setSaving(false);
+    saveClientSetting('notifications', {
+      notifications,
+      emailAddress,
+      smsNumber,
+    });
+    toast.success('Préférences de notifications sauvegardées');
   };
 
   const getTotalEnabled = () => {

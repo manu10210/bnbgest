@@ -152,6 +152,12 @@ model UserSettings {
   timeFormat         String   @default("24h")
   numberFormat       String   @default("space")
   firstDayOfWeek     Int      @default(1)
+  notificationsMatrix Json?
+  notificationContacts Json?
+  customAlerts       Json?
+  securitySessions   Json?
+  securityApiKeys    Json?
+  backupHistory      Json?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
