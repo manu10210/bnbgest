@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
@@ -12,7 +12,6 @@ import {
   Clock,
   Zap,
   AlertCircle,
-  Calendar,
   Download,
   RefreshCw,
   BarChart3,
@@ -149,7 +148,7 @@ export default function MetricsHistoryPage() {
             <div className="flex items-center gap-2">
               <select
                 value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value as any)}
+                onChange={(e) => setTimeRange(e.target.value as '1h' | '24h' | '7d' | '30d')}
                 className={`px-4 py-2 rounded-lg ${
                   isDark 
                     ? 'bg-white/5 text-white border border-white/10' 

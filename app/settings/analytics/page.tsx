@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import AdminSidebar from '@/components/AdminSidebar';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
@@ -9,8 +9,6 @@ import {
   BarChart3,
   Activity,
   TrendingUp,
-  TrendingDown,
-  Clock,
   Eye,
   MousePointer,
   Zap,
@@ -18,7 +16,6 @@ import {
   CheckCircle,
   RefreshCw,
   Download,
-  Calendar,
   Users,
   Globe,
   Smartphone,
@@ -214,7 +211,7 @@ export default function AnalyticsSettingsPage() {
             <div className="flex items-center gap-2">
               <select
                 value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value as any)}
+                onChange={(e) => setTimeRange(e.target.value as '24h' | '7d' | '30d')}
                 className={`px-4 py-2 rounded-lg ${
                   isDark 
                     ? 'bg-white/5 text-white border border-white/10' 

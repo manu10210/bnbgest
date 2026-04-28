@@ -71,7 +71,7 @@ export default function SettingsPage() {
   
   const [vercelInfo, setVercelInfo] = useState<VercelEnvInfo | null>(null);
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
 
   const settingsCards: SettingCard[] = [

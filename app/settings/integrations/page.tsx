@@ -54,8 +54,8 @@ export default function IntegrationsPage() {
               <ol className={`list-decimal list-inside space-y-1 text-sm ${isDark ? 'text-gray-400' : 'text-gray-700'}`}>
                 <li>Connectez-vous à votre compte Airbnb</li>
                 <li>Allez dans votre annonce</li>
-                <li>Cliquez sur "Calendrier"</li>
-                <li>Cherchez "Exporter le calendrier"</li>
+                <li>Cliquez sur &quot;Calendrier&quot;</li>
+                <li>Cherchez &quot;Exporter le calendrier&quot;</li>
                 <li>Copiez l&apos;URL du calendrier (.ics)</li>
               </ol>
             </div>
