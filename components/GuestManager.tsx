@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { useBNB, Guest } from '../contexts/BNBContext';
+import { useBNB, Guest, Booking, Property } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -18,6 +18,9 @@ import {
 interface GuestManagerProps {
   compact?: boolean;
   showFilters?: boolean;
+  guestsData?: Guest[];
+  bookingsData?: Booking[];
+  propertiesData?: Property[];
 }
 
 type ViewMode = 'table' | 'grid' | 'cards';
@@ -98,9 +101,19 @@ const LANGUAGE_FLAGS: { [key: string]: string } = {
   'pt': '🇵🇹 Português',
 };
 
-export default function GuestManager({ compact = false, showFilters = true }: GuestManagerProps) {
-  const { guests, bookings, properties, addGuest, updateGuest } = useBNB();
+export default function GuestManager({
+  compact = false,
+  showFilters = true,
+  guestsData,
+  bookingsData,
+  propertiesData,
+}: GuestManagerProps) {
+  const { guests: ctxGuests, bookings: ctxBookings, properties: ctxProperties, addGuest, updateGuest } = useBNB();
   const { isDark } = useTheme();
+
+  const guests = guestsData ?? ctxGuests;
+  const bookings = bookingsData ?? ctxBookings;
+  const properties = propertiesData ?? ctxProperties;
 
   // États principaux
   const [viewMode, setViewMode] = useState<ViewMode>('table');

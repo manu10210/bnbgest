@@ -38,7 +38,7 @@ const GuestMessagingHub = dynamic(() => import('./GuestMessagingHub'), { ssr: fa
 const OccupancyOptimizer = dynamic(() => import('./OccupancyOptimizer'), { ssr: false });
 const GmailImporter = dynamic(() => import('./GmailImporter'), { ssr: false });
 import LanguageSelector from './LanguageSelector';
-import { useBNB, Booking, Guest, Review } from '../contexts/BNBContext';
+import { useBNB, Booking, Guest, Review, Property } from '../contexts/BNBContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -102,6 +102,34 @@ type PropertyTabItem = {
   status?: 'active' | 'inactive' | 'maintenance' | 'blocked';
 };
 
+function toContextProperty(p: PropertyTabItem): Property {
+  return {
+    id: p.id,
+    name: p.name,
+    address: p.address,
+    city: p.city || '',
+    country: 'FR',
+    type: 'apartment',
+    bedrooms: 1,
+    bathrooms: 1,
+    maxGuests: p.maxGuests || 0,
+    amenities: [],
+    price: p.price || 0,
+    description: '',
+    images: [],
+    status: (p.status === 'blocked' ? 'inactive' : (p.status || 'active')) as Property['status'],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ownerId: 0,
+    checkInTime: '15:00',
+    checkOutTime: '11:00',
+    cleaningFee: 0,
+    securityDeposit: 0,
+    minimumStay: 1,
+    availabilityCalendar: [],
+  };
+}
+
 type PropertyTabBooking = {
   id: number;
   propertyId: number;
@@ -115,6 +143,21 @@ type PropertyTabBooking = {
     email: string;
     phone: string;
   };
+};
+
+type GuestApiItem = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  language: string;
+  nationality?: string;
+  status: 'active' | 'inactive' | 'blocked';
+  totalBookings: number;
+  totalSpent: number;
+  rating: number;
+  createdAt: string;
+  lastBooking?: string;
 };
 
 export default function AdminDashboard() {
@@ -179,6 +222,8 @@ export default function AdminDashboard() {
   const [propertyStatusFilter, setPropertyStatusFilter] = useState<'all' | 'active' | 'maintenance' | 'inactive'>('all');
   const [dbProperties, setDbProperties] = useState<PropertyTabItem[]>([]);
   const [dbBookings, setDbBookings] = useState<PropertyTabBooking[]>([]);
+  const [dbBookingsForManagers, setDbBookingsForManagers] = useState<Booking[]>([]);
+  const [dbGuests, setDbGuests] = useState<Guest[]>([]);
   const [dbPropertiesLoaded, setDbPropertiesLoaded] = useState(false);
   const [dbPropertiesLoading, setDbPropertiesLoading] = useState(false);
   const [dbPropertiesError, setDbPropertiesError] = useState<string | null>(null);
@@ -365,12 +410,15 @@ export default function AdminDashboard() {
         fetch('/api/bookings?limit=1200', { credentials: 'include' }),
       ]);
 
+      const guestsRes = await fetch('/api/guests?limit=1000', { credentials: 'include' });
+
       if (!propRes.ok || !bookingRes.ok) {
         throw new Error('Impossible de charger les données réelles');
       }
 
       const propJson = await propRes.json();
       const bookingJson = await bookingRes.json();
+  const guestsJson = guestsRes.ok ? await guestsRes.json() : { guests: [] };
 
       const normalizedProperties: PropertyTabItem[] = (propJson.properties || []).map((p: {
         id: number;
@@ -418,8 +466,81 @@ export default function AdminDashboard() {
         },
       }));
 
+      const normalizedBookingsForManagers: Booking[] = (bookingJson.bookings || []).map((b: {
+        id: number;
+        propertyId: number;
+        checkIn: string;
+        checkOut: string;
+        guests: number;
+        totalPrice: number;
+        status?: string;
+        guestName?: string;
+        guestEmail?: string;
+        guestPhone?: string | null;
+        specialRequests?: string | null;
+        createdAt?: string;
+        updatedAt?: string;
+        payments?: { status?: string; amount?: number }[];
+      }) => {
+        const paymentStatuses = (b.payments || []).map(p => (p.status || '').toUpperCase());
+        const hasCompleted = paymentStatuses.includes('COMPLETED');
+        const hasPending = paymentStatuses.includes('PENDING');
+        const hasRefunded = paymentStatuses.includes('REFUNDED');
+        const paymentStatus: Booking['paymentStatus'] = hasRefunded
+          ? 'refunded'
+          : hasCompleted && hasPending
+            ? 'partial'
+            : hasCompleted
+              ? 'paid'
+              : 'pending';
+
+        return {
+          id: b.id,
+          propertyId: b.propertyId,
+          guestId: 0,
+          checkIn: b.checkIn,
+          checkOut: b.checkOut,
+          guests: b.guests,
+          totalPrice: b.totalPrice ?? 0,
+          status: normalizeBookingStatus(b.status) as Booking['status'],
+          paymentStatus,
+          createdAt: b.createdAt || new Date().toISOString(),
+          updatedAt: b.updatedAt || new Date().toISOString(),
+          specialRequests: b.specialRequests || '',
+          guestInfo: {
+            name: b.guestName || 'Voyageur',
+            email: b.guestEmail || '',
+            phone: b.guestPhone || '',
+          },
+        };
+      });
+
+      const normalizedGuests: Guest[] = (guestsJson.guests || []).map((g: GuestApiItem) => ({
+        id: g.id,
+        name: g.name,
+        email: g.email || '',
+        phone: g.phone || '',
+        avatar: undefined,
+        nationality: g.nationality,
+        language: g.language || 'fr',
+        totalBookings: g.totalBookings || 0,
+        totalSpent: g.totalSpent || 0,
+        rating: g.rating || 0,
+        status: g.status || 'active',
+        createdAt: g.createdAt || new Date().toISOString(),
+        lastBooking: g.lastBooking,
+        preferences: {
+          smoking: false,
+          pets: false,
+          parties: false,
+          preferredAmenities: [],
+        },
+      }));
+
       setDbProperties(normalizedProperties);
       setDbBookings(normalizedBookings);
+  setDbBookingsForManagers(normalizedBookingsForManagers);
+  setDbGuests(normalizedGuests);
       setDbPropertiesLoaded(true);
     } catch {
       setDbPropertiesError('Données DB indisponibles, affichage local de secours.');
@@ -430,7 +551,7 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (activeTab === 'properties') {
+    if (activeTab === 'properties' || activeTab === 'bookings' || activeTab === 'guests') {
       fetchRealPropertiesData();
     }
   }, [activeTab]);
@@ -459,6 +580,11 @@ export default function AdminDashboard() {
 
   const propertiesData = dbPropertiesLoaded ? dbProperties : properties;
   const bookingsData = dbPropertiesLoaded ? dbBookings : bookings;
+  const bookingsManagerData = dbPropertiesLoaded ? dbBookingsForManagers : bookings;
+  const guestsManagerData = dbPropertiesLoaded ? dbGuests : guests;
+  const guestManagerPropertiesData: Property[] = dbPropertiesLoaded
+    ? dbProperties.map(toContextProperty)
+    : properties;
 
   const getRevenueByPropertyData = (propertyId: number, startDate: string, endDate: string) => {
     const start = new Date(startDate).getTime();
@@ -749,7 +875,7 @@ export default function AdminDashboard() {
             {/* Bookings Tab */}
              {activeTab === 'bookings' && (
                 <BookingsManager
-                  filteredBookings={filteredBookings}
+                  filteredBookings={selectedPropertyId ? bookingsManagerData.filter(b => b.propertyId === selectedPropertyId) : bookingsManagerData}
                   onEditBooking={setBookingToEdit}
                   onNewBooking={handleNewBooking}
                 />
@@ -1027,7 +1153,11 @@ export default function AdminDashboard() {
             {/* Guests Tab */}
             {activeTab === 'guests' && (
               <div className="animate-fadeInUp">
-                <GuestManager />
+                <GuestManager
+                  guestsData={guestsManagerData}
+                  bookingsData={bookingsManagerData}
+                  propertiesData={guestManagerPropertiesData}
+                />
               </div>
             )}
 
