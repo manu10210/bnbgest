@@ -150,6 +150,7 @@ export default function AdminDashboard() {
   const [quickActionsCollapsed, setQuickActionsCollapsed] = useState(false);
   const [propertySearch, setPropertySearch] = useState('');
   const [propertySort, setPropertySort] = useState<'revenue-desc' | 'bookings-desc' | 'name-asc' | 'price-desc'>('revenue-desc');
+  const [propertyStatusFilter, setPropertyStatusFilter] = useState<'all' | 'active' | 'maintenance' | 'inactive'>('all');
 
   // New booking form
   const [newBooking, setNewBooking] = useState({
@@ -307,9 +308,45 @@ export default function AdminDashboard() {
   const currentYear = new Date().getFullYear();
   const yearStart = `${currentYear}-01-01`;
   const yearEnd = `${currentYear}-12-31`;
+  const now = new Date();
+  const monthStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const daysInCurrentMonth = monthEndDate.getDate();
   const totalRevenue = properties.reduce((sum, p) => sum + getRevenueByProperty(p.id, yearStart, yearEnd), 0);
+  const avgNightlyPrice = properties.length > 0
+    ? Math.round(properties.reduce((sum, p) => sum + (p.price || 0), 0) / properties.length)
+    : 0;
+  const propertyStatusCounts = properties.reduce(
+    (acc, property) => {
+      const status = property.status === 'blocked' ? 'inactive' : property.status;
+      if (status === 'active') acc.active += 1;
+      if (status === 'maintenance') acc.maintenance += 1;
+      if (status === 'inactive') acc.inactive += 1;
+      return acc;
+    },
+    { active: 0, maintenance: 0, inactive: 0 }
+  );
+
+  const getPropertyBookedNightsThisMonth = (propertyId: number) => {
+    return bookings
+      .filter(b => b.propertyId === propertyId && !['cancelled', 'no_show'].includes(b.status))
+      .reduce((sum, booking) => {
+        const checkIn = new Date(booking.checkIn);
+        const checkOut = new Date(booking.checkOut);
+        const overlapStart = checkIn > monthStartDate ? checkIn : monthStartDate;
+        const overlapEnd = checkOut < monthEndDate ? checkOut : monthEndDate;
+        if (overlapEnd <= overlapStart) return sum;
+        const nights = Math.max(0, Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / 86400000));
+        return sum + nights;
+      }, 0);
+  };
+
   const propertiesFiltered = properties
     .filter((property) => {
+      if (propertyStatusFilter !== 'all') {
+        const normalizedStatus = property.status === 'blocked' ? 'inactive' : property.status;
+        if (normalizedStatus !== propertyStatusFilter) return false;
+      }
       if (!propertySearch.trim()) return true;
       const q = propertySearch.toLowerCase().trim();
       return (
@@ -582,6 +619,16 @@ export default function AdminDashboard() {
                         />
                       </div>
                       <select
+                        value={propertyStatusFilter}
+                        onChange={(e) => setPropertyStatusFilter(e.target.value as 'all' | 'active' | 'maintenance' | 'inactive')}
+                        className={`rounded-xl px-3 py-2 text-sm border outline-none ${isDark ? 'bg-white/[0.03] border-white/10 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                      >
+                        <option value="all">Statut: Tous</option>
+                        <option value="active">Actives ({propertyStatusCounts.active})</option>
+                        <option value="maintenance">Maintenance ({propertyStatusCounts.maintenance})</option>
+                        <option value="inactive">Inactives ({propertyStatusCounts.inactive})</option>
+                      </select>
+                      <select
                         value={propertySort}
                         onChange={(e) => setPropertySort(e.target.value as 'revenue-desc' | 'bookings-desc' | 'name-asc' | 'price-desc')}
                         className={`rounded-xl px-3 py-2 text-sm border outline-none ${isDark ? 'bg-white/[0.03] border-white/10 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
@@ -591,11 +638,24 @@ export default function AdminDashboard() {
                         <option value="price-desc">Trier: Prix/nuit décroissant</option>
                         <option value="name-asc">Trier: Nom A → Z</option>
                       </select>
+                    </div>
+                  )}
+
+                  {properties.length > 0 && (
+                    <div className="mb-5 grid md:grid-cols-3 gap-3">
                       <div className={`rounded-xl px-3 py-2 text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
                         <span>Revenus annuels (vue)</span>
                         <span className="font-bold text-emerald-500">
                           {propertiesFiltered.reduce((sum, p) => sum + getRevenueByProperty(p.id, yearStart, yearEnd), 0).toLocaleString('fr-FR')}€
                         </span>
+                      </div>
+                      <div className={`rounded-xl px-3 py-2 text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
+                        <span>Prix moyen / nuit</span>
+                        <span className="font-bold text-indigo-500">{avgNightlyPrice.toLocaleString('fr-FR')}€</span>
+                      </div>
+                      <div className={`rounded-xl px-3 py-2 text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
+                        <span>CA total portefeuille</span>
+                        <span className="font-bold text-emerald-500">{totalRevenue.toLocaleString('fr-FR')}€</span>
                       </div>
                     </div>
                   )}
@@ -626,6 +686,9 @@ export default function AdminDashboard() {
                       {propertiesFiltered.map(property => {
                         const revenue = getRevenueByProperty(property.id, yearStart, yearEnd);
                         const propBookings = bookings.filter(b => b.propertyId === property.id);
+                        const bookedNightsMonth = getPropertyBookedNightsThisMonth(property.id);
+                        const occupancyMonth = Math.min(100, Math.round((bookedNightsMonth / Math.max(1, daysInCurrentMonth)) * 100));
+                        const statusLabel = property.status === 'blocked' ? 'inactive' : property.status;
                         
                         // Trouver la prochaine réservation (ou en cours)
                         const nextBooking = propBookings
@@ -660,9 +723,23 @@ export default function AdminDashboard() {
                                       <MapPin className="w-3.5 h-3.5 text-indigo-500" />
                                       {property.address}
                                     </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
+                                        statusLabel === 'active'
+                                          ? 'bg-emerald-500/15 text-emerald-500'
+                                          : statusLabel === 'maintenance'
+                                            ? 'bg-amber-500/15 text-amber-500'
+                                            : 'bg-gray-500/15 text-gray-500'
+                                      }`}>
+                                        {statusLabel}
+                                      </span>
+                                      <span className={`text-[11px] font-semibold ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>
+                                        Occupation mois: {occupancyMonth}%
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                                <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 translate-x-0 md:translate-x-2 md:group-hover:translate-x-0">
                                   <button onClick={() => setPropertyToEdit(property)} className={`p-2.5 rounded-xl transition-all hover:scale-110 ${
                                     isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-gray-50 hover:bg-white text-gray-600 shadow-sm border border-gray-100'
                                   }`}>
@@ -694,6 +771,23 @@ export default function AdminDashboard() {
                                 }`}>
                                   <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Capacité</p>
                                   <p className={`font-black text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{property.maxGuests}</p>
+                                </div>
+                              </div>
+
+                              <div className={`mb-6 rounded-2xl p-3 border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-gray-50'}`}>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className={`text-[11px] font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                    Nuits réservées ce mois
+                                  </span>
+                                  <span className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                                    {bookedNightsMonth}/{daysInCurrentMonth}
+                                  </span>
+                                </div>
+                                <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
+                                  <div
+                                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all"
+                                    style={{ width: `${occupancyMonth}%` }}
+                                  />
                                 </div>
                               </div>
 
