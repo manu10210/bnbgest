@@ -687,6 +687,35 @@ export default function AdminDashboard() {
     ? dbProperties.map(toContextProperty)
     : properties;
 
+  const AIRBNB_INACTIVITY_DAYS = 30;
+  const airbnbInactivityCutoff = new Date(Date.now() - AIRBNB_INACTIVITY_DAYS * 24 * 60 * 60 * 1000);
+  const getLastBookingActivityDate = (propertyId: number): Date | null => {
+    const candidates = bookingsManagerData
+      .filter(b => b.propertyId === propertyId)
+      .map((b) => {
+        const created = b.createdAt ? new Date(b.createdAt) : null;
+        const checkIn = b.checkIn ? new Date(b.checkIn) : null;
+        if (created && !Number.isNaN(created.getTime())) return created;
+        if (checkIn && !Number.isNaN(checkIn.getTime())) return checkIn;
+        return null;
+      })
+      .filter((d): d is Date => !!d);
+
+    if (candidates.length === 0) return null;
+    return candidates.sort((a, b) => b.getTime() - a.getTime())[0];
+  };
+
+  const hiddenByAirbnbInactivityIds = new Set(
+    propertiesData
+      .filter((property) => {
+        const lastActivity = getLastBookingActivityDate(property.id);
+        if (!lastActivity) return true;
+        return lastActivity.getTime() < airbnbInactivityCutoff.getTime();
+      })
+      .map((p) => p.id)
+  );
+  const visiblePropertiesData = propertiesData.filter(p => !hiddenByAirbnbInactivityIds.has(p.id));
+
   const getRevenueByPropertyData = (propertyId: number, startDate: string, endDate: string) => {
     const start = new Date(startDate).getTime();
     const end = new Date(endDate).getTime();
@@ -706,10 +735,13 @@ export default function AdminDashboard() {
   const monthEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const daysInCurrentMonth = monthEndDate.getDate();
   const totalRevenue = propertiesData.reduce((sum, p) => sum + getRevenueByPropertyData(p.id, yearStart, yearEnd), 0);
-  const avgNightlyPrice = propertiesData.length > 0
-    ? Math.round(propertiesData.reduce((sum, p) => sum + (p.price || 0), 0) / propertiesData.length)
+  const hiddenPropertiesRevenue = propertiesData
+    .filter((p) => hiddenByAirbnbInactivityIds.has(p.id))
+    .reduce((sum, p) => sum + getRevenueByPropertyData(p.id, yearStart, yearEnd), 0);
+  const avgNightlyPrice = visiblePropertiesData.length > 0
+    ? Math.round(visiblePropertiesData.reduce((sum, p) => sum + (p.price || 0), 0) / visiblePropertiesData.length)
     : 0;
-  const propertyStatusCounts = propertiesData.reduce(
+  const propertyStatusCounts = visiblePropertiesData.reduce(
     (acc, property) => {
       const status = property.status === 'blocked' ? 'inactive' : property.status;
       if (status === 'active') acc.active += 1;
@@ -734,7 +766,7 @@ export default function AdminDashboard() {
       }, 0);
   };
 
-  const propertiesFiltered = propertiesData
+  const propertiesFiltered = visiblePropertiesData
     .filter((property) => {
       if (propertyStatusFilter !== 'all') {
         const normalizedStatus = property.status === 'blocked' ? 'inactive' : property.status;
@@ -989,8 +1021,11 @@ export default function AdminDashboard() {
                     <div>
                       <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Gestion des Propriétés</h2>
                       <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>
-                        Gérez vos <span className="font-bold text-[#FF385C]">{propertiesData.length}</span> propriété{propertiesData.length > 1 ? 's' : ''}
-                        {propertiesData.length > 0 && (
+                        Gérez vos <span className="font-bold text-[#FF385C]">{visiblePropertiesData.length}</span> propriété{visiblePropertiesData.length > 1 ? 's' : ''} visible{visiblePropertiesData.length > 1 ? 's' : ''}
+                        {hiddenByAirbnbInactivityIds.size > 0 && (
+                          <span className="ml-2">• <span className="font-semibold text-amber-500">{hiddenByAirbnbInactivityIds.size}</span> masquée{hiddenByAirbnbInactivityIds.size > 1 ? 's' : ''} (&gt;30j sans nouvelle réservation)</span>
+                        )}
+                        {visiblePropertiesData.length > 0 && (
                           <span className="ml-2">• <span className="font-semibold">{propertiesFiltered.length}</span> affichée{propertiesFiltered.length > 1 ? 's' : ''}</span>
                         )}
                       </p>
@@ -1000,7 +1035,16 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
 
-                  {propertiesData.length > 0 && (
+                  {hiddenByAirbnbInactivityIds.size > 0 && (
+                    <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                      Certaines propriétés sont automatiquement masquées car aucune nouvelle réservation n&apos;a été détectée depuis plus de {AIRBNB_INACTIVITY_DAYS} jours (annonce probablement inactive sur Airbnb). Les revenus restent conservés dans vos données et dans les KPI globaux.
+                      {hiddenPropertiesRevenue > 0 && (
+                        <span className="ml-1 font-semibold">Revenus historiques conservés: {hiddenPropertiesRevenue.toLocaleString('fr-FR')}€.</span>
+                      )}
+                    </div>
+                  )}
+
+                  {visiblePropertiesData.length > 0 && (
                     <div className="mb-5 grid md:grid-cols-3 gap-3">
                       <div className={`flex items-center gap-2 rounded-xl px-3 py-2 border ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'}`}>
                         <Search className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
@@ -1034,7 +1078,7 @@ export default function AdminDashboard() {
                     </div>
                   )}
 
-                  {propertiesData.length > 0 && (
+                  {visiblePropertiesData.length > 0 && (
                     <div className="mb-5 grid md:grid-cols-3 gap-3">
                       <div className={`rounded-xl px-3 py-2 text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
                         <span>Revenus annuels (vue)</span>
@@ -1057,7 +1101,7 @@ export default function AdminDashboard() {
                     <div className={`text-center py-16 rounded-2xl border ${isDark ? 'bg-white/[0.02] border-white/10' : 'bg-[#f7f7f7] border-gray-200'}`}>
                       <p className={`text-base font-bold ${isDark ? 'text-white/70' : 'text-gray-700'}`}>Chargement des données réelles…</p>
                     </div>
-                  ) : propertiesData.length === 0 ? (
+                  ) : visiblePropertiesData.length === 0 ? (
                     <div className={`text-center py-16 rounded-2xl border-gradient ${isDark ? 'bg-white/[0.02]' : 'bg-[#f7f7f7]'}`}>
                       <div className="w-20 h-20 rounded-2xl aurora-bg flex items-center justify-center mx-auto mb-4 animate-float pulse-ring">
                         <Building2 className="w-9 h-9 text-white" />
