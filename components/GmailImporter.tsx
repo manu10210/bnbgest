@@ -423,23 +423,12 @@ function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
     : parseDepartureDateFromSubject(booking.subject, booking.receivedAt);
 
   if (inferredCheckIn && inferredCheckOutFromSubject) {
-    let normalizedCheckOut = inferredCheckOutFromSubject;
-
-    if (!isValidDateRange(inferredCheckIn, normalizedCheckOut)) {
-      const checkInDate = new Date(`${inferredCheckIn}T00:00:00.000Z`);
-      const checkOutDate = new Date(`${normalizedCheckOut}T00:00:00.000Z`);
-      if (!Number.isNaN(checkInDate.getTime()) && !Number.isNaN(checkOutDate.getTime()) && checkOutDate.getTime() <= checkInDate.getTime()) {
-        checkOutDate.setUTCFullYear(checkOutDate.getUTCFullYear() + 1);
-        normalizedCheckOut = formatIsoDate(checkOutDate);
-      }
-    }
-
-    if (isValidDateRange(inferredCheckIn, normalizedCheckOut)) {
-      const inferredNights = deriveNightsFromIsoRange(inferredCheckIn, normalizedCheckOut) || booking.nights || 1;
+    if (isValidDateRange(inferredCheckIn, inferredCheckOutFromSubject)) {
+      const inferredNights = deriveNightsFromIsoRange(inferredCheckIn, inferredCheckOutFromSubject) || booking.nights || 1;
       return {
         ...booking,
         checkIn: inferredCheckIn,
-        checkOut: normalizedCheckOut,
+        checkOut: inferredCheckOutFromSubject,
         nights: inferredNights,
         warnings: Array.from(new Set([
           ...(booking.warnings || []),
@@ -3645,6 +3634,7 @@ export default function GmailImporter() {
 
     const map: Record<string, string> = {
       date_range_inferred_precisely_from_subject: 'Dates de séjour déduites précisément du sujet',
+      date_range_inferred_from_arrival_departure_subject: "Dates de séjour déduites depuis les blocs d'arrivée/départ",
       date_range_inferred_from_subject: 'Dates de séjour déduites du sujet',
       checkout_inferred_from_nights: 'Date de départ calculée à partir du nombre de nuits',
       nights_recomputed_from_dates: 'Nombre de nuitées recalculé depuis les dates de séjour',
