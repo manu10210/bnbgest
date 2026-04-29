@@ -1965,16 +1965,35 @@ export default function GmailImporter() {
     };
 
     // ── Persistance en base PostgreSQL ───────────────────────────────────────
+    const toApiDateTime = (value?: string, fallbackHour = 12): string | undefined => {
+      if (!value) return undefined;
+      // API attend un datetime ISO (z.string().datetime())
+      // Les imports Gmail sont souvent en YYYY-MM-DD.
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return `${value}T${String(fallbackHour).padStart(2, '0')}:00:00.000Z`;
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return undefined;
+      return date.toISOString();
+    };
+
     const persistToDb = async (payload: Parameters<typeof addBooking>[0], bookingType: 'new' | 'cancelled' | 'modified'): Promise<number | undefined> => {
       try {
         const specialReqs = payload.specialRequests ?? null;
+        const apiCheckIn = toApiDateTime(payload.checkIn, 15);
+        const apiCheckOut = toApiDateTime(payload.checkOut, 11);
+        if (!apiCheckIn || !apiCheckOut) {
+          console.warn('[persistToDb] Dates invalides, persistance annulée', payload.checkIn, payload.checkOut);
+          return undefined;
+        }
+
         const body: Record<string, unknown> = {
           propertyId:       payload.propertyId,
           guestName:        (payload.guestInfo?.name ?? 'Voyageur').slice(0, 100),
           guestEmail:       payload.guestInfo?.email || undefined,
           guestPhone:       payload.guestInfo?.phone || null,
-          checkIn:          payload.checkIn,
-          checkOut:         payload.checkOut,
+          checkIn:          apiCheckIn,
+          checkOut:         apiCheckOut,
           guests:           payload.guests ?? 1,
           totalPrice:       payload.totalPrice ?? 0,
           status:           bookingType === 'cancelled' ? 'CANCELLED'
@@ -2025,11 +2044,19 @@ export default function GmailImporter() {
     ) => {
       try {
         const dbBookingId = localToDbBookingId.get(bookingId) ?? bookingId;
+        const normalizedUpdates: Record<string, unknown> = { ...updates };
+        if (typeof updates.checkIn === 'string') {
+          normalizedUpdates.checkIn = toApiDateTime(updates.checkIn, 15);
+        }
+        if (typeof updates.checkOut === 'string') {
+          normalizedUpdates.checkOut = toApiDateTime(updates.checkOut, 11);
+        }
+
         const res = await fetch(`/api/bookings/${dbBookingId}`, {
           method: 'PATCH',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
+          body: JSON.stringify(normalizedUpdates),
         });
 
         if (!res.ok) {
