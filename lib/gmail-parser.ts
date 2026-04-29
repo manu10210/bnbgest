@@ -1881,14 +1881,51 @@ export function parseAirbnbEmail(
 // ─── Décodeur base64 Gmail ──────────────────────────────────────────────────
 
 export function decodeGmailBody(data: string): string {
+  const decodeQuotedPrintableLoose = (input: string): string => {
+    if (!input) return input;
+    // soft line-breaks: "=\n" or "=\r\n"
+    const source = input.replace(/=\r?\n/g, '');
+    const bytes: number[] = [];
+
+    for (let i = 0; i < source.length; i += 1) {
+      const ch = source[i];
+      if (ch === '=' && i + 2 < source.length) {
+        const hex = source.slice(i + 1, i + 3);
+        if (/^[A-Fa-f0-9]{2}$/.test(hex)) {
+          bytes.push(Number.parseInt(hex, 16));
+          i += 2;
+          continue;
+        }
+      }
+
+      const code = source.charCodeAt(i);
+      // conserve l'octet bas pour rester stable sur des corps déjà décodés partiellement
+      bytes.push(code & 0xff);
+    }
+
+    try {
+      return new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes));
+    } catch {
+      return source;
+    }
+  };
+
   try {
     const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
     const binary = atob(base64);
-    return decodeURIComponent(
+    const utf8 = decodeURIComponent(
       binary.split('').map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
     );
+    return decodeQuotedPrintableLoose(utf8);
   } catch {
-    return '';
+    try {
+      const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+      // Fallback robuste Node.js (Vercel runtime)
+      const decoded = Buffer.from(base64, 'base64').toString('utf-8');
+      return decodeQuotedPrintableLoose(decoded);
+    } catch {
+      return '';
+    }
   }
 }
 
