@@ -2039,7 +2039,7 @@ export default function GmailImporter() {
       defaultProperty = runtimeProperties[0];
     }
 
-  const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0, rescuedAggressive: 0, rescuedSingleProperty: 0 };
+  const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, dbFailed: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0, rescuedAggressive: 0, rescuedSingleProperty: 0 };
     const localGuests = [...guests];
     const localBookings = [...existingBookings];
     const localToDbBookingId = new Map<number, number>();
@@ -2537,12 +2537,25 @@ export default function GmailImporter() {
             },
           } : {}),
         };
+        const dbBookingId = await persistToDb(bookingPayload, 'new');
+        if (!dbBookingId) {
+          summary.skipped++;
+          summary.dbFailed++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'error',
+            action: 'booking_persist_failed',
+            reason: 'db_create_failed',
+            receivedAt: b.receivedAt,
+          });
+          continue;
+        }
+
         addBooking(bookingPayload);
         const localBookingId = pushLocalBooking(bookingPayload);
-        const dbBookingId = await persistToDb(bookingPayload, 'new');
-        if (dbBookingId) {
-          localToDbBookingId.set(localBookingId, dbBookingId);
-        }
+        localToDbBookingId.set(localBookingId, dbBookingId);
         summary.created++;
         pushTrace({
           messageId: b.messageId,
@@ -2685,12 +2698,25 @@ export default function GmailImporter() {
             specialRequests: `[MODIFIÉ] ${notes}`,
             guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
           };
+          const dbBookingId = await persistToDb(bookingPayload, 'modified');
+          if (!dbBookingId) {
+            summary.skipped++;
+            summary.dbFailed++;
+            pushTrace({
+              messageId: b.messageId,
+              bookingType: b.bookingType,
+              guestName: b.guestName || '—',
+              status: 'error',
+              action: 'booking_persist_failed',
+              reason: 'db_create_failed_from_modified',
+              receivedAt: b.receivedAt,
+            });
+            continue;
+          }
+
           addBooking(bookingPayload);
           const localBookingId = pushLocalBooking(bookingPayload);
-          const dbBookingId = await persistToDb(bookingPayload, 'modified');
-          if (dbBookingId) {
-            localToDbBookingId.set(localBookingId, dbBookingId);
-          }
+          localToDbBookingId.set(localBookingId, dbBookingId);
           summary.created++;
           pushTrace({
             messageId: b.messageId,
@@ -2863,12 +2889,25 @@ export default function GmailImporter() {
             ].filter(Boolean).join(' | '),
             guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
           };
+          const dbBookingId = await persistToDb(bookingPayload, 'new');
+          if (!dbBookingId) {
+            summary.skipped++;
+            summary.dbFailed++;
+            pushTrace({
+              messageId: b.messageId,
+              bookingType: b.bookingType,
+              guestName: b.guestName || '—',
+              status: 'error',
+              action: 'booking_persist_failed',
+              reason: 'db_create_failed_from_reminder',
+              receivedAt: b.receivedAt,
+            });
+            continue;
+          }
+
           addBooking(bookingPayload);
           const localBookingId = pushLocalBooking(bookingPayload);
-          const dbBookingId = await persistToDb(bookingPayload, 'new');
-          if (dbBookingId) {
-            localToDbBookingId.set(localBookingId, dbBookingId);
-          }
+          localToDbBookingId.set(localBookingId, dbBookingId);
           summary.created++;
           pushTrace({
             messageId: b.messageId,
@@ -3031,12 +3070,25 @@ export default function GmailImporter() {
               ].filter(Boolean).join(' | '),
               guestInfo: { name: b.guestName || 'Airbnb Payout', email: b.guestEmail || '', phone: '' },
             };
+            const dbBookingId = await persistToDb(bookingPayload, 'new');
+            if (!dbBookingId) {
+              summary.skipped++;
+              summary.dbFailed++;
+              pushTrace({
+                messageId: b.messageId,
+                bookingType: b.bookingType,
+                guestName: b.guestName || '—',
+                status: 'error',
+                action: 'booking_persist_failed',
+                reason: 'db_create_failed_from_payout',
+                receivedAt: b.receivedAt,
+              });
+              continue;
+            }
+
             addBooking(bookingPayload);
             const localBookingId = pushLocalBooking(bookingPayload);
-            const dbBookingId = await persistToDb(bookingPayload, 'new');
-            if (dbBookingId) {
-              localToDbBookingId.set(localBookingId, dbBookingId);
-            }
+            localToDbBookingId.set(localBookingId, dbBookingId);
             summary.created++;
             pushTrace({
               messageId: b.messageId,
@@ -3106,10 +3158,20 @@ export default function GmailImporter() {
         }
       }
 
-      setImported(toImport.map(b => b.messageId));   
+      const importedMessageIds = Array.from(new Set(
+        trace
+          .filter((entry) => entry.status === 'success' || entry.status === 'skipped')
+          .map((entry) => entry.messageId),
+      ));
+
+      setImported(importedMessageIds);
       setImportSummary(summary);
       setImportTrace(trace.slice(-200));
       setSelected(new Set());
+
+      if (summary.dbFailed > 0) {
+        toast.error(`⚠️ ${summary.dbFailed} réservation(s) non persistée(s) en base.`);
+      }
 
       // ── 5. Détecter les nouveaux logements inconnus ───────────────────────
       // Tous les emails (importés ou non) avec un propertyName qui ne correspond
