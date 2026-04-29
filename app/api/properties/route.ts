@@ -3,9 +3,9 @@ export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { PropertyStatus } from '@prisma/client';
-import { requireAuth, requireRole } from '@/lib/auth-middleware';
+import { requireAuth } from '@/lib/auth-middleware';
 import { rateLimit } from '@/lib/rate-limit';
-import { PropertySchema, validateRequest } from '@/lib/validations';
+import { PropertySchema } from '@/lib/validations';
 
 // Enable ISR with 60 seconds revalidation
 export const revalidate = 60;
@@ -110,20 +110,79 @@ export async function GET(request: Request) {
 /**
  * POST /api/properties
  * Crée une nouvelle propriété
- * ✅ Protected: Auth + OWNER/USER role required, Rate limited (strict: 10/10s), Validated
+ * ✅ Protected: Auth required, Rate limited (strict: 10/10s), Validated
  */
 export async function POST(request: Request) {
   // 1. Rate limiting (strict for write operations)
   const rateLimitResult = await rateLimit(request, 'strict');
   if (rateLimitResult) return rateLimitResult;
 
-  // 2. Authentication + Role check (OWNER, USER or ADMIN)
-  const authResult = await requireRole(request, ['OWNER', 'USER']);
+  // 2. Authentication
+  const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
 
   try {
-    // 3. Validation with Zod schema
-    const validatedData = await validateRequest(PropertySchema, request);
+    const sessionUser = authResult.user as {
+      id?: string | null;
+      email?: string | null;
+      name?: string | null;
+      role?: string | null;
+    };
+
+    const normalizedEmail = (sessionUser.email || '').trim().toLowerCase();
+    const normalizedRole = String(sessionUser.role || 'USER').toUpperCase();
+    const dbRole = normalizedRole === 'ADMIN' || normalizedRole === 'EMPLOYEE' || normalizedRole === 'USER'
+      ? normalizedRole
+      : 'USER';
+
+    // 3. Resolve the effective DB owner user (id from session can be external provider id)
+    let owner = sessionUser.id
+      ? await prisma.user.findUnique({ where: { id: sessionUser.id }, select: { id: true } })
+      : null;
+
+    if (!owner && normalizedEmail) {
+      owner = await prisma.user.upsert({
+        where: { email: normalizedEmail },
+        update: {
+          ...(sessionUser.name ? { name: sessionUser.name } : {}),
+        },
+        create: {
+          email: normalizedEmail,
+          name: sessionUser.name || normalizedEmail.split('@')[0],
+          role: dbRole,
+        },
+        select: { id: true },
+      });
+    }
+
+    if (!owner) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Forbidden - unable to resolve authenticated DB user',
+        },
+        { status: 403 },
+      );
+    }
+
+    const body = await request.json();
+    const validated = PropertySchema.safeParse({
+      ...body,
+      userId: owner.id,
+    });
+
+    if (!validated.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Validation failed',
+          details: validated.error.issues,
+        },
+        { status: 400 },
+      );
+    }
+
+    const validatedData = validated.data;
 
     const property = await prisma.property.create({
       data: {

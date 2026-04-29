@@ -1811,7 +1811,8 @@ export default function GmailImporter() {
         const currentRole = typeof err?.currentRole === 'string' ? err.currentRole : 'inconnu';
         toast.error(`Échec création propriété DB (403) : rôle actuel ${currentRole} non autorisé.`);
       } else {
-        toast.error(`Échec création propriété DB (${res.status}).`);
+        const apiMessage = typeof err?.error === 'string' ? err.error : undefined;
+        toast.error(`Échec création propriété DB (${res.status})${apiMessage ? ` : ${apiMessage}` : ''}.`);
       }
       return undefined;
     }
