@@ -97,6 +97,7 @@ type PropertyTabItem = {
   name: string;
   address: string;
   city?: string;
+  createdAt?: string;
   maxGuests?: number;
   price?: number;
   status?: 'active' | 'inactive' | 'maintenance' | 'blocked';
@@ -709,8 +710,11 @@ export default function AdminDashboard() {
   const hiddenByAirbnbInactivityIds = new Set(
     propertiesData
       .filter((property) => {
-        const lastActivity = getLastBookingActivityDate(property.id);
-        if (!lastActivity) return true;
+        const lastBookingActivity = getLastBookingActivityDate(property.id);
+        const createdAt = property.createdAt ? new Date(property.createdAt) : null;
+        const createdAtValid = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt : null;
+        const lastActivity = lastBookingActivity || createdAtValid;
+        if (!lastActivity) return false;
         return lastActivity.getTime() < airbnbInactivityCutoff.getTime();
       })
       .map((p) => p.id)
@@ -734,7 +738,10 @@ export default function AdminDashboard() {
   const hiddenPropertiesAuditRows = propertiesData
     .filter((property) => hiddenByAirbnbInactivityIds.has(property.id))
     .map((property) => {
-      const lastActivity = getLastBookingActivityDate(property.id);
+      const lastBookingActivity = getLastBookingActivityDate(property.id);
+      const createdAt = property.createdAt ? new Date(property.createdAt) : null;
+      const createdAtValid = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt : null;
+      const lastActivity = lastBookingActivity || createdAtValid;
       const daysInactive = lastActivity
         ? Math.max(0, Math.floor((Date.now() - lastActivity.getTime()) / (24 * 60 * 60 * 1000)))
         : null;

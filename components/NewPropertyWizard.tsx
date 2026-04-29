@@ -8,7 +8,6 @@
 
 import React, { useState, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useBNB } from '../contexts/BNBContext';
 import type { Property } from '../contexts/BNBContext';
 import {
   X, ChevronRight, ChevronLeft, CheckCircle2, Upload,
@@ -26,11 +25,33 @@ export interface DetectedPropertyInfo {
   guessedPricePerNight: number;
 }
 
+export interface WizardPropertyPayload {
+  name: string;
+  address: string;
+  city: string;
+  country: string;
+  type: Property['type'];
+  bedrooms: number;
+  bathrooms: number;
+  maxGuests: number;
+  amenities: string[];
+  price: number;
+  description: string;
+  images: string[];
+  checkInTime: string;
+  checkOutTime: string;
+  cleaningFee: number;
+  minimumStay: number;
+}
+
 interface Props {
   detected: DetectedPropertyInfo;
   onClose: () => void;
-  /** Appelé avec le nom du logement créé */
-  onCreated: (propertyName: string) => void;
+  /**
+   * Appelé lors de la validation du configurateur.
+   * Retourner false pour empêcher la fermeture (ex: erreur DB).
+   */
+  onCreated: (propertyName: string, payload: WizardPropertyPayload) => Promise<boolean | void> | boolean | void;
 }
 
 // ─── Analyse automatique du titre Airbnb ─────────────────────────────────────
@@ -117,7 +138,6 @@ const STEPS = ['Informations', 'Capacité & Prix', 'Photos', 'Description'];
 
 export default function NewPropertyWizard({ detected, onClose, onCreated }: Props) {
   const { isDark } = useTheme();
-  const { addProperty } = useBNB();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState(0);
@@ -173,9 +193,9 @@ export default function NewPropertyWizard({ detected, onClose, onCreated }: Prop
   };
 
   // Sauvegarde
-  const save = () => {
+  const save = async () => {
     setSaving(true);
-    addProperty({
+    const payload: WizardPropertyPayload = {
       name: name.trim(),
       address: address.trim() || `${city.trim()}, ${country}`,
       city: city.trim(),
@@ -188,16 +208,24 @@ export default function NewPropertyWizard({ detected, onClose, onCreated }: Prop
       price,
       description: description.trim() || `Logement importé depuis Airbnb : ${name.trim()}`,
       images,
-      status: 'active',
-      ownerId: 1,
       checkInTime: checkIn,
       checkOutTime: checkOut,
       cleaningFee,
-      securityDeposit: 0,
       minimumStay: minStay,
-      availabilityCalendar: [],
-    });
-    setTimeout(() => { setSaving(false); onCreated(name.trim()); }, 300);
+    };
+
+    try {
+      const result = await onCreated(name.trim(), payload);
+      if (result === false) {
+        setSaving(false);
+        return;
+      }
+    } catch {
+      setSaving(false);
+      return;
+    }
+
+    setSaving(false);
   };
 
   return (
@@ -350,7 +378,7 @@ export default function NewPropertyWizard({ detected, onClose, onCreated }: Prop
           {/* ÉTAPE 2 — Photos */}
           {step === 2 && (
             <div className="space-y-3">
-              <p className={`text-sm ${sub}`}>Ajoutez des photos (vous pourrez en ajouter d'autres plus tard depuis la gestion des propriétés).</p>
+              <p className={`text-sm ${sub}`}>Ajoutez des photos (vous pourrez en ajouter d&apos;autres plus tard depuis la gestion des propriétés).</p>
 
               <div
                 onClick={() => fileRef.current?.click()}

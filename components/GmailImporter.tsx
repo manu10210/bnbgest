@@ -19,6 +19,7 @@ import NewPropertyWizard, {
   analyzeAirbnbTitle,
   findNewPropertyNames,
   type DetectedPropertyInfo,
+  type WizardPropertyPayload,
 } from './NewPropertyWizard';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -3502,9 +3503,8 @@ export default function GmailImporter() {
 
   const advanceQueue = useCallback(() => {
     setPropertyQueue(prev => {
-      const next = prev.slice(1);
-      setCurrentWizard(next[0] ?? null);
-      return next;
+      setCurrentWizard(prev[0] ?? null);
+      return prev.slice(1);
     });
   }, []);
 
@@ -4830,9 +4830,28 @@ export default function GmailImporter() {
         <NewPropertyWizard
           detected={currentWizard}
           onClose={advanceQueue}
-          onCreated={(name) => {
+          onCreated={async (name, payload: WizardPropertyPayload) => {
+            const created = await createPropertyInDb({
+              name: payload.name,
+              description: payload.description,
+              address: payload.address,
+              city: payload.city,
+              country: payload.country,
+              bedrooms: payload.bedrooms,
+              bathrooms: payload.bathrooms,
+              maxGuests: payload.maxGuests,
+              price: payload.price,
+            });
+
+            if (!created) {
+              toast.error('Le logement détecté n’a pas pu être créé en DB. Corrige les champs puis réessaie.');
+              return false;
+            }
+
+            setImported(prev => [...prev, `__property__${created.name || name}`]);
+            toast.success(`Logement "${created.name || name}" ajouté en base.`);
             advanceQueue();
-            setImported(prev => [...prev, `__property__${name}`]);
+            return true;
           }}
         />
       )}
