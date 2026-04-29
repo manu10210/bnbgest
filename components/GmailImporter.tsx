@@ -2150,14 +2150,17 @@ export default function GmailImporter() {
       return date.toISOString();
     };
 
-    const persistToDb = async (payload: Parameters<typeof addBooking>[0], bookingType: 'new' | 'cancelled' | 'modified'): Promise<number | undefined> => {
+    const persistToDb = async (
+      payload: Parameters<typeof addBooking>[0],
+      bookingType: 'new' | 'cancelled' | 'modified',
+    ): Promise<{ id?: number; error?: string }> => {
       try {
         const specialReqs = payload.specialRequests ?? null;
         const apiCheckIn = toApiDateTime(payload.checkIn, 15);
         const apiCheckOut = toApiDateTime(payload.checkOut, 11);
         if (!apiCheckIn || !apiCheckOut) {
           console.warn('[persistToDb] Dates invalides, persistance annulée', payload.checkIn, payload.checkOut);
-          return undefined;
+          return { error: 'invalid_dates' };
         }
 
         const body: Record<string, unknown> = {
@@ -2186,16 +2189,24 @@ export default function GmailImporter() {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          console.warn(`[persistToDb] HTTP ${res.status}:`, err?.error ?? err);
-          return undefined;
+          const apiError = typeof err?.error === 'string'
+            ? err.error
+            : typeof err?.message === 'string'
+              ? err.message
+              : 'unknown_error';
+          const reason = `http_${res.status}:${apiError}`;
+          console.warn(`[persistToDb] HTTP ${res.status}:`, apiError);
+          return { error: reason };
         }
 
         const data = await res.json().catch(() => ({}));
         const dbId = Number((data as { booking?: { id?: number } })?.booking?.id);
-        return Number.isFinite(dbId) && dbId > 0 ? dbId : undefined;
+        return Number.isFinite(dbId) && dbId > 0
+          ? { id: dbId }
+          : { error: 'missing_booking_id_in_response' };
       } catch (e) {
         console.warn('[persistToDb] Erreur réseau (non bloquant):', e);
-        return undefined;
+        return { error: 'network_error' };
       }
     };
 
@@ -2537,8 +2548,8 @@ export default function GmailImporter() {
             },
           } : {}),
         };
-        const dbBookingId = await persistToDb(bookingPayload, 'new');
-        if (!dbBookingId) {
+        const dbPersistResult = await persistToDb(bookingPayload, 'new');
+        if (!dbPersistResult.id) {
           summary.skipped++;
           summary.dbFailed++;
           pushTrace({
@@ -2547,7 +2558,7 @@ export default function GmailImporter() {
             guestName: b.guestName || '—',
             status: 'error',
             action: 'booking_persist_failed',
-            reason: 'db_create_failed',
+            reason: dbPersistResult.error || 'db_create_failed',
             receivedAt: b.receivedAt,
           });
           continue;
@@ -2555,8 +2566,8 @@ export default function GmailImporter() {
 
         addBooking(bookingPayload);
         const localBookingId = pushLocalBooking(bookingPayload);
-        localToDbBookingId.set(localBookingId, dbBookingId);
-        summary.created++;
+    localToDbBookingId.set(localBookingId, dbPersistResult.id);
+    summary.created++;
         pushTrace({
           messageId: b.messageId,
           bookingType: b.bookingType,
@@ -2698,8 +2709,8 @@ export default function GmailImporter() {
             specialRequests: `[MODIFIÉ] ${notes}`,
             guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
           };
-          const dbBookingId = await persistToDb(bookingPayload, 'modified');
-          if (!dbBookingId) {
+          const dbPersistResult = await persistToDb(bookingPayload, 'modified');
+          if (!dbPersistResult.id) {
             summary.skipped++;
             summary.dbFailed++;
             pushTrace({
@@ -2708,7 +2719,7 @@ export default function GmailImporter() {
               guestName: b.guestName || '—',
               status: 'error',
               action: 'booking_persist_failed',
-              reason: 'db_create_failed_from_modified',
+              reason: dbPersistResult.error || 'db_create_failed_from_modified',
               receivedAt: b.receivedAt,
             });
             continue;
@@ -2716,7 +2727,7 @@ export default function GmailImporter() {
 
           addBooking(bookingPayload);
           const localBookingId = pushLocalBooking(bookingPayload);
-          localToDbBookingId.set(localBookingId, dbBookingId);
+          localToDbBookingId.set(localBookingId, dbPersistResult.id);
           summary.created++;
           pushTrace({
             messageId: b.messageId,
@@ -2889,8 +2900,8 @@ export default function GmailImporter() {
             ].filter(Boolean).join(' | '),
             guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
           };
-          const dbBookingId = await persistToDb(bookingPayload, 'new');
-          if (!dbBookingId) {
+          const dbPersistResult = await persistToDb(bookingPayload, 'new');
+          if (!dbPersistResult.id) {
             summary.skipped++;
             summary.dbFailed++;
             pushTrace({
@@ -2899,7 +2910,7 @@ export default function GmailImporter() {
               guestName: b.guestName || '—',
               status: 'error',
               action: 'booking_persist_failed',
-              reason: 'db_create_failed_from_reminder',
+              reason: dbPersistResult.error || 'db_create_failed_from_reminder',
               receivedAt: b.receivedAt,
             });
             continue;
@@ -2907,7 +2918,7 @@ export default function GmailImporter() {
 
           addBooking(bookingPayload);
           const localBookingId = pushLocalBooking(bookingPayload);
-          localToDbBookingId.set(localBookingId, dbBookingId);
+          localToDbBookingId.set(localBookingId, dbPersistResult.id);
           summary.created++;
           pushTrace({
             messageId: b.messageId,
@@ -3070,8 +3081,8 @@ export default function GmailImporter() {
               ].filter(Boolean).join(' | '),
               guestInfo: { name: b.guestName || 'Airbnb Payout', email: b.guestEmail || '', phone: '' },
             };
-            const dbBookingId = await persistToDb(bookingPayload, 'new');
-            if (!dbBookingId) {
+            const dbPersistResult = await persistToDb(bookingPayload, 'new');
+            if (!dbPersistResult.id) {
               summary.skipped++;
               summary.dbFailed++;
               pushTrace({
@@ -3080,7 +3091,7 @@ export default function GmailImporter() {
                 guestName: b.guestName || '—',
                 status: 'error',
                 action: 'booking_persist_failed',
-                reason: 'db_create_failed_from_payout',
+                reason: dbPersistResult.error || 'db_create_failed_from_payout',
                 receivedAt: b.receivedAt,
               });
               continue;
@@ -3088,7 +3099,7 @@ export default function GmailImporter() {
 
             addBooking(bookingPayload);
             const localBookingId = pushLocalBooking(bookingPayload);
-            localToDbBookingId.set(localBookingId, dbBookingId);
+            localToDbBookingId.set(localBookingId, dbPersistResult.id);
             summary.created++;
             pushTrace({
               messageId: b.messageId,
