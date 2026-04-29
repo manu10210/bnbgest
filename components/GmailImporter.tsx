@@ -1239,7 +1239,6 @@ export default function GmailImporter() {
   const {
     addBooking, updateBooking, cancelBooking,
     addGuest, updateGuest, guests,
-    addProperty,
     addMaintenanceTask,
     addReview,
     inventory, updateInventoryItem, getLowStockItems,
@@ -1690,70 +1689,155 @@ export default function GmailImporter() {
     }).catch(() => { /* silencieux — non bloquant */ });
   }, []);
 
-  const ensureDefaultProperty = useCallback(async (): Promise<Property | undefined> => {
-    if (properties.length > 0) return properties[0];
+  const normalizeCountryCode = (value?: string): string => {
+    const v = (value || '').trim().toUpperCase();
+    if (v === 'FR' || v === 'FRANCE') return 'FR';
+    if (v === 'BE' || v === 'BELGIUM' || v === 'BELGIQUE') return 'BE';
+    if (v === 'ES' || v === 'SPAIN' || v === 'ESPAGNE') return 'ES';
+    if (v === 'PT' || v === 'PORTUGAL') return 'PT';
+    if (v === 'IT' || v === 'ITALY' || v === 'ITALIE') return 'IT';
+    if (v === 'DE' || v === 'GERMANY' || v === 'ALLEMAGNE') return 'DE';
+    return /^[A-Z]{2}$/.test(v) ? v : 'FR';
+  };
 
-    const ownerIdFromSession = Number.parseInt((session as { user?: { id?: string | number } })?.user?.id as string, 10);
-    const ownerId = Number.isFinite(ownerIdFromSession) && ownerIdFromSession > 0 ? ownerIdFromSession : 1;
-    const nowIso = new Date().toISOString();
+  const toContextPropertyFromApi = (raw: {
+    id: number;
+    name: string;
+    address: string;
+    city: string;
+    country: string;
+    type?: string | null;
+    bedrooms: number;
+    bathrooms: number;
+    capacity: number;
+    maxGuests?: number | null;
+    amenities?: string[] | null;
+    price: number;
+    pricePerNight?: number | null;
+    description?: string | null;
+    images?: string[] | null;
+    status?: string;
+    cleaningFee?: number | null;
+    createdAt?: string;
+    updatedAt?: string;
+  }): Property => {
+    const type = ['apartment', 'house', 'studio', 'villa', 'room'].includes(String(raw.type || '').toLowerCase())
+      ? String(raw.type).toLowerCase()
+      : 'apartment';
+    const rawStatus = String(raw.status || 'ACTIVE').toUpperCase();
+    const status: Property['status'] = rawStatus === 'MAINTENANCE'
+      ? 'maintenance'
+      : rawStatus === 'INACTIVE'
+        ? 'inactive'
+        : 'active';
 
-    const defaultPropertyPayload: Omit<Property, 'id' | 'createdAt' | 'updatedAt'> = {
-      name: 'Mon logement principal',
-      address: 'Adresse à compléter',
-      city: 'Ville à compléter',
-      country: 'France',
-      type: 'apartment',
-      bedrooms: 1,
-      bathrooms: 1,
-      maxGuests: 2,
-      amenities: [],
-      price: 90,
-      description: 'Logement créé automatiquement depuis GmailImporter.',
-      images: [],
-      status: 'active',
-      ownerId,
+    return {
+      id: raw.id,
+      name: raw.name,
+      address: raw.address,
+      city: raw.city,
+      country: normalizeCountryCode(raw.country),
+      type: type as Property['type'],
+      bedrooms: raw.bedrooms,
+      bathrooms: raw.bathrooms,
+      maxGuests: raw.maxGuests ?? raw.capacity,
+      amenities: Array.isArray(raw.amenities) ? raw.amenities : [],
+      price: raw.pricePerNight ?? raw.price,
+      description: raw.description || '',
+      images: Array.isArray(raw.images) ? raw.images : [],
+      status,
+      createdAt: raw.createdAt || new Date().toISOString(),
+      updatedAt: raw.updatedAt || new Date().toISOString(),
+      ownerId: 1,
       checkInTime: '15:00',
       checkOutTime: '11:00',
-      cleaningFee: 0,
+      cleaningFee: raw.cleaningFee ?? 0,
       securityDeposit: 0,
       minimumStay: 1,
       availabilityCalendar: [],
       rules: [],
     };
+  };
 
-    addProperty(defaultPropertyPayload);
+  const fetchDbProperties = useCallback(async (): Promise<Property[]> => {
+    const res = await fetch('/api/properties?limit=300', { credentials: 'include' });
+    if (!res.ok) {
+      throw new Error(`Impossible de charger les propriétés DB (${res.status})`);
+    }
+    const json = await res.json();
+    return (json.properties || []).map(toContextPropertyFromApi);
+  }, [toContextPropertyFromApi]);
 
-    // Tentative de persistance côté API (non bloquant)
-    fetch('/api/properties', {
+  const createPropertyInDb = useCallback(async (payload: {
+    name: string;
+    description?: string;
+    address: string;
+    city: string;
+    country?: string;
+    bedrooms: number;
+    bathrooms: number;
+    maxGuests: number;
+    price: number;
+  }): Promise<Property | undefined> => {
+    const sessionUserId = String((session as { user?: { id?: string | number } })?.user?.id || '').trim();
+    if (!sessionUserId) {
+      toast.error('Session invalide : reconnecte-toi pour persister les propriétés en DB.');
+      return undefined;
+    }
+
+    const res = await fetch('/api/properties', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: defaultPropertyPayload.name,
-        description: defaultPropertyPayload.description,
-        address: defaultPropertyPayload.address,
-        city: defaultPropertyPayload.city,
-        country: defaultPropertyPayload.country,
-        zipCode: '',
-        bedrooms: defaultPropertyPayload.bedrooms,
-        bathrooms: defaultPropertyPayload.bathrooms,
-        maxGuests: defaultPropertyPayload.maxGuests,
-        pricePerNight: defaultPropertyPayload.price,
-        ownerId: defaultPropertyPayload.ownerId,
-        status: 'ACTIVE',
+        name: payload.name,
+        description: payload.description || '',
+        address: payload.address,
+        city: payload.city,
+        country: normalizeCountryCode(payload.country),
+        bedrooms: payload.bedrooms,
+        bathrooms: payload.bathrooms,
+        capacity: payload.maxGuests,
+        price: payload.price,
+        currency: 'EUR',
+        userId: sessionUserId,
       }),
-    }).catch(() => {
-      // API indisponible/non configurée: la propriété locale suffit pour l'import.
     });
 
-    toast.success('Aucun logement détecté : propriété par défaut créée automatiquement.');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.warn('[createPropertyInDb] erreur:', err);
+      toast.error(`Échec création propriété DB (${res.status}).`);
+      return undefined;
+    }
 
-    return {
-      ...defaultPropertyPayload,
-      id: Math.max(...properties.map((p) => p.id), 0) + 1,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-    };
-  }, [properties, addProperty, session]);
+    const data = await res.json();
+    if (!data?.property?.id) return undefined;
+    return toContextPropertyFromApi(data.property);
+  }, [session, toContextPropertyFromApi]);
+
+  const ensureDefaultProperty = useCallback(async (): Promise<Property | undefined> => {
+    const existingDbProperties = await fetchDbProperties().catch(() => [] as Property[]);
+    if (existingDbProperties.length > 0) return existingDbProperties[0];
+
+    const created = await createPropertyInDb({
+      name: 'Mon logement principal',
+      description: 'Logement créé automatiquement depuis GmailImporter.',
+      address: 'Adresse à compléter',
+      city: 'Ville à compléter',
+      country: 'FR',
+      bedrooms: 1,
+      bathrooms: 1,
+      maxGuests: 2,
+      price: 90,
+    });
+
+    if (created) {
+      toast.success('Aucun logement DB détecté : propriété par défaut créée en base.');
+    }
+
+    return created;
+  }, [createPropertyInDb, fetchDbProperties]);
 
   const ensureCanonicalT3Property = useCallback(async (
     parsedBookings: ParsedBooking[],
@@ -1772,58 +1856,21 @@ export default function GmailImporter() {
 
     if (existingT3) return runtimeProps;
 
-    const ownerIdFromSession = Number.parseInt((session as { user?: { id?: string | number } })?.user?.id as string, 10);
-    const ownerId = Number.isFinite(ownerIdFromSession) && ownerIdFromSession > 0
-      ? ownerIdFromSession
-      : (runtimeProps[0]?.ownerId || 1);
-
-    const nowIso = new Date().toISOString();
-    const t3PropertyPayload: Omit<Property, 'id' | 'createdAt' | 'updatedAt'> = {
+    const t3Property = await createPropertyInDb({
       name: CANONICAL_T3_PROPERTY_NAME,
+      description: 'Logement T3 intégré automatiquement depuis les emails Gmail Airbnb.',
       address: 'Adresse T3 à compléter',
       city: runtimeProps[0]?.city || 'Ville à compléter',
-      country: runtimeProps[0]?.country || 'France',
-      type: 'house',
+      country: runtimeProps[0]?.country || 'FR',
       bedrooms: 2,
       bathrooms: 1,
       maxGuests: 6,
-      amenities: [],
       price: runtimeProps[0]?.price || 120,
-      description: 'Logement T3 intégré automatiquement depuis les emails Gmail Airbnb.',
-      images: [],
-      status: 'active',
-      ownerId,
-      checkInTime: '15:00',
-      checkOutTime: '11:00',
-      cleaningFee: 0,
-      securityDeposit: 0,
-      minimumStay: 1,
-      availabilityCalendar: [],
-      rules: [],
-    };
-
-    addProperty(t3PropertyPayload);
-
-    fetch('/api/properties', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: t3PropertyPayload.name,
-        description: t3PropertyPayload.description,
-        address: t3PropertyPayload.address,
-        city: t3PropertyPayload.city,
-        country: t3PropertyPayload.country,
-        zipCode: '',
-        bedrooms: t3PropertyPayload.bedrooms,
-        bathrooms: t3PropertyPayload.bathrooms,
-        maxGuests: t3PropertyPayload.maxGuests,
-        pricePerNight: t3PropertyPayload.price,
-        ownerId: t3PropertyPayload.ownerId,
-        status: 'ACTIVE',
-      }),
-    }).catch(() => {
-      // API indisponible/non configurée: la propriété locale suffit pour l'import.
     });
+
+    if (!t3Property) {
+      return runtimeProps;
+    }
 
     setLearnedPropertyAliases((prev) => ({
       ...prev,
@@ -1835,23 +1882,16 @@ export default function GmailImporter() {
 
     toast.success('Propriété T3 détectée et intégrée automatiquement dans vos logements.');
 
-    const localT3Property: Property = {
-      ...t3PropertyPayload,
-      id: Math.max(...runtimeProps.map((p) => p.id), 0) + 1,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-    };
-
-    return [...runtimeProps, localT3Property];
-  }, [addProperty, session]);
+    return [...runtimeProps, t3Property];
+  }, [createPropertyInDb]);
 
   // ─── Importer les réservations sélectionnées ──────────────────────────────
 
   const importSelected = useCallback(async () => {
   setStatus('importing');
     const toImport = bookings.filter(b => selected.has(b.messageId));
-    let runtimeProperties = properties;
-    let defaultProperty = properties[0];
+  let runtimeProperties = await fetchDbProperties().catch(() => [] as Property[]);
+  let defaultProperty = runtimeProperties[0];
 
     if (!defaultProperty) {
       const createdDefaultProperty = await ensureDefaultProperty();
@@ -1859,6 +1899,12 @@ export default function GmailImporter() {
         runtimeProperties = [createdDefaultProperty];
         defaultProperty = createdDefaultProperty;
       }
+    }
+
+    if (!defaultProperty) {
+      toast.error('Import arrêté: aucune propriété persistée en DB disponible.');
+      setStatus('error');
+      return;
     }
 
     runtimeProperties = await ensureCanonicalT3Property(toImport, runtimeProperties);
@@ -3013,7 +3059,7 @@ export default function GmailImporter() {
 
       setTimeout(() => setStatus('idle'), 2500);
       setStatus('done');
-  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive, ensureDefaultProperty, ensureCanonicalT3Property, rejectedPropertySet]);
+  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive, ensureDefaultProperty, ensureCanonicalT3Property, rejectedPropertySet, fetchDbProperties]);
 
   // ─── Purge des données importées depuis Gmail ─────────────────────────────
   // Supprime TOUTES les réservations créées via l'import Gmail.
