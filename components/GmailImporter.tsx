@@ -1807,7 +1807,12 @@ export default function GmailImporter() {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       console.warn('[createPropertyInDb] erreur:', err);
-      toast.error(`Échec création propriété DB (${res.status}).`);
+      if (res.status === 403) {
+        const currentRole = typeof err?.currentRole === 'string' ? err.currentRole : 'inconnu';
+        toast.error(`Échec création propriété DB (403) : rôle actuel ${currentRole} non autorisé.`);
+      } else {
+        toast.error(`Échec création propriété DB (${res.status}).`);
+      }
       return undefined;
     }
 

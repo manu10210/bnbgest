@@ -2,12 +2,17 @@ export const dynamic = 'force-dynamic';
 
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { PropertyStatus } from '@prisma/client';
 import { requireAuth, requireRole } from '@/lib/auth-middleware';
 import { rateLimit } from '@/lib/rate-limit';
 import { PropertySchema, validateRequest } from '@/lib/validations';
 
 // Enable ISR with 60 seconds revalidation
 export const revalidate = 60;
+
+function isPropertyStatus(value: string): value is PropertyStatus {
+  return value === 'ACTIVE' || value === 'INACTIVE' || value === 'MAINTENANCE';
+}
 
 /**
  * GET /api/properties
@@ -26,12 +31,13 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
+    const statusRaw = (searchParams.get('status') || '').toUpperCase();
+    const status = isPropertyStatus(statusRaw) ? statusRaw : undefined;
     const ownerId = searchParams.get('ownerId');
 
     const properties = await prisma.property.findMany({
       where: {
-        ...(status && { status: status as any }),
+        ...(status && { status }),
         ...(ownerId && { userId: ownerId }),
       },
       include: {
@@ -104,15 +110,15 @@ export async function GET(request: Request) {
 /**
  * POST /api/properties
  * Crée une nouvelle propriété
- * ✅ Protected: Auth + OWNER role required, Rate limited (strict: 10/10s), Validated
+ * ✅ Protected: Auth + OWNER/USER role required, Rate limited (strict: 10/10s), Validated
  */
 export async function POST(request: Request) {
   // 1. Rate limiting (strict for write operations)
   const rateLimitResult = await rateLimit(request, 'strict');
   if (rateLimitResult) return rateLimitResult;
 
-  // 2. Authentication + Role check (only OWNER/ADMIN can create properties)
-  const authResult = await requireRole(request, 'OWNER');
+  // 2. Authentication + Role check (OWNER, USER or ADMIN)
+  const authResult = await requireRole(request, ['OWNER', 'USER']);
   if (authResult instanceof NextResponse) return authResult;
 
   try {

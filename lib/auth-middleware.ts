@@ -12,6 +12,7 @@ import { prisma } from '@/lib/prisma';
  * @returns Session si authentifié, NextResponse 401 sinon
  */
 export async function requireAuth(request: Request) {
+  void request;
   try {
     const session = await auth();
     
@@ -56,7 +57,8 @@ export async function requireRole(request: Request, role: string | string[]) {
   }
   
   const allowedRoles = Array.isArray(role) ? role : [role];
-  const userRole = session.user.role || 'USER';
+  const normalizedAllowedRoles = allowedRoles.map((allowedRole) => String(allowedRole).toUpperCase());
+  const userRole = String(session.user.role || 'USER').toUpperCase();
   
   // ADMIN a accès à tout
   if (userRole === 'ADMIN') {
@@ -64,11 +66,11 @@ export async function requireRole(request: Request, role: string | string[]) {
   }
   
   // Vérifier si le rôle est autorisé
-  if (!allowedRoles.includes(userRole)) {
+  if (!normalizedAllowedRoles.includes(userRole)) {
     return NextResponse.json(
       { 
         success: false,
-        error: `Forbidden - ${allowedRoles.join(' or ')} role required`,
+        error: `Forbidden - ${normalizedAllowedRoles.join(' or ')} role required`,
         currentRole: userRole
       },
       { status: 403 }
@@ -95,7 +97,7 @@ export async function requireOwnership(
   }
   
   // ADMIN bypass ownership check
-  if (session.user.role === 'ADMIN') {
+  if (String(session.user.role || '').toUpperCase() === 'ADMIN') {
     return session;
   }
   
@@ -213,7 +215,7 @@ export async function requirePropertyAccess(request: Request, propertyId: number
   }
   
   // ADMIN a accès à tout
-  if (session.user.role === 'ADMIN') {
+  if (String(session.user.role || '').toUpperCase() === 'ADMIN') {
     return session;
   }
   
@@ -269,7 +271,9 @@ export async function requirePropertyAccess(request: Request, propertyId: number
 /**
  * Helper pour extraire userId de session
  */
-export function getUserIdFromSession(session: any): string | null {
+export function getUserIdFromSession(
+  session: NextResponse | { user?: { id?: string | null } } | null | undefined,
+): string | null {
   if (session instanceof NextResponse) {
     return null;
   }
@@ -279,6 +283,6 @@ export function getUserIdFromSession(session: any): string | null {
 /**
  * Helper pour vérifier si session est une erreur
  */
-export function isAuthError(session: any): session is NextResponse {
+export function isAuthError(session: unknown): session is NextResponse {
   return session instanceof NextResponse;
 }
