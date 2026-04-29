@@ -1436,12 +1436,20 @@ export function parseAirbnbEmail(
 
     const checkInPatterns = [
       // ── Format Airbnb hôte 2024-2026 : label seul + date sur la ligne suivante ──
+      // "Arrivée\n(mer. 20 mai)" / "Arrivée\n(20 mai 2026)"
+      new RegExp(`arriv[eé]e?\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
       // "Arrivée\ndim. 19 avr." / "Arrivée\n19 avr. 2026"
       new RegExp(`arriv[eé]e?\\s*\\n\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // "Check-in\n(mer. 20 mai)"
+      new RegExp(`check.?in\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
       // "Check-in\ndim. 19 avr."
       new RegExp(`check.?in\\s*\\n\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // "Arrivée : (sam. 10 avr.)"
+      new RegExp(`arriv[eé]e?\\s*[:\\-–]\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
       // "Arrivée : sam. 10 avr." / "Arrivée : 10 avr." / "Arrivée : 10 avr. 2026"
       new RegExp(`arriv[eé]e?\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // "Check-in : (sam. 10 avr.)"
+      new RegExp(`check.?in\\s*[:\\-–]\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
       // "Check-in : sam. 10 avr."
       new RegExp(`check.?in\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       // "Entrée : 10 avr."
@@ -1461,12 +1469,20 @@ export function parseAirbnbEmail(
     ];
     const checkOutPatterns = [
       // ── Format Airbnb hôte 2024-2026 : label seul + date sur la ligne suivante ──
+      // "Départ\n(ven. 24 avr.)" / "Départ\n(24 avr. 2026)"
+      new RegExp(`d[eé]part\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
       // "Départ\nven. 24 avr." / "Départ\n24 avr. 2026"
       new RegExp(`d[eé]part\\s*\\n\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // "Check-out\n(ven. 24 avr.)"
+      new RegExp(`check.?out\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
       // "Check-out\nven. 24 avr."
       new RegExp(`check.?out\\s*\\n\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // "Départ : (mar. 13 avr.)"
+      new RegExp(`d[eé]part\\s*[:\\-–]\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
       // "Départ : mar. 13 avr." / "Départ : 13 avr."
       new RegExp(`d[eé]part\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      // "Check-out : (13 avr.)"
+      new RegExp(`check.?out\\s*[:\\-–]\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
       // "Check-out : 13 avr."
       new RegExp(`check.?out\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       // "Sortie : 13 avr."
