@@ -1457,6 +1457,7 @@ export default function GmailImporter() {
   // ── Détection nouveaux logements ──────────────────────────────────────────
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
   const [currentWizard, setCurrentWizard] = useState<DetectedPropertyInfo | null>(null);
+  const [hasAutoRelaunchedWizardAfterFirstCreate, setHasAutoRelaunchedWizardAfterFirstCreate] = useState(false);
 
   const isGoogleUser = (session as { user?: { provider?: string } })?.user?.provider === 'google';
   const tokenError   = (session as { tokenError?: string })?.tokenError;
@@ -4858,6 +4859,7 @@ export default function GmailImporter() {
       {/* ── 🏠 Wizard nouveau logement ── */}
       {currentWizard && (
         <NewPropertyWizard
+          key={`${currentWizard.rawName}-${propertyQueue.length}`}
           detected={currentWizard}
           onClose={advanceQueue}
           onCreated={async (name, payload: WizardPropertyPayload) => {
@@ -4881,6 +4883,14 @@ export default function GmailImporter() {
             setImported(prev => [...prev, `__property__${created.name || name}`]);
             toast.success(`Logement "${created.name || name}" ajouté en base.`);
             advanceQueue();
+
+            // Demande UX: après la 1ère annonce créée, relancer le wizard
+            // même si la file est vide, pour enchaîner rapidement une 2e création.
+            if (!hasAutoRelaunchedWizardAfterFirstCreate && propertyQueue.length === 0) {
+              setHasAutoRelaunchedWizardAfterFirstCreate(true);
+              setCurrentWizard(analyzeAirbnbTitle('Mon logement'));
+            }
+
             return true;
           }}
         />
