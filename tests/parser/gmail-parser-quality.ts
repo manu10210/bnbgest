@@ -9,6 +9,9 @@ type Expected = {
   minHostPayout?: number;
   minGuests?: number;
   requiresDates?: boolean;
+  expectedCheckIn?: string;
+  expectedCheckOut?: string;
+  expectedNights?: number;
   expectedGuestNameIncludes?: string[];
 };
 
@@ -74,6 +77,33 @@ const CASES: Case[] = [
       minGuests: 2,
       requiresDates: true,
       expectedGuestNameIncludes: ['Marie', 'Bordes'],
+    },
+  },
+  {
+    name: 'NEW_FR_subject_arrivee_depart_explicit_range',
+    messageId: 'msg_new_subject_arrivee_depart_001',
+    subject: 'Réservation confirmée — Arrivée mer. 20 mai 2026 · Départ ven. 22 mai 2026',
+    from: 'Automated Airbnb <automated@airbnb.com>',
+    receivedAt: '2026-05-01T08:12:00.000Z',
+    body: [
+      'Code de confirmation : HMAD22ZX99',
+      'Voyageur principal : Clara Martin',
+      '2 voyageurs',
+      'Vos revenus pour ce séjour : 180,00 €',
+      'Heure d\'arrivée : 15:00',
+      'Heure de départ : 11:00',
+    ].join('\n'),
+    expected: {
+      bookingType: 'new',
+      minConfidence: 70,
+      hasConfirmationCode: true,
+      minTotalPrice: 100,
+      minGuests: 2,
+      requiresDates: true,
+      expectedCheckIn: '2026-05-20',
+      expectedCheckOut: '2026-05-22',
+      expectedNights: 2,
+      expectedGuestNameIncludes: ['Clara', 'Martin'],
     },
   },
   {
@@ -274,6 +304,18 @@ function assertCase(c: Case) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(parsed.checkIn) || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.checkOut)) {
       fail(`[${c.name}] expected ISO checkIn/checkOut got=${parsed.checkIn} / ${parsed.checkOut}`);
     }
+  }
+
+  if (c.expected.expectedCheckIn && parsed.checkIn !== c.expected.expectedCheckIn) {
+    fail(`[${c.name}] checkIn expected=${c.expected.expectedCheckIn} got=${parsed.checkIn}`);
+  }
+
+  if (c.expected.expectedCheckOut && parsed.checkOut !== c.expected.expectedCheckOut) {
+    fail(`[${c.name}] checkOut expected=${c.expected.expectedCheckOut} got=${parsed.checkOut}`);
+  }
+
+  if (typeof c.expected.expectedNights === 'number' && parsed.nights !== c.expected.expectedNights) {
+    fail(`[${c.name}] nights expected=${c.expected.expectedNights} got=${parsed.nights}`);
   }
 
   if (c.expected.expectedGuestNameIncludes?.length) {

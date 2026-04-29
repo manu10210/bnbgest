@@ -320,10 +320,75 @@ function parseArrivalDateFromSubject(subject?: string, receivedAt?: string): str
     .replace(/\s{2,}/g, ' ')
     .toLowerCase();
 
-  const m = normalized.match(/\barrive\s+(?:le\s+)?(\d{1,2})\s+([a-zéû\.]+)(?:\s+(\d{4}))?/i);
-  if (!m) return undefined;
   const fallbackYear = receivedAt ? new Date(receivedAt).getFullYear() : new Date().getFullYear();
-  return parseIsoDateFromFrenchParts(m[1], m[2], m[3], fallbackYear);
+  const weekdayToken = '(?:lun(?:di)?|mar(?:di)?|mer(?:credi)?|jeu(?:di)?|ven(?:dredi)?|sam(?:edi)?|dim(?:anche)?)\\.?';
+
+  const frenchPattern = normalized.match(new RegExp(
+    `\\b(?:arrivee|arrive|arrivée|check[\\s-]?in)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${weekdayToken}\\s+)?(\\d{1,2})(?:er)?\\s+([a-zéû\\.]+)(?:\\s+(\\d{4}))?`,
+    'i',
+  ));
+  if (frenchPattern) {
+    const parsed = parseIsoDateFromFrenchParts(frenchPattern[1], frenchPattern[2], frenchPattern[3], fallbackYear);
+    if (parsed) return parsed;
+  }
+
+  const numericPattern = normalized.match(/\b(?:arrivee|arrive|arrivée|check[\s-]?in)\b\s*(?:[:\-–—]\s*)?(?:le\s+)?(?:lun(?:di)?|mar(?:di)?|mer(?:credi)?|jeu(?:di)?|ven(?:dredi)?|sam(?:edi)?|dim(?:anche)?)?\.?\s*(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/i);
+  if (!numericPattern) return undefined;
+
+  const parseYear = (raw?: string) => {
+    if (!raw) return fallbackYear;
+    const n = Number.parseInt(raw, 10);
+    if (!Number.isFinite(n)) return fallbackYear;
+    return n < 100 ? 2000 + n : n;
+  };
+
+  const day = Number.parseInt(numericPattern[1], 10);
+  const month = Number.parseInt(numericPattern[2], 10) - 1;
+  const year = parseYear(numericPattern[3]);
+  const date = new Date(Date.UTC(year, month, day));
+  if (Number.isNaN(date.getTime())) return undefined;
+  if (date.getUTCDate() !== day || date.getUTCMonth() !== month || date.getUTCFullYear() !== year) return undefined;
+
+  return formatIsoDate(date);
+}
+
+function parseDepartureDateFromSubject(subject?: string, receivedAt?: string): string | undefined {
+  if (!subject) return undefined;
+  const normalized = stripInvisibleUnicode(subject)
+    .replace(/[\u00A0\u202F]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .toLowerCase();
+
+  const fallbackYear = receivedAt ? new Date(receivedAt).getFullYear() : new Date().getFullYear();
+  const weekdayToken = '(?:lun(?:di)?|mar(?:di)?|mer(?:credi)?|jeu(?:di)?|ven(?:dredi)?|sam(?:edi)?|dim(?:anche)?)\\.?';
+
+  const frenchPattern = normalized.match(new RegExp(
+    `\\b(?:depart|départ|check[\\s-]?out)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${weekdayToken}\\s+)?(\\d{1,2})(?:er)?\\s+([a-zéû\\.]+)(?:\\s+(\\d{4}))?`,
+    'i',
+  ));
+  if (frenchPattern) {
+    const parsed = parseIsoDateFromFrenchParts(frenchPattern[1], frenchPattern[2], frenchPattern[3], fallbackYear);
+    if (parsed) return parsed;
+  }
+
+  const numericPattern = normalized.match(/\b(?:depart|départ|check[\s-]?out)\b\s*(?:[:\-–—]\s*)?(?:le\s+)?(?:lun(?:di)?|mar(?:di)?|mer(?:credi)?|jeu(?:di)?|ven(?:dredi)?|sam(?:edi)?|dim(?:anche)?)?\.?\s*(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/i);
+  if (!numericPattern) return undefined;
+
+  const parseYear = (raw?: string) => {
+    if (!raw) return fallbackYear;
+    const n = Number.parseInt(raw, 10);
+    if (!Number.isFinite(n)) return fallbackYear;
+    return n < 100 ? 2000 + n : n;
+  };
+
+  const day = Number.parseInt(numericPattern[1], 10);
+  const month = Number.parseInt(numericPattern[2], 10) - 1;
+  const year = parseYear(numericPattern[3]);
+  const date = new Date(Date.UTC(year, month, day));
+  if (Number.isNaN(date.getTime())) return undefined;
+  if (date.getUTCDate() !== day || date.getUTCMonth() !== month || date.getUTCFullYear() !== year) return undefined;
+
+  return formatIsoDate(date);
 }
 
 function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
@@ -353,6 +418,37 @@ function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
   const inferredCheckIn = isIsoDate(booking.checkIn)
     ? booking.checkIn
     : parseArrivalDateFromSubject(booking.subject, booking.receivedAt);
+  const inferredCheckOutFromSubject = isIsoDate(booking.checkOut)
+    ? booking.checkOut
+    : parseDepartureDateFromSubject(booking.subject, booking.receivedAt);
+
+  if (inferredCheckIn && inferredCheckOutFromSubject) {
+    let normalizedCheckOut = inferredCheckOutFromSubject;
+
+    if (!isValidDateRange(inferredCheckIn, normalizedCheckOut)) {
+      const checkInDate = new Date(`${inferredCheckIn}T00:00:00.000Z`);
+      const checkOutDate = new Date(`${normalizedCheckOut}T00:00:00.000Z`);
+      if (!Number.isNaN(checkInDate.getTime()) && !Number.isNaN(checkOutDate.getTime()) && checkOutDate.getTime() <= checkInDate.getTime()) {
+        checkOutDate.setUTCFullYear(checkOutDate.getUTCFullYear() + 1);
+        normalizedCheckOut = formatIsoDate(checkOutDate);
+      }
+    }
+
+    if (isValidDateRange(inferredCheckIn, normalizedCheckOut)) {
+      const inferredNights = deriveNightsFromIsoRange(inferredCheckIn, normalizedCheckOut) || booking.nights || 1;
+      return {
+        ...booking,
+        checkIn: inferredCheckIn,
+        checkOut: normalizedCheckOut,
+        nights: inferredNights,
+        warnings: Array.from(new Set([
+          ...(booking.warnings || []),
+          'date_range_inferred_from_arrival_departure_subject',
+        ])),
+      };
+    }
+  }
+
   if (!inferredCheckIn) return booking;
 
   const nights = Number.isFinite(booking.nights) && booking.nights > 0 ? booking.nights : 1;
