@@ -811,7 +811,10 @@ const PROPERTY_ALIAS_STORAGE_KEY = 'bnbgest.gmail.property-aliases.v1';
 const PROPERTY_REJECTED_STORAGE_KEY = 'bnbgest.gmail.property-rejected-labels.v1';
 const EXPERT_MODE_STORAGE_KEY = 'bnbgest.gmail.expert-mode.v1';
 const PROPERTY_DECISIONS_API = '/api/gmail/property-decisions';
-const DEFAULT_REJECTED_PROPERTY_LABELS = ['CÉLINE Saint-Julien-les-Villas Maison'];
+const DEFAULT_REJECTED_PROPERTY_LABELS = [
+  'CÉLINE Saint-Julien-les-Villas Maison',
+  'BTISSAM Saint-Julien-les-Villas Maisonnette T2 quartier calme DATES INITIALES',
+];
 const CANONICAL_T3_PROPERTY_NAME = 'Maison T3/Climatisée/ terrasse privée';
 let RUNTIME_PROPERTY_ALIASES: Record<string, string> = {};
 
@@ -888,6 +891,8 @@ const PROPERTY_NOISE_PATTERNS: RegExp[] = [
   /\bpayout\b/g,
   /\bvoyageur\b/g,
   /\bguest\b/g,
+  /\bdates?\s+initiales?\b/g,
+  /\bdates?\s+finales?\b/g,
 ];
 
 function sanitizePropertyLabel(input: string): string {
@@ -896,6 +901,24 @@ function sanitizePropertyLabel(input: string): string {
     value = value.replace(pattern, ' ');
   }
   return value.replace(/\s{2,}/g, ' ').trim();
+}
+
+function normalizePropertyLabelForWizard(raw: string): string {
+  if (!raw?.trim()) return '';
+
+  const value = sanitizePropertyLabel(raw)
+    // Cas observé: "BTISSAM Saint-Julien-les-Villas ... DATES INITIALES"
+    .replace(/\bsaint[-\s]?julien[-\s]?les[-\s]?villas\b/gi, ' ')
+    // Prénom/Nom en préfixe (souvent voyageur) avant le vrai libellé logement
+    .replace(/^[a-zà-ÿ'’-]{2,20}\s+/, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  // Garde-fou: si trop court ou purement bruité, ignorer
+  if (!value || value.length < 4) return '';
+  if (/^(dates?|initiales?|finales?)$/i.test(value)) return '';
+
+  return value;
 }
 
 function resolvePropertyAliasTarget(rawLabel: string): string | undefined {
@@ -2994,8 +3017,11 @@ export default function GmailImporter() {
       // ── 5. Détecter les nouveaux logements inconnus ───────────────────────
       // Tous les emails (importés ou non) avec un propertyName qui ne correspond
       // à aucun logement existant → proposer le wizard de création.
-      const isKnownProperty = (name: string) =>
-        findMatchingProperty(name, runtimeProperties) !== undefined;
+      const isKnownProperty = (name: string) => {
+        const normalizedCandidate = normalizePropertyLabelForWizard(name);
+        return findMatchingProperty(name, runtimeProperties) !== undefined
+          || (!!normalizedCandidate && findMatchingProperty(normalizedCandidate, runtimeProperties) !== undefined);
+      };
 
       // On prend TOUS les bookings importés (toImport) avec
       // un propertyName détecté mais inconnu — pour ne rater aucun nouveau logement
@@ -3003,12 +3029,16 @@ export default function GmailImporter() {
         .filter(b => {
           if (!b.propertyName?.trim()) return false;
           if (b.bookingType === 'review' || b.bookingType === 'payout') return false;
-          if (isKnownProperty(b.propertyName)) return false;
-          const normalizedLabel = normalizeForMatch(b.propertyName);
+          const candidateLabel = normalizePropertyLabelForWizard(b.propertyName);
+          if (!candidateLabel) return false;
+          if (isKnownProperty(candidateLabel)) return false;
+          const normalizedLabel = normalizeForMatch(candidateLabel);
           return !rejectedPropertySet.has(normalizedLabel);
         });
 
-      const allNamesForWizard = allCandidates.map(b => b.propertyName!.trim());
+      const allNamesForWizard = allCandidates
+        .map((b) => normalizePropertyLabelForWizard(b.propertyName || ''))
+        .filter(Boolean);
 
       // Cas aucun logement configuré : si aucun nom extrait mais des emails sans logement,
       // proposer le wizard avec les noms uniques trouvés dans les sujets des emails
