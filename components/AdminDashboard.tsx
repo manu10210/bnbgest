@@ -220,6 +220,7 @@ export default function AdminDashboard() {
   const [propertySearch, setPropertySearch] = useState('');
   const [propertySort, setPropertySort] = useState<'revenue-desc' | 'bookings-desc' | 'name-asc' | 'price-desc'>('revenue-desc');
   const [propertyStatusFilter, setPropertyStatusFilter] = useState<'all' | 'active' | 'maintenance' | 'inactive'>('all');
+  const [showHiddenPropertiesAudit, setShowHiddenPropertiesAudit] = useState(false);
   const [dbProperties, setDbProperties] = useState<PropertyTabItem[]>([]);
   const [dbBookings, setDbBookings] = useState<PropertyTabBooking[]>([]);
   const [dbBookingsForManagers, setDbBookingsForManagers] = useState<Booking[]>([]);
@@ -730,6 +731,23 @@ export default function AdminDashboard() {
       .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
   };
 
+  const hiddenPropertiesAuditRows = propertiesData
+    .filter((property) => hiddenByAirbnbInactivityIds.has(property.id))
+    .map((property) => {
+      const lastActivity = getLastBookingActivityDate(property.id);
+      const daysInactive = lastActivity
+        ? Math.max(0, Math.floor((Date.now() - lastActivity.getTime()) / (24 * 60 * 60 * 1000)))
+        : null;
+      const annualRevenue = getRevenueByPropertyData(property.id, yearStart, yearEnd);
+      return {
+        ...property,
+        lastActivity,
+        daysInactive,
+        annualRevenue,
+      };
+    })
+    .sort((a, b) => (b.daysInactive || 9999) - (a.daysInactive || 9999));
+
   const now = new Date();
   const monthStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -1030,9 +1048,21 @@ export default function AdminDashboard() {
                         )}
                       </p>
                     </div>
-                    <Button onClick={() => setShowPropertyConfigurator(true)} className="flex items-center gap-2 hover-lift">
-                      <Plus className="w-4 h-4" /> Ajouter une Propriété
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {hiddenByAirbnbInactivityIds.size > 0 && (
+                        <Button
+                          variant="secondary"
+                          onClick={() => setShowHiddenPropertiesAudit((v) => !v)}
+                          className="flex items-center gap-2"
+                        >
+                          <Eye className="w-4 h-4" />
+                          {showHiddenPropertiesAudit ? 'Masquer' : 'Voir'} les propriétés masquées
+                        </Button>
+                      )}
+                      <Button onClick={() => setShowPropertyConfigurator(true)} className="flex items-center gap-2 hover-lift">
+                        <Plus className="w-4 h-4" /> Ajouter une Propriété
+                      </Button>
+                    </div>
                   </div>
 
                   {hiddenByAirbnbInactivityIds.size > 0 && (
@@ -1041,6 +1071,44 @@ export default function AdminDashboard() {
                       {hiddenPropertiesRevenue > 0 && (
                         <span className="ml-1 font-semibold">Revenus historiques conservés: {hiddenPropertiesRevenue.toLocaleString('fr-FR')}€.</span>
                       )}
+                    </div>
+                  )}
+
+                  {showHiddenPropertiesAudit && hiddenPropertiesAuditRows.length > 0 && (
+                    <div className={`mb-5 rounded-2xl border p-4 ${isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-gray-200'}`}>
+                      <h3 className={`text-sm font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                        Propriétés masquées automatiquement (&gt;{AIRBNB_INACTIVITY_DAYS} jours sans nouvelle réservation)
+                      </h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className={`${isDark ? 'text-gray-400 border-white/10' : 'text-gray-500 border-gray-200'} border-b`}>
+                              <th className="text-left py-2 pr-3">Propriété</th>
+                              <th className="text-left py-2 pr-3">Ville</th>
+                              <th className="text-left py-2 pr-3">Dernière activité</th>
+                              <th className="text-left py-2 pr-3">Inactivité</th>
+                              <th className="text-left py-2">Revenus conservés (année)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {hiddenPropertiesAuditRows.map((row) => (
+                              <tr key={row.id} className={`${isDark ? 'border-white/5' : 'border-gray-100'} border-b`}>
+                                <td className="py-2 pr-3 font-medium">{row.name}</td>
+                                <td className="py-2 pr-3">{row.city || '—'}</td>
+                                <td className="py-2 pr-3">
+                                  {row.lastActivity
+                                    ? row.lastActivity.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                    : 'Aucune réservation détectée'}
+                                </td>
+                                <td className="py-2 pr-3">
+                                  {row.daysInactive !== null ? `${row.daysInactive} jours` : 'N/A'}
+                                </td>
+                                <td className="py-2 font-semibold text-emerald-500">{row.annualRevenue.toLocaleString('fr-FR')}€</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
 
