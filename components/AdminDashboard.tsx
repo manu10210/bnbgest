@@ -44,6 +44,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Calendar,
   Wrench,
@@ -90,6 +91,31 @@ import ThemeToggle from './ThemeToggle';
 import { useTheme } from '../contexts/ThemeContext';
 
 export type TabType = 'overview' | 'bookings' | 'maintenance' | 'inventory' | 'financial' | 'guests' | 'reviews' | 'welcome' | 'properties' | 'settings' | 'qrcheckin' | 'contract' | 'cleaning' | 'pricing' | 'notifications' | 'cleaningGallery' | 'shareLinks' | 'forecasting' | 'videoguides' | 'reviewsmanager' | 'invoice' | 'intelligence' | 'assistant' | 'autopilot' | 'revenue-live' | 'messaging' | 'occupancy' | 'gmail-import';
+
+type PropertyTabItem = {
+  id: number;
+  name: string;
+  address: string;
+  city?: string;
+  maxGuests?: number;
+  price?: number;
+  status?: 'active' | 'inactive' | 'maintenance' | 'blocked';
+};
+
+type PropertyTabBooking = {
+  id: number;
+  propertyId: number;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  totalPrice: number;
+  status: string;
+  guestInfo: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+};
 
 export default function AdminDashboard() {
   const {
@@ -151,6 +177,11 @@ export default function AdminDashboard() {
   const [propertySearch, setPropertySearch] = useState('');
   const [propertySort, setPropertySort] = useState<'revenue-desc' | 'bookings-desc' | 'name-asc' | 'price-desc'>('revenue-desc');
   const [propertyStatusFilter, setPropertyStatusFilter] = useState<'all' | 'active' | 'maintenance' | 'inactive'>('all');
+  const [dbProperties, setDbProperties] = useState<PropertyTabItem[]>([]);
+  const [dbBookings, setDbBookings] = useState<PropertyTabBooking[]>([]);
+  const [dbPropertiesLoaded, setDbPropertiesLoaded] = useState(false);
+  const [dbPropertiesLoading, setDbPropertiesLoading] = useState(false);
+  const [dbPropertiesError, setDbPropertiesError] = useState<string | null>(null);
 
   // New booking form
   const [newBooking, setNewBooking] = useState({
@@ -305,18 +336,153 @@ export default function AdminDashboard() {
   const filteredReviews = selectedPropertyId ? reviews.filter(r => r.propertyId === selectedPropertyId) : reviews;
   const filteredGuests = guests;
 
+  const normalizePropertyStatus = (status?: string): 'active' | 'inactive' | 'maintenance' | 'blocked' => {
+    const s = (status || '').toLowerCase();
+    if (s === 'active') return 'active';
+    if (s === 'maintenance') return 'maintenance';
+    if (s === 'inactive') return 'inactive';
+    if (s === 'blocked') return 'blocked';
+    return 'active';
+  };
+
+  const normalizeBookingStatus = (status?: string): string => {
+    const s = (status || '').toLowerCase();
+    if (s === 'checked_out') return 'completed';
+    if (s === 'checked_in') return 'confirmed';
+    return s || 'pending';
+  };
+
   const currentYear = new Date().getFullYear();
   const yearStart = `${currentYear}-01-01`;
   const yearEnd = `${currentYear}-12-31`;
+
+  const fetchRealPropertiesData = async () => {
+    setDbPropertiesLoading(true);
+    setDbPropertiesError(null);
+    try {
+      const [propRes, bookingRes] = await Promise.all([
+        fetch('/api/properties?limit=300', { credentials: 'include' }),
+        fetch('/api/bookings?limit=1200', { credentials: 'include' }),
+      ]);
+
+      if (!propRes.ok || !bookingRes.ok) {
+        throw new Error('Impossible de charger les données réelles');
+      }
+
+      const propJson = await propRes.json();
+      const bookingJson = await bookingRes.json();
+
+      const normalizedProperties: PropertyTabItem[] = (propJson.properties || []).map((p: {
+        id: number;
+        name: string;
+        address: string;
+        city?: string;
+        maxGuests?: number | null;
+        capacity?: number | null;
+        price?: number | null;
+        pricePerNight?: number | null;
+        status?: string;
+      }) => ({
+        id: p.id,
+        name: p.name,
+        address: p.address,
+        city: p.city,
+        maxGuests: p.maxGuests ?? p.capacity ?? 0,
+        price: p.pricePerNight ?? p.price ?? 0,
+        status: normalizePropertyStatus(p.status),
+      }));
+
+      const normalizedBookings: PropertyTabBooking[] = (bookingJson.bookings || []).map((b: {
+        id: number;
+        propertyId: number;
+        checkIn: string;
+        checkOut: string;
+        guests: number;
+        totalPrice: number;
+        status?: string;
+        guestName?: string;
+        guestEmail?: string;
+        guestPhone?: string | null;
+      }) => ({
+        id: b.id,
+        propertyId: b.propertyId,
+        checkIn: b.checkIn,
+        checkOut: b.checkOut,
+        guests: b.guests,
+        totalPrice: b.totalPrice ?? 0,
+        status: normalizeBookingStatus(b.status),
+        guestInfo: {
+          name: b.guestName || 'Voyageur',
+          email: b.guestEmail || '',
+          phone: b.guestPhone || '',
+        },
+      }));
+
+      setDbProperties(normalizedProperties);
+      setDbBookings(normalizedBookings);
+      setDbPropertiesLoaded(true);
+    } catch {
+      setDbPropertiesError('Données DB indisponibles, affichage local de secours.');
+      setDbPropertiesLoaded(false);
+    } finally {
+      setDbPropertiesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'properties') {
+      fetchRealPropertiesData();
+    }
+  }, [activeTab]);
+
+  const handleDeletePropertyAction = async (propertyId: number) => {
+    try {
+      if (dbPropertiesLoaded) {
+        const res = await fetch(`/api/properties/${propertyId}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          throw new Error('Suppression impossible');
+        }
+        toast.success('Propriété désactivée en base');
+        await fetchRealPropertiesData();
+      } else {
+        deleteProperty(propertyId);
+      }
+    } catch {
+      toast.error('Échec de la suppression');
+    } finally {
+      setPropertyToDelete(null);
+    }
+  };
+
+  const propertiesData = dbPropertiesLoaded ? dbProperties : properties;
+  const bookingsData = dbPropertiesLoaded ? dbBookings : bookings;
+
+  const getRevenueByPropertyData = (propertyId: number, startDate: string, endDate: string) => {
+    const start = new Date(startDate).getTime();
+    const end = new Date(endDate).getTime();
+    return bookingsData
+      .filter(b => b.propertyId === propertyId)
+      .filter(b => !['cancelled', 'no_show'].includes(b.status))
+      .filter(b => {
+        const ci = new Date(b.checkIn).getTime();
+        const co = new Date(b.checkOut).getTime();
+        return co > start && ci <= end;
+      })
+      .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+  };
+
   const now = new Date();
   const monthStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const daysInCurrentMonth = monthEndDate.getDate();
-  const totalRevenue = properties.reduce((sum, p) => sum + getRevenueByProperty(p.id, yearStart, yearEnd), 0);
-  const avgNightlyPrice = properties.length > 0
-    ? Math.round(properties.reduce((sum, p) => sum + (p.price || 0), 0) / properties.length)
+  const totalRevenue = propertiesData.reduce((sum, p) => sum + getRevenueByPropertyData(p.id, yearStart, yearEnd), 0);
+  const avgNightlyPrice = propertiesData.length > 0
+    ? Math.round(propertiesData.reduce((sum, p) => sum + (p.price || 0), 0) / propertiesData.length)
     : 0;
-  const propertyStatusCounts = properties.reduce(
+  const propertyStatusCounts = propertiesData.reduce(
     (acc, property) => {
       const status = property.status === 'blocked' ? 'inactive' : property.status;
       if (status === 'active') acc.active += 1;
@@ -328,7 +494,7 @@ export default function AdminDashboard() {
   );
 
   const getPropertyBookedNightsThisMonth = (propertyId: number) => {
-    return bookings
+    return bookingsData
       .filter(b => b.propertyId === propertyId && !['cancelled', 'no_show'].includes(b.status))
       .reduce((sum, booking) => {
         const checkIn = new Date(booking.checkIn);
@@ -341,7 +507,7 @@ export default function AdminDashboard() {
       }, 0);
   };
 
-  const propertiesFiltered = properties
+  const propertiesFiltered = propertiesData
     .filter((property) => {
       if (propertyStatusFilter !== 'all') {
         const normalizedStatus = property.status === 'blocked' ? 'inactive' : property.status;
@@ -359,10 +525,10 @@ export default function AdminDashboard() {
       if (propertySort === 'name-asc') return a.name.localeCompare(b.name, 'fr');
       if (propertySort === 'price-desc') return (b.price || 0) - (a.price || 0);
       if (propertySort === 'bookings-desc') {
-        return bookings.filter(x => x.propertyId === b.id).length - bookings.filter(x => x.propertyId === a.id).length;
+        return bookingsData.filter(x => x.propertyId === b.id).length - bookingsData.filter(x => x.propertyId === a.id).length;
       }
       // revenue-desc (default)
-      return getRevenueByProperty(b.id, yearStart, yearEnd) - getRevenueByProperty(a.id, yearStart, yearEnd);
+      return getRevenueByPropertyData(b.id, yearStart, yearEnd) - getRevenueByPropertyData(a.id, yearStart, yearEnd);
     });
   const averageRating = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : '0';
 
@@ -596,8 +762,8 @@ export default function AdminDashboard() {
                     <div>
                       <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Gestion des Propriétés</h2>
                       <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>
-                        Gérez vos <span className="font-bold text-[#FF385C]">{properties.length}</span> propriété{properties.length > 1 ? 's' : ''}
-                        {properties.length > 0 && (
+                        Gérez vos <span className="font-bold text-[#FF385C]">{propertiesData.length}</span> propriété{propertiesData.length > 1 ? 's' : ''}
+                        {propertiesData.length > 0 && (
                           <span className="ml-2">• <span className="font-semibold">{propertiesFiltered.length}</span> affichée{propertiesFiltered.length > 1 ? 's' : ''}</span>
                         )}
                       </p>
@@ -607,7 +773,7 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
 
-                  {properties.length > 0 && (
+                  {propertiesData.length > 0 && (
                     <div className="mb-5 grid md:grid-cols-3 gap-3">
                       <div className={`flex items-center gap-2 rounded-xl px-3 py-2 border ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'}`}>
                         <Search className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
@@ -641,7 +807,7 @@ export default function AdminDashboard() {
                     </div>
                   )}
 
-                  {properties.length > 0 && (
+                  {propertiesData.length > 0 && (
                     <div className="mb-5 grid md:grid-cols-3 gap-3">
                       <div className={`rounded-xl px-3 py-2 text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
                         <span>Revenus annuels (vue)</span>
@@ -660,7 +826,11 @@ export default function AdminDashboard() {
                     </div>
                   )}
 
-                  {properties.length === 0 ? (
+                  {activeTab === 'properties' && dbPropertiesLoading ? (
+                    <div className={`text-center py-16 rounded-2xl border ${isDark ? 'bg-white/[0.02] border-white/10' : 'bg-[#f7f7f7] border-gray-200'}`}>
+                      <p className={`text-base font-bold ${isDark ? 'text-white/70' : 'text-gray-700'}`}>Chargement des données réelles…</p>
+                    </div>
+                  ) : propertiesData.length === 0 ? (
                     <div className={`text-center py-16 rounded-2xl border-gradient ${isDark ? 'bg-white/[0.02]' : 'bg-[#f7f7f7]'}`}>
                       <div className="w-20 h-20 rounded-2xl aurora-bg flex items-center justify-center mx-auto mb-4 animate-float pulse-ring">
                         <Building2 className="w-9 h-9 text-white" />
@@ -683,9 +853,14 @@ export default function AdminDashboard() {
                     </div>
                   ) : (
                     <div className="grid md:grid-cols-2 gap-4 stagger-children">
+                      {dbPropertiesError && (
+                        <div className={`md:col-span-2 rounded-xl border px-4 py-2 text-sm ${isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                          {dbPropertiesError}
+                        </div>
+                      )}
                       {propertiesFiltered.map(property => {
-                        const revenue = getRevenueByProperty(property.id, yearStart, yearEnd);
-                        const propBookings = bookings.filter(b => b.propertyId === property.id);
+                        const revenue = getRevenueByPropertyData(property.id, yearStart, yearEnd);
+                        const propBookings = bookingsData.filter(b => b.propertyId === property.id);
                         const bookedNightsMonth = getPropertyBookedNightsThisMonth(property.id);
                         const occupancyMonth = Math.min(100, Math.round((bookedNightsMonth / Math.max(1, daysInCurrentMonth)) * 100));
                         const statusLabel = property.status === 'blocked' ? 'inactive' : property.status;
@@ -740,7 +915,11 @@ export default function AdminDashboard() {
                                   </div>
                                 </div>
                                 <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 translate-x-0 md:translate-x-2 md:group-hover:translate-x-0">
-                                  <button onClick={() => setPropertyToEdit(property)} className={`p-2.5 rounded-xl transition-all hover:scale-110 ${
+                                  <button onClick={() => {
+                                    const localProperty = properties.find(p => p.id === property.id);
+                                    if (localProperty) setPropertyToEdit(localProperty);
+                                    else toast.info('Édition locale indisponible pour cet élément DB (bientôt en PATCH direct).');
+                                  }} className={`p-2.5 rounded-xl transition-all hover:scale-110 ${
                                     isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-gray-50 hover:bg-white text-gray-600 shadow-sm border border-gray-100'
                                   }`}>
                                     <Edit className="w-4 h-4" />
@@ -1477,7 +1656,7 @@ export default function AdminDashboard() {
             <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Cette action est irréversible. Toutes les données associées seront perdues.</p>
             <div className="flex justify-end gap-3 mt-6">
               <Button variant="ghost" onClick={() => setPropertyToDelete(null)}>Annuler</Button>
-              <Button variant="danger" onClick={() => { deleteProperty(propertyToDelete); setPropertyToDelete(null); }}>Supprimer</Button>
+              <Button variant="danger" onClick={() => handleDeletePropertyAction(propertyToDelete)}>Supprimer</Button>
             </div>
           </div>
         </Modal>
