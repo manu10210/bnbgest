@@ -2039,7 +2039,7 @@ export default function GmailImporter() {
       defaultProperty = runtimeProperties[0];
     }
 
-  const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, dbFailed: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0, rescuedAggressive: 0, rescuedSingleProperty: 0 };
+  const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, dbFailed: 0, datesResynced: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0, rescuedAggressive: 0, rescuedSingleProperty: 0 };
     const localGuests = [...guests];
     const localBookings = [...existingBookings];
     const localToDbBookingId = new Map<number, number>();
@@ -2463,20 +2463,71 @@ export default function GmailImporter() {
 
       // ── 3. Vérifier doublon ───────────────────────────────────────────────
       // a) Par code de confirmation (fiable)
-      if (normalizeConfirmationCode(b.confirmationCode)) {
-        const alreadyExists = localBookings.some((eb) => bookingHasConfirmationCode(eb, b.confirmationCode));
-        if (alreadyExists) {
-          summary.skipped++;
-          summary.skippedDuplicate++;
-          pushTrace({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'skipped',
-            action: 'skip_duplicate',
-            reason: 'duplicate_confirmation_code',
-            receivedAt: b.receivedAt,
-          });
+      // IMPORTANT: la déduplication stricte ne s'applique qu'aux "new".
+      // Pour les réimports, on peut corriger une réservation existante (dates/nuits) au lieu de skip.
+      if (b.bookingType === 'new' && normalizeConfirmationCode(b.confirmationCode)) {
+        const duplicateByCode = localBookings.find((eb) => bookingHasConfirmationCode(eb, b.confirmationCode));
+        if (duplicateByCode) {
+          const canResyncDates = isIsoDate(b.checkIn) && isIsoDate(b.checkOut)
+            && isIsoDate(duplicateByCode.checkIn) && isIsoDate(duplicateByCode.checkOut)
+            && (duplicateByCode.checkIn !== b.checkIn || duplicateByCode.checkOut !== b.checkOut);
+
+          if (canResyncDates) {
+            const patchedSpecialRequests = [
+              duplicateByCode.specialRequests || '',
+              `[RESYNC DATES Gmail ${fmt(b.receivedAt)}] ${b.checkIn} → ${b.checkOut}`,
+            ].filter(Boolean).join(' | ');
+
+            const mergedGuests = b.guests > 0 ? b.guests : duplicateByCode.guests;
+            const mergedTotalPrice = b.totalPrice > 0 ? b.totalPrice : duplicateByCode.totalPrice;
+
+            updateBooking(duplicateByCode.id, {
+              checkIn: b.checkIn,
+              checkOut: b.checkOut,
+              guests: mergedGuests,
+              totalPrice: mergedTotalPrice,
+              specialRequests: patchedSpecialRequests,
+            });
+            touchLocalBooking(duplicateByCode.id, {
+              checkIn: b.checkIn,
+              checkOut: b.checkOut,
+              guests: mergedGuests,
+              totalPrice: mergedTotalPrice,
+              specialRequests: patchedSpecialRequests,
+            });
+            await persistUpdateToDb(duplicateByCode.id, {
+              checkIn: b.checkIn,
+              checkOut: b.checkOut,
+              guests: mergedGuests,
+              totalPrice: mergedTotalPrice,
+              status: 'CONFIRMED',
+              specialRequests: patchedSpecialRequests.slice(0, 4900),
+            });
+
+            summary.created++;
+            summary.datesResynced++;
+            pushTrace({
+              messageId: b.messageId,
+              bookingType: b.bookingType,
+              guestName: b.guestName || '—',
+              status: 'success',
+              action: 'booking_dates_resynced',
+              reason: 'duplicate_confirmation_code_with_wrong_dates',
+              receivedAt: b.receivedAt,
+            });
+          } else {
+            summary.skipped++;
+            summary.skippedDuplicate++;
+            pushTrace({
+              messageId: b.messageId,
+              bookingType: b.bookingType,
+              guestName: b.guestName || '—',
+              status: 'skipped',
+              action: 'skip_duplicate',
+              reason: 'duplicate_confirmation_code',
+              receivedAt: b.receivedAt,
+            });
+          }
           continue;
         }
       }
@@ -3182,6 +3233,10 @@ export default function GmailImporter() {
 
       if (summary.dbFailed > 0) {
         toast.error(`⚠️ ${summary.dbFailed} réservation(s) non persistée(s) en base.`);
+      }
+
+      if (summary.datesResynced > 0) {
+        toast.success(`✅ ${summary.datesResynced} réservation(s) existante(s) resynchronisée(s) avec les bonnes dates.`);
       }
 
       // ── 5. Détecter les nouveaux logements inconnus ───────────────────────
