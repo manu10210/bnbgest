@@ -677,13 +677,20 @@ export default function AdminDashboard() {
     }
   };
 
-  const propertiesData = dbPropertiesLoaded ? dbProperties : properties;
-  const bookingsData = dbPropertiesLoaded ? dbBookings : bookings;
-  const bookingsManagerData = dbPropertiesLoaded ? dbBookingsForManagers : bookings;
-  const guestsManagerData = dbPropertiesLoaded ? dbGuests : guests;
-  const maintenanceManagerData = dbPropertiesLoaded ? dbMaintenanceTasks : maintenanceTasks;
-  const inventoryManagerData = dbPropertiesLoaded ? dbInventoryItems : inventory;
-  const guestManagerPropertiesData: Property[] = dbPropertiesLoaded
+  const hasDbData = dbProperties.length > 0
+    || dbBookingsForManagers.length > 0
+    || dbGuests.length > 0
+    || dbMaintenanceTasks.length > 0
+    || dbInventoryItems.length > 0;
+  const useDbData = dbPropertiesLoaded && hasDbData;
+
+  const propertiesData = useDbData ? dbProperties : properties;
+  const bookingsData = useDbData ? dbBookings : bookings;
+  const bookingsManagerData = useDbData ? dbBookingsForManagers : bookings;
+  const guestsManagerData = useDbData ? dbGuests : guests;
+  const maintenanceManagerData = useDbData ? dbMaintenanceTasks : maintenanceTasks;
+  const inventoryManagerData = useDbData ? dbInventoryItems : inventory;
+  const guestManagerPropertiesData: Property[] = useDbData
     ? dbProperties.map(toContextProperty)
     : properties;
 
