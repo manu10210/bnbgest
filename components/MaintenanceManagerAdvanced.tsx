@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useBNB, MaintenanceTask } from '../contexts/BNBContext';
+import { useBNB, MaintenanceTask, Property } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -100,11 +100,25 @@ interface NotificationRule {
   emailTemplate: string;
 }
 
+interface MaintenanceManagerAdvancedProps {
+  tasksData?: MaintenanceTask[];
+  propertiesData?: Property[];
+}
+
 // ==================== COMPOSANT PRINCIPAL ====================
 
-export default function MaintenanceManagerAdvanced() {
+export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }: MaintenanceManagerAdvancedProps = {}) {
   const { isDark } = useTheme();
-  const { properties, maintenanceTasks, addMaintenanceTask, updateMaintenanceTask, completeMaintenanceTask } = useBNB();
+  const {
+    properties: ctxProperties,
+    maintenanceTasks: ctxMaintenanceTasks,
+    addMaintenanceTask,
+    updateMaintenanceTask,
+    completeMaintenanceTask,
+  } = useBNB();
+
+  const properties = propertiesData ?? ctxProperties;
+  const maintenanceTasks = tasksData ?? ctxMaintenanceTasks;
 
   // ========== ÉTATS ==========
   const [activeTab, setActiveTab] = useState<'tasks' | 'calendar' | 'suppliers' | 'templates' | 'recurring' | 'analytics' | 'settings'>('tasks');

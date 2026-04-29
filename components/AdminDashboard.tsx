@@ -38,7 +38,7 @@ const GuestMessagingHub = dynamic(() => import('./GuestMessagingHub'), { ssr: fa
 const OccupancyOptimizer = dynamic(() => import('./OccupancyOptimizer'), { ssr: false });
 const GmailImporter = dynamic(() => import('./GmailImporter'), { ssr: false });
 import LanguageSelector from './LanguageSelector';
-import { useBNB, Booking, Guest, Review, Property } from '../contexts/BNBContext';
+import { useBNB, Booking, Guest, Review, Property, MaintenanceTask, InventoryItem } from '../contexts/BNBContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
     bookings, addBooking, updateBooking,
     guests, addGuest, updateGuest,
     maintenanceTasks, addMaintenanceTask,
-    addInventoryItem,
+    inventory, addInventoryItem,
     reviews, respondToReview,
     getRevenueByProperty,
   } = useBNB();
@@ -224,6 +224,8 @@ export default function AdminDashboard() {
   const [dbBookings, setDbBookings] = useState<PropertyTabBooking[]>([]);
   const [dbBookingsForManagers, setDbBookingsForManagers] = useState<Booking[]>([]);
   const [dbGuests, setDbGuests] = useState<Guest[]>([]);
+  const [dbMaintenanceTasks, setDbMaintenanceTasks] = useState<MaintenanceTask[]>([]);
+  const [dbInventoryItems, setDbInventoryItems] = useState<InventoryItem[]>([]);
   const [dbPropertiesLoaded, setDbPropertiesLoaded] = useState(false);
   const [dbPropertiesLoading, setDbPropertiesLoading] = useState(false);
   const [dbPropertiesError, setDbPropertiesError] = useState<string | null>(null);
@@ -397,6 +399,22 @@ export default function AdminDashboard() {
     return s || 'pending';
   };
 
+  const normalizeMaintenanceStatus = (status?: string): MaintenanceTask['status'] => {
+    const s = (status || '').toUpperCase();
+    if (s === 'IN_PROGRESS') return 'in_progress';
+    if (s === 'COMPLETED') return 'completed';
+    if (s === 'CANCELLED') return 'cancelled';
+    return 'pending';
+  };
+
+  const normalizeMaintenancePriority = (priority?: string): MaintenanceTask['priority'] => {
+    const p = (priority || '').toUpperCase();
+    if (p === 'LOW') return 'low';
+    if (p === 'HIGH') return 'high';
+    if (p === 'URGENT') return 'urgent';
+    return 'medium';
+  };
+
   const currentYear = new Date().getFullYear();
   const yearStart = `${currentYear}-01-01`;
   const yearEnd = `${currentYear}-12-31`;
@@ -405,9 +423,11 @@ export default function AdminDashboard() {
     setDbPropertiesLoading(true);
     setDbPropertiesError(null);
     try {
-      const [propRes, bookingRes] = await Promise.all([
+      const [propRes, bookingRes, maintenanceRes, inventoryRes] = await Promise.all([
         fetch('/api/properties?limit=300', { credentials: 'include' }),
         fetch('/api/bookings?limit=1200', { credentials: 'include' }),
+        fetch('/api/maintenance?limit=1200', { credentials: 'include' }),
+        fetch('/api/inventory?limit=1200', { credentials: 'include' }),
       ]);
 
       const guestsRes = await fetch('/api/guests?limit=1000', { credentials: 'include' });
@@ -416,9 +436,11 @@ export default function AdminDashboard() {
         throw new Error('Impossible de charger les données réelles');
       }
 
-      const propJson = await propRes.json();
-      const bookingJson = await bookingRes.json();
-  const guestsJson = guestsRes.ok ? await guestsRes.json() : { guests: [] };
+    const propJson = await propRes.json();
+    const bookingJson = await bookingRes.json();
+    const maintenanceJson = maintenanceRes.ok ? await maintenanceRes.json() : { tasks: [] };
+    const inventoryJson = inventoryRes.ok ? await inventoryRes.json() : { items: [] };
+    const guestsJson = guestsRes.ok ? await guestsRes.json() : { guests: [] };
 
       const normalizedProperties: PropertyTabItem[] = (propJson.properties || []).map((p: {
         id: number;
@@ -537,10 +559,87 @@ export default function AdminDashboard() {
         },
       }));
 
+      const normalizedMaintenance: MaintenanceTask[] = (maintenanceJson.tasks || []).map((t: {
+        id: number;
+        propertyId: number;
+        title: string;
+        description?: string | null;
+        priority?: string;
+        status?: string;
+        category?: string | null;
+        dueDate?: string | null;
+        completedAt?: string | null;
+        cost?: number | null;
+        notes?: string | null;
+        createdAt?: string;
+        updatedAt?: string;
+      }) => ({
+        id: t.id,
+        propertyId: t.propertyId,
+        title: t.title,
+        description: t.description || '',
+        priority: normalizeMaintenancePriority(t.priority),
+        status: normalizeMaintenanceStatus(t.status),
+        category: (['cleaning', 'repair', 'inspection', 'supplies', 'other'].includes(String(t.category || '').toLowerCase())
+          ? String(t.category).toLowerCase()
+          : 'other') as MaintenanceTask['category'],
+        assignedTo: undefined,
+        estimatedCost: t.cost || 0,
+        actualCost: t.cost || undefined,
+        scheduledDate: t.dueDate || new Date().toISOString(),
+        completedDate: t.completedAt || undefined,
+        createdAt: t.createdAt || new Date().toISOString(),
+        updatedAt: t.updatedAt || new Date().toISOString(),
+        notes: t.notes || undefined,
+        photos: [],
+      }));
+
+      const normalizedInventory: InventoryItem[] = (inventoryJson.items || []).map((item: {
+        id: number;
+        propertyId: number;
+        name: string;
+        category?: string;
+        quantity: number;
+        minQuantity?: number;
+        unit?: string | null;
+        location?: string | null;
+        notes?: string | null;
+        lastChecked?: string | null;
+      }) => {
+        const q = item.quantity || 0;
+        const minQ = item.minQuantity || 0;
+        const status: InventoryItem['status'] = q <= 0 ? 'out_of_stock' : q <= minQ ? 'low_stock' : 'in_stock';
+        const normalizedCategory = String(item.category || '').toLowerCase();
+        const mappedCategory: InventoryItem['category'] = (
+          ['bedding', 'towels', 'kitchen', 'bathroom', 'cleaning', 'electronics', 'furniture', 'other'].includes(normalizedCategory)
+            ? normalizedCategory
+            : 'other'
+        ) as InventoryItem['category'];
+
+        return {
+          id: item.id,
+          propertyId: item.propertyId,
+          name: item.name,
+          category: mappedCategory,
+          quantity: q,
+          minimumQuantity: minQ,
+          unit: item.unit || 'piece',
+          location: item.location || 'Principal',
+          notes: item.notes || undefined,
+          supplier: undefined,
+          cost: undefined,
+          expiryDate: undefined,
+          lastRestocked: item.lastChecked || new Date().toISOString(),
+          status,
+        };
+      });
+
       setDbProperties(normalizedProperties);
       setDbBookings(normalizedBookings);
-  setDbBookingsForManagers(normalizedBookingsForManagers);
-  setDbGuests(normalizedGuests);
+      setDbBookingsForManagers(normalizedBookingsForManagers);
+      setDbGuests(normalizedGuests);
+      setDbMaintenanceTasks(normalizedMaintenance);
+      setDbInventoryItems(normalizedInventory);
       setDbPropertiesLoaded(true);
     } catch {
       setDbPropertiesError('Données DB indisponibles, affichage local de secours.');
@@ -551,7 +650,7 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (activeTab === 'properties' || activeTab === 'bookings' || activeTab === 'guests') {
+    if (activeTab === 'properties' || activeTab === 'bookings' || activeTab === 'guests' || activeTab === 'maintenance' || activeTab === 'inventory') {
       fetchRealPropertiesData();
     }
   }, [activeTab]);
@@ -582,6 +681,8 @@ export default function AdminDashboard() {
   const bookingsData = dbPropertiesLoaded ? dbBookings : bookings;
   const bookingsManagerData = dbPropertiesLoaded ? dbBookingsForManagers : bookings;
   const guestsManagerData = dbPropertiesLoaded ? dbGuests : guests;
+  const maintenanceManagerData = dbPropertiesLoaded ? dbMaintenanceTasks : maintenanceTasks;
+  const inventoryManagerData = dbPropertiesLoaded ? dbInventoryItems : inventory;
   const guestManagerPropertiesData: Property[] = dbPropertiesLoaded
     ? dbProperties.map(toContextProperty)
     : properties;
@@ -677,7 +778,7 @@ export default function AdminDashboard() {
         createdAt: propertyToEdit.createdAt,
       }
     : undefined;
-  const pendingTasks = maintenanceTasks.filter(t => t.status === 'pending').length;
+  const pendingTasks = maintenanceManagerData.filter(t => t.status === 'pending').length;
 
   const tabs: { id: TabType; name: string; icon: React.ReactNode }[] = [
     { id: 'bookings', name: t('tab.bookings'), icon: <Calendar className="w-4 h-4" /> },
@@ -1292,10 +1393,21 @@ export default function AdminDashboard() {
             )}
 
             {/* Maintenance Tab */}
-            {activeTab === 'maintenance' && <MaintenanceManagerAdvanced />}
+            {activeTab === 'maintenance' && (
+              <MaintenanceManagerAdvanced
+                tasksData={selectedPropertyId ? maintenanceManagerData.filter(t => t.propertyId === selectedPropertyId) : maintenanceManagerData}
+                propertiesData={guestManagerPropertiesData}
+              />
+            )}
 
             {/* Inventory Tab */}
-            {activeTab === 'inventory' && <InventoryManager />}
+            {activeTab === 'inventory' && (
+              <InventoryManager
+                propertyId={selectedPropertyId}
+                inventoryData={inventoryManagerData}
+                propertiesData={guestManagerPropertiesData}
+              />
+            )}
 
             {/* Financial Tab */}
             {activeTab === 'financial' && <FinancialReports propertyId={selectedPropertyId} />}
@@ -1364,6 +1476,7 @@ export default function AdminDashboard() {
       {/* New Booking Modal */}
       {showNewBookingModal && (
         <Modal isOpen={true} onClose={() => setShowNewBookingModal(false)}>
+         
           <div className={`glass-pro border rounded-2xl p-6 w-full max-w-lg border-gradient animate-scaleIn`}>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">

@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useBNB, InventoryItem } from '../contexts/BNBContext';
+import { useBNB, InventoryItem, Property } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -42,18 +42,23 @@ interface StockMovement {
 
 interface InventoryManagerProps {
   propertyId?: number;
+  inventoryData?: InventoryItem[];
+  propertiesData?: Property[];
 }
 
-export default function InventoryManager({ propertyId }: InventoryManagerProps) {
+export default function InventoryManager({ propertyId, inventoryData, propertiesData }: InventoryManagerProps) {
   const {
-    inventory,
+    inventory: ctxInventory,
     addInventoryItem,
     updateInventoryItem,
     deleteInventoryItem,
     getLowStockItems,
-    properties
+    properties: ctxProperties
   } = useBNB();
   const { isDark } = useTheme();
+
+  const inventory = inventoryData ?? ctxInventory;
+  const properties = propertiesData ?? ctxProperties;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
