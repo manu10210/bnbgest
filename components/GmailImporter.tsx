@@ -1003,7 +1003,50 @@ function normalizePropertyLabelForWizard(raw: string): string {
   if (!value || value.length < 4) return '';
   if (/^(dates?|initiales?|finales?)$/i.test(value)) return '';
 
+  const significantTokens = value
+    .split(/\s+/)
+    .map((token) => token.trim().toLowerCase())
+    .filter((token) => token.length >= 3 && !PROPERTY_STOP_WORDS.has(token));
+
+  // Ex: "les lieux ou pour" -> vide de sens
+  if (significantTokens.length === 0) return '';
+  if (significantTokens.length === 1 && /^(?:lieu|lieux|logement|maison|appartement|home|place)$/.test(significantTokens[0])) {
+    return '';
+  }
+
   return value;
+}
+
+function isLikelyGuestActivitySubject(subject?: string): boolean {
+  const safeSubject = subject || '';
+  return /^(?:\[[^\]]+\]\s*)?[A-ZÀÂÄÉÈÊËÎÏÔÙÛܟŒÆ][a-zàâäéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive|r[eé]dig|souhait|veut|aimer)/i.test(safeSubject)
+    || /\barrive\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(safeSubject)
+    || /^rappel\s*[:\-–]/i.test(safeSubject)
+    || /\bpart\s+(aujourd|demain|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(safeSubject)
+    || /\bcheck[\s-]?(in|out)\b/i.test(safeSubject);
+}
+
+function normalizeSubjectLabelForWizard(subject?: string): string {
+  if (!subject?.trim()) return '';
+  if (isLikelyGuestActivitySubject(subject)) return '';
+
+  const cleanedSubject = subject
+    .replace(/airbnb/gi, '')
+    .replace(/r[eé]servation\s+(confirm[eé]e?|accept[eé]e?)/gi, '')
+    .replace(/booking\s+confirmed?/gi, '')
+    .replace(/rappel|reminder/gi, '')
+    .replace(/[–\-:|]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, 80);
+
+  return normalizePropertyLabelForWizard(cleanedSubject);
+}
+
+function getWizardPropertyCandidate(booking: ParsedBooking): string {
+  const fromProperty = normalizePropertyLabelForWizard(booking.propertyName || '');
+  if (fromProperty) return fromProperty;
+  return normalizeSubjectLabelForWizard(booking.subject);
 }
 
 function resolvePropertyAliasTarget(rawLabel: string): string | undefined {
@@ -3241,9 +3284,8 @@ export default function GmailImporter() {
       // un propertyName détecté mais inconnu — pour ne rater aucun nouveau logement
       const allCandidates = toImport
         .filter(b => {
-          if (!b.propertyName?.trim()) return false;
           if (b.bookingType === 'review' || b.bookingType === 'payout') return false;
-          const candidateLabel = normalizePropertyLabelForWizard(b.propertyName);
+          const candidateLabel = getWizardPropertyCandidate(b);
           if (!candidateLabel) return false;
           if (isKnownProperty(candidateLabel)) return false;
           const normalizedLabel = normalizeForMatch(candidateLabel);
@@ -3251,7 +3293,7 @@ export default function GmailImporter() {
         });
 
       const allNamesForWizard = allCandidates
-        .map((b) => normalizePropertyLabelForWizard(b.propertyName || ''))
+        .map((b) => getWizardPropertyCandidate(b))
         .filter(Boolean);
 
       // Cas aucun logement configuré : si aucun nom extrait mais des emails sans logement,
@@ -3264,24 +3306,7 @@ export default function GmailImporter() {
             .map(b => {
               // Si le sujet ressemble à "Prénom arrive le...", "arrive le", "arrive demain"
               // ou tout autre sujet de rappel/voyageur, ce n'est PAS un nom de logement
-              const isPersonSubject =
-                /^(?:\[[^\]]+\]\s*)?[A-ZÀÂÄÉÈÊËÎÏÔÙÛܟŒÆ][a-zàâäéèêëîïôùûüÿœæ]+(?:\s+[A-Za-zÀ-ÿ\-]+){0,3}\s+(a\s+r[eé]serv|annul|modifi|laiss|part\s|arrive|r[eé]dig|souhait|veut|aimer)/i.test(b.subject || '')
-                || /\barrive\s+(le|demain|aujourd|dans\s+\d|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(b.subject || '')
-                || /^rappel\s*[:\-–]/i.test(b.subject || '')
-                || /\bpart\s+(aujourd|demain|ce|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(b.subject || '')
-                || /\bcheck[\s-]?(in|out)\b/i.test(b.subject || '');
-              if (isPersonSubject) return '';
-
-              // Nettoyer le sujet pour en faire un nom de logement candidat
-              return b.subject
-                ?.replace(/airbnb/gi, '')
-                .replace(/r[eé]servation\s+(confirm[eé]e?|accept[eé]e?)/gi, '')
-                .replace(/booking\s+confirmed?/gi, '')
-                .replace(/rappel|reminder/gi, '')
-                .replace(/[–\-:|]/g, ' ')
-                .replace(/\s{2,}/g, ' ')
-                .trim()
-                .slice(0, 60) || '';
+              return normalizeSubjectLabelForWizard(b.subject);
             })
       .filter(n => n.length >= 5 && !/[?=&%]|https?:/.test(n) && !(n.length > 50 && !n.includes(' ')))
       .filter((name) => !rejectedPropertySet.has(normalizeForMatch(name)))
