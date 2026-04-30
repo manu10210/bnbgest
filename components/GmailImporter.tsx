@@ -440,7 +440,8 @@ function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
 
   if (!inferredCheckIn) return booking;
 
-  const nights = Number.isFinite(booking.nights) && booking.nights > 0 ? booking.nights : 1;
+  const nights = Number.isFinite(booking.nights) && booking.nights > 0 ? booking.nights : undefined;
+  if (!nights) return booking;
   const checkInDate = new Date(`${inferredCheckIn}T00:00:00.000Z`);
   if (Number.isNaN(checkInDate.getTime())) return booking;
 
@@ -478,7 +479,7 @@ function enrichReviewFromContext(
   if (booking.bookingType !== 'review') return booking;
 
   const hasGuest = !!booking.guestName && !isPlaceholderGuestName(booking.guestName);
-  const hasProperty = !!booking.propertyName?.trim();
+  const hasProperty = !!normalizePropertyLabelForWizard(booking.propertyName || '');
   const hasDates = isValidDateRange(booking.checkIn, booking.checkOut);
   if (hasGuest && hasProperty && hasDates) return booking;
 
@@ -547,7 +548,7 @@ function enrichBookingPropertyFromContext(
     );
   });
 
-  const hasProperty = !!booking.propertyName?.trim();
+  const hasProperty = !!normalizePropertyLabelForWizard(booking.propertyName || '');
   if (hasProperty) return booking;
 
   const contextProperty = inferPropertyFromContext(booking, properties, existingBookings);
@@ -4893,7 +4894,7 @@ export default function GmailImporter() {
                                 <div className="flex items-start gap-1.5">
                                   <span>⚠️</span>
                                   <span>
-                                    Logement détecté &quot;{(normalizePropertyLabelForWizard(booking.propertyName || '') || booking.propertyName || '').slice(0, 40)}&quot; non rattaché automatiquement.
+                                    Logement détecté &quot;{(booking.subject || '').trim().slice(0, 40)}&quot; non rattaché automatiquement.
                                     {bestCandidate.property && bestCandidate.score >= 28 && (
                                       <>
                                         {' '}Suggestion: <strong>{bestCandidate.property.name}</strong> ({bestCandidate.score}%

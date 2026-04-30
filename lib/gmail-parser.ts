@@ -1582,10 +1582,16 @@ export function parseAirbnbEmail(
         && bookingType !== 'checkout') return null;
   }
 
-  // 5. Calculer les nuits
-  const nights = (checkIn && checkOut) ? Math.max(1, Math.ceil(
-    (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
-  )) : 0;
+  // 5. Calculer les nuits (robuste aux dates invalides)
+  const nights = (() => {
+    if (!checkIn || !checkOut) return 0;
+    const inTs = new Date(`${checkIn}T00:00:00.000Z`).getTime();
+    const outTs = new Date(`${checkOut}T00:00:00.000Z`).getTime();
+    if (Number.isNaN(inTs) || Number.isNaN(outTs)) return 0;
+    const diff = Math.round((outTs - inTs) / (1000 * 60 * 60 * 24));
+    if (!Number.isFinite(diff) || diff <= 0) return 0;
+    return Math.min(365, Math.max(1, diff));
+  })();
 
   // 6. Extraire tous les champs enrichis selon le type d'email
   let price               = extractPrice(text) || extractPrice(subject);
