@@ -546,18 +546,18 @@ function normalizeForMatching(input: string): string {
 
 // ─── Extracteurs de données ─────────────────────────────────────────────────
 
-function extractDate(text: string, patterns: RegExp[]): string | null {
+function extractDate(text: string, patterns: RegExp[], referenceDate?: string | Date): string | null {
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) {
       const raw = match[1] || match[0];
-      return normalizeDate(raw);
+      return normalizeDate(raw, referenceDate);
     }
   }
   return null;
 }
 
-function normalizeDate(raw: string): string {
+function normalizeDate(raw: string, referenceDate?: string | Date): string {
   // Nettoyer les espaces insécables (\xa0), tabs, espaces multiples
   const s = raw.replace(/[\xa0\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
 
@@ -626,8 +626,9 @@ function normalizeDate(raw: string): string {
     const key = norm(noYear[2]);
     const monthNum = monthsFr[key];
     if (monthNum) {
-      const now = new Date();
-      const year = now.getFullYear();
+      const baseDate = referenceDate ? new Date(referenceDate) : new Date();
+      const now = Number.isNaN(baseDate.getTime()) ? new Date() : baseDate;
+      const year = now.getUTCFullYear();
       const candidate = `${year}-${monthNum}-${noYear[1].padStart(2, '0')}`;
       const diff = (new Date(candidate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
       // Si la date est dans le passé lointain (> 180j), c'est probablement une réservation future
@@ -659,8 +660,9 @@ function normalizeDate(raw: string): string {
   const textEnNoYear = s.match(/([a-z]+)\.?\s+(\d{1,2})$/i);
   if (textEnNoYear && monthsEn[textEnNoYear[1].toLowerCase()]) {
     const monthNum = monthsEn[textEnNoYear[1].toLowerCase()];
-    const now = new Date();
-    const year = now.getFullYear();
+    const baseDate = referenceDate ? new Date(referenceDate) : new Date();
+    const now = Number.isNaN(baseDate.getTime()) ? new Date() : baseDate;
+    const year = now.getUTCFullYear();
     const candidate = `${year}-${monthNum}-${textEnNoYear[2].padStart(2, '0')}`;
     const diff = (new Date(candidate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
     if (diff < -180) return `${year + 1}-${monthNum}-${textEnNoYear[2].padStart(2, '0')}`;
@@ -670,8 +672,9 @@ function normalizeDate(raw: string): string {
   const textEnNoYearRev = s.match(/(\d{1,2})\s+([a-z]+)\.?$/i);
   if (textEnNoYearRev && monthsEn[textEnNoYearRev[2].toLowerCase()]) {
     const monthNum = monthsEn[textEnNoYearRev[2].toLowerCase()];
-    const now = new Date();
-    const year = now.getFullYear();
+    const baseDate = referenceDate ? new Date(referenceDate) : new Date();
+    const now = Number.isNaN(baseDate.getTime()) ? new Date() : baseDate;
+    const year = now.getUTCFullYear();
     const candidate = `${year}-${monthNum}-${textEnNoYearRev[1].padStart(2, '0')}`;
     const diff = (new Date(candidate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
     if (diff < -180) return `${year + 1}-${monthNum}-${textEnNoYearRev[1].padStart(2, '0')}`;
@@ -1499,8 +1502,8 @@ export function parseAirbnbEmail(
     ];
 
     // Chercher d'abord dans le corps, puis dans le sujet comme fallback
-    checkIn = extractDate(text, checkInPatterns) || extractDate(subject, checkInPatterns);
-    checkOut = extractDate(text, checkOutPatterns) || extractDate(subject, checkOutPatterns);
+  checkIn = extractDate(text, checkInPatterns, receivedAt) || extractDate(subject, checkInPatterns, receivedAt);
+  checkOut = extractDate(text, checkOutPatterns, receivedAt) || extractDate(subject, checkOutPatterns, receivedAt);
 
     // ── Post-traitement : plage FR compacte "10–13 avr. 2026" ────────────────
     // Les patterns avec 3 groupes capturés (jour1, mois, année) ne sont pas gérés
@@ -1513,8 +1516,8 @@ export function parseAirbnbEmail(
       const fcm = combinedSrc.match(frCompact);
       if (fcm) {
         const day1 = fcm[1]; const day2 = fcm[2]; const mon = fcm[3]; const yr = fcm[4] || '';
-        const d1 = normalizeDate(`${day1} ${mon}${yr ? ' ' + yr : ''}`);
-        const d2 = normalizeDate(`${day2} ${mon}${yr ? ' ' + yr : ''}`);
+  const d1 = normalizeDate(`${day1} ${mon}${yr ? ' ' + yr : ''}`, receivedAt);
+  const d2 = normalizeDate(`${day2} ${mon}${yr ? ' ' + yr : ''}`, receivedAt);
         if (/^\d{4}-\d{2}-\d{2}$/.test(d1)) checkIn  = checkIn  || d1;
         if (/^\d{4}-\d{2}-\d{2}$/.test(d2)) checkOut = checkOut || d2;
       }
@@ -1525,7 +1528,7 @@ export function parseAirbnbEmail(
       const combinedText = text + ' ' + subject;
       // Dates AVEC année
       const datesWithYear = [...combinedText.matchAll(/\b(\d{1,2}[\s\/\-](?:\d{1,2}|[a-zàâéèêëîïôùûü]+)[\s\/\-]\d{4})\b/gi)]
-        .map(m => normalizeDate(m[1]))
+        .map(m => normalizeDate(m[1], receivedAt))
         .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
       if (datesWithYear.length >= 2) {
         checkIn  = checkIn  || datesWithYear[0];
@@ -1536,7 +1539,7 @@ export function parseAirbnbEmail(
         const MOIS_BOTH = `(?:janv?|f[eé]vr?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?|oct|nov|dec)`;
         const noYearRe = new RegExp(`\\b(\\d{1,2}\\s+${MOIS_BOTH}|${MOIS_BOTH}\\s+\\d{1,2})\\b`, 'gi');
         const datesNoYear = [...combinedText.matchAll(noYearRe)]
-          .map(m => normalizeDate(m[1]))
+          .map(m => normalizeDate(m[1], receivedAt))
           .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
         if (datesNoYear.length >= 2) {
           checkIn  = checkIn  || datesNoYear[0];
@@ -1673,8 +1676,8 @@ export function parseAirbnbEmail(
         DATE_RANGE_RE.lastIndex = 0;
         const gm = DATE_RANGE_RE.exec(block);
         if (gm) {
-          modifiedCheckIn  = normalizeDate(gm[1]);
-          modifiedCheckOut = normalizeDate(gm[2]);
+          modifiedCheckIn  = normalizeDate(gm[1], receivedAt);
+          modifiedCheckOut = normalizeDate(gm[2], receivedAt);
         }
       }
     }
@@ -1687,8 +1690,8 @@ export function parseAirbnbEmail(
       );
       const ftM = text.match(fromToRe);
       if (ftM) {
-        const d1 = normalizeDate(ftM[1]);
-        const d2 = normalizeDate(ftM[2]);
+  const d1 = normalizeDate(ftM[1], receivedAt);
+  const d2 = normalizeDate(ftM[2], receivedAt);
         // Ne pas réutiliser les mêmes dates que checkIn/checkOut
         if (d1 !== checkIn || d2 !== checkOut) {
           modifiedCheckIn  = d1;
@@ -1703,7 +1706,7 @@ export function parseAirbnbEmail(
       const allRanges: Array<[string, string]> = [];
       let rm: RegExpExecArray | null;
       while ((rm = DATE_RANGE_RE.exec(text)) !== null) {
-        allRanges.push([normalizeDate(rm[1]), normalizeDate(rm[2])]);
+        allRanges.push([normalizeDate(rm[1], receivedAt), normalizeDate(rm[2], receivedAt)]);
       }
       // La 1ère plage = dates actuelles (checkIn/checkOut), la 2e = nouvelles dates
       for (const [d1, d2] of allRanges) {
