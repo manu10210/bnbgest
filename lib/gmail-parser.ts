@@ -551,7 +551,11 @@ function extractDate(text: string, patterns: RegExp[], referenceDate?: string | 
     const match = text.match(pattern);
     if (match) {
       const raw = match[1] || match[0];
-      return normalizeDate(raw, referenceDate);
+      const normalized = normalizeDate(raw, referenceDate);
+      // Only return if normalizeDate produced a real ISO date — otherwise try next pattern.
+      // This prevents partial captures like "22" (day-only from compact range) from
+      // blocking the fallback patterns that capture the full "22 mai 2026".
+      if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
     }
   }
   return null;
@@ -764,13 +768,15 @@ function extractReviewComment(text: string): string | undefined {
 
 function extractCurrency(text: string, subject: string): string {
   const combined = `${text} ${subject}`;
-  if (/CHF|\bFr\.?\b/i.test(combined)) return 'CHF';
+  // ⚠️  Ne pas tester \bFr\.?\b — correspond à "fr" dans "airbnb.fr" (domaine FR)
+  //     ce qui fait passer TOUS les emails français en CHF par erreur.
+  if (/\bCHF\b/.test(combined)) return 'CHF';
   if (/\bGBP\b|£/.test(combined)) return 'GBP';
   if (/\bCAD\b|C\$/.test(combined)) return 'CAD';
   if (/\bAUD\b|A\$/.test(combined)) return 'AUD';
   if (/\bEUR\b|€/.test(combined)) return 'EUR';
   if (/\bUSD\b|\$/.test(combined)) return 'USD';
-  return 'USD';
+  return 'EUR'; // Défaut : EUR (utilisateur en zone euro)
 }
 
 function extractPrice(text: string): number {

@@ -4864,10 +4864,10 @@ export default function GmailImporter() {
                                   {booking.totalPrice.toFixed(0)} {booking.currency}
                                 </span>
                               )}
-                              {booking.propertyName && (
+                              {booking.propertyName && normalizePropertyLabelForWizard(booking.propertyName) && (
                                 <span className={`flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                                   <Home className="w-3.5 h-3.5" />
-                                  {booking.propertyName.slice(0, 30)}
+                                  {normalizePropertyLabelForWizard(booking.propertyName).slice(0, 30)}
                                 </span>
                               )}
                             </div>
@@ -4893,7 +4893,7 @@ export default function GmailImporter() {
                                 <div className="flex items-start gap-1.5">
                                   <span>⚠️</span>
                                   <span>
-                                    Logement détecté &quot;{booking.propertyName?.slice(0, 40)}&quot; non rattaché automatiquement.
+                                    Logement détecté &quot;{(normalizePropertyLabelForWizard(booking.propertyName || '') || booking.propertyName || '').slice(0, 40)}&quot; non rattaché automatiquement.
                                     {bestCandidate.property && bestCandidate.score >= 28 && (
                                       <>
                                         {' '}Suggestion: <strong>{bestCandidate.property.name}</strong> ({bestCandidate.score}%
