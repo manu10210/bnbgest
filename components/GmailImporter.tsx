@@ -4864,15 +4864,12 @@ export default function GmailImporter() {
                                   {booking.totalPrice.toFixed(0)} {booking.currency}
                                 </span>
                               )}
-                              {(() => {
-                                const label = getWizardPropertyCandidate(booking);
-                                return label ? (
-                                  <span className={`flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                    <Home className="w-3.5 h-3.5" />
-                                    {label.slice(0, 40)}
-                                  </span>
-                                ) : null;
-                              })()}
+                              {booking.subject?.trim() && (
+                                <span className={`flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  <Home className="w-3.5 h-3.5" />
+                                  {booking.subject.trim().slice(0, 40)}
+                                </span>
+                              )}
                             </div>
 
                             <div className={`mt-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
