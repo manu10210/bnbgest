@@ -154,7 +154,7 @@ const FRENCH_MONTH_MAP: Record<string, number> = {
   jan: 0, janv: 0, janvier: 0,
   january: 0,
   feb: 1,
-  fev: 1, fév: 1, fevr: 1, févr: 1, fevrier: 1, février: 1,
+  fev: 1, fév: 1, fevr: 1, févr: 1, fevrier: 1, février: 1, fevirer: 1,
   february: 1,
   mar: 2, mars: 2,
   march: 2,
@@ -181,7 +181,34 @@ const FRENCH_MONTH_MAP: Record<string, number> = {
 };
 
 const OPTIONAL_WEEKDAY_TEXT = '(?:[a-zà-ÿ]{2,16}\\.?\\s*)?';
-const MONTH_TOKEN = '[a-zà-ÿ\\.]+';
+const MONTH_TOKEN = '[a-zà-ÿ\\.\\-]+[,]?';
+
+function normalizeMonthToken(raw?: string): string {
+  return (raw || '')
+    .replace(/\./g, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '')
+    .trim();
+}
+
+function inferMonthIndexFromPrefix(token: string): number | undefined {
+  if (!token) return undefined;
+  if (/^jan/.test(token)) return 0;
+  if (/^(fev|feb|fevr|fevir|fevrie)/.test(token)) return 1;
+  if (/^mar/.test(token)) return 2;
+  if (/^(avr|apr)/.test(token)) return 3;
+  if (/^mai|^may/.test(token)) return 4;
+  if (/^(juin|jun)/.test(token)) return 5;
+  if (/^(juil|jul)/.test(token)) return 6;
+  if (/^(aou|aout|aou?t|aug)/.test(token)) return 7;
+  if (/^(sep|sept)/.test(token)) return 8;
+  if (/^oct/.test(token)) return 9;
+  if (/^nov/.test(token)) return 10;
+  if (/^(dec|decem|decemb|decembre)/.test(token)) return 11;
+  return undefined;
+}
 
 function isIsoDate(value?: string): boolean {
   return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
@@ -276,12 +303,8 @@ function parseIsoDateFromFrenchParts(dayInput?: string, monthInput?: string, yea
   if (!Number.isFinite(day) || day < 1 || day > 31) return undefined;
 
   if (!monthInput) return undefined;
-  const monthToken = monthInput
-    .replace(/\./g, '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-  const monthIndex = FRENCH_MONTH_MAP[monthToken];
+  const monthToken = normalizeMonthToken(monthInput);
+  const monthIndex = FRENCH_MONTH_MAP[monthToken] ?? inferMonthIndexFromPrefix(monthToken);
   if (monthIndex === undefined) return undefined;
 
   const inferredYear = yearInput

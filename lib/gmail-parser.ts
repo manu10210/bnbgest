@@ -585,9 +585,10 @@ function normalizeDate(raw: string, referenceDate?: string | Date): string {
 
   // Helper normalisation : enlève accents et ponctuation pour le lookup
   const norm = (x: string) => x.toLowerCase()
-    .replace(/\./g, '')
+    .replace(/[\.,;:()\[\]{}!?]/g, '')
     .replace(/[éèêë]/g, 'e').replace(/[àâä]/g, 'a').replace(/[ùûü]/g, 'u')
     .replace(/[îï]/g, 'i').replace(/[ôö]/g, 'o').replace(/ç/g, 'c')
+    .replace(/[^a-z]/g, '')
     .trim();
 
   const monthsFr: Record<string, string> = {
@@ -597,7 +598,7 @@ function normalizeDate(raw: string, referenceDate?: string | Date): string {
     septembre:'09', octobre:'10', novembre:'11', decembre:'12',
     // Abréviations Airbnb (avec ou sans point)
     janv:'01', jan:'01',
-    fevr:'02', fev:'02', feb:'02',
+  fevr:'02', fev:'02', feb:'02', fevirer:'02',
     // mars = mars
     avr:'04',
     // mai = mai
@@ -613,7 +614,7 @@ function normalizeDate(raw: string, referenceDate?: string | Date): string {
   // Format textuel FR avec année : "12 avril 2026", "sam. 12 avr. 2026", "lundi 14 avril 2026"
   // Capture: (jour_semaine optionnel) jour mois année
   // Accepte aussi le mois avec point final collé ("avr." avant l'année)
-  const withYear = s.match(/(?:(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\.?\s+)?(\d{1,2})\s+([\wéèûîàâ]+\.?)\s+(\d{4})/i);
+  const withYear = s.match(/(?:(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\.?\s+)?(\d{1,2})\s+([\wéèûîàâ]+[\.,]?)\s+(\d{4})/i);
   if (withYear) {
     const key = norm(withYear[2]);
     if (monthsFr[key]) {
@@ -625,7 +626,7 @@ function normalizeDate(raw: string, referenceDate?: string | Date): string {
   // → déduire l'année depuis receivedAt si disponible, sinon année courante
   // IMPORTANT : on préfère NE PAS inférer d'année plutôt que d'en mettre une fausse.
   // Cette branche est un DERNIER RECOURS — les patterns avec année sont prioritaires.
-  const noYear = s.match(/(?:(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\.?\s+)?(\d{1,2})\s+([\wéèûîàâ]+\.?)$/i);
+  const noYear = s.match(/(?:(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\.?\s+)?(\d{1,2})\s+([\wéèûîàâ]+[\.,]?)$/i);
   if (noYear) {
     const key = norm(noYear[2]);
     const monthNum = monthsFr[key];
