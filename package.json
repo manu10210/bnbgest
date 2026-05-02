@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma migrate deploy && next build",
+  "build": "prisma generate && node scripts/prisma-migrate-retry.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "analyze": "ANALYZE=true npm run build",
@@ -15,7 +15,8 @@
     "lighthouse:local": "lhci autorun --config=.lighthouserc.js",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
+  "prisma:migrate": "prisma migrate dev",
+  "prisma:migrate:deploy:retry": "node scripts/prisma-migrate-retry.mjs",
     "prisma:studio": "prisma studio",
     "prisma:seed": "node prisma/seed.js",
     "db:push": "prisma db push",

@@ -55,6 +55,7 @@ Password: admin123 (⚠️ À CHANGER IMMÉDIATEMENT)
    - Dans Vercel Dashboard → Storage → Create Database
    - Choisir "Postgres"
    - Les variables d'environnement sont auto-configurées ✅
+   - Vérifiez que `POSTGRES_URL_NON_POOLING` est bien présent (utilisé par Prisma pour les migrations)
 
 4. **Ajouter les Variables NextAuth**
    - Settings → Environment Variables
