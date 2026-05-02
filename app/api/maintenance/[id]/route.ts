@@ -2,9 +2,10 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { requireAuth, requireOwnership } from '@/lib/auth-middleware';
 import { rateLimit } from '@/lib/rate-limit';
-import { MaintenanceUpdateSchema, validateRequest } from '@/lib/validations';
+import { MaintenanceUpdateSchema } from '@/lib/validations';
 
 // GET /api/maintenance/[id] - Récupérer une tâche de maintenance spécifique
 // ✅ Protected: Auth required, Rate limited (relaxed: 100/10s)
@@ -98,10 +99,19 @@ export async function PATCH(
   if (authResult instanceof NextResponse) return authResult;
 
   try {
-    // 3. Validation
-    const validatedData = await validateRequest(MaintenanceUpdateSchema, request);
-
+    // 3. Validation (single body read)
     const body = await request.json();
+    const validated = MaintenanceUpdateSchema.safeParse(body);
+    if (!validated.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Validation failed',
+          details: validated.error.issues,
+        },
+        { status: 400 }
+      );
+    }
 
     // Vérifier que la tâche existe
     const existingTask = await prisma.maintenanceTask.findUnique({
@@ -119,7 +129,7 @@ export async function PATCH(
     }
 
     // Construction de l'objet de mise à jour
-    const updateData: any = {};
+  const updateData: Prisma.MaintenanceTaskUpdateInput = {};
 
     if (body.title !== undefined) updateData.title = body.title;
     if (body.description !== undefined) updateData.description = body.description;
@@ -155,16 +165,16 @@ export async function PATCH(
       }
     }
     if (body.assignedTo !== undefined) {
-      updateData.assignedTo = body.assignedTo ? parseInt(body.assignedTo) : null;
+      updateData.assignedTo = body.assignedTo ? String(body.assignedTo) : null;
     }
     if (body.dueDate !== undefined) {
       updateData.dueDate = body.dueDate ? new Date(body.dueDate) : null;
     }
     if (body.estimatedCost !== undefined) {
-      updateData.estimatedCost = body.estimatedCost ? parseFloat(body.estimatedCost) : null;
+      updateData.cost = body.estimatedCost ? parseFloat(body.estimatedCost) : null;
     }
     if (body.actualCost !== undefined) {
-      updateData.actualCost = body.actualCost ? parseFloat(body.actualCost) : null;
+      updateData.cost = body.actualCost ? parseFloat(body.actualCost) : null;
     }
     if (body.notes !== undefined) updateData.notes = body.notes;
 

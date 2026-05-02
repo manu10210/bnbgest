@@ -412,6 +412,51 @@ function normalizeGuestIdentity(input: Pick<Guest, 'name' | 'email' | 'phone'>):
   return normalizedPhone ? `name:${normalizedName}|phone:${normalizedPhone}` : `name:${normalizedName}`;
 }
 
+function toIsoDateTime(value: string): string {
+  if (!value) return new Date().toISOString();
+  if (value.includes('T')) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+  }
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+function toApiPropertyStatus(status: Property['status']): 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' {
+  if (status === 'inactive') return 'INACTIVE';
+  if (status === 'maintenance' || status === 'blocked') return 'MAINTENANCE';
+  return 'ACTIVE';
+}
+
+function toApiBookingStatus(status: Booking['status']): 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' {
+  if (status === 'confirmed') return 'CONFIRMED';
+  if (status === 'completed') return 'CHECKED_OUT';
+  if (status === 'cancelled') return 'CANCELLED';
+  if (status === 'no_show') return 'CANCELLED';
+  return 'PENDING';
+}
+
+function toApiBookingSource(specialRequests?: string): 'AIRBNB' | 'BOOKING' | 'DIRECT' | 'OTHER' {
+  const text = (specialRequests || '').toLowerCase();
+  if (text.includes('airbnb')) return 'AIRBNB';
+  if (text.includes('booking.com') || text.includes('booking com') || text.includes('booking')) return 'BOOKING';
+  return 'DIRECT';
+}
+
+function toApiMaintenancePriority(priority: MaintenanceTask['priority']): 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' {
+  if (priority === 'urgent') return 'URGENT';
+  if (priority === 'high') return 'HIGH';
+  if (priority === 'low') return 'LOW';
+  return 'MEDIUM';
+}
+
+function toApiMaintenanceStatus(status: MaintenanceTask['status']): 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' {
+  if (status === 'in_progress') return 'IN_PROGRESS';
+  if (status === 'completed') return 'COMPLETED';
+  if (status === 'cancelled') return 'CANCELLED';
+  return 'PENDING';
+}
+
 export function BNBProvider({ children }: { children: ReactNode }) {
   const [properties, setProperties] = useState<Property[]>(() => loadFromStorage('bnbgest_properties', []));
   const [bookings, setBookings] = useState<Booking[]>(() => loadFromStorage('bnbgest_bookings', []));
@@ -426,18 +471,24 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
     const hydrateFromApi = async () => {
       try {
-        const [propertiesRes, bookingsRes, guestsRes] = await Promise.all([
+        const [propertiesRes, bookingsRes, guestsRes, maintenanceRes, inventoryRes, reviewsRes] = await Promise.all([
           fetch('/api/properties', { credentials: 'include' }),
           fetch('/api/bookings', { credentials: 'include' }),
           fetch('/api/guests', { credentials: 'include' }),
+          fetch('/api/maintenance?limit=500', { credentials: 'include' }),
+          fetch('/api/inventory?limit=500', { credentials: 'include' }),
+          fetch('/api/reviews?limit=500', { credentials: 'include' }),
         ]);
 
         if (!propertiesRes.ok || !bookingsRes.ok) return;
 
-        const [propertiesPayload, bookingsPayload, guestsPayload] = await Promise.all([
+        const [propertiesPayload, bookingsPayload, guestsPayload, maintenancePayload, inventoryPayload, reviewsPayload] = await Promise.all([
           propertiesRes.json(),
           bookingsRes.json(),
           guestsRes.ok ? guestsRes.json() : Promise.resolve(null),
+          maintenanceRes.ok ? maintenanceRes.json() : Promise.resolve(null),
+          inventoryRes.ok ? inventoryRes.json() : Promise.resolve(null),
+          reviewsRes.ok ? reviewsRes.json() : Promise.resolve(null),
         ]);
 
         if (cancelled) return;
@@ -450,6 +501,48 @@ export function BNBProvider({ children }: { children: ReactNode }) {
           : [];
         const apiGuestsRaw = Array.isArray(guestsPayload?.guests)
           ? (guestsPayload.guests as ApiGuestPayload[])
+          : [];
+        const apiMaintenanceRaw = Array.isArray(maintenancePayload?.tasks)
+          ? (maintenancePayload.tasks as Array<{
+              id: number;
+              propertyId: number;
+              title: string;
+              description?: string | null;
+              priority?: string | null;
+              status?: string | null;
+              category?: string | null;
+              assignedTo?: string | null;
+              dueDate?: string | null;
+              completedAt?: string | null;
+              cost?: number | null;
+              notes?: string | null;
+              createdAt?: string;
+              updatedAt?: string;
+            }>)
+          : [];
+        const apiInventoryRaw = Array.isArray(inventoryPayload?.items)
+          ? (inventoryPayload.items as Array<{
+              id: number;
+              propertyId: number;
+              name: string;
+              category: string;
+              quantity: number;
+              minQuantity: number;
+              unit?: string | null;
+              location?: string | null;
+              notes?: string | null;
+              lastChecked?: string | null;
+            }>)
+          : [];
+        const apiReviewsRaw = Array.isArray(reviewsPayload?.reviews)
+          ? (reviewsPayload.reviews as Array<{
+              id: number;
+              propertyId: number;
+              bookingId?: number | null;
+              rating: number;
+              comment?: string | null;
+              createdAt?: string;
+            }>)
           : [];
 
         const apiProperties: Property[] = apiPropertiesRaw
@@ -552,6 +645,75 @@ export function BNBProvider({ children }: { children: ReactNode }) {
             },
           }));
 
+        const apiMaintenance: MaintenanceTask[] = apiMaintenanceRaw
+          .filter((task) => typeof task?.id === 'number' && typeof task?.propertyId === 'number')
+          .map((task) => ({
+            id: task.id,
+            propertyId: task.propertyId,
+            title: task.title || 'Maintenance',
+            description: task.description || '',
+            priority:
+              (task.priority || '').toUpperCase() === 'URGENT'
+                ? 'urgent'
+                : (task.priority || '').toUpperCase() === 'HIGH'
+                  ? 'high'
+                  : (task.priority || '').toUpperCase() === 'LOW'
+                    ? 'low'
+                    : 'medium',
+            status:
+              (task.status || '').toUpperCase() === 'IN_PROGRESS'
+                ? 'in_progress'
+                : (task.status || '').toUpperCase() === 'COMPLETED'
+                  ? 'completed'
+                  : (task.status || '').toUpperCase() === 'CANCELLED'
+                    ? 'cancelled'
+                    : 'pending',
+            category: ((task.category || '').toLowerCase() as MaintenanceTask['category']) || 'other',
+            assignedTo: task.assignedTo ? Number.parseInt(task.assignedTo, 10) || undefined : undefined,
+            estimatedCost: toNumber(task.cost, 0),
+            actualCost: task.cost ?? undefined,
+            scheduledDate: task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+            completedDate: task.completedAt ? new Date(task.completedAt).toISOString().slice(0, 10) : undefined,
+            createdAt: task.createdAt ? new Date(task.createdAt).toISOString() : new Date().toISOString(),
+            updatedAt: task.updatedAt ? new Date(task.updatedAt).toISOString() : new Date().toISOString(),
+            notes: task.notes || undefined,
+            photos: [],
+          }));
+
+        const apiInventory: InventoryItem[] = apiInventoryRaw
+          .filter((item) => typeof item?.id === 'number' && typeof item?.propertyId === 'number')
+          .map((item) => ({
+            id: item.id,
+            propertyId: item.propertyId,
+            name: item.name,
+            category: ((item.category || 'other').toLowerCase() as InventoryItem['category']),
+            quantity: toNumber(item.quantity, 0),
+            minimumQuantity: toNumber(item.minQuantity, 0),
+            unit: item.unit || 'pièce',
+            supplier: undefined,
+            cost: undefined,
+            lastRestocked: item.lastChecked ? new Date(item.lastChecked).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+            expiryDate: undefined,
+            status: toNumber(item.quantity, 0) <= toNumber(item.minQuantity, 0) ? 'low_stock' : 'in_stock',
+            location: item.location || 'Stock',
+            notes: item.notes || undefined,
+          }));
+
+        const apiReviews: Review[] = apiReviewsRaw
+          .filter((review) => typeof review?.id === 'number' && typeof review?.propertyId === 'number')
+          .map((review) => ({
+            id: review.id,
+            propertyId: review.propertyId,
+            bookingId: review.bookingId || 0,
+            guestId: 0,
+            rating: toNumber(review.rating, 0),
+            title: '',
+            comment: review.comment || '',
+            createdAt: review.createdAt ? new Date(review.createdAt).toISOString() : new Date().toISOString(),
+            verified: true,
+            helpful: 0,
+          }));
+
         setProperties((prev) => {
           if (apiProperties.length === 0) return prev;
           const prevById = new Map(prev.map((p) => [p.id, p]));
@@ -631,6 +793,10 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
           return Array.from(mergedByIdentity.values());
         });
+
+        setMaintenanceTasks((prev) => (apiMaintenance.length > 0 ? apiMaintenance : prev));
+        setInventory((prev) => (apiInventory.length > 0 ? apiInventory : prev));
+        setReviews((prev) => (apiReviews.length > 0 ? apiReviews : prev));
       } catch {
         // Mode local/offline ou non authentifié: on garde le store local.
       }
@@ -698,15 +864,60 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
   // Properties functions
   const addProperty = (property: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => {
-    setProperties(prev => {
-      const newProperty: Property = {
-        ...property,
-        id: Math.max(...prev.map(p => p.id), 0) + 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      return [...prev, newProperty];
-    });
+    const tempId = -Date.now();
+    const nowIso = new Date().toISOString();
+    const optimisticProperty: Property = {
+      ...property,
+      id: tempId,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    setProperties(prev => [...prev, optimisticProperty]);
+
+    void (async () => {
+      try {
+        const payload = {
+          name: property.name || 'Propriété',
+          description: property.description || '',
+          address: property.address || 'Adresse inconnue',
+          city: property.city || 'Ville',
+          country: (property.country || 'FR').slice(0, 2).toUpperCase(),
+          bedrooms: Math.max(1, property.bedrooms || 1),
+          bathrooms: Math.max(1, property.bathrooms || 1),
+          capacity: Math.max(1, property.maxGuests || 1),
+          price: Math.max(0, property.price || 0),
+          currency: 'EUR',
+          cleaningFee: Math.max(0, property.cleaningFee || 0),
+        };
+
+        const res = await fetch('/api/properties', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const apiProperty = data?.property;
+        if (!apiProperty?.id) return;
+
+        setProperties(prev => prev.map(p =>
+          p.id === tempId
+            ? {
+                ...p,
+                id: apiProperty.id,
+                createdAt: apiProperty.createdAt ? new Date(apiProperty.createdAt).toISOString() : p.createdAt,
+                updatedAt: apiProperty.updatedAt ? new Date(apiProperty.updatedAt).toISOString() : p.updatedAt,
+              }
+            : p
+        ));
+      } catch {
+        // Offline / auth issue: keep optimistic local state.
+      }
+    })();
   };
 
   const updateProperty = (id: number, updates: Partial<Property>) => {
@@ -715,6 +926,33 @@ export function BNBProvider({ children }: { children: ReactNode }) {
         ? { ...prop, ...updates, updatedAt: new Date().toISOString() }
         : prop
     ));
+
+    void (async () => {
+      try {
+        const payload = {
+          ...(updates.name !== undefined && { name: updates.name }),
+          ...(updates.description !== undefined && { description: updates.description }),
+          ...(updates.address !== undefined && { address: updates.address }),
+          ...(updates.city !== undefined && { city: updates.city }),
+          ...(updates.country !== undefined && { country: updates.country }),
+          ...(updates.bedrooms !== undefined && { bedrooms: updates.bedrooms }),
+          ...(updates.bathrooms !== undefined && { bathrooms: updates.bathrooms }),
+          ...(updates.maxGuests !== undefined && { maxGuests: updates.maxGuests }),
+          ...(updates.price !== undefined && { pricePerNight: updates.price }),
+          ...(updates.status !== undefined && { status: toApiPropertyStatus(updates.status) }),
+          ...(updates.amenities !== undefined && { amenities: updates.amenities }),
+        };
+
+        await fetch(`/api/properties/${id}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        // Keep optimistic state if network/auth fails.
+      }
+    })();
   };
 
   const deleteProperty = (id: number) => {
@@ -724,21 +962,79 @@ export function BNBProvider({ children }: { children: ReactNode }) {
     setMaintenanceTasks(maintenanceTasks.filter(task => task.propertyId !== id));
     setInventory(inventory.filter(item => item.propertyId !== id));
     setReviews(reviews.filter(review => review.propertyId !== id));
+
+    void (async () => {
+      try {
+        await fetch(`/api/properties/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+      } catch {
+        // Keep local fallback state.
+      }
+    })();
   };
 
   const getProperty = (id: number) => properties.find(prop => prop.id === id);
 
   // Bookings functions
   const addBooking = (booking: Omit<Booking, 'id' | 'createdAt' | 'updatedAt'>) => {
-    setBookings(prev => {
-      const newBooking: Booking = {
-        ...booking,
-        id: Math.max(...prev.map(b => b.id), 0) + 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      return [...prev, newBooking];
-    });
+    const tempId = -Date.now();
+    const nowIso = new Date().toISOString();
+    const optimisticBooking: Booking = {
+      ...booking,
+      id: tempId,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    setBookings(prev => [...prev, optimisticBooking]);
+
+    void (async () => {
+      try {
+        const payload = {
+          propertyId: booking.propertyId,
+          guestName: booking.guestInfo.name,
+          guestEmail: booking.guestInfo.email || '',
+          guestPhone: booking.guestInfo.phone || null,
+          checkIn: toIsoDateTime(booking.checkIn),
+          checkOut: toIsoDateTime(booking.checkOut),
+          guests: booking.guests,
+          totalPrice: booking.totalPrice,
+          notes: booking.specialRequests || null,
+          specialRequests: booking.specialRequests || null,
+          status: toApiBookingStatus(booking.status),
+          source: toApiBookingSource(booking.specialRequests),
+          confirmationCode: booking.paymentInfo?.transactionId || null,
+        };
+
+        const res = await fetch('/api/bookings', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const apiBooking = data?.booking;
+        if (!apiBooking?.id) return;
+
+        setBookings(prev => prev.map(b =>
+          b.id === tempId
+            ? {
+                ...b,
+                id: apiBooking.id,
+                createdAt: apiBooking.createdAt ? new Date(apiBooking.createdAt).toISOString() : b.createdAt,
+                updatedAt: apiBooking.updatedAt ? new Date(apiBooking.updatedAt).toISOString() : b.updatedAt,
+              }
+            : b
+        ));
+      } catch {
+        // Keep optimistic local state when offline/auth fails.
+      }
+    })();
   };
 
   const updateBooking = (id: number, updates: Partial<Booking>) => {
@@ -747,6 +1043,32 @@ export function BNBProvider({ children }: { children: ReactNode }) {
         ? { ...booking, ...updates, updatedAt: new Date().toISOString() }
         : booking
     ));
+
+    void (async () => {
+      try {
+        const payload = {
+          ...(updates.checkIn !== undefined && { checkIn: toIsoDateTime(updates.checkIn) }),
+          ...(updates.checkOut !== undefined && { checkOut: toIsoDateTime(updates.checkOut) }),
+          ...(updates.guests !== undefined && { guests: updates.guests }),
+          ...(updates.totalPrice !== undefined && { totalPrice: updates.totalPrice }),
+          ...(updates.status !== undefined && { status: toApiBookingStatus(updates.status) }),
+          ...(updates.specialRequests !== undefined && { specialRequests: updates.specialRequests }),
+          ...(updates.specialRequests !== undefined && { notes: updates.specialRequests }),
+          ...(updates.paymentStatus !== undefined && { paymentStatus: updates.paymentStatus }),
+          ...(updates.paymentInfo?.amount !== undefined && { paymentAmount: updates.paymentInfo.amount }),
+          ...(updates.paymentInfo?.transactionId !== undefined && { paymentTransactionId: updates.paymentInfo.transactionId }),
+        };
+
+        await fetch(`/api/bookings/${id}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        // Keep optimistic local state.
+      }
+    })();
   };
 
   const cancelBooking = (id: number, _reason?: string) => {
@@ -831,15 +1153,58 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
   // Maintenance functions
   const addMaintenanceTask = (task: Omit<MaintenanceTask, 'id' | 'createdAt' | 'updatedAt'>) => {
-    setMaintenanceTasks(prev => {
-      const newTask: MaintenanceTask = {
-        ...task,
-        id: Math.max(...prev.map(t => t.id), 0) + 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      return [...prev, newTask];
-    });
+    const tempId = -Date.now();
+    const nowIso = new Date().toISOString();
+    const optimisticTask: MaintenanceTask = {
+      ...task,
+      id: tempId,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    setMaintenanceTasks(prev => [...prev, optimisticTask]);
+
+    void (async () => {
+      try {
+        const payload = {
+          propertyId: task.propertyId,
+          title: task.title,
+          description: task.description,
+          priority: toApiMaintenancePriority(task.priority),
+          category: task.category,
+          assignedTo: task.assignedTo ? String(task.assignedTo) : undefined,
+          dueDate: toIsoDateTime(task.scheduledDate),
+          cost: task.estimatedCost,
+          notes: task.notes,
+        };
+
+        const res = await fetch('/api/maintenance', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) return;
+        const data = await res.json();
+        const apiTask = data?.task;
+        if (!apiTask?.id) return;
+
+        setMaintenanceTasks(prev => prev.map(t =>
+          t.id === tempId
+            ? {
+                ...t,
+                id: apiTask.id,
+                dueDate: apiTask.dueDate ? new Date(apiTask.dueDate).toISOString().slice(0, 10) : t.scheduledDate,
+                createdAt: apiTask.createdAt ? new Date(apiTask.createdAt).toISOString() : t.createdAt,
+                updatedAt: apiTask.updatedAt ? new Date(apiTask.updatedAt).toISOString() : t.updatedAt,
+              }
+            : t
+        ));
+      } catch {
+        // Keep optimistic local fallback.
+      }
+    })();
   };
 
   const updateMaintenanceTask = (id: number, updates: Partial<MaintenanceTask>) => {
@@ -848,6 +1213,31 @@ export function BNBProvider({ children }: { children: ReactNode }) {
         ? { ...task, ...updates, updatedAt: new Date().toISOString() }
         : task
     ));
+
+    void (async () => {
+      try {
+        const payload = {
+          ...(updates.title !== undefined && { title: updates.title }),
+          ...(updates.description !== undefined && { description: updates.description }),
+          ...(updates.priority !== undefined && { priority: toApiMaintenancePriority(updates.priority) }),
+          ...(updates.status !== undefined && { status: toApiMaintenanceStatus(updates.status) }),
+          ...(updates.assignedTo !== undefined && { assignedTo: updates.assignedTo ? String(updates.assignedTo) : null }),
+          ...(updates.scheduledDate !== undefined && { dueDate: toIsoDateTime(updates.scheduledDate) }),
+          ...(updates.estimatedCost !== undefined && { estimatedCost: updates.estimatedCost }),
+          ...(updates.actualCost !== undefined && { actualCost: updates.actualCost }),
+          ...(updates.notes !== undefined && { notes: updates.notes }),
+        };
+
+        await fetch(`/api/maintenance/${id}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        // Keep optimistic local fallback.
+      }
+    })();
   };
 
   const completeMaintenanceTask = (id: number, actualCost?: number) => {
@@ -869,23 +1259,95 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
   // Inventory functions
   const addInventoryItem = (item: Omit<InventoryItem, 'id'>) => {
-    setInventory(prev => {
-      const newItem: InventoryItem = {
-        ...item,
-        id: Math.max(...prev.map(i => i.id), 0) + 1
-      };
-      return [...prev, newItem];
-    });
+    const tempId = -Date.now();
+    const optimisticItem: InventoryItem = { ...item, id: tempId };
+    setInventory(prev => [...prev, optimisticItem]);
+
+    void (async () => {
+      try {
+        const payload = {
+          propertyId: item.propertyId,
+          name: item.name,
+          category: item.category,
+          quantity: item.quantity,
+          minQuantity: item.minimumQuantity,
+          unit: item.unit,
+          location: item.location,
+          notes: item.notes,
+        };
+
+        const res = await fetch('/api/inventory', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) return;
+        const data = await res.json();
+        const apiItem = data?.item;
+        if (!apiItem?.id) return;
+
+        setInventory(prev => prev.map(i =>
+          i.id === tempId
+            ? {
+                ...i,
+                id: apiItem.id,
+                minimumQuantity: apiItem.minQuantity ?? i.minimumQuantity,
+                location: apiItem.location ?? i.location,
+                notes: apiItem.notes ?? i.notes,
+              }
+            : i
+        ));
+      } catch {
+        // Keep optimistic local fallback.
+      }
+    })();
   };
 
   const updateInventoryItem = (id: number, updates: Partial<InventoryItem>) => {
     setInventory(prev => prev.map(item =>
       item.id === id ? { ...item, ...updates } : item
     ));
+
+    void (async () => {
+      try {
+        const payload = {
+          ...(updates.propertyId !== undefined && { propertyId: updates.propertyId }),
+          ...(updates.name !== undefined && { name: updates.name }),
+          ...(updates.category !== undefined && { category: updates.category }),
+          ...(updates.quantity !== undefined && { quantity: updates.quantity }),
+          ...(updates.minimumQuantity !== undefined && { minQuantity: updates.minimumQuantity }),
+          ...(updates.unit !== undefined && { unit: updates.unit }),
+          ...(updates.location !== undefined && { location: updates.location }),
+          ...(updates.notes !== undefined && { notes: updates.notes }),
+        };
+
+        await fetch(`/api/inventory/${id}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        // Keep optimistic local fallback.
+      }
+    })();
   };
 
   const deleteInventoryItem = (id: number) => {
     setInventory(inventory.filter(item => item.id !== id));
+
+    void (async () => {
+      try {
+        await fetch(`/api/inventory/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+      } catch {
+        // Keep local fallback.
+      }
+    })();
   };
 
   const getLowStockItems = () =>
@@ -896,16 +1358,53 @@ export function BNBProvider({ children }: { children: ReactNode }) {
 
   // Reviews functions
   const addReview = (review: Omit<Review, 'id' | 'createdAt' | 'verified' | 'helpful'>) => {
-    setReviews(prev => {
-      const newReview: Review = {
-        ...review,
-        id: Math.max(...prev.map(r => r.id), 0) + 1,
-        createdAt: new Date().toISOString(),
-        verified: true,
-        helpful: 0
-      };
-      return [...prev, newReview];
-    });
+    const tempId = -Date.now();
+    const optimisticReview: Review = {
+      ...review,
+      id: tempId,
+      createdAt: new Date().toISOString(),
+      verified: true,
+      helpful: 0,
+    };
+
+    setReviews(prev => [...prev, optimisticReview]);
+
+    void (async () => {
+      try {
+        const payload = {
+          propertyId: review.propertyId,
+          bookingId: review.bookingId > 0 ? review.bookingId : undefined,
+          guestName: guests.find(g => g.id === review.guestId)?.name || 'Voyageur',
+          rating: review.rating,
+          comment: review.comment,
+          isPublic: true,
+        };
+
+        const res = await fetch('/api/reviews', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) return;
+        const data = await res.json();
+        const apiReview = data?.review;
+        if (!apiReview?.id) return;
+
+        setReviews(prev => prev.map(r =>
+          r.id === tempId
+            ? {
+                ...r,
+                id: apiReview.id,
+                createdAt: apiReview.createdAt ? new Date(apiReview.createdAt).toISOString() : r.createdAt,
+              }
+            : r
+        ));
+      } catch {
+        // Keep optimistic local fallback.
+      }
+    })();
   };
 
   const respondToReview = (reviewId: number, response: string, respondedBy: number) => {
@@ -921,6 +1420,19 @@ export function BNBProvider({ children }: { children: ReactNode }) {
           }
         : review
     ));
+
+    void (async () => {
+      try {
+        await fetch(`/api/reviews/${reviewId}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ response, respondedBy }),
+        });
+      } catch {
+        // Local fallback only.
+      }
+    })();
   };
 
   const getReviewsByProperty = (propertyId: number) =>
