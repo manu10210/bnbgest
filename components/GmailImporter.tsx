@@ -152,18 +152,36 @@ const ANALYSIS_START_2026 = new Date('2026-01-01T00:00:00.000Z');
 
 const FRENCH_MONTH_MAP: Record<string, number> = {
   jan: 0, janv: 0, janvier: 0,
+  january: 0,
+  feb: 1,
   fev: 1, fév: 1, fevr: 1, févr: 1, fevrier: 1, février: 1,
+  february: 1,
   mar: 2, mars: 2,
+  march: 2,
+  apr: 3,
   avr: 3, avril: 3,
+  april: 3,
   mai: 4,
+  may: 4,
   jun: 5, juin: 5,
+  june: 5,
   jul: 6, juil: 6, juillet: 6,
+  july: 6,
+  aug: 7,
   aou: 7, août: 7, aout: 7,
+  august: 7,
   sep: 8, sept: 8, septembre: 8,
+  september: 8,
   oct: 9, octobre: 9,
+  october: 9,
   nov: 10, novembre: 10,
+  november: 10,
   dec: 11, déc: 11, decembre: 11, décembre: 11,
+  december: 11,
 };
+
+const WEEKDAY_TOKEN = '(?:lun(?:di)?|mar(?:di)?|mer(?:credi)?|jeu(?:di)?|ven(?:dredi)?|sam(?:edi)?|dim(?:anche)?|mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\\.?';
+const MONTH_TOKEN = '[a-zà-ÿ\\.]+';
 
 function isIsoDate(value?: string): boolean {
   return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
@@ -290,7 +308,10 @@ function parseDateRangeFromSubject(subject?: string, receivedAt?: string): { che
   const fallbackYear = receivedAt ? new Date(receivedAt).getFullYear() : new Date().getFullYear();
 
   // Ex: "du 12 mars au 15 mars", "du 28 déc 2026 au 2 janv 2027"
-  const frRange = normalized.match(/\bdu\s+(\d{1,2})\s+([a-zéû\.]+)(?:\s+(\d{4}))?\s+au\s+(\d{1,2})\s+([a-zéû\.]+)?(?:\s+(\d{4}))?/i);
+  const frRange = normalized.match(new RegExp(
+    `\\bdu\\s+(\\d{1,2})\\s+(${MONTH_TOKEN})(?:\\s+(\\d{4}))?\\s+au\\s+(\\d{1,2})\\s+(${MONTH_TOKEN})?(?:\\s+(\\d{4}))?`,
+    'i',
+  ));
   if (frRange) {
     const checkIn = parseIsoDateFromFrenchParts(frRange[1], frRange[2], frRange[3], fallbackYear);
     const outMonth = frRange[5] || frRange[2];
@@ -353,10 +374,8 @@ function parseArrivalDateFromSubject(subject?: string, receivedAt?: string): str
     .toLowerCase();
 
   const fallbackYear = receivedAt ? new Date(receivedAt).getFullYear() : new Date().getFullYear();
-  const weekdayToken = '(?:lun(?:di)?|mar(?:di)?|mer(?:credi)?|jeu(?:di)?|ven(?:dredi)?|sam(?:edi)?|dim(?:anche)?)\\.?';
-
   const frenchPattern = normalized.match(new RegExp(
-    `\\b(?:arrivee|arrive|arrivée|check[\\s-]?in)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${weekdayToken}\\s+)?(\\d{1,2})(?:er)?\\s+([a-zéû\\.]+)(?:\\s+(\\d{4}))?`,
+    `\\b(?:arrivee|arrive|arrivée|check[\\s-]?in)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${WEEKDAY_TOKEN}\\s+)?(\\d{1,2})(?:er)?\\s+(${MONTH_TOKEN})(?:\\s+(\\d{4}))?`,
     'i',
   ));
   if (frenchPattern) {
@@ -364,7 +383,10 @@ function parseArrivalDateFromSubject(subject?: string, receivedAt?: string): str
     if (parsed) return parsed;
   }
 
-  const numericPattern = normalized.match(/\b(?:arrivee|arrive|arrivée|check[\s-]?in)\b\s*(?:[:\-–—]\s*)?(?:le\s+)?(?:lun(?:di)?|mar(?:di)?|mer(?:credi)?|jeu(?:di)?|ven(?:dredi)?|sam(?:edi)?|dim(?:anche)?)?\.?\s*(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/i);
+  const numericPattern = normalized.match(new RegExp(
+    `\\b(?:arrivee|arrive|arrivée|check[\\s-]?in)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${WEEKDAY_TOKEN})?\\s*(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?`,
+    'i',
+  ));
   if (!numericPattern) return undefined;
 
   const parseYear = (raw?: string) => {
@@ -392,10 +414,8 @@ function parseDepartureDateFromSubject(subject?: string, receivedAt?: string): s
     .toLowerCase();
 
   const fallbackYear = receivedAt ? new Date(receivedAt).getFullYear() : new Date().getFullYear();
-  const weekdayToken = '(?:lun(?:di)?|mar(?:di)?|mer(?:credi)?|jeu(?:di)?|ven(?:dredi)?|sam(?:edi)?|dim(?:anche)?)\\.?';
-
   const frenchPattern = normalized.match(new RegExp(
-    `\\b(?:depart|départ|check[\\s-]?out)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${weekdayToken}\\s+)?(\\d{1,2})(?:er)?\\s+([a-zéû\\.]+)(?:\\s+(\\d{4}))?`,
+    `\\b(?:depart|départ|check[\\s-]?out)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${WEEKDAY_TOKEN}\\s+)?(\\d{1,2})(?:er)?\\s+(${MONTH_TOKEN})(?:\\s+(\\d{4}))?`,
     'i',
   ));
   if (frenchPattern) {
@@ -403,7 +423,10 @@ function parseDepartureDateFromSubject(subject?: string, receivedAt?: string): s
     if (parsed) return parsed;
   }
 
-  const numericPattern = normalized.match(/\b(?:depart|départ|check[\s-]?out)\b\s*(?:[:\-–—]\s*)?(?:le\s+)?(?:lun(?:di)?|mar(?:di)?|mer(?:credi)?|jeu(?:di)?|ven(?:dredi)?|sam(?:edi)?|dim(?:anche)?)?\.?\s*(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/i);
+  const numericPattern = normalized.match(new RegExp(
+    `\\b(?:depart|départ|check[\\s-]?out)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${WEEKDAY_TOKEN})?\\s*(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?`,
+    'i',
+  ));
   if (!numericPattern) return undefined;
 
   const parseYear = (raw?: string) => {
