@@ -535,6 +535,7 @@ function enrichBookingPropertyFromContext(
     checkIn: string;
     checkOut: string;
     specialRequests?: string;
+    paymentInfo?: { transactionId?: string };
     guestInfo?: { name?: string };
   }>,
   properties: Array<{ id: number; name: string; city?: string; address?: string }>,
@@ -598,6 +599,7 @@ function inferPropertyFromContext<T extends { id: number; name: string; city?: s
     checkIn: string;
     checkOut: string;
     specialRequests?: string;
+    paymentInfo?: { transactionId?: string };
     guestInfo?: { name?: string };
     status?: string;
   }>,
@@ -605,7 +607,7 @@ function inferPropertyFromContext<T extends { id: number; name: string; city?: s
   if (!booking) return undefined;
 
   if (booking.confirmationCode) {
-    const byCode = existingBookings.find(b => b.specialRequests?.includes(booking.confirmationCode!));
+    const byCode = existingBookings.find(b => bookingHasConfirmationCodeInContext(b, booking.confirmationCode));
     if (byCode) return properties.find(p => p.id === byCode.propertyId);
   }
 
@@ -732,6 +734,24 @@ function normalizeConfirmationCode(value?: string): string | undefined {
   if (!normalized) return undefined;
   if (!/^HM[A-Z0-9]{6,12}$/i.test(normalized)) return undefined;
   return normalized;
+}
+
+function bookingHasConfirmationCodeInContext(
+  booking: {
+    specialRequests?: string;
+    paymentInfo?: { transactionId?: string };
+  },
+  rawCode?: string,
+): boolean {
+  const code = normalizeConfirmationCode(rawCode);
+  if (!code) return false;
+
+  const txCode = normalizeConfirmationCode(booking.paymentInfo?.transactionId);
+  if (txCode && txCode === code) return true;
+
+  const notes = booking.specialRequests || '';
+  if (!notes) return false;
+  return new RegExp(`\\b${escapeRegExp(code)}\\b`, 'i').test(notes);
 }
 
 function escapeRegExp(value: string): string {
@@ -4965,10 +4985,10 @@ export default function GmailImporter() {
                                 )}
                               </div>
                             )}
-                            {booking.bookingType !== 'cancelled' && properties.length === 0 && (
+                            {booking.bookingType !== 'cancelled' && booking.bookingType !== 'payout' && booking.bookingType !== 'review' && properties.length === 0 && (
                               <div className={`mt-1 text-xs flex items-center gap-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
                                 <span>⚠️</span>
-                                <span>Aucun logement configuré — cet email sera ignoré</span>
+                                <span>Aucun logement configuré pour l’instant — un logement par défaut sera créé à l’import</span>
                               </div>
                             )}
                           </div>

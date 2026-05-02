@@ -1107,6 +1107,31 @@ function normalizePoliceName(raw: string): string {
   return raw.trim();
 }
 
+function isLikelyGarbagePropertyLabel(value?: string): boolean {
+  if (!value?.trim()) return true;
+
+  const normalized = normalizeForMatching(value)
+    .toLowerCase()
+    .replace(/[–—-]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (!normalized || normalized.length < 4) return true;
+  if (/^(?:logement|maison|appartement|lieu|lieux|home|place)$/.test(normalized)) return true;
+  if (/\bles\s+lieux\s+ou\s+pour\b/.test(normalized)) return true;
+
+  const stopWords = new Set([
+    'les', 'des', 'une', 'pour', 'avec', 'sur', 'sous', 'dans', 'par', 'qui', 'que',
+    'la', 'le', 'du', 'au', 'de', 'et', 'ou', 'tout', 'tous', 'aux', 'son', 'ses',
+  ]);
+  const significantTokens = normalized
+    .split(/\s+/)
+    .filter((token) => token.length >= 3 && !stopWords.has(token));
+
+  return significantTokens.length === 0;
+}
+
 function extractPropertyName(text: string, subject?: string): string | undefined {
   // ── GUARD : emails de versement → jamais de nom de logement ──────────────
   // "Nous avons envoyé un versement de X €" → return undefined immédiatement
@@ -1200,7 +1225,7 @@ function extractPropertyName(text: string, subject?: string): string | undefined
         // Un nom de logement a généralement un chiffre (T2, T3) ou plus de 2 mots ou des mots communs (Appartement, Maison, etc.)
         const isPersonName = /^[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+\s+[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+$/.test(c)
           && !/\b(?:appartement|maison|maisonn?ette|villa|studio|chambre|logement|loft|t[1-9]|f[1-9]|duplex|terrasse|jardin|centre|quartier|calme|cozy|relax|cigogne|bleu)\b/i.test(c);
-        if (!isPersonName) return c;
+        if (!isPersonName && !isLikelyGarbagePropertyLabel(c)) return c;
       }
     }
   }
@@ -1251,7 +1276,7 @@ function extractPropertyName(text: string, subject?: string): string | undefined
       const m = subject.match(p);
       if (m) {
         const c = cleanCandidate(m[1]);
-        if (c.length >= 5 && !/versement|payout|virement|envoy[eé]|r[eé]gl[eé]|^\d+[,.]?\d*\s*[€$]/i.test(c)) return c;
+        if (c.length >= 5 && !/versement|payout|virement|envoy[eé]|r[eé]gl[eé]|^\d+[,.]?\d*\s*[€$]/i.test(c) && !isLikelyGarbagePropertyLabel(c)) return c;
       }
     }
 
@@ -1291,6 +1316,7 @@ function extractPropertyName(text: string, subject?: string): string | undefined
       if (fc.length >= 5
         && !/versement|payout|virement|envoy[eé]|^\d+[,.]?\d*\s*[€$]/i.test(fc)
         && !/^(demain|aujourd|hier|arrive|part|s[eé]jour|rappel|check|confirmat)$/i.test(fc.split(' ')[0])
+      && !isLikelyGarbagePropertyLabel(fc)
       ) {
         return fc.slice(0, 80);
       }

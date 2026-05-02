@@ -5,6 +5,7 @@ type Expected = {
   minConfidence?: number;
   hasConfirmationCode?: boolean;
   hasProperty?: boolean;
+  propertyMustBeUndefined?: boolean;
   minTotalPrice?: number;
   minHostPayout?: number;
   minGuests?: number;
@@ -328,6 +329,33 @@ const CASES: Case[] = [
     },
   },
   {
+    name: 'NEW_FR_noise_property_label_must_be_rejected',
+    messageId: 'msg_new_noise_property_001',
+    subject: 'Réservation pour les lieux ou pour, 03 avr. – 05 avr. 2026',
+    from: 'automated@airbnb.com',
+    receivedAt: '2026-03-16T07:45:00.000Z',
+    body: [
+      'Code de confirmation : HMJN5WJ8RB',
+      'Réservation confirmée : Marie Bordes',
+      'Arrivée : 03 avril 2026',
+      'Départ : 05 avril 2026',
+      '2 voyageurs',
+      'Vos revenus pour ce séjour : 106,00 €',
+    ].join('\n'),
+    expected: {
+      bookingType: 'new',
+      minConfidence: 70,
+      hasConfirmationCode: true,
+      propertyMustBeUndefined: true,
+      minTotalPrice: 100,
+      minGuests: 2,
+      requiresDates: true,
+      expectedCheckIn: '2026-04-03',
+      expectedCheckOut: '2026-04-05',
+      expectedNights: 2,
+    },
+  },
+  {
     name: 'PAYOUT_FR',
     messageId: 'msg_payout_001',
     subject: 'Nous avons envoyé un versement de 63,62 €',
@@ -428,6 +456,10 @@ function assertCase(c: Case) {
 
   if (c.expected.hasProperty && !parsed.propertyName) {
     fail(`[${c.name}] expected propertyName`);
+  }
+
+  if (c.expected.propertyMustBeUndefined && parsed.propertyName) {
+    fail(`[${c.name}] propertyName must be undefined, got=${parsed.propertyName}`);
   }
 
   if (typeof c.expected.minTotalPrice === 'number' && parsed.totalPrice < c.expected.minTotalPrice) {
