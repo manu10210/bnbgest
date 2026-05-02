@@ -214,13 +214,18 @@ function isIsoDate(value?: string): boolean {
   return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
 }
 
+function toUtcTimestampFromIso(value?: string): number | undefined {
+  if (!isIsoDate(value)) return undefined;
+  const [year, month, day] = (value as string).split('-').map((part) => Number.parseInt(part, 10));
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return undefined;
+  const ts = Date.UTC(year, month - 1, day);
+  return Number.isNaN(ts) ? undefined : ts;
+}
+
 function isValidDateRange(checkIn?: string, checkOut?: string): boolean {
-  if (!isIsoDate(checkIn) || !isIsoDate(checkOut)) return false;
-  const safeCheckIn = checkIn as string;
-  const safeCheckOut = checkOut as string;
-  const inTs = new Date(safeCheckIn).getTime();
-  const outTs = new Date(safeCheckOut).getTime();
-  if (Number.isNaN(inTs) || Number.isNaN(outTs)) return false;
+  const inTs = toUtcTimestampFromIso(checkIn);
+  const outTs = toUtcTimestampFromIso(checkOut);
+  if (!Number.isFinite(inTs) || !Number.isFinite(outTs)) return false;
   const diffDays = Math.round((outTs - inTs) / (1000 * 60 * 60 * 24));
   return diffDays >= 1 && diffDays <= 365;
 }
@@ -230,22 +235,9 @@ function formatIsoDate(date: Date): string {
 }
 
 function deriveNightsFromIsoRange(checkIn?: string, checkOut?: string): number | undefined {
-  if (!isValidDateRange(checkIn, checkOut)) return undefined;
-
-  const safeCheckIn = checkIn as string;
-  const safeCheckOut = checkOut as string;
-  const [inYear, inMonth, inDay] = safeCheckIn.split('-').map((part) => Number.parseInt(part, 10));
-  const [outYear, outMonth, outDay] = safeCheckOut.split('-').map((part) => Number.parseInt(part, 10));
-
-  if (
-    !Number.isFinite(inYear) || !Number.isFinite(inMonth) || !Number.isFinite(inDay) ||
-    !Number.isFinite(outYear) || !Number.isFinite(outMonth) || !Number.isFinite(outDay)
-  ) {
-    return undefined;
-  }
-
-  const inUtc = Date.UTC(inYear, inMonth - 1, inDay);
-  const outUtc = Date.UTC(outYear, outMonth - 1, outDay);
+  const inUtc = toUtcTimestampFromIso(checkIn);
+  const outUtc = toUtcTimestampFromIso(checkOut);
+  if (!Number.isFinite(inUtc) || !Number.isFinite(outUtc)) return undefined;
   const diffDays = Math.round((outUtc - inUtc) / (1000 * 60 * 60 * 24));
 
   if (!Number.isFinite(diffDays) || diffDays < 1 || diffDays > 365) return undefined;
@@ -340,14 +332,18 @@ function parseDateRangeFromSubject(subject?: string, receivedAt?: string): { che
     const outMonth = frRange[5] || frRange[2];
     let checkOut = parseIsoDateFromFrenchParts(frRange[4], outMonth, frRange[6], fallbackYear);
 
-    if (checkIn && checkOut && !frRange[6] && new Date(checkOut).getTime() <= new Date(checkIn).getTime()) {
+    if (checkIn && checkOut && !frRange[6]) {
+      const inTs = toUtcTimestampFromIso(checkIn);
+      const outTs = toUtcTimestampFromIso(checkOut);
+      if (Number.isFinite(inTs) && Number.isFinite(outTs) && outTs <= inTs) {
       // Passage d'année implicite (ex: fin déc → début janv)
       const nextYear = (new Date(checkIn).getUTCFullYear() + 1).toString();
       checkOut = parseIsoDateFromFrenchParts(frRange[4], outMonth, nextYear, fallbackYear);
+      }
     }
 
     if (isValidDateRange(checkIn, checkOut)) {
-      const nights = Math.max(1, Math.round((new Date(checkOut as string).getTime() - new Date(checkIn as string).getTime()) / (1000 * 60 * 60 * 24)));
+      const nights = deriveNightsFromIsoRange(checkIn as string, checkOut as string) || 1;
       return { checkIn: checkIn as string, checkOut: checkOut as string, nights };
     }
   }
@@ -380,7 +376,7 @@ function parseDateRangeFromSubject(subject?: string, receivedAt?: string): { che
       const checkIn = formatIsoDate(inDate);
       const checkOut = formatIsoDate(outDate);
       if (isValidDateRange(checkIn, checkOut)) {
-        const nights = Math.max(1, Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24)));
+        const nights = deriveNightsFromIsoRange(checkIn, checkOut) || 1;
         return { checkIn, checkOut, nights };
       }
     }
@@ -592,7 +588,7 @@ function enrichReviewFromContext(
   const matchedProperty = properties.find(p => p.id === match.propertyId);
   const inferredNights =
     isIsoDate(match.checkIn) && isIsoDate(match.checkOut)
-      ? Math.max(1, Math.round((new Date(match.checkOut).getTime() - new Date(match.checkIn).getTime()) / (1000 * 60 * 60 * 24)))
+      ? (deriveNightsFromIsoRange(match.checkIn, match.checkOut) || booking.nights)
       : booking.nights;
 
   return {
