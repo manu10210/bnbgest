@@ -868,6 +868,7 @@ function extractHostPayout(text: string): number | undefined {
   //   "Montant versé : 178,34 €"
   //   "Vous recevrez : 178,34 €"
   //   "Votre versement : 178,34 €"
+  //   "Vous gagnez\n79,05 €" (dans les emails de nouvelle réservation)
   const patterns = [
     // Format exact sujet/corps versement Airbnb
     /nous\s+avons\s+envoy[eé]\s+un\s+versement\s+de\s+([€$£]?\s*[\d\s\xa0.,]+)/i,
@@ -878,6 +879,8 @@ function extractHostPayout(text: string): number | undefined {
     /host\s+payout\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
     /r[eé]mun[eé]ration\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
     /payout\s+(?:amount|total)\s*[:\s]+([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /vous\s+gagnez\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
+    /you\s+earn\s*[:\s]*([€$£]?\s*[\d\s\xa0.,]+)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
