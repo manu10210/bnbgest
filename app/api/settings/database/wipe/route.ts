@@ -67,8 +67,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
 
-  if (session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+  const email = session.user.email.toLowerCase().trim();
+  const normalizedSessionRole = String(session.user.role ?? '').toUpperCase();
+
+  let isAdmin = normalizedSessionRole === 'ADMIN';
+
+  if (!isAdmin) {
+    const dbUser = await prisma.user.findUnique({
+      where: { email },
+      select: { role: true },
+    });
+    isAdmin = dbUser?.role === 'ADMIN';
+  }
+
+  if (!isAdmin) {
+    return NextResponse.json(
+      { error: `Accès refusé (rôle: ${session.user.role ?? 'inconnu'})` },
+      { status: 403 }
+    );
   }
 
   try {
