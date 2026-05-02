@@ -1049,7 +1049,7 @@ export default function CleaningChecklist() {
 
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={(e) => setSortBy(e.target.value as 'date' | 'property' | 'duration' | 'rating')}
                 className={`px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/[0.05] border-white/10 text-white [&>option]:bg-[#1e1e2d]' : 'bg-white border-gray-300 text-gray-900'}`}
               >
                 <option value="date">Date</option>

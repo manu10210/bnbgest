@@ -499,9 +499,9 @@ export default function NotificationCenter({ onRequestSettings }: NotificationCe
           </div>
 
           <div className={`rounded-2xl p-4 border ${isDark ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100'}`}>
-            <h4 className={`font-bold text-sm mb-2 ${isDark ? 'text-indigo-300' : 'text-indigo-900'}`}>Besoin d'aide ?</h4>
+            <h4 className={`font-bold text-sm mb-2 ${isDark ? 'text-indigo-300' : 'text-indigo-900'}`}>Besoin d&apos;aide ?</h4>
             <p className={`text-xs leading-relaxed mb-3 ${isDark ? 'text-indigo-400' : 'text-indigo-700'}`}>
-              Configurez vos préférences d'alerte dans les paramètres pour choisir quels événements vous souhaitez recevoir.
+              Configurez vos préférences d&apos;alerte dans les paramètres pour choisir quels événements vous souhaitez recevoir.
             </p>
             <Button 
               onClick={onRequestSettings}
@@ -594,7 +594,7 @@ export default function NotificationCenter({ onRequestSettings }: NotificationCe
                     </div>
                     <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>Tout est calme</h3>
                     <p className={`text-sm mt-2 max-w-xs mx-auto ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Vous n'avez aucune notification pour le moment. Profitez-en pour vous détendre !
+                      Vous n&apos;avez aucune notification pour le moment. Profitez-en pour vous détendre !
                     </p>
                     <Button onClick={createTestNotification} variant="outline" className={`mt-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 ${isDark ? 'border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10' : ''}`}>
                       Simuler une notification

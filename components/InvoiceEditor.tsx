@@ -475,7 +475,7 @@ function DueBadge({ inv }: { inv: Invoice }) {
   const days = dueDaysLeft(inv.dueDate);
   if (days > 7)  return null;
   if (days < 0)  return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400">{Math.abs(days)}j de retard</span>;
-  if (days === 0) return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Échéance aujourd'hui</span>;
+  if (days === 0) return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Échéance aujourd&apos;hui</span>;
   return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-400">Éch. dans {days}j</span>;
 }
 
@@ -1777,7 +1777,7 @@ export default function InvoiceEditor() {
                 ].map(({ field, label: lbl }) => (
                   <div key={field} className={(field === 'issuerAddress' || field === 'issuerLogo') ? 'col-span-2' : ''}>
                     <label className={label}>{lbl}</label>
-                    <input value={(editing as any)[field] ?? ''} onChange={e => setEditing({ ...editing, [field]: e.target.value })} className={input} />
+                    <input value={(editing[field] as string | undefined) ?? ''} onChange={e => setEditing({ ...editing, [field]: e.target.value })} className={input} />
                   </div>
                 ))}
               </div>
@@ -1841,7 +1841,7 @@ export default function InvoiceEditor() {
                 ].map(({ field, label: lbl }) => (
                   <div key={field} className={field === 'clientAddress' ? 'col-span-2' : ''}>
                     <label className={label}>{lbl}</label>
-                    <input value={(editing as any)[field] ?? ''} onChange={e => setEditing({ ...editing, [field]: e.target.value })} className={input} />
+                    <input value={(editing[field] as string | undefined) ?? ''} onChange={e => setEditing({ ...editing, [field]: e.target.value })} className={input} />
                   </div>
                 ))}
               </div>

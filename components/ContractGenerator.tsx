@@ -921,7 +921,7 @@ export default function ContractGenerator() {
           </motion.div>
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`${cardClass} border rounded-2xl p-6`}>
-            <h3 className={`text-lg font-bold mb-4 ${textClass}`}>Options d'inclusion</h3>
+            <h3 className={`text-lg font-bold mb-4 ${textClass}`}>Options d&apos;inclusion</h3>
             <div className="space-y-3">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -930,7 +930,7 @@ export default function ContractGenerator() {
                   onChange={(e) => setConfig({ ...config, includeInventory: e.target.checked })}
                   className="w-5 h-5 text-indigo-600 rounded"
                 />
-                <span className={textClass}>Inclure l'inventaire</span>
+                <span className={textClass}>Inclure l&apos;inventaire</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
