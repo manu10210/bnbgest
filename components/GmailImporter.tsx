@@ -180,7 +180,7 @@ const FRENCH_MONTH_MAP: Record<string, number> = {
   december: 11,
 };
 
-const WEEKDAY_TOKEN = '(?:lun(?:di)?|mar(?:di)?|mer(?:credi)?|jeu(?:di)?|ven(?:dredi)?|sam(?:edi)?|dim(?:anche)?|mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\\.?';
+const OPTIONAL_WEEKDAY_TEXT = '(?:[a-zà-ÿ]{2,16}\\.?\\s*)?';
 const MONTH_TOKEN = '[a-zà-ÿ\\.]+';
 
 function isIsoDate(value?: string): boolean {
@@ -375,7 +375,7 @@ function parseArrivalDateFromSubject(subject?: string, receivedAt?: string): str
 
   const fallbackYear = receivedAt ? new Date(receivedAt).getFullYear() : new Date().getFullYear();
   const frenchPattern = normalized.match(new RegExp(
-    `\\b(?:arrivee|arrive|arrivée|check[\\s-]?in)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${WEEKDAY_TOKEN}\\s+)?(\\d{1,2})(?:er)?\\s+(${MONTH_TOKEN})(?:\\s+(\\d{4}))?`,
+    `\\b(?:arrivee|arrive|arrivée|check[\\s-]?in)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${OPTIONAL_WEEKDAY_TEXT}(?:[,\\-–—]\\s*)?)?(\\d{1,2})(?:er)?\\s+(${MONTH_TOKEN})(?:\\s+(\\d{4}))?`,
     'i',
   ));
   if (frenchPattern) {
@@ -384,7 +384,7 @@ function parseArrivalDateFromSubject(subject?: string, receivedAt?: string): str
   }
 
   const numericPattern = normalized.match(new RegExp(
-    `\\b(?:arrivee|arrive|arrivée|check[\\s-]?in)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${WEEKDAY_TOKEN})?\\s*(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?`,
+    `\\b(?:arrivee|arrive|arrivée|check[\\s-]?in)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${OPTIONAL_WEEKDAY_TEXT}(?:[,\\-–—]\\s*)?)?(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?`,
     'i',
   ));
   if (!numericPattern) return undefined;
@@ -415,7 +415,7 @@ function parseDepartureDateFromSubject(subject?: string, receivedAt?: string): s
 
   const fallbackYear = receivedAt ? new Date(receivedAt).getFullYear() : new Date().getFullYear();
   const frenchPattern = normalized.match(new RegExp(
-    `\\b(?:depart|départ|check[\\s-]?out)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${WEEKDAY_TOKEN}\\s+)?(\\d{1,2})(?:er)?\\s+(${MONTH_TOKEN})(?:\\s+(\\d{4}))?`,
+    `\\b(?:depart|départ|check[\\s-]?out)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${OPTIONAL_WEEKDAY_TEXT}(?:[,\\-–—]\\s*)?)?(\\d{1,2})(?:er)?\\s+(${MONTH_TOKEN})(?:\\s+(\\d{4}))?`,
     'i',
   ));
   if (frenchPattern) {
@@ -424,7 +424,7 @@ function parseDepartureDateFromSubject(subject?: string, receivedAt?: string): s
   }
 
   const numericPattern = normalized.match(new RegExp(
-    `\\b(?:depart|départ|check[\\s-]?out)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${WEEKDAY_TOKEN})?\\s*(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?`,
+    `\\b(?:depart|départ|check[\\s-]?out)\\b\\s*(?:[:\\-–—]\\s*)?(?:le\\s+)?(?:${OPTIONAL_WEEKDAY_TEXT}(?:[,\\-–—]\\s*)?)?(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?`,
     'i',
   ));
   if (!numericPattern) return undefined;
