@@ -1479,8 +1479,7 @@ export function parseAirbnbEmail(
       if (/^\d{4}-\d{2}-\d{2}$/.test(d2)) checkOut = d2;
     }
 
-    if (!checkIn || !checkOut) {
-      const checkInPatterns = [
+    const checkInPatterns = [
   new RegExp(`arriv[eé\ufffdx]?e?\\s+\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
   new RegExp(`arriv[eé\ufffdx]?e?[\\s\\S]{0,80}?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       new RegExp(`arriv[eé\ufffdx]?e?\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
@@ -1525,8 +1524,8 @@ export function parseAirbnbEmail(
     ];
 
     // Chercher d'abord dans le corps, puis dans le sujet comme fallback
-  checkIn = extractDate(text, checkInPatterns, receivedAt) || extractDate(subject, checkInPatterns, receivedAt);
-  checkOut = extractDate(text, checkOutPatterns, receivedAt) || extractDate(subject, checkOutPatterns, receivedAt);
+    checkIn = checkIn || extractDate(text, checkInPatterns, receivedAt) || extractDate(subject, checkInPatterns, receivedAt);
+    checkOut = checkOut || extractDate(text, checkOutPatterns, receivedAt) || extractDate(subject, checkOutPatterns, receivedAt);
 
     // ── Correctif layout tableau Airbnb (deux colonnes) ──────────────────────
     // Emails Airbnb HTML réels : "Arrivée" et "Départ" sont dans des <td> adjacents
