@@ -225,6 +225,7 @@ function toUtcTimestampFromIso(value?: string): number | undefined {
 function isValidDateRange(checkIn?: string, checkOut?: string): boolean {
   const inTs = toUtcTimestampFromIso(checkIn);
   const outTs = toUtcTimestampFromIso(checkOut);
+  if (inTs === undefined || outTs === undefined) return false;
   if (!Number.isFinite(inTs) || !Number.isFinite(outTs)) return false;
   const diffDays = Math.round((outTs - inTs) / (1000 * 60 * 60 * 24));
   return diffDays >= 1 && diffDays <= 365;
@@ -237,6 +238,7 @@ function formatIsoDate(date: Date): string {
 function deriveNightsFromIsoRange(checkIn?: string, checkOut?: string): number | undefined {
   const inUtc = toUtcTimestampFromIso(checkIn);
   const outUtc = toUtcTimestampFromIso(checkOut);
+  if (inUtc === undefined || outUtc === undefined) return undefined;
   if (!Number.isFinite(inUtc) || !Number.isFinite(outUtc)) return undefined;
   const diffDays = Math.round((outUtc - inUtc) / (1000 * 60 * 60 * 24));
 
@@ -335,7 +337,7 @@ function parseDateRangeFromSubject(subject?: string, receivedAt?: string): { che
     if (checkIn && checkOut && !frRange[6]) {
       const inTs = toUtcTimestampFromIso(checkIn);
       const outTs = toUtcTimestampFromIso(checkOut);
-      if (Number.isFinite(inTs) && Number.isFinite(outTs) && outTs <= inTs) {
+      if (inTs !== undefined && outTs !== undefined && Number.isFinite(inTs) && Number.isFinite(outTs) && outTs <= inTs) {
       // Passage d'année implicite (ex: fin déc → début janv)
       const nextYear = (new Date(checkIn).getUTCFullYear() + 1).toString();
       checkOut = parseIsoDateFromFrenchParts(frRange[4], outMonth, nextYear, fallbackYear);
@@ -354,8 +356,8 @@ function parseDateRangeFromSubject(subject?: string, receivedAt?: string): { che
     const parseYear = (raw?: string) => {
       if (!raw) return fallbackYear;
       const n = Number.parseInt(raw, 10);
-      if (!Number.isFinite(n)) return fallbackYear;
-      return n < 100 ? 2000 + n : n;
+      if (!Number.isNaN(n)) return n < 100 ? 2000 + n : n;
+      return fallbackYear;
     };
 
     const inDay = Number.parseInt(numericRange[1], 10);
@@ -411,8 +413,8 @@ function parseArrivalDateFromSubject(subject?: string, receivedAt?: string): str
   const parseYear = (raw?: string) => {
     if (!raw) return fallbackYear;
     const n = Number.parseInt(raw, 10);
-    if (!Number.isFinite(n)) return fallbackYear;
-    return n < 100 ? 2000 + n : n;
+    if (!Number.isNaN(n)) return n < 100 ? 2000 + n : n;
+    return fallbackYear;
   };
 
   const day = Number.parseInt(numericPattern[1], 10);
@@ -451,8 +453,8 @@ function parseDepartureDateFromSubject(subject?: string, receivedAt?: string): s
   const parseYear = (raw?: string) => {
     if (!raw) return fallbackYear;
     const n = Number.parseInt(raw, 10);
-    if (!Number.isFinite(n)) return fallbackYear;
-    return n < 100 ? 2000 + n : n;
+    if (!Number.isNaN(n)) return n < 100 ? 2000 + n : n;
+    return fallbackYear;
   };
 
   const day = Number.parseInt(numericPattern[1], 10);
