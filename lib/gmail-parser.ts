@@ -1535,11 +1535,18 @@ export function parseAirbnbEmail(
       
       // DEBUG: Si toujours échoué, on pousse un extrait brut dans les warnings pour voir la structure réelle
       if (!checkOut || checkIn === checkOut) {
-        const idx = text.toLowerCase().indexOf('arriv');
-        if (idx !== -1) {
-          const snippet = text.substring(Math.max(0, idx - 20), idx + 150).replace(/\n/g, ' \\n ');
-          warnings.push(`DEBUG_DATES: ${snippet}`);
+        const idxArriv = text.toLowerCase().indexOf('arriv');
+        const idxDepart = text.toLowerCase().indexOf('part'); // pour 'dpart'
+        
+        let snippet = `LEN:${text.length} | `;
+        if (idxArriv !== -1) {
+          snippet += `ARRIV: ${text.substring(Math.max(0, idxArriv - 15), idxArriv + 60).replace(/\n/g, ' \\n ')} | `;
         }
+        if (idxDepart !== -1) {
+          snippet += `DEPART: ${text.substring(Math.max(0, idxDepart - 15), idxDepart + 60).replace(/\n/g, ' \\n ')}`;
+        }
+        
+        warnings.push(`DEBUG_DATES: ${snippet}`);
       }
     }
 
