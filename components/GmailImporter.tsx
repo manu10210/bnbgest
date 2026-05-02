@@ -221,6 +221,31 @@ function ensureBookingNightsConsistency(booking: ParsedBooking): ParsedBooking {
   };
 }
 
+function repairSingleDateRangeForBooking(booking: ParsedBooking): ParsedBooking {
+  // Cas réel remonté: sujets "... arrive le 18 sept." avec une seule date exploitable.
+  // Pour éviter un rejet qualité injustifié, on pose un checkout par défaut à J+1.
+  if (booking.bookingType !== 'new') return booking;
+  if (!isIsoDate(booking.checkIn)) return booking;
+  if (isValidDateRange(booking.checkIn, booking.checkOut)) return booking;
+
+  const checkInDate = new Date(`${booking.checkIn}T00:00:00.000Z`);
+  if (Number.isNaN(checkInDate.getTime())) return booking;
+
+  const checkoutDate = new Date(checkInDate);
+  checkoutDate.setUTCDate(checkoutDate.getUTCDate() + 1);
+  const inferredCheckOut = formatIsoDate(checkoutDate);
+
+  return {
+    ...booking,
+    checkOut: inferredCheckOut,
+    nights: booking.nights > 0 ? booking.nights : 1,
+    warnings: Array.from(new Set([
+      ...(booking.warnings || []),
+      'checkout_defaulted_to_plus_one_day',
+    ])),
+  };
+}
+
 function parseIsoDateFromFrenchParts(dayInput?: string, monthInput?: string, yearInput?: string, fallbackYear?: number): string | undefined {
   const day = Number.parseInt(dayInput || '', 10);
   if (!Number.isFinite(day) || day < 1 || day > 31) return undefined;
@@ -1683,11 +1708,11 @@ export default function GmailImporter() {
           for (const b of data.bookings) {
             if (!seen.has(b.messageId)) {
               seen.add(b.messageId);
-              const normalized = ensureBookingNightsConsistency(enrichBookingPropertyFromContext(
+              const normalized = repairSingleDateRangeForBooking(ensureBookingNightsConsistency(enrichBookingPropertyFromContext(
                 enrichBookingDateRange(enrichBookingGuestName(b as ParsedBooking)),
                 existingBookings,
                 properties,
-              ));
+              )));
               allBookings.push(normalized);
             }
           }
@@ -1778,7 +1803,7 @@ export default function GmailImporter() {
       }
 
   const enrichedFinalBookings = finalBookings.map((b) =>
-    ensureBookingNightsConsistency(enrichReviewFromContext(b, existingBookings, properties))
+    repairSingleDateRangeForBooking(ensureBookingNightsConsistency(enrichReviewFromContext(b, existingBookings, properties)))
   );
 
   setBookings(enrichedFinalBookings);
