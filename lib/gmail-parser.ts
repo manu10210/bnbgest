@@ -1461,11 +1461,26 @@ export function parseAirbnbEmail(
 
   if (bookingType !== 'payout') {
     // Vrais formats de dates dans les emails Airbnb hôte (FR) :
-    // Support de l'encoding cassé (\ufffd ou ) : arrive, dpart, fvrier, dcembre
     const MOIS_RE = `(?:janv?\\.?|f[eé\ufffdx]?vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|juillet|ao[uû\ufffdx]t|sept?\\.?|octobre?|nov\\.?|d[eé\ufffdx]c\\.?|d[eé\ufffdx]cembre?)`;
     const JOUR_RE = `(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)`;
 
-    const checkInPatterns = [
+    // ── EXTRACTION PRIORITAIRE : Le vrai tableau de dates ──
+    const explicitTableRe = new RegExp(
+      `arriv[eé\ufffdx]?e?\\s+d[eé\ufffdx]?part\\s*\\n+\\s*` +
+      `(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s+` +
+      `(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`,
+      'i'
+    );
+    const tableMatch = text.match(explicitTableRe);
+    if (tableMatch) {
+      const d1 = normalizeDate(tableMatch[1], receivedAt);
+      const d2 = normalizeDate(tableMatch[2], receivedAt);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d1)) checkIn = d1;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d2)) checkOut = d2;
+    }
+
+    if (!checkIn || !checkOut) {
+      const checkInPatterns = [
   new RegExp(`arriv[eé\ufffdx]?e?\\s+\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
   new RegExp(`arriv[eé\ufffdx]?e?[\\s\\S]{0,80}?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       new RegExp(`arriv[eé\ufffdx]?e?\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
