@@ -223,7 +223,8 @@ function ensureBookingNightsConsistency(booking: ParsedBooking): ParsedBooking {
 
 function repairSingleDateRangeForBooking(booking: ParsedBooking): ParsedBooking {
   // Cas réel remonté: sujets "... arrive le 18 sept." avec une seule date exploitable.
-  // Pour éviter un rejet qualité injustifié, on pose un checkout par défaut à J+1.
+  // Pour éviter un rejet qualité injustifié, on pose un checkout par défaut basé
+  // sur le nombre de nuits extrait (sinon J+1).
   if (booking.bookingType !== 'new') return booking;
   if (!isIsoDate(booking.checkIn)) return booking;
   if (isValidDateRange(booking.checkIn, booking.checkOut)) return booking;
@@ -231,17 +232,23 @@ function repairSingleDateRangeForBooking(booking: ParsedBooking): ParsedBooking 
   const checkInDate = new Date(`${booking.checkIn}T00:00:00.000Z`);
   if (Number.isNaN(checkInDate.getTime())) return booking;
 
+  const fallbackNights = Number.isFinite(booking.nights) && booking.nights > 0
+    ? Math.min(booking.nights, 30)
+    : 1;
+
   const checkoutDate = new Date(checkInDate);
-  checkoutDate.setUTCDate(checkoutDate.getUTCDate() + 1);
+  checkoutDate.setUTCDate(checkoutDate.getUTCDate() + fallbackNights);
   const inferredCheckOut = formatIsoDate(checkoutDate);
 
   return {
     ...booking,
     checkOut: inferredCheckOut,
-    nights: booking.nights > 0 ? booking.nights : 1,
+    nights: fallbackNights,
     warnings: Array.from(new Set([
       ...(booking.warnings || []),
-      'checkout_defaulted_to_plus_one_day',
+      fallbackNights > 1
+        ? 'checkout_defaulted_from_extracted_nights'
+        : 'checkout_defaulted_to_plus_one_day',
     ])),
   };
 }
@@ -3723,6 +3730,7 @@ export default function GmailImporter() {
       date_range_inferred_precisely_from_subject: 'Dates de séjour déduites précisément du sujet',
       date_range_inferred_from_arrival_departure_subject: "Dates de séjour déduites depuis les blocs d'arrivée/départ",
       date_range_inferred_from_subject: 'Dates de séjour déduites du sujet',
+  checkout_defaulted_from_extracted_nights: 'Date de départ recalculée depuis le nombre de nuits extrait',
       checkout_inferred_from_nights: 'Date de départ calculée à partir du nombre de nuits',
       nights_recomputed_from_dates: 'Nombre de nuitées recalculé depuis les dates de séjour',
       property_inferred_from_subject: 'Logement déduit depuis le sujet',
