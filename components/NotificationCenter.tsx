@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -56,6 +56,34 @@ function saveNotifications(notifications: AppNotification[]) {
   localStorage.setItem('bnbgest_notifications', JSON.stringify(notifications));
 }
 
+const APP_STATE_KEY = 'notification_center_items';
+
+async function loadNotificationsFromDb(): Promise<AppNotification[] | null> {
+  try {
+    const res = await fetch(`/api/app-state?key=${encodeURIComponent(APP_STATE_KEY)}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    const payload = await res.json();
+    return Array.isArray(payload?.value) ? (payload.value as AppNotification[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveNotificationsToDb(notifications: AppNotification[]) {
+  try {
+    await fetch('/api/app-state', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: APP_STATE_KEY, value: notifications }),
+    });
+  } catch {
+    // silent fallback to local only
+  }
+}
+
 interface NotificationCenterProps {
   onRequestSettings?: () => void;
 }
@@ -65,13 +93,41 @@ export default function NotificationCenter({ onRequestSettings }: NotificationCe
   const { isDark } = useTheme();
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => loadNotifications());
+  const notificationsHydratedRef = useRef(false);
   const [filterType, setFilterType] = useState('all');
   const [showEmailLog, setShowEmailLog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateNotifications = async () => {
+      const remote = await loadNotificationsFromDb();
+      if (!cancelled && remote && remote.length > 0) {
+        setNotifications(remote);
+      }
+      if (!cancelled) {
+        notificationsHydratedRef.current = true;
+      }
+    };
+
+    void hydrateNotifications();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Save on change
   useEffect(() => {
     saveNotifications(notifications);
+    if (!notificationsHydratedRef.current) return;
+
+    const t = setTimeout(() => {
+      void saveNotificationsToDb(notifications);
+    }, 400);
+
+    return () => clearTimeout(t);
   }, [notifications]);
 
   const createTestNotification = () => {

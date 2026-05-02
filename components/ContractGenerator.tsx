@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useBNB, Booking, Property } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -65,6 +65,9 @@ interface ContractHistory {
 const STORAGE_KEY_CONFIG = 'bnbgest_contract_config';
 const STORAGE_KEY_TEMPLATES = 'bnbgest_contract_templates';
 const STORAGE_KEY_HISTORY = 'bnbgest_contract_history';
+const APP_STATE_KEY_CONFIG = 'contract_generator_config';
+const APP_STATE_KEY_TEMPLATES = 'contract_generator_templates';
+const APP_STATE_KEY_HISTORY = 'contract_generator_history';
 
 const DEFAULT_CONFIG: ContractConfig = {
   ownerName: '',
@@ -150,6 +153,32 @@ function saveHistory(history: ContractHistory[]) {
   }
 }
 
+async function loadStateFromDb<T>(key: string): Promise<T | null> {
+  try {
+    const res = await fetch(`/api/app-state?key=${encodeURIComponent(key)}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    const payload = await res.json();
+    return (payload?.value ?? null) as T | null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveStateToDb<T>(key: string, value: T) {
+  try {
+    await fetch('/api/app-state', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, value }),
+    });
+  } catch {
+    // silent fallback to local only
+  }
+}
+
 // ==================== COMPONENT ====================
 
 export default function ContractGenerator() {
@@ -159,6 +188,7 @@ export default function ContractGenerator() {
   const [config, setConfig] = useState<ContractConfig>(() => loadContractConfig());
   const [templates, setTemplates] = useState<ContractTemplate[]>(() => loadTemplates());
   const [history, setHistory] = useState<ContractHistory[]>(() => loadHistory());
+  const dbHydratedRef = useRef(false);
   
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
@@ -222,6 +252,62 @@ export default function ContractGenerator() {
 
   React.useEffect(() => {
     saveHistory(history);
+  }, [history]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateFromDb = async () => {
+      const [remoteConfig, remoteTemplates, remoteHistory] = await Promise.all([
+        loadStateFromDb<Partial<ContractConfig>>(APP_STATE_KEY_CONFIG),
+        loadStateFromDb<ContractTemplate[]>(APP_STATE_KEY_TEMPLATES),
+        loadStateFromDb<ContractHistory[]>(APP_STATE_KEY_HISTORY),
+      ]);
+
+      if (cancelled) return;
+
+      if (remoteConfig && typeof remoteConfig === 'object') {
+        setConfig((prev) => ({ ...prev, ...remoteConfig }));
+      }
+      if (Array.isArray(remoteTemplates) && remoteTemplates.length > 0) {
+        setTemplates(remoteTemplates);
+      }
+      if (Array.isArray(remoteHistory) && remoteHistory.length > 0) {
+        setHistory(remoteHistory);
+      }
+
+      dbHydratedRef.current = true;
+    };
+
+    void hydrateFromDb();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!dbHydratedRef.current) return;
+    const t = setTimeout(() => {
+      void saveStateToDb(APP_STATE_KEY_CONFIG, config);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [config]);
+
+  useEffect(() => {
+    if (!dbHydratedRef.current) return;
+    const t = setTimeout(() => {
+      void saveStateToDb(APP_STATE_KEY_TEMPLATES, templates);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [templates]);
+
+  useEffect(() => {
+    if (!dbHydratedRef.current) return;
+    const t = setTimeout(() => {
+      void saveStateToDb(APP_STATE_KEY_HISTORY, history);
+    }, 400);
+    return () => clearTimeout(t);
   }, [history]);
 
   const selectedProperty = selectedPropertyId ? properties.find(p => p.id === selectedPropertyId) : null;

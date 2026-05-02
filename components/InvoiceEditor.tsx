@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -103,6 +103,9 @@ export interface Invoice {
 const STORAGE_KEY        = 'bnbgest_invoices';
 const ISSUER_PROFILE_KEY = 'bnbgest_issuer_profile';
 const TEMPLATES_KEY      = 'bnbgest_invoice_templates';
+const APP_STATE_KEY_INVOICES = 'invoice_editor_invoices';
+const APP_STATE_KEY_TEMPLATES = 'invoice_editor_templates';
+const APP_STATE_KEY_ISSUER_PROFILE = 'invoice_editor_issuer_profile';
 
 function loadInvoices(): Invoice[] {
   if (typeof window === 'undefined') return [];
@@ -167,6 +170,32 @@ function loadTemplates(): InvoiceTemplate[] {
 function saveTemplates(templates: InvoiceTemplate[]) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+}
+
+async function loadStateFromDb<T>(key: string): Promise<T | null> {
+  try {
+    const res = await fetch(`/api/app-state?key=${encodeURIComponent(key)}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    const payload = await res.json();
+    return (payload?.value ?? null) as T | null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveStateToDb<T>(key: string, value: T) {
+  try {
+    await fetch('/api/app-state', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, value }),
+    });
+  } catch {
+    // silent fallback to local only
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -990,14 +1019,87 @@ export default function InvoiceEditor() {
   const [toast, setToast] = useState<string | null>(null);
   const [newTag, setNewTag] = useState('');
   const [showInternalNotes, setShowInternalNotes] = useState(false);
+  const dbHydratedRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateFromDb = async () => {
+      const [remoteInvoices, remoteTemplates, remoteIssuerProfile] = await Promise.all([
+        loadStateFromDb<Invoice[]>(APP_STATE_KEY_INVOICES),
+        loadStateFromDb<InvoiceTemplate[]>(APP_STATE_KEY_TEMPLATES),
+        loadStateFromDb<Partial<IssuerProfile>>(APP_STATE_KEY_ISSUER_PROFILE),
+      ]);
+
+      if (cancelled) return;
+
+      if (Array.isArray(remoteInvoices) && remoteInvoices.length > 0) {
+        setInvoices(remoteInvoices);
+      }
+
+      if (Array.isArray(remoteTemplates) && remoteTemplates.length > 0) {
+        setTemplates(remoteTemplates);
+      }
+
+      if (remoteIssuerProfile && typeof window !== 'undefined') {
+        localStorage.setItem(ISSUER_PROFILE_KEY, JSON.stringify(remoteIssuerProfile));
+      }
+
+      dbHydratedRef.current = true;
+    };
+
+    void hydrateFromDb();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Auto-save issuer profile whenever editing changes
   useEffect(() => {
-    if (editing) saveIssuerProfile(editing);
+    if (!editing) return;
+    saveIssuerProfile(editing);
+
+    if (!dbHydratedRef.current) return;
+
+    const profile: Partial<IssuerProfile> = {
+      issuerName: editing.issuerName,
+      issuerAddress: editing.issuerAddress,
+      issuerCity: editing.issuerCity,
+      issuerZip: editing.issuerZip,
+      issuerCountry: editing.issuerCountry,
+      issuerEmail: editing.issuerEmail,
+      issuerPhone: editing.issuerPhone,
+      issuerSiret: editing.issuerSiret,
+      issuerVat: editing.issuerVat,
+      issuerLogo: editing.issuerLogo,
+    };
+
+    const t = setTimeout(() => {
+      void saveStateToDb(APP_STATE_KEY_ISSUER_PROFILE, profile);
+    }, 400);
+
+    return () => clearTimeout(t);
   }, [editing?.issuerName, editing?.issuerEmail, editing?.issuerPhone,
       editing?.issuerSiret, editing?.issuerVat, editing?.issuerAddress,
       editing?.issuerCity, editing?.issuerZip, editing?.issuerCountry,
       editing?.issuerLogo]);
+
+  useEffect(() => {
+    if (!dbHydratedRef.current) return;
+    const t = setTimeout(() => {
+      void saveStateToDb(APP_STATE_KEY_INVOICES, invoices);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [invoices]);
+
+  useEffect(() => {
+    if (!dbHydratedRef.current) return;
+    const t = setTimeout(() => {
+      void saveStateToDb(APP_STATE_KEY_TEMPLATES, templates);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [templates]);
 
   // Autosave every 30s in editor
   useEffect(() => {

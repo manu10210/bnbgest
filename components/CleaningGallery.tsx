@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useBNB, Property, Booking } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -81,6 +81,7 @@ const ROOM_LABELS: Record<string, string> = {
 };
 
 const STORAGE_KEY = 'bnbgest_cleaning_gallery';
+const APP_STATE_KEY = 'cleaning_gallery_sessions';
 
 // ==================== HELPERS ====================
 
@@ -100,6 +101,32 @@ function saveSessions(sessions: CleaningSession[]) {
   }
 }
 
+async function loadSessionsFromDb(): Promise<CleaningSession[] | null> {
+  try {
+    const res = await fetch(`/api/app-state?key=${encodeURIComponent(APP_STATE_KEY)}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    const payload = await res.json();
+    return Array.isArray(payload?.value) ? (payload.value as CleaningSession[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveSessionsToDb(sessions: CleaningSession[]) {
+  try {
+    await fetch('/api/app-state', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: APP_STATE_KEY, value: sessions }),
+    });
+  } catch {
+    // silent fallback to local only
+  }
+}
+
 // ==================== COMPONENT ====================
 
 export default function CleaningGallery() {
@@ -113,6 +140,7 @@ export default function CleaningGallery() {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'comparison'>('grid');
   const [showNewSession, setShowNewSession] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+  const sessionsHydratedRef = useRef(false);
 
   // Filtres et recherche
   const [filterProperty, setFilterProperty] = useState<number | ''>('');
@@ -140,7 +168,34 @@ export default function CleaningGallery() {
   // Sauvegarde automatique
   useEffect(() => { 
     saveSessions(sessions); 
+    if (!sessionsHydratedRef.current) return;
+
+    const t = setTimeout(() => {
+      void saveSessionsToDb(sessions);
+    }, 500);
+
+    return () => clearTimeout(t);
   }, [sessions]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateSessions = async () => {
+      const remote = await loadSessionsFromDb();
+      if (!cancelled && remote && remote.length > 0) {
+        setSessions(remote);
+      }
+      if (!cancelled) {
+        sessionsHydratedRef.current = true;
+      }
+    };
+
+    void hydrateSessions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Slideshow
   useEffect(() => {

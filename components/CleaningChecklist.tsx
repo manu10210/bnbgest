@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useBNB, Property, Booking } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -186,6 +186,33 @@ const DEFAULT_ROOMS: RoomChecklist[] = [
 ];
 
 const STORAGE_KEY = 'bnbgest_cleaning_sessions';
+const APP_STATE_KEY = 'cleaning_checklist_sessions';
+
+async function loadSessionsFromDb(): Promise<CleaningSession[] | null> {
+  try {
+    const res = await fetch(`/api/app-state?key=${encodeURIComponent(APP_STATE_KEY)}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    const payload = await res.json();
+    return Array.isArray(payload?.value) ? (payload.value as CleaningSession[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveSessionsToDb(sessions: CleaningSession[]) {
+  try {
+    await fetch('/api/app-state', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: APP_STATE_KEY, value: sessions }),
+    });
+  } catch {
+    // silent fallback to local only
+  }
+}
 
 // ==================== COMPONENT ====================
 
@@ -219,6 +246,7 @@ export default function CleaningChecklist() {
   // Modals
   const [showModal, setShowModal] = useState<'new' | 'details' | 'photos' | 'issues' | 'supplies' | null>(null);
   const [selectedSession, setSelectedSession] = useState<CleaningSession | null>(null);
+  const sessionsHydratedRef = useRef(false);
 
   // Load from localStorage
   useEffect(() => {
@@ -228,9 +256,36 @@ export default function CleaningChecklist() {
     } catch { /* ignore */ }
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateSessions = async () => {
+      const remote = await loadSessionsFromDb();
+      if (!cancelled && remote && remote.length > 0) {
+        setSessions(remote);
+      }
+      if (!cancelled) {
+        sessionsHydratedRef.current = true;
+      }
+    };
+
+    void hydrateSessions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Save to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    if (!sessionsHydratedRef.current) return;
+
+    const t = setTimeout(() => {
+      void saveSessionsToDb(sessions);
+    }, 500);
+
+    return () => clearTimeout(t);
   }, [sessions]);
 
   // Timer

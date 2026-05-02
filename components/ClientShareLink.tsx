@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -51,6 +51,34 @@ function saveLinks(links: ShareLink[]) {
   }
 }
 
+const APP_STATE_KEY = 'client_share_links';
+
+async function loadLinksFromDb(): Promise<ShareLink[] | null> {
+  try {
+    const res = await fetch(`/api/app-state?key=${encodeURIComponent(APP_STATE_KEY)}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    const payload = await res.json();
+    return Array.isArray(payload?.value) ? (payload.value as ShareLink[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveLinksToDb(links: ShareLink[]) {
+  try {
+    await fetch('/api/app-state', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: APP_STATE_KEY, value: links }),
+    });
+  } catch {
+    // silent fallback to local only
+  }
+}
+
 function generateToken(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let token = '';
@@ -66,11 +94,41 @@ export default function ClientShareLink() {
   const { t } = useLanguage();
 
   const [links, setLinks] = useState<ShareLink[]>(() => loadLinks());
+  const linksHydratedRef = useRef(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPreview, setShowPreview] = useState<ShareLink | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  useEffect(() => { saveLinks(links); }, [links]);
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateLinks = async () => {
+      const remote = await loadLinksFromDb();
+      if (!cancelled && remote && remote.length > 0) {
+        setLinks(remote);
+      }
+      if (!cancelled) {
+        linksHydratedRef.current = true;
+      }
+    };
+
+    void hydrateLinks();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    saveLinks(links);
+    if (!linksHydratedRef.current) return;
+
+    const t = setTimeout(() => {
+      void saveLinksToDb(links);
+    }, 400);
+
+    return () => clearTimeout(t);
+  }, [links]);
 
   // Create form
   const [newLink, setNewLink] = useState({
