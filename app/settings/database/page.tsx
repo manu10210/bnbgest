@@ -81,6 +81,9 @@ export default function DatabaseSettingsPage() {
   const [retentionDays, setRetentionDays] = useState('30');
   const [isLoaded, setIsLoaded] = useState(false);
   const [backups, setBackups] = useState<Backup[]>(DEFAULT_BACKUPS);
+  const [wipeConfirmation, setWipeConfirmation] = useState('');
+  const [preserveCurrentUser, setPreserveCurrentUser] = useState(true);
+  const [wiping, setWiping] = useState(false);
 
   useEffect(() => {
     const localLoaded = loadClientSetting('database', {
@@ -199,6 +202,58 @@ export default function DatabaseSettingsPage() {
       }
     };
     input.click();
+  };
+
+  const handleFullDatabaseWipe = async () => {
+    if (wipeConfirmation.trim() !== 'VIDER MA BASE') {
+      toast.error('Entrez exactement "VIDER MA BASE" pour confirmer.');
+      return;
+    }
+
+    const userConfirmed = confirm(
+      preserveCurrentUser
+        ? '⚠️ Action irréversible. Toutes les données métier seront supprimées, mais votre compte admin sera conservé. Continuer ?'
+        : '⚠️⚠️ Suppression TOTALE et irréversible. Même les comptes utilisateurs seront supprimés. Continuer ?'
+    );
+
+    if (!userConfirmed) {
+      return;
+    }
+
+    setWiping(true);
+    try {
+      const response = await fetch('/api/settings/database/wipe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          confirmation: wipeConfirmation.trim(),
+          preserveCurrentUser,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        truncatedTables?: string[];
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Échec de la purge de la base.');
+      }
+
+      setBackups([]);
+      setWipeConfirmation('');
+      toast.success(
+        `Base vidée avec succès (${payload.truncatedTables?.length ?? 0} table(s) purgée(s)).`
+      );
+      router.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      toast.error(`Purge impossible: ${message}`);
+    } finally {
+      setWiping(false);
+    }
   };
 
   return (
@@ -562,6 +617,65 @@ export default function DatabaseSettingsPage() {
                 <li>• Les anciennes sauvegardes sont automatiquement supprimées selon la rétention configurée</li>
                 <li>• Téléchargez régulièrement vos sauvegardes sur un stockage externe</li>
               </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Danger Zone */}
+        <div className={`mt-6 p-6 rounded-2xl ${
+          isDark ? 'bg-red-500/10 border border-red-500/30' : 'bg-red-50 border border-red-200'
+        }`}>
+          <div className="flex items-start gap-4">
+            <div className={`p-3 rounded-lg ${isDark ? 'bg-red-500/20' : 'bg-red-100'}`}>
+              <Trash2 size={24} className={isDark ? 'text-red-400' : 'text-red-600'} />
+            </div>
+            <div className="flex-1">
+              <h3 className={`text-lg font-bold mb-2 ${isDark ? 'text-red-400' : 'text-red-900'}`}>
+                Zone dangereuse — Vider la base
+              </h3>
+              <p className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-red-800'}`}>
+                Cette action est irréversible. Tapez <span className="font-bold">VIDER MA BASE</span> puis confirmez.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Confirmation manuelle
+                  </label>
+                  <input
+                    type="text"
+                    value={wipeConfirmation}
+                    onChange={(e) => setWipeConfirmation(e.target.value)}
+                    placeholder="VIDER MA BASE"
+                    className={`w-full px-4 py-3 rounded-lg ${
+                      isDark
+                        ? 'bg-white/5 border border-white/10 text-white placeholder:text-gray-500'
+                        : 'bg-white border border-gray-200 text-gray-900 placeholder:text-gray-400'
+                    }`}
+                  />
+                </div>
+
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={preserveCurrentUser}
+                    onChange={(e) => setPreserveCurrentUser(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Conserver mon compte admin (recommandé)
+                  </span>
+                </label>
+
+                <button
+                  onClick={handleFullDatabaseWipe}
+                  disabled={wiping || wipeConfirmation.trim() !== 'VIDER MA BASE'}
+                  className="flex items-center gap-3 px-5 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold hover:from-red-700 hover:to-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {wiping ? <RefreshCw size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                  {wiping ? 'Purge en cours...' : 'Vider complètement la base'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
