@@ -1851,6 +1851,10 @@ export function parseAirbnbEmail(
     }
   }
 
+      const defaultNonStayDate = receivedAt.split('T')[0];
+      const safeCheckIn = checkIn ?? ((bookingType === 'payout' || bookingType === 'review') ? defaultNonStayDate : '');
+      const safeCheckOut = checkOut ?? ((bookingType === 'payout' || bookingType === 'review') ? defaultNonStayDate : '');
+
       return {
         warnings,
         source: 'gmail',
@@ -1879,8 +1883,8 @@ export function parseAirbnbEmail(
                      ? guestLanguage : undefined,
 
     // ── Séjour ──────────────────────────────────────────────────────────────
-    checkIn:  checkIn  ?? (bookingType === 'payout' || bookingType === 'review' ? receivedAt.split('T')[0] : (checkIn || receivedAt.split('T')[0])),
-    checkOut: checkOut ?? (bookingType === 'payout' || bookingType === 'review' ? receivedAt.split('T')[0] : (checkOut || receivedAt.split('T')[0])),
+  checkIn: safeCheckIn,
+  checkOut: safeCheckOut,
     // Nuits : calculer même pour checkout/reminder si les dates sont disponibles
     nights:   (bookingType === 'payout' && !checkIn) ? 0 : nights,
     checkInTime,
