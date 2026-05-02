@@ -1553,9 +1553,6 @@ export function parseAirbnbEmail(
     // Emails Airbnb HTML réels : "Arrivée" et "Départ" sont dans des <td> adjacents
     // sur la même ligne → après stripping HTML :
     //   Arrivée\nDépart\nven. 18 sept.\n16:00\ndim. 20 sept.\n10:00
-    // Le pattern fallback [\s\S]{0,80}? capturait alors la date checkIn (18 sept.)
-    // comme checkOut → range invalide → repair → +1 jour → 1 nuit systématique.
-    // On détecte ce layout et extrait les deux dates simultanément.
     if (!checkOut || checkIn === checkOut) {
       const twoColRe = new RegExp(
         `arriv[eé]e?\\s*\\n\\s*d[eé]part\\s*\\n\\s*` +
@@ -1570,6 +1567,15 @@ export function parseAirbnbEmail(
         const d2 = normalizeDate(tcm[2], receivedAt);
         if (/^\d{4}-\d{2}-\d{2}$/.test(d1)) checkIn = d1;
         if (/^\d{4}-\d{2}-\d{2}$/.test(d2) && d2 !== d1) checkOut = d2;
+      }
+      
+      // DEBUG: Si toujours échoué, on pousse un extrait brut dans les warnings pour voir la structure réelle
+      if (!checkOut || checkIn === checkOut) {
+        const idx = text.toLowerCase().indexOf('arriv');
+        if (idx !== -1) {
+          const snippet = text.substring(Math.max(0, idx - 20), idx + 150).replace(/\n/g, ' \\n ');
+          warnings.push(`DEBUG_DATES: ${snippet}`);
+        }
       }
     }
 
