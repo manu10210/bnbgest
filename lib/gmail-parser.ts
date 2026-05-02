@@ -1549,6 +1549,30 @@ export function parseAirbnbEmail(
   checkIn = extractDate(text, checkInPatterns, receivedAt) || extractDate(subject, checkInPatterns, receivedAt);
   checkOut = extractDate(text, checkOutPatterns, receivedAt) || extractDate(subject, checkOutPatterns, receivedAt);
 
+    // ── Correctif layout tableau Airbnb (deux colonnes) ──────────────────────
+    // Emails Airbnb HTML réels : "Arrivée" et "Départ" sont dans des <td> adjacents
+    // sur la même ligne → après stripping HTML :
+    //   Arrivée\nDépart\nven. 18 sept.\n16:00\ndim. 20 sept.\n10:00
+    // Le pattern fallback [\s\S]{0,80}? capturait alors la date checkIn (18 sept.)
+    // comme checkOut → range invalide → repair → +1 jour → 1 nuit systématique.
+    // On détecte ce layout et extrait les deux dates simultanément.
+    if (!checkOut || checkIn === checkOut) {
+      const twoColRe = new RegExp(
+        `arriv[eé]e?\\s*\\n\\s*d[eé]part\\s*\\n\\s*` +
+        `(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)` +
+        `[\\s\\S]{0,80}?` +
+        `(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`,
+        'i',
+      );
+      const tcm = text.match(twoColRe);
+      if (tcm) {
+        const d1 = normalizeDate(tcm[1], receivedAt);
+        const d2 = normalizeDate(tcm[2], receivedAt);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d1)) checkIn = d1;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d2) && d2 !== d1) checkOut = d2;
+      }
+    }
+
     // ── Post-traitement : plage FR compacte "10–13 avr. 2026" ────────────────
     // Les patterns avec 3 groupes capturés (jour1, mois, année) ne sont pas gérés
     // par extractDate (qui lit seulement match[1]). On les traite ici.
