@@ -901,7 +901,7 @@ function evaluateBookingQuality(b: ParsedBooking): { accepted: boolean; reasons:
     reasons.push('outside_2026_window');
   }
   if (b.confidence < 40) reasons.push('low_confidence');
-  if (b.confirmationCode && !/^HM[A-Z0-9]{6,12}$/i.test(b.confirmationCode)) reasons.push('invalid_confirmation_code');
+  if (b.bookingType !== 'review' && b.confirmationCode && !/^HM[A-Z0-9]{6,12}$/i.test(b.confirmationCode)) reasons.push('invalid_confirmation_code');
 
   const effectiveGuestName = isPlaceholderGuestName(b.guestName)
     ? inferGuestNameFromSubject(b.subject)
