@@ -540,6 +540,43 @@ function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
   };
 }
 
+function enrichPayoutFromContext(
+  booking: ParsedBooking,
+  existingBookings: Array<{
+    propertyId: number;
+    specialRequests?: string;
+    guestInfo?: { name?: string };
+  }>,
+  properties: Array<{ id: number; name: string }>,
+): ParsedBooking {
+  if (booking.bookingType !== 'payout') return booking;
+
+  // S'il y a déjà un nom de voyageur fiable (pas Voyageur Airbnb), on le garde avec le préfixe
+  const hasGuest = !!booking.guestName && !isPlaceholderGuestName(booking.guestName);
+
+  const candidateByCode = booking.confirmationCode
+    ? existingBookings.find(b => b.specialRequests?.includes(booking.confirmationCode!))
+    : undefined;
+
+  let guestNameBase = 'Voyageur inconnu';
+  if (hasGuest) {
+    guestNameBase = booking.guestName!;
+  } else if (candidateByCode?.guestInfo?.name) {
+    guestNameBase = candidateByCode.guestInfo.name;
+  }
+
+  // S'il n'y a pas de nom trouvé, on ne veut peut-être pas prefixer "Règlement du séjour inconnu"
+  // mais la consigne est forte: "titre comme Reglement du sejour $nom et $prenom"
+  const newGuestName = `Règlement du séjour ${guestNameBase}`;
+
+  return {
+    ...booking,
+    guestName: newGuestName,
+    propertyName: booking.propertyName || (candidateByCode ? properties.find(p => p.id === candidateByCode.propertyId)?.name : booking.propertyName),
+    warnings: Array.from(new Set([...(booking.warnings || []), 'payout_context_inferred'])),
+  };
+}
+
 function enrichReviewFromContext(
   booking: ParsedBooking,
   existingBookings: Array<{
@@ -1888,7 +1925,7 @@ export default function GmailImporter() {
       }
 
   const enrichedFinalBookings = finalBookings.map((b) =>
-    repairSingleDateRangeForBooking(ensureBookingNightsConsistency(enrichReviewFromContext(b, existingBookings, properties)))
+    repairSingleDateRangeForBooking(ensureBookingNightsConsistency(enrichPayoutFromContext(enrichReviewFromContext(b, existingBookings, properties), existingBookings, properties)))
   );
 
   setBookings(enrichedFinalBookings);
@@ -3800,6 +3837,7 @@ export default function GmailImporter() {
       guest_name_inferred_from_subject: 'Nom du voyageur déduit du sujet',
   guest_name_replaced_from_subject: 'Nom du voyageur corrigé depuis le sujet',
       review_context_inferred: "Informations d'avis enrichies depuis le contexte",
+      payout_context_inferred: "Informations de versement enrichies depuis le contexte",
       logement_introuvable: 'Logement introuvable',
       property_not_found: 'Logement introuvable',
       missing_property: 'Logement manquant',
