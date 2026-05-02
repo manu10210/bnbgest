@@ -1461,42 +1461,22 @@ export function parseAirbnbEmail(
 
   if (bookingType !== 'payout') {
     // Vrais formats de dates dans les emails Airbnb hôte (FR) :
-    //   "Arrivée : sam. 10 avr." / "Arrivée : 10 avr. 2026"
-    //   "Arrivée : 10 avril 2026"
-    //   "Départ : mar. 13 avr."
-    //   "10 avr. – 13 avr." (dans le corps ou le sujet)
-    //   "du 10 au 13 avril 2026"
-    //   "10/04/2026" / "10-04-2026"
-    //   "April 10, 2026" / "Apr 10, 2026"
-    //   "samedi 10 avril 2026"
-    //   "sam. 10 avr." (jour abrégé + date sans année)
-    const MOIS_RE = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|juillet|ao[uû]t|sept?\\.?|octobre?|nov\\.?|d[eé]c\\.?|d[eé]cembre?)`;
+    // Support de l'encoding cassé (\ufffd ou ) : arrive, dpart, fvrier, dcembre
+    const MOIS_RE = `(?:janv?\\.?|f[eé\ufffdx]?vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|juillet|ao[uû\ufffdx]t|sept?\\.?|octobre?|nov\\.?|d[eé\ufffdx]c\\.?|d[eé\ufffdx]cembre?)`;
     const JOUR_RE = `(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)`;
 
     const checkInPatterns = [
-      // "Arrivée ven. 18 sept." / "Arrivée (ven. 18 sept.)" (inline, sans ':' ni saut dédié)
-  new RegExp(`arriv[eé]e?\\s+\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
-      // Format relâché multi-lignes/HTML : capture la date proche du bloc Arrivée
-  new RegExp(`arriv[eé]e?[\\s\\S]{0,80}?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // ── Format Airbnb hôte 2024-2026 : label seul + date sur la ligne suivante ──
-      // "Arrivée\n(mer. 20 mai)" / "Arrivée\n(20 mai 2026)"
-      new RegExp(`arriv[eé]e?\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
-      // "Arrivée\ndim. 19 avr." / "Arrivée\n19 avr. 2026"
-      new RegExp(`arriv[eé]e?\\s*\\n\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // "Check-in\n(mer. 20 mai)"
+  new RegExp(`arriv[eé\ufffdx]?e?\\s+\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
+  new RegExp(`arriv[eé\ufffdx]?e?[\\s\\S]{0,80}?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      new RegExp(`arriv[eé\ufffdx]?e?\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
+      new RegExp(`arriv[eé\ufffdx]?e?\\s*\\n\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       new RegExp(`check.?in\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
-      // "Check-in\ndim. 19 avr."
       new RegExp(`check.?in\\s*\\n\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // "Arrivée : (sam. 10 avr.)"
-      new RegExp(`arriv[eé]e?\\s*[:\\-–]\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
-      // "Arrivée : sam. 10 avr." / "Arrivée : 10 avr." / "Arrivée : 10 avr. 2026"
-      new RegExp(`arriv[eé]e?\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // "Check-in : (sam. 10 avr.)"
+      new RegExp(`arriv[eé\ufffdx]?e?\\s*[:\\-–]\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
+      new RegExp(`arriv[eé\ufffdx]?e?\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       new RegExp(`check.?in\\s*[:\\-–]\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
-      // "Check-in : sam. 10 avr."
       new RegExp(`check.?in\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // "Entrée : 10 avr."
-      new RegExp(`entr[eé]e?\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      new RegExp(`entr[eé\ufffdx]?e?\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       // Dates avec année : "du 10/04/2026" ou "10/04/2026"
       /(?:du\s+|from\s+)?(\d{1,2}[\s\/\-](?:\d{1,2}|[a-zàâéèêëîïôùûü]+)[\s\/\-]\d{4})/i,
       // EN "from April 10, 2026" / "from Apr 10 2026"
@@ -1511,37 +1491,21 @@ export function parseAirbnbEmail(
       /([A-Za-z]+\.?\s+\d{1,2})(?:\s*[–\-]\s*(?:\d{1,2}|[A-Za-z]+\.?\s+\d{1,2}),?\s+\d{4})/i,
     ];
     const checkOutPatterns = [
-      // "Départ dim. 20 sept." / "Départ (dim. 20 sept.)" (inline, sans ':' ni saut dédié)
-  new RegExp(`d[eé]part\\s+\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
-      // Format relâché multi-lignes/HTML : capture la date proche du bloc Départ
-  new RegExp(`d[eé]part[\\s\\S]{0,80}?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // ── Format Airbnb hôte 2024-2026 : label seul + date sur la ligne suivante ──
-      // "Départ\n(ven. 24 avr.)" / "Départ\n(24 avr. 2026)"
-      new RegExp(`d[eé]part\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
-      // "Départ\nven. 24 avr." / "Départ\n24 avr. 2026"
-      new RegExp(`d[eé]part\\s*\\n\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // "Check-out\n(ven. 24 avr.)"
+  new RegExp(`d[eé\ufffdx]?part\\s+\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
+  new RegExp(`d[eé\ufffdx]?part[\\s\\S]{0,80}?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
+      new RegExp(`d[eé\ufffdx]?part\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
+      new RegExp(`d[eé\ufffdx]?part\\s*\\n\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       new RegExp(`check.?out\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
-      // "Check-out\nven. 24 avr."
       new RegExp(`check.?out\\s*\\n\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // "Départ : (mar. 13 avr.)"
-      new RegExp(`d[eé]part\\s*[:\\-–]\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
-      // "Départ : mar. 13 avr." / "Départ : 13 avr."
-      new RegExp(`d[eé]part\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // "Check-out : (13 avr.)"
+      new RegExp(`d[eé\ufffdx]?part\\s*[:\\-–]\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
+      new RegExp(`d[eé\ufffdx]?part\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       new RegExp(`check.?out\\s*[:\\-–]\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
-      // "Check-out : 13 avr."
       new RegExp(`check.?out\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // "Sortie : 13 avr."
       new RegExp(`sortie\\s*[:\\-–]\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // Dates avec année : "au 13/04/2026"
       /(?:au\s+|to\s+)(\d{1,2}[\s\/\-](?:\d{1,2}|[a-zàâéèêëîïôùûü]+)[\s\/\-]\d{4})/i,
-      // EN "to April 13, 2026" / "to Apr 13 2026"
       /to\s+([A-Za-z]+\.?\s+\d{1,2},?\s+\d{4})/i,
       /to\s+(\d{1,2}\s+[A-Za-z]+\.?\s+\d{4})/i,
-      // Plage "10 avr. – 13 avr." → prendre la DEUXIÈME date (après le tiret)
       new RegExp(`[–\\-]\\s*(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
-      // Plage FR compacte "10–13 avr. 2026" → second nombre + mois + année
       new RegExp(`\\d{1,2}\\s*[–\\-]\\s*(\\d{1,2})\\s+(${MOIS_RE})(?:\\s+(\\d{4}))?`, 'i'),
     ];
 
@@ -1555,7 +1519,7 @@ export function parseAirbnbEmail(
     //   Arrivée\nDépart\nven. 18 sept.\n16:00\ndim. 20 sept.\n10:00
     if (!checkOut || checkIn === checkOut) {
       const twoColRe = new RegExp(
-        `arriv[eé]e?\\s*\\n\\s*d[eé]part\\s*\\n\\s*` +
+        `arriv[eé\ufffdx]?e?\\s*\\n\\s*d[eé\ufffdx]?part\\s*\\n\\s*` +
         `(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)` +
         `[\\s\\S]{0,80}?` +
         `(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`,
