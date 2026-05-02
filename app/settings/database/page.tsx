@@ -244,6 +244,21 @@ export default function DatabaseSettingsPage() {
 
       setBackups([]);
       setWipeConfirmation('');
+
+      if (typeof window !== 'undefined') {
+        const keysToDelete: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i += 1) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith('bnbgest_')) {
+            keysToDelete.push(key);
+          }
+        }
+
+        for (const key of keysToDelete) {
+          window.localStorage.removeItem(key);
+        }
+      }
+
       toast.success(
         `Base vidée avec succès (${payload.truncatedTables?.length ?? 0} table(s) purgée(s)).`
       );

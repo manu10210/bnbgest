@@ -404,14 +404,6 @@ function normalizeGuestStatus(status?: string | null): Guest['status'] {
   return 'active';
 }
 
-function normalizeGuestIdentity(input: Pick<Guest, 'name' | 'email' | 'phone'>): string {
-  const email = input.email?.trim().toLowerCase();
-  if (email) return `email:${email}`;
-  const normalizedName = input.name.trim().toLowerCase().replace(/\s+/g, ' ');
-  const normalizedPhone = (input.phone || '').replace(/[^\d+]/g, '');
-  return normalizedPhone ? `name:${normalizedName}|phone:${normalizedPhone}` : `name:${normalizedName}`;
-}
-
 function toIsoDateTime(value: string): string {
   if (!value) return new Date().toISOString();
   if (value.includes('T')) {
@@ -714,89 +706,14 @@ export function BNBProvider({ children }: { children: ReactNode }) {
             helpful: 0,
           }));
 
-        setProperties((prev) => {
-          if (apiProperties.length === 0) return prev;
-          const prevById = new Map(prev.map((p) => [p.id, p]));
-          const merged = [...prev];
-          for (const apiProp of apiProperties) {
-            const existing = prevById.get(apiProp.id);
-            if (!existing) {
-              merged.push(apiProp);
-              continue;
-            }
-            const index = merged.findIndex((p) => p.id === apiProp.id);
-            if (index >= 0) {
-              merged[index] = {
-                ...apiProp,
-                ...existing,
-                id: apiProp.id,
-                updatedAt: existing.updatedAt || apiProp.updatedAt,
-              };
-            }
-          }
-          return merged;
-        });
-
-        setBookings((prev) => {
-          if (apiBookings.length === 0) return prev;
-          const mergedById = new Map<number, Booking>(prev.map((b) => [b.id, b]));
-
-          for (const apiBooking of apiBookings) {
-            const existing = mergedById.get(apiBooking.id);
-            if (!existing) {
-              mergedById.set(apiBooking.id, apiBooking);
-              continue;
-            }
-
-            mergedById.set(apiBooking.id, {
-              ...apiBooking,
-              ...existing,
-              id: apiBooking.id,
-              propertyId: apiBooking.propertyId,
-              status: existing.status || apiBooking.status,
-              paymentStatus: existing.paymentStatus || apiBooking.paymentStatus,
-              hostPayout: existing.hostPayout ?? apiBooking.hostPayout,
-              payoutConfirmed: existing.payoutConfirmed ?? apiBooking.payoutConfirmed,
-              updatedAt: existing.updatedAt || apiBooking.updatedAt,
-            });
-          }
-
-          return Array.from(mergedById.values());
-        });
-
-        setGuests((prev) => {
-          if (apiGuests.length === 0) return prev;
-          const mergedByIdentity = new Map<string, Guest>(
-            prev.map((guest) => [normalizeGuestIdentity(guest), guest]),
-          );
-
-          for (const apiGuest of apiGuests) {
-            const key = normalizeGuestIdentity(apiGuest);
-            const existing = mergedByIdentity.get(key);
-            if (!existing) {
-              mergedByIdentity.set(key, apiGuest);
-              continue;
-            }
-
-            mergedByIdentity.set(key, {
-              ...existing,
-              ...apiGuest,
-              id: apiGuest.id,
-              totalBookings: apiGuest.totalBookings,
-              totalSpent: apiGuest.totalSpent,
-              rating: apiGuest.rating,
-              status: apiGuest.status,
-              createdAt: existing.createdAt || apiGuest.createdAt,
-              lastBooking: apiGuest.lastBooking || existing.lastBooking,
-            });
-          }
-
-          return Array.from(mergedByIdentity.values());
-        });
-
-        setMaintenanceTasks((prev) => (apiMaintenance.length > 0 ? apiMaintenance : prev));
-        setInventory((prev) => (apiInventory.length > 0 ? apiInventory : prev));
-        setReviews((prev) => (apiReviews.length > 0 ? apiReviews : prev));
+        // Source of truth côté front: la DB quand l'API répond.
+        // Si la DB est vide après purge, on remplace bien par [] pour éviter les restes localStorage.
+        setProperties(apiProperties);
+        setBookings(apiBookings);
+        setGuests(apiGuests);
+        setMaintenanceTasks(apiMaintenance);
+        setInventory(apiInventory);
+        setReviews(apiReviews);
       } catch {
         // Mode local/offline ou non authentifié: on garde le store local.
       }
