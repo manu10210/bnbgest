@@ -1412,6 +1412,12 @@ function normalizeEventTimeline(events: ParsedBooking['timelineEvents'] = []): P
 }
 
 function mergeBookingsTimeline(root: ParsedBooking, incoming: ParsedBooking, typePriority: Record<ParsedBooking['bookingType'], number>) {
+  const hasHeuristicDateWarning = (booking: ParsedBooking): boolean =>
+    (booking.warnings || []).some((w) => /date_range_inferred|checkout_defaulted|nights_recomputed_from_dates/i.test(w));
+
+  const rootHasReliableDates = isValidDateRange(root.checkIn, root.checkOut) && !hasHeuristicDateWarning(root);
+  const incomingHasReliableDates = isValidDateRange(incoming.checkIn, incoming.checkOut) && !hasHeuristicDateWarning(incoming);
+
   // Historique des emails liés
   root.relatedMessageIds = Array.from(new Set([...(root.relatedMessageIds || [root.messageId]), incoming.messageId]));
   root.timelineEvents = normalizeEventTimeline([
@@ -1450,15 +1456,27 @@ function mergeBookingsTimeline(root: ParsedBooking, incoming: ParsedBooking, typ
   if (!root.airbnbListingId && incoming.airbnbListingId) root.airbnbListingId = incoming.airbnbListingId;
 
   // Dates : priorité au type modified si présent, sinon garder la première date fiable
-  const incomingHasDates = !!incoming.checkIn && !!incoming.checkOut;
-  if (incoming.bookingType === 'modified' && incomingHasDates) {
+  const incomingHasValidDates = isValidDateRange(incoming.checkIn, incoming.checkOut);
+  const rootHasValidDates = isValidDateRange(root.checkIn, root.checkOut);
+
+  const shouldReplaceDatesFromIncoming = (() => {
+    if (!incomingHasValidDates) return false;
+    if (incoming.bookingType === 'modified') return true;
+    if (!rootHasValidDates) return true;
+    if (incomingHasReliableDates && !rootHasReliableDates) return true;
+    // Si les deux sont valides, privilégier l'email le plus récent pour refléter l'état courant.
+    return new Date(incoming.receivedAt).getTime() > new Date(root.receivedAt).getTime();
+  })();
+
+  if (shouldReplaceDatesFromIncoming) {
     root.checkIn = incoming.checkIn;
     root.checkOut = incoming.checkOut;
-    root.nights = incoming.nights;
-  } else if ((!root.checkIn || !root.checkOut) && incomingHasDates) {
+    root.nights = deriveNightsFromIsoRange(incoming.checkIn, incoming.checkOut) || incoming.nights;
+  } else if (!rootHasValidDates && incomingHasValidDates) {
+    // Filet de sécurité: root incomplet/invalide, incoming valide.
     root.checkIn = incoming.checkIn;
     root.checkOut = incoming.checkOut;
-    root.nights = incoming.nights;
+    root.nights = deriveNightsFromIsoRange(incoming.checkIn, incoming.checkOut) || incoming.nights;
   }
 
   // Horaires
