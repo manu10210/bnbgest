@@ -1473,6 +1473,10 @@ export function parseAirbnbEmail(
     const JOUR_RE = `(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)`;
 
     const checkInPatterns = [
+      // "Arrivée ven. 18 sept." / "Arrivée (ven. 18 sept.)" (inline, sans ':' ni saut dédié)
+  new RegExp(`arriv[eé]e?\\s+\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
+      // Format relâché multi-lignes/HTML : capture la date proche du bloc Arrivée
+  new RegExp(`arriv[eé]e?[\\s\\S]{0,80}?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       // ── Format Airbnb hôte 2024-2026 : label seul + date sur la ligne suivante ──
       // "Arrivée\n(mer. 20 mai)" / "Arrivée\n(20 mai 2026)"
       new RegExp(`arriv[eé]e?\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
@@ -1506,6 +1510,10 @@ export function parseAirbnbEmail(
       /([A-Za-z]+\.?\s+\d{1,2})(?:\s*[–\-]\s*(?:\d{1,2}|[A-Za-z]+\.?\s+\d{1,2}),?\s+\d{4})/i,
     ];
     const checkOutPatterns = [
+      // "Départ dim. 20 sept." / "Départ (dim. 20 sept.)" (inline, sans ':' ni saut dédié)
+  new RegExp(`d[eé]part\\s+\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
+      // Format relâché multi-lignes/HTML : capture la date proche du bloc Départ
+  new RegExp(`d[eé]part[\\s\\S]{0,80}?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)`, 'i'),
       // ── Format Airbnb hôte 2024-2026 : label seul + date sur la ligne suivante ──
       // "Départ\n(ven. 24 avr.)" / "Départ\n(24 avr. 2026)"
       new RegExp(`d[eé]part\\s*\\n\\s*\\(?\\s*(?:${JOUR_RE}\\.?\\s+)?(\\d{1,2}\\s+${MOIS_RE}(?:\\s+\\d{4})?)\\s*\\)?`, 'i'),
