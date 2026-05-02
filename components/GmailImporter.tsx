@@ -700,6 +700,15 @@ function isPlaceholderGuestName(name?: string): boolean {
   return n === '' || n === 'voyageur airbnb' || n === 'airbnb guest' || n === 'guest' || n === 'inconnu';
 }
 
+function isClearlyInvalidGuestName(name?: string): boolean {
+  if (!name) return true;
+  const normalized = normalizeForMatch(name);
+  return normalized === 'les lieux ou pour'
+    || normalized === 'les lieux'
+    || normalized === 'lieux ou pour'
+    || normalized === 'logement inconnu';
+}
+
 function stripInvisibleUnicode(value: string): string {
   return value
     // BiDi isolations / marks / soft formatting chars frequently found in Gmail subjects
@@ -814,13 +823,20 @@ function inferGuestNameFromSubject(subject?: string): string | undefined {
   return undefined;
 }
 function enrichBookingGuestName(booking: ParsedBooking): ParsedBooking {
-  if (!isPlaceholderGuestName(booking.guestName)) return booking;
+  const shouldInferGuestName = isPlaceholderGuestName(booking.guestName) || isClearlyInvalidGuestName(booking.guestName);
+  if (!shouldInferGuestName) return booking;
+
   const inferred = inferGuestNameFromSubject(booking.subject);
   if (!inferred) return booking;
+
+  const warningCode = isClearlyInvalidGuestName(booking.guestName)
+    ? 'guest_name_replaced_from_subject'
+    : 'guest_name_inferred_from_subject';
+
   return {
     ...booking,
     guestName: inferred,
-    warnings: Array.from(new Set([...(booking.warnings || []), 'guest_name_inferred_from_subject'])),
+    warnings: Array.from(new Set([...(booking.warnings || []), warningCode])),
   };
 }
 
@@ -3712,6 +3728,7 @@ export default function GmailImporter() {
       property_inferred_from_subject: 'Logement déduit depuis le sujet',
       property_inferred_single_property_fallback: 'Logement affecté automatiquement (mode mono-logement)',
       guest_name_inferred_from_subject: 'Nom du voyageur déduit du sujet',
+  guest_name_replaced_from_subject: 'Nom du voyageur corrigé depuis le sujet',
       review_context_inferred: "Informations d'avis enrichies depuis le contexte",
       logement_introuvable: 'Logement introuvable',
       property_not_found: 'Logement introuvable',
