@@ -1459,7 +1459,7 @@ export function parseAirbnbEmail(
   let checkIn: string | null = null;
   let checkOut: string | null = null;
 
-  if (bookingType !== 'payout') {
+  if (bookingType !== 'payout' && bookingType !== 'review') {
     // Vrais formats de dates dans les emails Airbnb hôte (FR) :
     const MOIS_RE = `(?:janv?\\.?|f[eé\ufffdx]?vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|juillet|ao[uû\ufffdx]t|sept?\\.?|octobre?|nov\\.?|d[eé\ufffdx]c\\.?|d[eé\ufffdx]cembre?)`;
     const JOUR_RE = `(?:lun|mar|mer|jeu|ven|sam|dim|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)`;
