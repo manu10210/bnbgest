@@ -6,22 +6,22 @@ import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Trash2, Download, Eye, Send, Copy, Printer,
-  FileText, Building2, User, Calendar, Euro, Hash,
+  FileText, Building2, User, Calendar, Euro,
   CheckCircle, Clock, XCircle, AlertCircle, Search,
   ChevronDown, ChevronUp, Edit3, Save, Sparkles, X,
   ArrowLeft, Package, SortAsc, SortDesc, Upload,
-  Zap, Moon, Sun, Star, Coffee, Waves, Car, Wifi,
+  Zap, Moon, Star, Coffee, Waves, Car, Wifi,
   TrendingUp, BarChart2, Mail, Tag, Percent, Receipt,
   History, ListChecks, FileDown, PenLine, Bell,
-  Users, Layout, Layers, RefreshCw, DollarSign,
-  BookTemplate, Repeat, CreditCard, Target, ChevronRight,
-  SplitSquareHorizontal, Bookmark, BadgePercent,
-  PieChart, TrendingDown, CalendarClock, Link2,
-  ArrowUpRight, ArrowDownRight, Filter, RotateCcw,
-  Hash as HashIcon, FolderOpen, Flame, Lock
+  Users, Layout, Layers,
+  Repeat, CreditCard, Target,
+  Bookmark,
+  PieChart, CalendarClock, Link2,
+  ArrowUpRight, ArrowDownRight, RotateCcw,
+  FolderOpen, Flame, Lock
 } from 'lucide-react';
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer
+  AreaChart, Area, XAxis, Tooltip, ResponsiveContainer
 } from 'recharts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -498,7 +498,7 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
   const multiVat    = vatBreakdown.length > 1;
   const layout      = invoice.layout ?? 'classic';
   const isCancelled = invoice.status === 'cancelled';
-  const isDuplicate = false; // future: detect re-sent
+  // future: detect re-sent
 
   const handlePrint = () => {
     const invoiceNode = document.getElementById('invoice-print');
@@ -1080,7 +1080,7 @@ export default function InvoiceEditor() {
     }, 400);
 
     return () => clearTimeout(t);
-  }, [editing?.issuerName, editing?.issuerEmail, editing?.issuerPhone,
+  }, [editing, editing?.issuerName, editing?.issuerEmail, editing?.issuerPhone,
       editing?.issuerSiret, editing?.issuerVat, editing?.issuerAddress,
       editing?.issuerCity, editing?.issuerZip, editing?.issuerCountry,
       editing?.issuerLogo]);
@@ -2739,7 +2739,6 @@ export default function InvoiceEditor() {
         <div className="space-y-3">
           <AnimatePresence>
             {filtered.map(inv => {
-              const totals = calcTotals(inv.lines);
               const meta   = STATUS_META[inv.status];
               const Icon   = meta.icon;
               const prop   = properties.find(p => p.id === inv.propertyId);

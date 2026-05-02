@@ -1,17 +1,16 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useBNB, Property, Booking } from '../contexts/BNBContext';
+import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Sparkles, CheckCircle, Circle, Clock, Home, Camera, MessageSquare,
-  ChevronDown, ChevronUp, RotateCcw, Download, Play, Pause, Save,
-  Trash2, AlertTriangle, User, Calendar, MapPin, Star, Award,
-  TrendingUp, Filter, Search, Eye, Edit, Copy, Share2, Printer,
-  FileText, BarChart3, Users, Package, Zap, Target, Activity,
-  Briefcase, ShoppingCart, ClipboardCheck, RefreshCw, Upload,
-  Image, Video, Mic, Hash, Percent, DollarSign, Euro, X, Plus
+  Sparkles, CheckCircle, Circle, Clock, MessageSquare,
+  ChevronDown, ChevronUp, RotateCcw, Play, Pause,
+  Trash2, AlertTriangle, User, Calendar, Star,
+  TrendingUp, Search, Eye, Copy,
+  ClipboardCheck, RefreshCw, Target,
+  X, Plus, Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -66,15 +65,6 @@ interface CleaningSession {
   afterPhotos?: string[];
   verifiedBy?: string;
   verifiedAt?: string;
-}
-
-interface CleaningTemplate {
-  id: string;
-  name: string;
-  description: string;
-  rooms: RoomChecklist[];
-  estimatedDuration: number;
-  difficulty: 'easy' | 'medium' | 'hard';
 }
 
 // ==================== TEMPLATES ====================
@@ -245,7 +235,6 @@ export default function CleaningChecklist() {
 
   // Modals
   const [showModal, setShowModal] = useState<'new' | 'details' | 'photos' | 'issues' | 'supplies' | null>(null);
-  const [selectedSession, setSelectedSession] = useState<CleaningSession | null>(null);
   const sessionsHydratedRef = useRef(false);
 
   // Load from localStorage
@@ -602,14 +591,6 @@ export default function CleaningChecklist() {
     }));
   }, [activeSession]);
 
-  const exportToPDF = useCallback(() => {
-    if (!activeSession) return;
-    toast.info('Export PDF', {
-      description: 'Fonctionnalité à implémenter avec jsPDF',
-      duration: 3000
-    });
-  }, [activeSession]);
-
   const duplicateSession = useCallback((sessionId: string) => {
     const original = sessions.find(s => s.id === sessionId);
     if (!original) return;
@@ -715,7 +696,7 @@ export default function CleaningChecklist() {
             { icon: Clock, label: 'Durée moy.', value: `${stats.avgDuration}m`, color: 'purple', emoji: '⏱️' },
             { icon: Star, label: 'Note', value: `${stats.avgRating}/5`, color: 'yellow', emoji: '⭐' },
             { icon: TrendingUp, label: 'Coût total', value: `${stats.totalCost}€`, color: 'indigo', emoji: '💶' },
-          ].map(({ icon: Icon, label, value, color, emoji }) => (
+          ].map(({ label, value, color, emoji }) => (
             <motion.div
               key={label}
               whileHover={{ scale: 1.05 }}

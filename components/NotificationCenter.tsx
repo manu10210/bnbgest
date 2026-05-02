@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import {
   Bell,
@@ -16,17 +15,12 @@ import {
   Star,
   Mail,
   Trash2,
-  Check,
   X,
   Clock,
   User,
-  Home,
   Info,
-  Filter,
   RefreshCw,
   Search,
-  MoreVertical,
-  ArrowRight
 } from 'lucide-react';
 
 export interface AppNotification {
@@ -89,7 +83,7 @@ interface NotificationCenterProps {
 }
 
 export default function NotificationCenter({ onRequestSettings }: NotificationCenterProps) {
-  const { bookings, properties, maintenanceTasks, inventory, getProperty } = useBNB();
+  const { bookings, maintenanceTasks, inventory, getProperty } = useBNB();
   const { isDark } = useTheme();
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => loadNotifications());
@@ -237,7 +231,6 @@ export default function NotificationCenter({ onRequestSettings }: NotificationCe
       .forEach(b => {
         const id = `booking_${b.id}`;
         if (!existingIds.has(id)) {
-          const prop = getProperty(b.propertyId);
           newNotifs.push({
             id,
             type: 'booking_confirmed',
@@ -287,7 +280,6 @@ export default function NotificationCenter({ onRequestSettings }: NotificationCe
       .forEach(t => {
         const id = `overdue_${t.id}_${today}`;
         if (!existingIds.has(id)) {
-          const prop = getProperty(t.propertyId);
           newNotifs.push({
             id,
             type: 'overdue_task',

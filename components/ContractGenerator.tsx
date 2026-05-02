@@ -1,18 +1,17 @@
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { useBNB, Booking, Property } from '../contexts/BNBContext';
+import { useBNB, Booking } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
-  FileText, Download, Eye, Calendar, Users, Euro, Home, 
-  CheckCircle, AlertTriangle, Edit, Send, Copy, Archive, Clock,
-  MapPin, Phone, Mail, Building, CreditCard, Shield, Info,
-  BookOpen, FileCheck, FilePlus, Trash2, Save, X,
-  Settings, Star, Award, TrendingUp, BarChart3, Filter, Search,
-  Globe, Check, AlertCircle, FileSignature, Briefcase, Key,
-  Zap, ChevronDown, ChevronUp, Plus, Minus
+  FileText, Download, Eye, Home,
+  Send, Archive, Clock,
+  Mail, Building,
+  FilePlus, Trash2, Save,
+  Settings, Search,
+  Check, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 // ==================== INTERFACES ====================
@@ -93,15 +92,6 @@ const DEFAULT_CONFIG: ContractConfig = {
   includePhotos: false,
   includeMap: false,
 };
-
-const DEPOSIT_METHODS = [
-  'Virement bancaire',
-  'Carte bancaire',
-  'Chèque',
-  'Espèces',
-  'Empreinte bancaire',
-  'Caution en ligne (Swikly, etc.)',
-];
 
 // ==================== HELPERS ====================
 
@@ -200,8 +190,6 @@ export default function ContractGenerator() {
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateDesc, setNewTemplateDesc] = useState('');
   
-  const [newClause, setNewClause] = useState('');
-  const [newHouseRule, setNewHouseRule] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterProperty, setFilterProperty] = useState<number | ''>('');
   
@@ -363,40 +351,6 @@ export default function ContractGenerator() {
 
     return filtered.sort((a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime());
   }, [history, searchQuery, filterProperty, properties]);
-
-  const addClause = useCallback(() => {
-    if (newClause.trim()) {
-      setConfig(prev => ({
-        ...prev,
-        additionalClauses: [...prev.additionalClauses, newClause.trim()],
-      }));
-      setNewClause('');
-    }
-  }, [newClause]);
-
-  const removeClause = useCallback((index: number) => {
-    setConfig(prev => ({
-      ...prev,
-      additionalClauses: prev.additionalClauses.filter((_, i) => i !== index),
-    }));
-  }, []);
-
-  const addHouseRule = useCallback(() => {
-    if (newHouseRule.trim()) {
-      setConfig(prev => ({
-        ...prev,
-        houseRulesCustom: [...prev.houseRulesCustom, newHouseRule.trim()],
-      }));
-      setNewHouseRule('');
-    }
-  }, [newHouseRule]);
-
-  const removeHouseRule = useCallback((index: number) => {
-    setConfig(prev => ({
-      ...prev,
-      houseRulesCustom: prev.houseRulesCustom.filter((_, i) => i !== index),
-    }));
-  }, []);
 
   const saveAsTemplate = useCallback(() => {
     if (!newTemplateName.trim()) {

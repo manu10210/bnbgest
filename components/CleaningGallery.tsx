@@ -1,18 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useBNB, Property, Booking } from '../contexts/BNBContext';
+import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Camera, CheckCircle, Circle, Clock, Home, Eye, X, Plus, 
-  ChevronLeft, ChevronRight, Image as ImageIcon, AlertTriangle,
-  User, Calendar, MapPin, Star, Award, TrendingUp, Filter,
-  Search, Edit, Trash2, Download, Share2, Printer, Grid,
-  List, Maximize2, Minimize2, ZoomIn, ZoomOut, RotateCw,
-  Upload, FolderOpen, Tag, MessageSquare, ThumbsUp, ThumbsDown,
-  Copy, Archive, CheckSquare, XSquare, Layers, SlidersHorizontal,
-  BarChart3, PieChart, Activity, Package, RefreshCw
+  Camera, CheckCircle, Home, Eye, X, Plus,
+  Image as ImageIcon, AlertTriangle,
+  User, Calendar, Star, TrendingUp,
+  Search, Trash2, Download, Grid,
+  List, ZoomIn, ZoomOut, RotateCw,
+  FolderOpen, MessageSquare,
+  Copy, XSquare, Layers, Activity, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -148,13 +147,13 @@ export default function CleaningGallery() {
   const [filterRoom, setFilterRoom] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'property' | 'status' | 'rating'>('date');
-  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
+  const [dateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
 
   // Vue photo
   const [photoZoom, setPhotoZoom] = useState(100);
   const [photoRotation, setPhotoRotation] = useState(0);
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const [slideShowActive, setSlideShowActive] = useState(false);
+  const [_currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [slideShowActive] = useState(false);
 
   // Nouveau formulaire session
   const [newSession, setNewSession] = useState({
@@ -353,8 +352,6 @@ export default function CleaningGallery() {
       return;
     }
 
-    const booking = newSession.bookingId ? bookings.find(b => b.id === parseInt(newSession.bookingId)) : null;
-
     const session: CleaningSession = {
       id: `cs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       propertyId: parseInt(newSession.propertyId),
@@ -374,7 +371,7 @@ export default function CleaningGallery() {
     setShowNewSession(false);
     setSelectedSession(session);
     setNewSession({ propertyId: '', bookingId: '', completedBy: '', rooms: [], notes: '' });
-  }, [newSession, bookings]);
+  }, [newSession]);
 
   const handleAddPhoto = useCallback((sessionId: string, room: string, type: 'before' | 'after') => {
     const input = document.createElement('input');
