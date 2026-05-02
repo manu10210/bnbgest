@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import NextImage from 'next/image';
 import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -760,9 +761,12 @@ export default function CleaningGallery() {
                       <div className="grid grid-cols-2 h-full">
                         <div className="relative overflow-hidden">
                           {beforePhotos[0] ? (
-                            <img
+                            <NextImage
                               src={beforePhotos[0].url}
                               alt="Avant"
+                              fill
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                              unoptimized
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -776,9 +780,12 @@ export default function CleaningGallery() {
                         </div>
                         <div className="relative overflow-hidden border-l border-gray-300 dark:border-gray-600">
                           {afterPhotos[0] ? (
-                            <img
+                            <NextImage
                               src={afterPhotos[0].url}
                               alt="Après"
+                              fill
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                              unoptimized
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -1236,9 +1243,12 @@ export default function CleaningGallery() {
                                 onClick={() => setViewingPhoto(pair.before)}
                                 className="cursor-pointer group relative rounded-lg overflow-hidden"
                               >
-                                <img
+                                <NextImage
                                   src={pair.before.url}
                                   alt="Avant"
+                                  fill
+                                  sizes="(max-width: 1024px) 100vw, 50vw"
+                                  unoptimized
                                   className="w-full h-64 object-cover group-hover:scale-105 transition-transform"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-3">
@@ -1263,9 +1273,12 @@ export default function CleaningGallery() {
                                 onClick={() => setViewingPhoto(pair.after)}
                                 className="cursor-pointer group relative rounded-lg overflow-hidden"
                               >
-                                <img
+                                <NextImage
                                   src={pair.after.url}
                                   alt="Après"
+                                  fill
+                                  sizes="(max-width: 1024px) 100vw, 50vw"
+                                  unoptimized
                                   className="w-full h-64 object-cover group-hover:scale-105 transition-transform"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-3">
@@ -1333,9 +1346,12 @@ export default function CleaningGallery() {
                                     onClick={() => setViewingPhoto(photo)}
                                     className="cursor-pointer group relative rounded-lg overflow-hidden aspect-square"
                                   >
-                                    <img
+                                    <NextImage
                                       src={photo.url}
                                       alt="Avant"
+                                      fill
+                                      sizes="(max-width: 1024px) 50vw, 25vw"
+                                      unoptimized
                                       className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                                     />
                                     <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
@@ -1366,9 +1382,12 @@ export default function CleaningGallery() {
                                     onClick={() => setViewingPhoto(photo)}
                                     className="cursor-pointer group relative rounded-lg overflow-hidden aspect-square"
                                   >
-                                    <img
+                                    <NextImage
                                       src={photo.url}
                                       alt="Après"
+                                      fill
+                                      sizes="(max-width: 1024px) 50vw, 25vw"
+                                      unoptimized
                                       className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                                     />
                                     <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
