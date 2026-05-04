@@ -550,6 +550,7 @@ function enrichPayoutFromContext(
     }>,
     properties: Array<{ id: number; name: string }>,
     dbBookingsByCode?: Map<string, { guestName?: string; propertyId?: number }>,
+    batchBookings: ParsedBooking[] = [],
   ): ParsedBooking {
     if (booking.bookingType !== 'payout') return booking;
 
@@ -565,11 +566,19 @@ function enrichPayoutFromContext(
       ? dbBookingsByCode?.get(booking.confirmationCode.toUpperCase())
       : undefined;
 
+    // Lookup In-Batch (dans le même scan d'email)
+    const batchMatch = booking.confirmationCode
+      ? batchBookings.find(b => b.confirmationCode?.toUpperCase() === booking.confirmationCode?.toUpperCase() && !!b.guestName && !isPlaceholderGuestName(b.guestName))
+      : undefined;
+
     let guestNameBase = 'Voyageur inconnu';
   if (hasGuest) {
     guestNameBase = booking.guestName!;
+  } else if (batchMatch?.guestName) {
+    // Priorité 1 : Le batch actuel (l'email "Nouvelle réservation" qu'on est en train d'importer en même temps)
+    guestNameBase = batchMatch.guestName;
   } else if (dbMatch?.guestName) {
-    // Priorité à la DB (données réelles PostgreSQL)
+    // Priorité 2 : La DB (données réelles PostgreSQL)
     guestNameBase = dbMatch.guestName;
   } else if (candidateByCode?.guestInfo?.name) {
     guestNameBase = candidateByCode.guestInfo.name;
@@ -583,6 +592,7 @@ function enrichPayoutFromContext(
     ...booking,
     guestName: newGuestName,
     propertyName: booking.propertyName
+      || (batchMatch?.propertyName ? properties.find(p => p.name === batchMatch.propertyName)?.name : undefined)
       || (dbMatch?.propertyId ? properties.find(p => p.id === dbMatch.propertyId)?.name : undefined)
       || (candidateByCode ? properties.find(p => p.id === candidateByCode.propertyId)?.name : undefined),
     warnings: Array.from(new Set([...(booking.warnings || []), 'payout_context_inferred'])),
@@ -1961,7 +1971,7 @@ export default function GmailImporter() {
   );
 
   const enrichedFinalBookings = finalBookings.map((b) =>
-    repairSingleDateRangeForBooking(ensureBookingNightsConsistency(enrichPayoutFromContext(enrichReviewFromContext(b, existingBookings, properties), existingBookings, properties, dbBookingsByCode)))
+    repairSingleDateRangeForBooking(ensureBookingNightsConsistency(enrichPayoutFromContext(enrichReviewFromContext(b, existingBookings, properties), existingBookings, properties, dbBookingsByCode, finalBookings)))
   );
 
   setBookings(enrichedFinalBookings);
