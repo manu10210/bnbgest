@@ -2436,11 +2436,17 @@ export default function GmailImporter() {
     ): Promise<{ id?: number; error?: string }> => {
       try {
         const specialReqs = payload.specialRequests ?? null;
-        const apiCheckIn = toApiDateTime(payload.checkIn, 15);
-        const apiCheckOut = toApiDateTime(payload.checkOut, 11);
+        let apiCheckIn = toApiDateTime(payload.checkIn, 15);
+        let apiCheckOut = toApiDateTime(payload.checkOut, 11);
+        
         if (!apiCheckIn || !apiCheckOut) {
           console.warn('[persistToDb] Dates invalides, persistance annulée', payload.checkIn, payload.checkOut);
           return { error: 'invalid_dates' };
+        }
+
+        // Corriger l'inversion d'heure si les jours sont identiques (ex: payout importé)
+        if (payload.checkIn === payload.checkOut) {
+          apiCheckOut = toApiDateTime(payload.checkOut, 17); // Forcer 17h, donc après 15h
         }
 
         const body: Record<string, unknown> = {
