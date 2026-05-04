@@ -103,7 +103,7 @@ export const BookingSchema = z.object({
   
   guests: z.number()
     .int('Number of guests must be an integer')
-    .min(1, 'Must have at least 1 guest')
+    .min(0, 'Must have at least 0 guest')
     .max(100, 'Cannot exceed 100 guests'),
   
   totalPrice: z.number()
@@ -131,9 +131,9 @@ export const BookingSchema = z.object({
 }).refine(data => {
   const checkIn = new Date(data.checkIn);
   const checkOut = new Date(data.checkOut);
-  return checkOut > checkIn;
+  return checkOut >= checkIn;
 }, {
-  message: 'Check-out must be after check-in',
+  message: 'Check-out must be after or same as check-in',
   path: ['checkOut']
 });
 
@@ -145,7 +145,7 @@ export const BookingUpdateSchema = z.object({
   guestPhone: z.string().regex(/^\+?[0-9\s\-()]{8,20}$/).optional(),
   checkIn: z.string().datetime().optional(),
   checkOut: z.string().datetime().optional(),
-  guests: z.number().int().min(1).max(100).optional(),
+  guests: z.number().int().min(0).max(100).optional(),
   totalPrice: z.number().positive().max(1000000).optional(),
   notes: z.string().max(2000).optional(),
   specialRequests: z.string().max(1000).optional(),
