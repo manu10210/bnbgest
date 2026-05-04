@@ -121,7 +121,45 @@ export async function POST(request: Request) {
   try {
     // 3. Validation with Zod
     const validatedData = await validateRequest(BookingSchema, request);
-    const sessionUserId = authResult.user.id;
+    const sessionUser = authResult.user as {
+      id?: string | null;
+      email?: string | null;
+      name?: string | null;
+      role?: string | null;
+    };
+
+    const normalizedEmail = (sessionUser.email || '').trim().toLowerCase();
+    
+    // Resolve the effective DB owner user
+    let owner = sessionUser.id
+      ? await prisma.user.findUnique({ where: { id: sessionUser.id }, select: { id: true } })
+      : null;
+
+    if (!owner && normalizedEmail) {
+      const dbRole = String(sessionUser.role || 'USER').toUpperCase();
+      const validRole = dbRole === 'ADMIN' || dbRole === 'EMPLOYEE' || dbRole === 'USER' ? dbRole : 'USER';
+      owner = await prisma.user.upsert({
+        where: { email: normalizedEmail },
+        update: {
+          ...(sessionUser.name ? { name: sessionUser.name } : {}),
+        },
+        create: {
+          email: normalizedEmail,
+          name: sessionUser.name || normalizedEmail.split('@')[0],
+          role: validRole as any,
+        },
+        select: { id: true },
+      });
+    }
+
+    if (!owner) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden - unable to resolve authenticated DB user' },
+        { status: 403 },
+      );
+    }
+    
+    const sessionUserId = owner.id;
 
     const normalizedGuestName = validatedData.guestName.trim();
     const normalizedGuestEmail = normalizeGuestEmail(validatedData.guestEmail) || '';
