@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -18,6 +18,59 @@ interface Property {
   images: string[];
   status: 'active' | 'inactive' | 'maintenance';
   createdAt?: string;
+}
+
+interface ExistingPropertyItem {
+  id: number;
+  name: string;
+  city?: string;
+  status?: string;
+}
+
+const NAME_STOP_WORDS = new Set([
+  'appartement', 'appart', 'maison', 'villa', 'studio', 'chambre',
+  'logement', 'airbnb', 'location', 'de', 'du', 'des', 'la', 'le', 'les', 'et',
+]);
+
+function normalizeName(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tokenizeName(value: string): string[] {
+  return normalizeName(value)
+    .split(' ')
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3 && !NAME_STOP_WORDS.has(token));
+}
+
+function jaccardScore(a: string[], b: string[]): number {
+  if (a.length === 0 || b.length === 0) return 0;
+  const setA = new Set(a);
+  const setB = new Set(b);
+  const intersection = [...setA].filter((token) => setB.has(token)).length;
+  const union = new Set([...setA, ...setB]).size;
+  return union > 0 ? intersection / union : 0;
+}
+
+function areLikelyDuplicates(left: string, right: string): boolean {
+  const l = normalizeName(left);
+  const r = normalizeName(right);
+  if (!l || !r) return false;
+  if (l === r && l.length >= 6) return true;
+
+  const minLen = Math.min(l.length, r.length);
+  if (minLen >= 8 && (l.includes(r) || r.includes(l))) return true;
+
+  const lt = tokenizeName(left);
+  const rt = tokenizeName(right);
+  const score = jaccardScore(lt, rt);
+  return score >= 0.72 && Math.min(lt.length, rt.length) >= 2;
 }
 
 interface PropertyConfiguratorProps {
@@ -149,7 +202,32 @@ export default function PropertyConfigurator({ onPropertyCreated, onCancel, init
   const [mobileImages, setMobileImages] = useState<string[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
   const [networkUploadUrl, setNetworkUploadUrl] = useState<string>('');
+  const [existingProperties, setExistingProperties] = useState<ExistingPropertyItem[]>([]);
+  const [mergePropertyIds, setMergePropertyIds] = useState<number[]>([]);
+  const [hasManualMergeSelection, setHasManualMergeSelection] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const activeExistingProperties = useMemo(
+    () => existingProperties.filter((p) => String(p.status || '').toUpperCase() !== 'INACTIVE'),
+    [existingProperties],
+  );
+
+  const recommendedMergeIds = useMemo(() => {
+    const currentName = property.name?.trim() || '';
+    if (currentName.length < 4) return [] as number[];
+    return activeExistingProperties
+      .filter((p) => areLikelyDuplicates(currentName, p.name))
+      .map((p) => p.id);
+  }, [activeExistingProperties, property.name]);
+
+  useEffect(() => {
+    if (mode !== 'create') return;
+    if (hasManualMergeSelection) return;
+    if (recommendedMergeIds.length === 0) return;
+    setMergePropertyIds(recommendedMergeIds);
+  }, [mode, hasManualMergeSelection, recommendedMergeIds]);
 
   // Récupérer l'URL réseau réelle (IP locale) pour le QR code
   useEffect(() => {
@@ -158,6 +236,36 @@ export default function PropertyConfigurator({ onPropertyCreated, onCancel, init
       .then(data => setNetworkUploadUrl(data.networkUrl || ''))
       .catch(() => setNetworkUploadUrl(`http://localhost:3000/upload?session=${sessionId}`));
   }, [sessionId]);
+
+  useEffect(() => {
+    if (mode !== 'create') return;
+    let isMounted = true;
+
+    fetch('/api/properties?limit=500', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('fetch_failed'))))
+      .then((data) => {
+        if (!isMounted) return;
+        const rows: ExistingPropertyItem[] = (data?.properties || []).map((p: {
+          id: number;
+          name: string;
+          city?: string;
+          status?: string;
+        }) => ({
+          id: p.id,
+          name: p.name,
+          city: p.city,
+          status: p.status,
+        }));
+        setExistingProperties(rows);
+      })
+      .catch(() => {
+        if (isMounted) setExistingProperties([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [mode]);
 
   const totalSteps = 5;
 
@@ -263,13 +371,75 @@ export default function PropertyConfigurator({ onPropertyCreated, onCancel, init
     }
   }, [showQRCode, checkMobileUploads]);
 
-  const createProperty = () => {
-    const newProperty: Property = {
-      ...property,
-      id: mode === 'edit' ? property.id : Date.now(),
-      createdAt: mode === 'edit' ? property.createdAt : new Date().toISOString()
-    };
-    onPropertyCreated(newProperty);
+  const createProperty = async () => {
+    setSaveError(null);
+
+    if (mode === 'edit') {
+      const updatedProperty: Property = {
+        ...property,
+        id: property.id,
+        createdAt: property.createdAt,
+      };
+      onPropertyCreated(updatedProperty);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const createRes = await fetch('/api/properties', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: property.name,
+          description: property.description,
+          address: property.address,
+          city: property.address.split(',').slice(-1)[0]?.trim() || 'Ville à compléter',
+          country: 'FR',
+          bedrooms: property.bedrooms,
+          bathrooms: property.bathrooms,
+          capacity: property.maxGuests,
+          price: property.price,
+          currency: 'EUR',
+        }),
+      });
+
+      const createData = await createRes.json().catch(() => ({}));
+      if (!createRes.ok || !createData?.property?.id) {
+        throw new Error(createData?.error || `Création impossible (${createRes.status})`);
+      }
+
+      let finalPropertyId = Number(createData.property.id);
+      if (mergePropertyIds.length > 0) {
+        const mergeRes = await fetch('/api/properties/merge', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            propertyIds: [finalPropertyId, ...mergePropertyIds],
+            newName: property.name,
+          }),
+        });
+        const mergeData = await mergeRes.json().catch(() => ({}));
+        if (!mergeRes.ok) {
+          throw new Error(mergeData?.error || `Fusion impossible (${mergeRes.status})`);
+        }
+        if (mergeData?.mainPropertyId) {
+          finalPropertyId = Number(mergeData.mainPropertyId);
+        }
+      }
+
+      const newProperty: Property = {
+        ...property,
+        id: finalPropertyId,
+        createdAt: new Date().toISOString(),
+      };
+
+      onPropertyCreated(newProperty);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Erreur lors de la création de la propriété');
+      setIsSaving(false);
+    }
   };
 
   const getStepTitle = (step: number) => {
@@ -558,6 +728,80 @@ export default function PropertyConfigurator({ onPropertyCreated, onCancel, init
           {property.description.length}/500 caractères
         </p>
       </div>
+
+      {mode === 'create' && existingProperties.length > 0 && (
+        <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl p-6 border border-violet-100">
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div>
+              <h4 className="font-bold text-gray-900">Fusion d&apos;annonces (optionnel)</h4>
+              <p className="text-sm text-violet-700 mt-1">
+                Sélectionnez plusieurs annonces à fusionner avec cette nouvelle propriété. La propriété principale conservée sera automatiquement celle avec la réservation la plus récente.
+              </p>
+            </div>
+            {mergePropertyIds.length > 0 && (
+              <span className="text-xs font-semibold bg-violet-100 text-violet-700 px-2 py-1 rounded-md">
+                {mergePropertyIds.length} sélectionnée{mergePropertyIds.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {recommendedMergeIds.length > 0 && (
+            <div className="mb-3 flex items-center justify-between gap-3 bg-violet-100/60 rounded-lg px-3 py-2">
+              <p className="text-xs text-violet-700">
+                Suggestion auto : <strong>{recommendedMergeIds.length}</strong> doublon(s) probable(s) détecté(s) d&apos;après le nom saisi.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setMergePropertyIds(recommendedMergeIds);
+                  setHasManualMergeSelection(false);
+                }}
+                className="text-xs font-semibold px-2.5 py-1 rounded-md bg-white text-violet-700 hover:bg-violet-50 transition-colors"
+              >
+                Recocher suggestion
+              </button>
+            </div>
+          )}
+
+          <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+            {activeExistingProperties.map((p) => {
+                const checked = mergePropertyIds.includes(p.id);
+                return (
+                  <label
+                    key={p.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                      checked
+                        ? 'border-violet-300 bg-violet-100/60'
+                        : 'border-violet-100 bg-white hover:bg-violet-50/50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        setHasManualMergeSelection(true);
+                        if (e.target.checked) {
+                          setMergePropertyIds((prev) => (prev.includes(p.id) ? prev : [...prev, p.id]));
+                        } else {
+                          setMergePropertyIds((prev) => prev.filter((id) => id !== p.id));
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-violet-300 text-violet-600 focus:ring-violet-400"
+                    />
+                    <div className="min-w-0">
+                      <div className="font-medium text-gray-900 truncate">{p.name}</div>
+                      <div className="text-xs text-gray-500 truncate">{p.city || 'Ville non renseignée'}</div>
+                    </div>
+                  </label>
+                );
+              })}
+          </div>
+
+          <p className="text-xs text-violet-700 mt-3">
+            Les annonces fusionnées seront passées en <strong>inactive</strong>, tandis que les revenus, réservations et données utiles seront rattachés à la propriété principale.
+          </p>
+        </div>
+      )}
     </div>
   );
 
@@ -1047,6 +1291,17 @@ export default function PropertyConfigurator({ onPropertyCreated, onCancel, init
           </div>
         )}
 
+        {saveError && (
+          <div className="mx-6 mt-4 bg-gradient-to-r from-red-500 to-rose-500 text-white px-4 py-3 rounded-xl shadow-lg">
+            <div className="flex items-center space-x-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="font-medium">{saveError}</span>
+            </div>
+          </div>
+        )}
+
         {/* Step Indicator */}
         {renderStepIndicator()}
 
@@ -1083,7 +1338,7 @@ export default function PropertyConfigurator({ onPropertyCreated, onCancel, init
           {currentStep < totalSteps ? (
             <button
               onClick={nextStep}
-              disabled={!canProceed()}
+              disabled={!canProceed() || isSaving}
               className="flex items-center space-x-2 px-6 py-3 bg-[#FF385C] text-white rounded-xl hover:bg-[#E31C5F] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               <span>Suivant</span>
@@ -1094,13 +1349,25 @@ export default function PropertyConfigurator({ onPropertyCreated, onCancel, init
           ) : (
             <button
               onClick={createProperty}
-              disabled={!canProceed()}
+              disabled={!canProceed() || isSaving}
               className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>{mode === 'edit' ? 'Mettre à jour' : 'Créer la propriété'}</span>
+              {isSaving ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <span>Enregistrement...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>{mode === 'edit' ? 'Mettre à jour' : 'Créer la propriété'}</span>
+                </>
+              )}
             </button>
           )}
         </div>

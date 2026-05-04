@@ -13,6 +13,7 @@ const InventoryManager = dynamic(() => import('./InventoryManager'), { ssr: fals
 const FinancialReports = dynamic(() => import('./FinancialReports'), { ssr: false });
 const WelcomeGuideGenerator = dynamic(() => import('./WelcomeGuideGenerator'), { ssr: false });
 const PropertyConfigurator = dynamic(() => import('./PropertyConfigurator'), { ssr: false });
+const PropertyMerger = dynamic(() => import('./PropertyMerger'), { ssr: false });
 const PropertySheet = dynamic(() => import('./PropertySheet'), { ssr: false });
 const SettingsManager = dynamic(() => import('./SettingsManager'), { ssr: false });
 const QRCheckIn = dynamic(() => import('./QRCheckIn'), { ssr: false });
@@ -196,6 +197,7 @@ export default function AdminDashboard() {
   const [showNewInventoryModal, setShowNewInventoryModal] = useState(false);
   const [showFinancialReportModal, setShowFinancialReportModal] = useState(false);
   const [showPropertyConfigurator, setShowPropertyConfigurator] = useState(false);
+  const [showPropertyMerger, setShowPropertyMerger] = useState(false);
   const [showNewGuestModal, setShowNewGuestModal] = useState(false);
 
   // Global Search Keyboard Shortcut (Cmd/Ctrl + K)
@@ -1066,6 +1068,13 @@ export default function AdminDashboard() {
                           {showHiddenPropertiesAudit ? 'Masquer' : 'Voir'} les propriétés masquées
                         </Button>
                       )}
+                      <Button
+                        variant="secondary"
+                        onClick={() => setShowPropertyMerger(true)}
+                        className="flex items-center gap-2"
+                      >
+                        <Building2 className="w-4 h-4" /> Fusionner des annonces
+                      </Button>
                       <Button onClick={() => setShowPropertyConfigurator(true)} className="flex items-center gap-2 hover-lift">
                         <Plus className="w-4 h-4" /> Ajouter une Propriété
                       </Button>
@@ -2028,6 +2037,21 @@ export default function AdminDashboard() {
       {showPropertyConfigurator && (
         <Modal isOpen={true} onClose={() => setShowPropertyConfigurator(false)}>
           <PropertyConfigurator onPropertyCreated={() => setShowPropertyConfigurator(false)} onCancel={() => setShowPropertyConfigurator(false)} />
+        </Modal>
+      )}
+
+      {/* Property Merger Modal */}
+      {showPropertyMerger && (
+        <Modal isOpen={true} onClose={() => setShowPropertyMerger(false)}>
+          <PropertyMerger
+            properties={propertiesData}
+            onClose={() => setShowPropertyMerger(false)}
+            onMerged={async () => {
+              setShowPropertyMerger(false);
+              await fetchRealPropertiesData();
+              toast.success('Fusion terminée : revenus et données utiles consolidés.');
+            }}
+          />
         </Modal>
       )}
 

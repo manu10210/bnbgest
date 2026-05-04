@@ -541,24 +541,23 @@ function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
 }
 
 function enrichPayoutFromContext(
-  booking: ParsedBooking,
-  existingBookings: Array<{
-    propertyId: number;
-    specialRequests?: string;
-    guestInfo?: { name?: string };
-  }>,
-  properties: Array<{ id: number; name: string }>,
-): ParsedBooking {
-  if (booking.bookingType !== 'payout') return booking;
+    booking: ParsedBooking,
+    existingBookings: Array<{
+      propertyId: number;
+      specialRequests?: string;
+      paymentInfo?: { transactionId?: string };
+      guestInfo?: { name?: string };
+    }>,
+    properties: Array<{ id: number; name: string }>,
+  ): ParsedBooking {
+    if (booking.bookingType !== 'payout') return booking;
 
-  // S'il y a déjà un nom de voyageur fiable (pas Voyageur Airbnb), on le garde avec le préfixe
-  const hasGuest = !!booking.guestName && !isPlaceholderGuestName(booking.guestName);
+    // S'il y a déjà un nom de voyageur fiable (pas Voyageur Airbnb), on le garde avec le préfixe
+    const hasGuest = !!booking.guestName && !isPlaceholderGuestName(booking.guestName);
 
-  const candidateByCode = booking.confirmationCode
-    ? existingBookings.find(b => b.specialRequests?.includes(booking.confirmationCode!))
-    : undefined;
-
-  let guestNameBase = 'Voyageur inconnu';
+    const candidateByCode = booking.confirmationCode
+      ? existingBookings.find(b => bookingHasConfirmationCodeInContext(b, booking.confirmationCode))
+      : undefined;  let guestNameBase = 'Voyageur inconnu';
   if (hasGuest) {
     guestNameBase = booking.guestName!;
   } else if (candidateByCode?.guestInfo?.name) {
@@ -578,32 +577,31 @@ function enrichPayoutFromContext(
 }
 
 function enrichReviewFromContext(
-  booking: ParsedBooking,
-  existingBookings: Array<{
-    propertyId: number;
-    checkIn: string;
-    checkOut: string;
-    specialRequests?: string;
-    guestInfo?: { name?: string };
-    status?: string;
-  }>,
-  properties: Array<{ id: number; name: string }>,
-): ParsedBooking {
-  if (booking.bookingType !== 'review') return booking;
+    booking: ParsedBooking,
+    existingBookings: Array<{
+      propertyId: number;
+      checkIn: string;
+      checkOut: string;
+      specialRequests?: string;
+      paymentInfo?: { transactionId?: string };
+      guestInfo?: { name?: string };
+      status?: string;
+    }>,
+    properties: Array<{ id: number; name: string }>,
+  ): ParsedBooking {
+    if (booking.bookingType !== 'review') return booking;
 
-  const hasGuest = !!booking.guestName && !isPlaceholderGuestName(booking.guestName);
-  const hasProperty = !!normalizePropertyLabelForWizard(booking.propertyName || '');
-  const hasDates = isValidDateRange(booking.checkIn, booking.checkOut);
-  if (hasGuest && hasProperty && hasDates) return booking;
+    const hasGuest = !!booking.guestName && !isPlaceholderGuestName(booking.guestName);
+    const hasProperty = !!normalizePropertyLabelForWizard(booking.propertyName || '');
+    const hasDates = isValidDateRange(booking.checkIn, booking.checkOut);
+    if (hasGuest && hasProperty && hasDates) return booking;
 
-  const receivedTs = new Date(booking.receivedAt).getTime();
-  if (Number.isNaN(receivedTs)) return booking;
+    const receivedTs = new Date(booking.receivedAt).getTime();
+    if (Number.isNaN(receivedTs)) return booking;
 
-  const candidateByCode = booking.confirmationCode
-    ? existingBookings.find(b => b.specialRequests?.includes(booking.confirmationCode!))
-    : undefined;
-
-  const candidates = candidateByCode
+    const candidateByCode = booking.confirmationCode
+      ? existingBookings.find(b => bookingHasConfirmationCodeInContext(b, booking.confirmationCode))
+      : undefined;  const candidates = candidateByCode
     ? [candidateByCode]
     : existingBookings
         .filter(b => {
@@ -1754,6 +1752,7 @@ export default function GmailImporter() {
   const [propertyQueue, setPropertyQueue] = useState<DetectedPropertyInfo[]>([]);
   const [currentWizard, setCurrentWizard] = useState<DetectedPropertyInfo | null>(null);
   const [hasAutoRelaunchedWizardAfterFirstCreate, setHasAutoRelaunchedWizardAfterFirstCreate] = useState(false);
+  const [dbPropertyCatalog, setDbPropertyCatalog] = useState<Property[]>([]);
 
   const isGoogleUser = (session as { user?: { provider?: string } })?.user?.provider === 'google';
   const tokenError   = (session as { tokenError?: string })?.tokenError;
@@ -2088,6 +2087,40 @@ export default function GmailImporter() {
     const json = await res.json();
     return (json.properties || []).map(toContextPropertyFromApi);
   }, [toContextPropertyFromApi]);
+
+  const availableProperties = useMemo(() => {
+    const byId = new Map<number, Property>();
+
+    for (const property of properties) {
+      if (typeof property.id === 'number') {
+        byId.set(property.id, property);
+      }
+    }
+
+    for (const property of dbPropertyCatalog) {
+      if (typeof property.id === 'number') {
+        byId.set(property.id, property);
+      }
+    }
+
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+  }, [properties, dbPropertyCatalog]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    fetchDbProperties()
+      .then((rows) => {
+        if (!isCancelled) setDbPropertyCatalog(rows);
+      })
+      .catch(() => {
+        if (!isCancelled) setDbPropertyCatalog([]);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [fetchDbProperties]);
 
   const createPropertyInDb = useCallback(async (payload: {
     name: string;
@@ -3688,7 +3721,7 @@ export default function GmailImporter() {
     for (const booking of bookings) {
       if (booking.bookingType === 'cancelled' || booking.bookingType === 'payout' || booking.bookingType === 'review') continue;
       if (!booking.propertyName?.trim()) continue;
-      if (findMatchingProperty(booking.propertyName, properties)) continue;
+  if (findMatchingProperty(booking.propertyName, availableProperties)) continue;
 
       const normalized = normalizeForMatch(booking.propertyName);
       if (!normalized) continue;
@@ -3706,7 +3739,7 @@ export default function GmailImporter() {
 
     return Array.from(byLabel.entries())
       .map(([normalized, payload]) => {
-        const bestCandidate = findBestPropertyCandidate(payload.label, properties);
+  const bestCandidate = findBestPropertyCandidate(payload.label, availableProperties);
         return {
           normalized,
           label: payload.label,
@@ -3716,21 +3749,21 @@ export default function GmailImporter() {
         };
       })
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'fr', { sensitivity: 'base' }));
-  }, [bookings, properties, rejectedPropertySet]);
+  }, [bookings, availableProperties, rejectedPropertySet]);
 
   const unmatchedLabelCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const booking of bookings) {
       if (booking.bookingType === 'cancelled' || booking.bookingType === 'payout') continue;
       if (!booking.propertyName?.trim()) continue;
-      if (findMatchingProperty(booking.propertyName, properties)) continue;
+  if (findMatchingProperty(booking.propertyName, availableProperties)) continue;
       const key = normalizeForMatch(booking.propertyName);
       if (!key) continue;
       if (rejectedPropertySet.has(key)) continue;
       counts[key] = (counts[key] || 0) + 1;
     }
     return counts;
-  }, [bookings, properties, rejectedPropertySet]);
+  }, [bookings, availableProperties, rejectedPropertySet]);
 
   const validateDetectedPropertyLabel = useCallback((normalizedLabel: string, fallbackPropertyId?: number) => {
     const selectedPropertyId = manualPropertySelection[normalizedLabel] ?? fallbackPropertyId;
@@ -3739,7 +3772,7 @@ export default function GmailImporter() {
       return;
     }
 
-    const selectedProperty = properties.find((property) => property.id === selectedPropertyId);
+  const selectedProperty = availableProperties.find((property) => property.id === selectedPropertyId);
     if (!selectedProperty) {
       toast.error('Logement sélectionné introuvable.');
       return;
@@ -3765,19 +3798,19 @@ export default function GmailImporter() {
 
     setRejectedPropertyLabels((prev) => prev.filter((entry) => entry !== normalizedLabel));
     toast.success(`Rattachement validé: ${selectedProperty.name} (${relatedBookings.length} email(s)).`);
-  }, [bookings, learnPropertyAlias, manualPropertySelection, properties]);
+  }, [bookings, learnPropertyAlias, manualPropertySelection, availableProperties]);
 
   const applySuggestionToSimilarBookings = useCallback((booking: ParsedBooking, suggestedPropertyId: number) => {
     const targetLabel = normalizeForMatch(booking.propertyName || '');
     if (!targetLabel) return;
-    const suggestedProperty = properties.find((p) => p.id === suggestedPropertyId);
+    const suggestedProperty = availableProperties.find((p) => p.id === suggestedPropertyId);
     if (!suggestedProperty) return;
 
     const similarBookings = bookings
       .filter((candidate) => {
         if (candidate.bookingType === 'cancelled' || candidate.bookingType === 'payout') return false;
         if (!candidate.propertyName?.trim()) return false;
-        if (findMatchingProperty(candidate.propertyName, properties)) return false;
+        if (findMatchingProperty(candidate.propertyName, availableProperties)) return false;
         return normalizeForMatch(candidate.propertyName) === targetLabel;
       });
 
@@ -3802,7 +3835,7 @@ export default function GmailImporter() {
     if (similarMessageIds.length > 1) {
       toast.success(`Suggestion appliquée à ${similarMessageIds.length} emails similaires.`);
     }
-  }, [bookings, properties, learnPropertyAlias]);
+  }, [bookings, availableProperties, learnPropertyAlias]);
 
   const getContextInferenceConfidence = (booking: ParsedBooking): { label: 'élevée' | 'moyenne' | 'faible'; level: 'high' | 'medium' | 'low' } => {
     const hasConfirmationCode = !!booking.confirmationCode;
@@ -4023,40 +4056,61 @@ export default function GmailImporter() {
               initial={{ scale: 0.95, y: 15 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 15 }}
-              className={`relative w-full max-w-sm rounded-[1.5rem] p-8 text-center shadow-2xl flex flex-col items-center gap-6 overflow-hidden ${isDark ? 'bg-gray-800 border-[0.5px] border-white/10' : 'bg-white border-[0.5px] border-black/5'}`}
+              className={`relative w-full max-w-md rounded-2xl p-6 shadow-2xl overflow-hidden ${isDark ? 'bg-gray-900 border border-white/10' : 'bg-white border border-black/5'}`}
             >
-              <div className={`absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none ${status === 'importing' ? 'from-violet-500/10' : 'from-pink-500/10'}`} />
-              
-              <div className={`relative w-16 h-16 flex items-center justify-center z-10 ${status === 'importing' ? 'text-violet-500' : 'text-pink-500'}`}>
-                <motion.div 
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                  className={`absolute inset-0 rounded-full border-4 border-t-[currentColor] w-16 h-16 ${status === 'importing' ? 'border-violet-500/20' : 'border-pink-500/20'}`}
-                />
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  {status === 'importing' ? <DownloadCloud className="w-6 h-6" /> : <Search className="w-6 h-6" />}
-                </motion.div>
+              <div className={`absolute inset-0 pointer-events-none ${status === 'importing' ? 'bg-violet-500/5' : 'bg-pink-500/5'}`} />
+
+              <div className="relative z-10 flex items-start gap-4">
+                <div className={`relative w-12 h-12 flex items-center justify-center rounded-xl ${status === 'importing' ? 'bg-violet-500/15 text-violet-400' : 'bg-pink-500/15 text-pink-400'}`}>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2.8, repeat: Infinity, ease: 'linear' }}
+                    className={`absolute inset-0 rounded-xl border ${status === 'importing' ? 'border-violet-500/30' : 'border-pink-500/30'}`}
+                  />
+                  {status === 'importing' ? <DownloadCloud className="w-5 h-5" /> : <Search className="w-5 h-5" />}
+                </div>
+
+                <div className="flex-1">
+                  <h3 className={`text-base font-semibold leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    {status === 'importing' ? 'Import en cours' : 'Analyse de votre Gmail'}
+                  </h3>
+                  <p className={`mt-1 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    {status === 'importing' ? 'Extraction, classification et préparation des écritures…' : 'Recherche de réservations et données financières…'}
+                  </p>
+                </div>
               </div>
-              
-              <div className="relative z-10 space-y-2">
-                <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {status === 'importing' ? 'Transfert en cours' : 'Analyse de votre Gmail'}
-                </h3>
-                <p className={`text-sm font-medium ${isDark ? (status === 'importing' ? 'text-violet-400' : 'text-pink-400') : (status === 'importing' ? 'text-violet-600' : 'text-pink-600')}`}>
-                  {status === 'importing' ? 'Extraction & classification...' : 'Recherche de réservations & financières...'}
-                </p>
+
+              <div className={`relative z-10 mt-4 rounded-xl border p-3 ${isDark ? 'border-white/10 bg-black/20' : 'border-gray-200 bg-gray-50'}`}>
+                <div className="flex items-center justify-between text-xs">
+                  <span className={`${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Étapes</span>
+                  <span className={`font-medium ${status === 'importing' ? (isDark ? 'text-violet-300' : 'text-violet-700') : (isDark ? 'text-pink-300' : 'text-pink-700')}`}>
+                    {status === 'importing' ? 'Finalisation import' : 'Scan Gmail'}
+                  </span>
+                </div>
+
+                <div className="mt-2 grid gap-1.5 text-sm">
+                  <div className={`flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <Search className="w-3.5 h-3.5" />
+                    Détection des emails Airbnb
+                  </div>
+                  <div className={`flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <Database className="w-3.5 h-3.5" />
+                    Normalisation des données
+                  </div>
+                  <div className={`flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <DownloadCloud className="w-3.5 h-3.5" />
+                    Préparation de l&apos;import
+                  </div>
+                </div>
               </div>
-              
-              <div className="w-full bg-gray-100 dark:bg-gray-700/50 rounded-full h-1.5 mt-2 overflow-hidden relative z-10">
+
+              <div className={`relative z-10 mt-4 flex items-center gap-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 <motion.div 
-                  initial={{ width: "0%" }}
-                  animate={{ width: "100%" }}
-                  transition={{ duration: status === 'syncing' ? 4 : 2, repeat: Infinity, ease: "easeInOut" }}
-                  className={`h-full ${status === 'importing' ? 'bg-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.6)]' : 'bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.6)]'}`}
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1.2, repeat: Infinity }}
+                  className={`w-2 h-2 rounded-full ${status === 'importing' ? 'bg-violet-400' : 'bg-pink-400'}`}
                 />
+                Patientez quelques secondes…
               </div>
             </motion.div>
           </motion.div>
@@ -4462,7 +4516,7 @@ export default function GmailImporter() {
                           className={`min-w-[220px] text-xs rounded-md border px-2 py-1.5 ${isDark ? 'bg-gray-800 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-700'}`}
                         >
                           <option value={0}>Choisir un logement…</option>
-                          {properties.map((property) => (
+                          {availableProperties.map((property) => (
                             <option key={property.id} value={property.id}>{property.name}</option>
                           ))}
                         </select>
@@ -4905,14 +4959,14 @@ export default function GmailImporter() {
                   const isImp = imported.includes(booking.messageId);
                   const typeInfo = bookingTypeLabel[booking.bookingType];
                   const matchedProperty = booking.propertyName
-                    ? findMatchingProperty(booking.propertyName, properties)
+                    ? findMatchingProperty(booking.propertyName, availableProperties)
                     : undefined;
                   const bestCandidate = !matchedProperty && booking.propertyName
-                    ? findBestPropertyCandidate(booking.propertyName, properties)
+                    ? findBestPropertyCandidate(booking.propertyName, availableProperties)
                     : { property: undefined, score: 0, ambiguous: false, secondScore: 0 };
                   const overridePropertyId = propertyOverrides[booking.messageId];
                   const overrideProperty = overridePropertyId
-                    ? properties.find((p) => p.id === overridePropertyId)
+                    ? availableProperties.find((p) => p.id === overridePropertyId)
                     : undefined;
                   const unmatchedLabelCount = booking.propertyName
                     ? (unmatchedLabelCounts[normalizeForMatch(booking.propertyName)] || 0)
@@ -4923,7 +4977,7 @@ export default function GmailImporter() {
                   const showUnmatchedPropertyWarning =
                     booking.bookingType !== 'cancelled' &&
                     booking.bookingType !== 'payout' &&
-                    properties.length > 0 &&
+                    availableProperties.length > 0 &&
                     !!booking.propertyName &&
                     !matchedProperty &&
                     !isRejectedPropertyLabel;
@@ -5135,7 +5189,7 @@ export default function GmailImporter() {
                                 )}
                               </div>
                             )}
-                            {booking.bookingType !== 'cancelled' && booking.bookingType !== 'payout' && booking.bookingType !== 'review' && properties.length === 0 && (
+                            {booking.bookingType !== 'cancelled' && booking.bookingType !== 'payout' && booking.bookingType !== 'review' && availableProperties.length === 0 && (
                               <div className={`mt-1 text-xs flex items-center gap-1 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
                                 <span>⚠️</span>
                                 <span>Aucun logement configuré pour l’instant — un logement par défaut sera créé à l’import</span>
