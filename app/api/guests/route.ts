@@ -83,8 +83,20 @@ export async function GET(request: Request) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
 
+  const sessionUser = authResult.user as any;
+  const normalizedEmail = (sessionUser.email || '').trim().toLowerCase();
+  let owner = sessionUser.id ? await prisma.user.findUnique({ where: { id: sessionUser.id }, select: { id: true } }) : null;
+  if (!owner && normalizedEmail) {
+    owner = await prisma.user.upsert({
+      where: { email: normalizedEmail },
+      update: {},
+      create: { email: normalizedEmail, name: sessionUser.name || normalizedEmail.split('@')[0], role: 'USER' }
+    });
+  }
+  if (!owner) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+
   try {
-    const sessionUserId = authResult.user.id;
+    const sessionUserId = owner.id;
     const { searchParams } = new URL(request.url);
     const statusFilter = searchParams.get('status');
     const search = searchParams.get('search')?.trim().toLowerCase() || '';
@@ -327,8 +339,20 @@ export async function POST(request: Request) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
 
+  const sessionUser = authResult.user as any;
+  const normalizedEmail = (sessionUser.email || '').trim().toLowerCase();
+  let owner = sessionUser.id ? await prisma.user.findUnique({ where: { id: sessionUser.id }, select: { id: true } }) : null;
+  if (!owner && normalizedEmail) {
+    owner = await prisma.user.upsert({
+      where: { email: normalizedEmail },
+      update: {},
+      create: { email: normalizedEmail, name: sessionUser.name || normalizedEmail.split('@')[0], role: 'USER' }
+    });
+  }
+  if (!owner) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+
   try {
-    const sessionUserId = authResult.user.id;
+    const sessionUserId = owner.id;
     const body = (await request.json()) as UpsertPayload;
 
     if (!body.guest?.name?.trim()) {
