@@ -549,6 +549,7 @@ function enrichPayoutFromContext(
       guestInfo?: { name?: string };
     }>,
     properties: Array<{ id: number; name: string }>,
+    dbBookingsByCode?: Map<string, { guestName?: string; propertyId?: number }>,
   ): ParsedBooking {
     if (booking.bookingType !== 'payout') return booking;
 
@@ -557,9 +558,19 @@ function enrichPayoutFromContext(
 
     const candidateByCode = booking.confirmationCode
       ? existingBookings.find(b => bookingHasConfirmationCodeInContext(b, booking.confirmationCode))
-      : undefined;  let guestNameBase = 'Voyageur inconnu';
+      : undefined;
+
+    // Lookup DB (pré-fetché depuis l'API)
+    const dbMatch = booking.confirmationCode
+      ? dbBookingsByCode?.get(booking.confirmationCode.toUpperCase())
+      : undefined;
+
+    let guestNameBase = 'Voyageur inconnu';
   if (hasGuest) {
     guestNameBase = booking.guestName!;
+  } else if (dbMatch?.guestName) {
+    // Priorité à la DB (données réelles PostgreSQL)
+    guestNameBase = dbMatch.guestName;
   } else if (candidateByCode?.guestInfo?.name) {
     guestNameBase = candidateByCode.guestInfo.name;
   }
@@ -571,7 +582,9 @@ function enrichPayoutFromContext(
   return {
     ...booking,
     guestName: newGuestName,
-    propertyName: booking.propertyName || (candidateByCode ? properties.find(p => p.id === candidateByCode.propertyId)?.name : booking.propertyName),
+    propertyName: booking.propertyName
+      || (dbMatch?.propertyId ? properties.find(p => p.id === dbMatch.propertyId)?.name : undefined)
+      || (candidateByCode ? properties.find(p => p.id === candidateByCode.propertyId)?.name : undefined),
     warnings: Array.from(new Set([...(booking.warnings || []), 'payout_context_inferred'])),
   };
 }
@@ -1923,8 +1936,32 @@ export default function GmailImporter() {
         }
       }
 
+  // Pré-fetch des noms depuis la DB pour les payouts avec confirmationCode
+  // (BNBContext = localStorage vide en production → on interroge l'API réelle)
+  const payoutCodes = finalBookings
+    .filter(b => b.bookingType === 'payout' && b.confirmationCode && /^HM[A-Z0-9]{6,12}$/i.test(b.confirmationCode))
+    .map(b => b.confirmationCode!.toUpperCase());
+
+  const dbBookingsByCode = new Map<string, { guestName?: string; propertyId?: number }>();
+  await Promise.allSettled(
+    [...new Set(payoutCodes)].map(async (code) => {
+      try {
+        const res = await fetch(`/api/bookings?confirmationCode=${encodeURIComponent(code)}`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          const found = data.bookings?.[0];
+          if (found?.guestName) {
+            dbBookingsByCode.set(code, { guestName: found.guestName, propertyId: found.propertyId });
+          }
+        }
+      } catch {
+        // silencieux — on utilisera le fallback
+      }
+    })
+  );
+
   const enrichedFinalBookings = finalBookings.map((b) =>
-    repairSingleDateRangeForBooking(ensureBookingNightsConsistency(enrichPayoutFromContext(enrichReviewFromContext(b, existingBookings, properties), existingBookings, properties)))
+    repairSingleDateRangeForBooking(ensureBookingNightsConsistency(enrichPayoutFromContext(enrichReviewFromContext(b, existingBookings, properties), existingBookings, properties, dbBookingsByCode)))
   );
 
   setBookings(enrichedFinalBookings);

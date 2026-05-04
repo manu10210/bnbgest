@@ -36,6 +36,7 @@ export async function GET(request: Request) {
     const source = searchParams.get('source');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const confirmationCodeFilter = searchParams.get('confirmationCode');
 
     const bookings = await prisma.booking.findMany({
       where: {
@@ -46,6 +47,12 @@ export async function GET(request: Request) {
           AND: [
             { checkIn:  { lt: new Date(endDate)   } },
             { checkOut: { gt: new Date(startDate) } },
+          ],
+        }),
+        ...(confirmationCodeFilter && {
+          OR: [
+            { confirmationCode: { equals: confirmationCodeFilter, mode: 'insensitive' } },
+            { specialRequests: { contains: confirmationCodeFilter, mode: 'insensitive' } },
           ],
         }),
       },
