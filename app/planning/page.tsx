@@ -174,9 +174,9 @@ export default function PlanningPage() {
       if (propRes.ok) {
         const d = await propRes.json();
         const list = d.properties || d || [];
-        setProperties(list.length > 0 ? list : ctxProperties.map((p: any) => ({ id: p.id, name: p.name, city: p.city || '' })));
+        setProperties(list.length > 0 ? list : ctxProperties.map((p) => ({ id: p.id, name: p.name, city: p.city || '' })));
       } else {
-        setProperties(ctxProperties.map((p: any) => ({ id: p.id, name: p.name, city: p.city || '' })));
+        setProperties(ctxProperties.map((p) => ({ id: p.id, name: p.name, city: p.city || '' })));
       }
 
       // Bookings
@@ -188,7 +188,7 @@ export default function PlanningPage() {
         // Si la DB PostgreSQL est vide mais qu'on a des résas dans le localStorage (BNBContext)
         // On les utiliser comme fallback temporaire pour ne pas bloquer l'affichage.
         if (list.length === 0 && ctxBookings && ctxBookings.length > 0) {
-          const fallback = ctxBookings.map((b: any) => ({
+          const fallback = ctxBookings.map((b) => ({
             id: b.id, propertyId: b.propertyId,
             guestName: b.guestInfo?.name ?? 'Voyageur',
             checkIn: b.checkIn, checkOut: b.checkOut,
@@ -203,7 +203,7 @@ export default function PlanningPage() {
         }
       } else {
         // Fallback : BNBContext localStorage en cas d'erreur de l'API
-        const fallback = ctxBookings.map((b: any) => ({
+        const fallback = ctxBookings.map((b) => ({
           id: b.id, propertyId: b.propertyId,
           guestName: b.guestInfo?.name ?? 'Voyageur',
           checkIn: b.checkIn, checkOut: b.checkOut,
@@ -226,7 +226,7 @@ export default function PlanningPage() {
         const d = await maintRes.json();
         setMaintenance(d.tasks || d || []);
       } else {
-        setMaintenance(ctxMaintenance.map((m: any) => ({
+        setMaintenance(ctxMaintenance.map((m) => ({
           id: m.id, propertyId: m.propertyId, title: m.title,
           dueDate: m.scheduledDate ?? null, status: m.status, priority: m.priority,
         })));
@@ -459,13 +459,6 @@ export default function PlanningPage() {
       return Number.isNaN(ts) || (ts >= startTs.getTime() && ts <= endTs.getTime());
     }).length;
 
-    const totalSlots = displayedProperties.length * days.length;
-    const occupiedSlots = displayedProperties.reduce((sum, prop) => {
-      const occDays = days.filter(day => getBookingsForDayProp(day, prop.id).some(
-        b => (b.status || '').toUpperCase() !== 'CANCELLED'
-      )).length;
-      return sum + occDays;
-    }, 0);
     // Pour la vue mois, ne compter que les jours du mois courant (pas les jours de remplissage de grille)
     const relevantDays = view === 'month'
       ? days.filter(d => d.getMonth() === anchor.getMonth() && d.getFullYear() === anchor.getFullYear())
@@ -505,12 +498,12 @@ export default function PlanningPage() {
   const icsDisabled = loading || exporting !== null || visibleBookings.length === 0;
 
   return (
-    <div className={`flex h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`flex h-screen ${isDark ? 'bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950' : 'bg-gradient-to-br from-gray-50 via-white to-indigo-50/40'}`}>
       <AdminSidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       {/* Header */}
-      <header className={`sticky top-0 z-40 backdrop-blur-md ${isDark ? 'bg-gray-950/90 border-b border-white/10' : 'bg-white/90 border-b border-gray-200'}`}>
-        <div className="max-w-full px-4 py-3 flex items-center gap-3 flex-wrap">
+      <header className={`sticky top-0 z-40 backdrop-blur-xl ${isDark ? 'bg-gray-950/85 border-b border-white/10 shadow-[0_6px_24px_rgba(0,0,0,0.35)]' : 'bg-white/85 border-b border-gray-200 shadow-[0_6px_24px_rgba(15,23,42,0.06)]'}`}>
+        <div className="max-w-[1800px] mx-auto px-4 py-3.5 flex items-center gap-3 flex-wrap">
           <button onClick={() => router.back()} className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
             <ArrowLeft size={20} className={muted} />
           </button>
@@ -536,7 +529,7 @@ export default function PlanningPage() {
           </div>
 
           {/* Navigation */}
-          <div className="flex items-center gap-1 ml-auto">
+          <div className={`flex items-center gap-1 ml-auto p-1 rounded-2xl border ${isDark ? 'bg-white/[0.04] border-white/10' : 'bg-white border-gray-200/80'}`}>
             <button onClick={() => navigate(-1)} className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
               <ChevronLeft size={18} className={muted} />
             </button>
@@ -549,7 +542,7 @@ export default function PlanningPage() {
           </div>
 
           {/* View toggle */}
-          <div className={`flex gap-1 p-1 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+          <div className={`flex gap-1 p-1 rounded-2xl border ${isDark ? 'bg-white/[0.04] border-white/10' : 'bg-white border-gray-200/80'}`}>
             {(['week','month'] as ViewMode[]).map(v => (
               <button key={v} onClick={() => setView(v)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${view === v ? 'bg-[#FF385C] text-white shadow' : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}>
@@ -560,7 +553,7 @@ export default function PlanningPage() {
 
           {/* Property filter */}
           <select value={selectedProp} onChange={e => setSelectedProp(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-            className={`px-3 py-2 rounded-xl text-sm ${card} border ${text} outline-none`}>
+            className={`px-3 py-2 rounded-xl text-sm ${card} border ${text} outline-none min-w-[180px]`}>
             <option value="all">Toutes propriétés</option>
             {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -596,14 +589,14 @@ export default function PlanningPage() {
 
       {/* KPI band */}
       <div className="px-4 pt-3">
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-2">
-          <KpiCard label="Occupation" value={`${planningMetrics.occupancyRate}%`} tone="blue" isDark={isDark} />
-          <KpiCard label="Réservations" value={String(planningMetrics.activeBookings)} tone="indigo" isDark={isDark} />
-          <KpiCard label="Check-in" value={String(planningMetrics.checkins)} tone="green" isDark={isDark} />
-          <KpiCard label="Check-out" value={String(planningMetrics.checkouts)} tone="gray" isDark={isDark} />
-          <KpiCard label="Ménages à faire" value={String(planningMetrics.pendingCleanings)} tone="purple" isDark={isDark} />
-          <KpiCard label="Maintenance urgente" value={String(planningMetrics.urgentMaintenance)} tone="orange" isDark={isDark} />
-          <KpiCard label="Conflits" value={String(planningMetrics.conflicts)} tone="red" isDark={isDark} />
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-2.5">
+          <KpiCard label="Occupation" value={`${planningMetrics.occupancyRate}%`} tone="blue" isDark={isDark} icon={<Calendar size={14} />} />
+          <KpiCard label="Réservations" value={String(planningMetrics.activeBookings)} tone="indigo" isDark={isDark} icon={<Users size={14} />} />
+          <KpiCard label="Check-in" value={String(planningMetrics.checkins)} tone="green" isDark={isDark} icon={<ArrowLeftRight size={14} />} />
+          <KpiCard label="Check-out" value={String(planningMetrics.checkouts)} tone="gray" isDark={isDark} icon={<Clock size={14} />} />
+          <KpiCard label="Ménages à faire" value={String(planningMetrics.pendingCleanings)} tone="purple" isDark={isDark} icon={<Sparkles size={14} />} />
+          <KpiCard label="Maintenance urgente" value={String(planningMetrics.urgentMaintenance)} tone="orange" isDark={isDark} icon={<Wrench size={14} />} />
+          <KpiCard label="Conflits" value={String(planningMetrics.conflicts)} tone="red" isDark={isDark} icon={<AlertTriangle size={14} />} />
         </div>
       </div>
 
@@ -622,7 +615,7 @@ export default function PlanningPage() {
       )}
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 px-4 pt-3 pb-1 text-xs items-center">
+      <div className="flex flex-wrap gap-2 px-4 pt-3 pb-1 text-xs items-center">
         {[
           { color: 'bg-blue-500',   label: 'Réservation' },
           { color: 'bg-green-400',  label: 'Check-in' },
@@ -631,7 +624,7 @@ export default function PlanningPage() {
           { color: 'bg-orange-500', label: 'Maintenance' },
           { color: 'bg-amber-400', label: 'Turnover IN/OUT' },
         ].map(l => (
-          <div key={l.label} className="flex items-center gap-1.5">
+          <div key={l.label} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'}`}>
             <div className={`w-2.5 h-2.5 rounded-sm ${l.color}`} />
             <span className={muted}>{l.label}</span>
           </div>
@@ -650,7 +643,7 @@ export default function PlanningPage() {
               <p className={`font-semibold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>Aucune réservation sur cette période</p>
               <p className={`text-sm ${isDark ? 'text-amber-400/80' : 'text-amber-600'}`}>
                 La base de données ne contient pas encore de réservations. 
-                Veuillez importer vos anciens emails Airbnb via l'outil Gmail.
+                Veuillez importer vos anciens emails Airbnb via l&apos;outil Gmail.
               </p>
             </div>
           </div>
@@ -659,7 +652,7 @@ export default function PlanningPage() {
               onClick={() => router.push('/admin?tab=gmail-import')}
               className="px-4 py-2 rounded-xl bg-[#FF385C] text-white text-sm font-semibold hover:bg-[#e0314f] transition-colors"
             >
-              📧 Aller à l'Import Gmail
+              📧 Aller à l&apos;Import Gmail
             </button>
             <button
               onClick={fetchAll}
@@ -673,7 +666,7 @@ export default function PlanningPage() {
         <div className="overflow-x-auto px-2 pb-8">
           {/* ── WEEK VIEW ── */}
           {view === 'week' && (
-            <table className="min-w-full border-separate" style={{ borderSpacing: '4px' }}>
+            <table className="min-w-full border-separate" style={{ borderSpacing: '6px' }}>
               <thead>
                 <tr>
                   <th className={`text-left text-xs font-semibold ${muted} px-3 py-2 w-40 sticky left-0 z-10 ${isDark ? 'bg-gray-950' : 'bg-gray-50'}`}>
@@ -682,7 +675,7 @@ export default function PlanningPage() {
                   {days.map((d, i) => {
                     const isToday = sameDay(d, today);
                     return (
-                      <th key={i} className={`text-center min-w-[110px] px-1 py-2 rounded-xl ${isToday ? 'bg-[#FF385C]/10' : ''}`}>
+                      <th key={i} className={`text-center min-w-[118px] px-1 py-2 rounded-xl border ${isToday ? 'bg-[#FF385C]/10 border-[#FF385C]/30' : isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-gray-200/80'}`}>
                         <p className={`text-xs font-semibold ${isToday ? 'text-[#FF385C]' : muted}`}>{DAYS_FR[i]}</p>
                         <p className={`text-base font-bold ${isToday ? 'text-[#FF385C]' : text}`}>{d.getDate()}</p>
                       </th>
@@ -693,7 +686,7 @@ export default function PlanningPage() {
               <tbody>
                 {displayedProperties.map(prop => (
                   <tr key={prop.id}>
-                    <td className={`sticky left-0 z-10 px-3 py-2 text-sm font-semibold ${text} ${isDark ? 'bg-gray-950' : 'bg-gray-50'} border-r ${border}`}>
+                    <td className={`sticky left-0 z-10 px-3 py-2 text-sm font-semibold ${text} rounded-xl ${isDark ? 'bg-gray-950/95' : 'bg-white'} border ${border}`}>
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-[#FF385C]" />
                         <span className="truncate max-w-[130px]">{prop.name}</span>
@@ -710,7 +703,6 @@ export default function PlanningPage() {
                       const clean     = getCleaningsForDay(day, prop.id);
                       const maint     = getMaintenanceForDay(day, prop.id);
                       const isToday   = sameDay(day, today);
-                      const isTurnover = checkins.length > 0 && checkouts.length > 0;
                       const hasEvents = occupied.length + checkins.length + checkouts.length + clean.length + maint.length > 0;
 
                       return (
@@ -807,8 +799,6 @@ export default function PlanningPage() {
                   const isToday = sameDay(day, today);
                   // All events across all displayed properties
                   const allBookings  = displayedProperties.flatMap(p => getBookingsForDayProp(day, p.id))
-                    .filter(b => (b.status||'').toUpperCase() !== 'CANCELLED');
-                  const allCheckins  = displayedProperties.flatMap(p => getCheckinsForDay(day, p.id))
                     .filter(b => (b.status||'').toUpperCase() !== 'CANCELLED');
                   const allCheckouts = displayedProperties.flatMap(p => getCheckoutsForDay(day, p.id))
                     .filter(b => (b.status||'').toUpperCase() !== 'CANCELLED');
@@ -958,26 +948,41 @@ function KpiCard({
   value,
   tone,
   isDark,
+  icon,
 }: {
   label: string;
   value: string;
   tone: 'blue' | 'indigo' | 'green' | 'gray' | 'purple' | 'orange' | 'red';
   isDark: boolean;
+  icon?: React.ReactNode;
 }) {
-  const toneMap: Record<typeof tone, string> = {
-    blue: 'from-blue-500/20 to-cyan-500/10 text-blue-300 border-blue-500/20',
-    indigo: 'from-indigo-500/20 to-violet-500/10 text-indigo-300 border-indigo-500/20',
-    green: 'from-emerald-500/20 to-green-500/10 text-emerald-300 border-emerald-500/20',
-    gray: 'from-slate-500/20 to-gray-500/10 text-slate-300 border-slate-500/20',
-    purple: 'from-purple-500/20 to-fuchsia-500/10 text-purple-300 border-purple-500/20',
-    orange: 'from-orange-500/20 to-amber-500/10 text-orange-300 border-orange-500/20',
-    red: 'from-red-500/20 to-rose-500/10 text-red-300 border-red-500/20',
+  const toneMapDark: Record<typeof tone, string> = {
+    blue: 'from-blue-500/20 to-cyan-500/10 border-blue-500/25',
+    indigo: 'from-indigo-500/20 to-violet-500/10 border-indigo-500/25',
+    green: 'from-emerald-500/20 to-green-500/10 border-emerald-500/25',
+    gray: 'from-slate-500/20 to-gray-500/10 border-slate-500/25',
+    purple: 'from-purple-500/20 to-fuchsia-500/10 border-purple-500/25',
+    orange: 'from-orange-500/20 to-amber-500/10 border-orange-500/25',
+    red: 'from-red-500/20 to-rose-500/10 border-red-500/25',
+  };
+
+  const toneMapLight: Record<typeof tone, string> = {
+    blue: 'from-blue-50 to-cyan-50 border-blue-200/70',
+    indigo: 'from-indigo-50 to-violet-50 border-indigo-200/70',
+    green: 'from-emerald-50 to-green-50 border-emerald-200/70',
+    gray: 'from-slate-50 to-gray-100 border-gray-200/80',
+    purple: 'from-purple-50 to-fuchsia-50 border-purple-200/70',
+    orange: 'from-orange-50 to-amber-50 border-orange-200/70',
+    red: 'from-red-50 to-rose-50 border-red-200/70',
   };
 
   return (
-    <div className={`rounded-xl border px-3 py-2 bg-gradient-to-br ${toneMap[tone]} ${isDark ? 'backdrop-blur-sm' : 'bg-white'}`}>
-      <p className={`text-[11px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{label}</p>
-      <p className={`text-lg font-extrabold leading-5 ${isDark ? 'text-white' : 'text-gray-900'}`}>{value}</p>
+    <div className={`rounded-2xl border px-3.5 py-3 bg-gradient-to-br transition-all hover:-translate-y-0.5 ${isDark ? `${toneMapDark[tone]} backdrop-blur-sm` : toneMapLight[tone]}`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className={`text-[11px] font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{label}</p>
+        {icon && <span className={`${isDark ? 'text-white/70' : 'text-gray-500'}`}>{icon}</span>}
+      </div>
+      <p className={`mt-1 text-xl font-black leading-6 tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{value}</p>
     </div>
   );
 }
