@@ -188,6 +188,8 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
   // ── Paramètres pratiques éditables ──────────────────────────────────────
   const [editingParams, setEditingParams] = useState(false);
   const [paramsSaved, setParamsSaved]     = useState(false);
+  const [syncingIcal, setSyncingIcal]     = useState(false);
+  const [syncMessage, setSyncMessage]     = useState<string | null>(null);
 
   const {
     getProperty,
@@ -214,6 +216,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
     minimumStay:     property?.minimumStay     ?? 1,
     maximumStay:     (property?.maximumStay    ?? '') as number | '',
     price:           property?.price           ?? 0,
+    icalUrl:         property?.icalUrl         ?? '',
   });
 
   const handleSaveParams = useCallback(() => {
@@ -225,11 +228,47 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
       minimumStay:     Number(params.minimumStay),
       maximumStay:     params.maximumStay !== '' ? Number(params.maximumStay) : undefined,
       price:           Number(params.price),
+      icalUrl:         params.icalUrl.trim(),
     });
     setEditingParams(false);
     setParamsSaved(true);
     setTimeout(() => setParamsSaved(false), 2500);
   }, [updateProperty, propertyId, params]);
+
+  const handleSyncIcal = useCallback(async () => {
+    const trimmedIcalUrl = params.icalUrl.trim();
+    if (!trimmedIcalUrl) {
+      setSyncMessage('Veuillez renseigner une URL iCal avant de synchroniser.');
+      setTimeout(() => setSyncMessage(null), 3500);
+      return;
+    }
+
+    setSyncingIcal(true);
+    setSyncMessage(null);
+    try {
+      const res = await fetch('/api/sync/ical', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId, icalUrl: trimmedIcalUrl }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload?.success === false) {
+        setSyncMessage(payload?.error || 'Échec de la synchronisation iCal.');
+        return;
+      }
+
+      updateProperty(propertyId, { icalUrl: trimmedIcalUrl });
+      const syncedCount = Number(payload?.syncedBookings || 0);
+      setSyncMessage(`Synchronisation terminée : ${syncedCount} réservation(s) importée(s).`);
+    } catch {
+      setSyncMessage('Impossible de synchroniser pour le moment. Réessayez dans un instant.');
+    } finally {
+      setSyncingIcal(false);
+      setTimeout(() => setSyncMessage(null), 4500);
+    }
+  }, [params.icalUrl, propertyId, updateProperty]);
 
   const handleGenerate = useCallback(() => {
     if (!property) return;
@@ -484,7 +523,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         {/* Revenus 12 mois */}
         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl p-5">
           <div className="flex items-center space-x-3 mb-3">
-            <span className="text-2xl">ðŸ'¶</span>
+            <span className="text-2xl">💶</span>
             <span className="text-xs font-medium text-emerald-700 uppercase tracking-wide">Revenus 12 mois</span>
           </div>
           <p className="text-2xl font-bold text-emerald-800">{revenue12m.toLocaleString('fr-FR')}€</p>
@@ -580,7 +619,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
             ) : (
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => { setEditingParams(false); setParams({ checkInTime: property.checkInTime, checkOutTime: property.checkOutTime, cleaningFee: property.cleaningFee, securityDeposit: property.securityDeposit, minimumStay: property.minimumStay, maximumStay: property.maximumStay ?? '', price: property.price }); }}
+                  onClick={() => { setEditingParams(false); setParams({ checkInTime: property.checkInTime, checkOutTime: property.checkOutTime, cleaningFee: property.cleaningFee, securityDeposit: property.securityDeposit, minimumStay: property.minimumStay, maximumStay: property.maximumStay ?? '', price: property.price, icalUrl: property.icalUrl ?? '' }); }}
                   className="text-xs text-gray-500 hover:text-gray-700 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   Annuler
@@ -607,6 +646,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                 { icon: '💶', label: 'Prix / nuit',    value: `${params.price}€` },
                 { icon: '🧹', label: 'Frais ménage',   value: `${params.cleaningFee}€` },
                 { icon: '🔒', label: 'Caution',        value: `${params.securityDeposit}€` },
+                { icon: '🔗', label: 'Flux iCal',      value: params.icalUrl || 'Non configuré' },
                 ...(params.maximumStay !== '' ? [{ icon: '📆', label: 'Séjour max.', value: `${params.maximumStay} nuits` }] : []),
               ].map((row, i) => (
                 <div key={i} className="flex items-center space-x-3 px-4 py-3">
@@ -643,7 +683,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
               </div>
               {/* Prix / nuit */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">ðŸ'¶ Prix / nuit (€)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">💶 Prix / nuit (€)</label>
                 <input
                   type="number"
                   min={0}
@@ -665,7 +705,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
               </div>
               {/* Caution */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">ðŸ”' Caution (€)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">🔒 Caution (€)</label>
                 <input
                   type="number"
                   min={0}
@@ -697,8 +737,32 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                 />
               </div>
+              {/* URL iCal */}
+              <div className="col-span-2 md:col-span-3">
+                <label className="block text-xs font-medium text-gray-500 mb-1">🔗 URL iCal (Airbnb / Booking)</label>
+                <input
+                  type="url"
+                  placeholder="https://www.airbnb.com/calendar/ical/..."
+                  value={params.icalUrl}
+                  onChange={e => setParams(p => ({ ...p, icalUrl: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                />
+              </div>
             </div>
           )}
+
+          <div className="px-4 pb-4 flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleSyncIcal}
+              disabled={syncingIcal || !params.icalUrl.trim()}
+              className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {syncingIcal ? 'Synchronisation…' : 'Synchroniser maintenant'}
+            </button>
+            {syncMessage && (
+              <span className="text-xs text-gray-600">{syncMessage}</span>
+            )}
+          </div>
         </div>
 
         {property.amenities.length > 0 && (
@@ -750,7 +814,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
                     <div>
                       <p className="font-medium text-gray-900 text-sm">{booking.guestInfo.name}</p>
                       <p className="text-xs text-gray-500">
-                        {new Date(booking.checkIn).toLocaleDateString('fr-FR')} â†' {new Date(booking.checkOut).toLocaleDateString('fr-FR')} · {nights} nuit{nights > 1 ? 's' : ''}
+                        {new Date(booking.checkIn).toLocaleDateString('fr-FR')} → {new Date(booking.checkOut).toLocaleDateString('fr-FR')} · {nights} nuit{nights > 1 ? 's' : ''}
                         {guest && <span className="ml-1 text-gray-400">· {guest.email}</span>}
                       </p>
                     </div>
@@ -928,7 +992,7 @@ export default function PropertySheet({ propertyId, onClose, onEdit }: PropertyS
         </h3>
         {propertyReviews.length === 0 ? (
           <div className="text-center py-8 text-gray-400">
-            <span className="text-3xl block mb-2">ðŸ'¬</span>
+            <span className="text-3xl block mb-2">💬</span>
             <p className="text-sm">Aucun avis pour cette propriété</p>
           </div>
         ) : (

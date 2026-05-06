@@ -349,6 +349,7 @@ type ApiPropertyPayload = {
   updatedAt?: string;
   userId?: string | number;
   cleaningFee?: number;
+  icalUrl?: string;
 };
 
 type ApiPaymentPayload = {
@@ -554,6 +555,7 @@ export function BNBProvider({ children }: { children: ReactNode }) {
             price: toNumber(p.pricePerNight, toNumber(p.price, 0)),
             description: p.description || '',
             images: Array.isArray(p.images) ? p.images : [],
+            icalUrl: p.icalUrl || '',
             status: (p.status || 'ACTIVE').toString().toLowerCase() === 'maintenance'
               ? 'maintenance'
               : (p.status || 'ACTIVE').toString().toLowerCase() === 'inactive'
@@ -857,6 +859,7 @@ export function BNBProvider({ children }: { children: ReactNode }) {
           ...(updates.bathrooms !== undefined && { bathrooms: updates.bathrooms }),
           ...(updates.maxGuests !== undefined && { maxGuests: updates.maxGuests }),
           ...(updates.price !== undefined && { pricePerNight: updates.price }),
+          ...(updates.icalUrl !== undefined && { icalUrl: updates.icalUrl }),
           ...(updates.status !== undefined && { status: toApiPropertyStatus(updates.status) }),
           ...(updates.amenities !== undefined && { amenities: updates.amenities }),
         };

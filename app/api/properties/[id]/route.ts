@@ -177,6 +177,7 @@ export async function PATCH(
         ...(body.bathrooms !== undefined && { bathrooms: body.bathrooms }),
         ...(body.maxGuests !== undefined && { maxGuests: body.maxGuests }),
         ...(body.pricePerNight !== undefined && { pricePerNight: body.pricePerNight }),
+        ...(body.icalUrl !== undefined && { icalUrl: body.icalUrl }),
         ...(body.status && { status: body.status }),
         ...(body.amenities !== undefined && { amenities: body.amenities }),
         ...(body.houseRules !== undefined && { houseRules: body.houseRules }),
