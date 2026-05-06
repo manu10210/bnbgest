@@ -187,6 +187,7 @@ model Property {
   externalId     String?
   externalSource String?
   images         String[]             @default([])
+  icalUrl        String?
   maxGuests      Int?
   metadata       Json?
   pricePerNight  Float?
