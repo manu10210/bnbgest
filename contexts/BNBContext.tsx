@@ -20,6 +20,7 @@ export interface Property {
   createdAt: string;
   updatedAt: string;
   ownerId: number;
+  icalUrl?: string;
   coordinates?: {
     lat: number;
     lng: number;
