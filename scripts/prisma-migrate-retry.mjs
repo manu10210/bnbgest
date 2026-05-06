@@ -3,16 +3,21 @@ import { spawn } from 'node:child_process';
 const MAX_ATTEMPTS = Number(process.env.PRISMA_MIGRATE_MAX_ATTEMPTS || 3);
 const RETRY_DELAY_MS = Number(process.env.PRISMA_MIGRATE_RETRY_DELAY_MS || 5000);
 
+if (process.env.VERCEL === '1' || process.env.VERCEL === 'true') {
+  console.log('[prisma-migrate-retry] Vercel build detected, skipping prisma migrate deploy.');
+  process.exit(0);
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function runMigrateDeploy() {
   return new Promise((resolve, reject) => {
-    const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-    const child = spawn(cmd, ['prisma', 'migrate', 'deploy'], {
+    const child = spawn('npx prisma migrate deploy', {
       stdio: 'inherit',
       env: process.env,
+      shell: true,
     });
 
     child.on('error', reject);
