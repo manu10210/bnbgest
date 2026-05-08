@@ -35,6 +35,11 @@ import {
 } from '../lib/gmail-booking-notes';
 import { syncAirbnbExpensesFromImport } from '../lib/gmail-expense-sync';
 import { resolvePayoutPlan } from '../lib/gmail-payout-resolution';
+import {
+  buildReminderPersistPatch,
+  buildReminderPrepTask,
+  deriveReminderEnrichmentUpdates,
+} from '../lib/gmail-reminder-resolution';
 import { deriveWizardPropertySuggestions } from '../lib/gmail-property-wizard';
 import { resolveNewBookingDuplicate } from '../lib/gmail-duplicate-resolution';
 import { resolveGuestForImport } from '../lib/gmail-guest-resolution';
@@ -2987,25 +2992,28 @@ export default function GmailImporter() {
 
         if (matchedReminder) {
           // Enrichir la réservation existante avec les infos complémentaires du rappel
-          const updates: Record<string, unknown> = {};
-          if (b.checkInTime  && !matchedReminder.checkInTime)  updates.checkInTime  = b.checkInTime;
-          if (b.checkOutTime && !matchedReminder.checkOutTime) updates.checkOutTime = b.checkOutTime;
-          if (b.guests > 0   && !matchedReminder.guests)       updates.guests       = b.guests;
-          if (b.totalPrice > 0 && !matchedReminder.totalPrice) updates.totalPrice   = b.totalPrice;
-          if (b.nightlyRate  && !matchedReminder.nightlyRate)   updates.nightlyRate  = b.nightlyRate;
-          if (b.cleaningFee  && !matchedReminder.cleaningFee)   updates.cleaningFee  = b.cleaningFee;
-          if (b.serviceFee   && !matchedReminder.serviceFee)    updates.serviceFee   = b.serviceFee;
-          if (b.taxAmount    && !matchedReminder.taxAmount)     updates.taxAmount    = b.taxAmount;
+          const updates = deriveReminderEnrichmentUpdates(
+            {
+              guestName: b.guestName,
+              confirmationCode: b.confirmationCode,
+              checkIn: b.checkIn,
+              checkOut: b.checkOut,
+              nights: b.nights,
+              guests: b.guests,
+              totalPrice: b.totalPrice,
+              checkInTime: b.checkInTime,
+              checkOutTime: b.checkOutTime,
+              nightlyRate: b.nightlyRate,
+              cleaningFee: b.cleaningFee,
+              serviceFee: b.serviceFee,
+              taxAmount: b.taxAmount,
+            },
+            matchedReminder,
+          );
           if (Object.keys(updates).length > 0) {
             updateBooking(matchedReminder.id, updates as Parameters<typeof updateBooking>[1]);
             touchLocalBooking(matchedReminder.id, updates);
-            await persistUpdateToDb(matchedReminder.id, {
-              ...(typeof updates.checkIn === 'string' ? { checkIn: updates.checkIn } : {}),
-              ...(typeof updates.checkOut === 'string' ? { checkOut: updates.checkOut } : {}),
-              ...(typeof updates.guests === 'number' ? { guests: updates.guests } : {}),
-              ...(typeof updates.totalPrice === 'number' ? { totalPrice: updates.totalPrice } : {}),
-              status: 'CONFIRMED',
-            });
+            await persistUpdateToDb(matchedReminder.id, buildReminderPersistPatch(updates));
           }
           summary.created++; // compté comme une action (enrichissement)
           pushTrace({
@@ -3073,27 +3081,25 @@ export default function GmailImporter() {
         }
 
         // ── Créer une tâche de préparation J-1 ────────────────────────────
-        const prepDate = new Date(b.checkIn);
-        prepDate.setDate(prepDate.getDate() - 1);
-        const prepDateStr = prepDate.toISOString().split('T')[0];
-
-        addMaintenanceTask({
+        addMaintenanceTask(buildReminderPrepTask({
+          reminder: {
+            guestName: b.guestName,
+            confirmationCode: b.confirmationCode,
+            checkIn: b.checkIn,
+            checkOut: b.checkOut,
+            nights: b.nights,
+            guests: b.guests,
+            totalPrice: b.totalPrice,
+            checkInTime: b.checkInTime,
+            checkOutTime: b.checkOutTime,
+            nightlyRate: b.nightlyRate,
+            cleaningFee: b.cleaningFee,
+            serviceFee: b.serviceFee,
+            taxAmount: b.taxAmount,
+          },
           propertyId: property.id,
-          title: `🔍 Préparation J-1 — ${b.guestName}`,
-          description: [
-            `Vérification avant arrivée le ${fmt(b.checkIn)} (${b.nights} nuit${b.nights > 1 ? 's' : ''}).`,
-            b.guests > 1 ? `${b.guests} voyageurs.` : '1 voyageur.',
-            b.checkInTime  ? `Heure d'arrivée prévue : ${b.checkInTime}.`  : '',
-            b.checkOutTime ? `Heure de départ prévue : ${b.checkOutTime}.` : '',
-            b.confirmationCode ? `Réservation : ${b.confirmationCode}.` : '',
-            'Vérifier : linge propre, ménage, équipements, codes d\'accès.',
-          ].filter(Boolean).join(' '),
-          priority: 'medium',
-          status: 'pending',
-          category: 'inspection',
-          estimatedCost: 0,
-          scheduledDate: prepDateStr,
-        });
+          formatDateLabel: fmt,
+        }));
         summary.tasksCreated++;
 
         // Email de rappel check-in au voyageur (fire-and-forget)
