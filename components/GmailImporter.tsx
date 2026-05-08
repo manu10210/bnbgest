@@ -35,6 +35,7 @@ import {
   buildPayoutFinancialBookingSpecialRequests,
   buildReminderImportNotes,
 } from '../lib/gmail-booking-notes';
+import { syncAirbnbExpensesFromImport } from '../lib/gmail-expense-sync';
 import { deriveWizardPropertySuggestions } from '../lib/gmail-property-wizard';
 import { resolveNewBookingDuplicate } from '../lib/gmail-duplicate-resolution';
 import { resolveGuestForImport } from '../lib/gmail-guest-resolution';
@@ -3267,51 +3268,22 @@ export default function GmailImporter() {
       }
 
       // ── 4.h. Créer les dépenses (Expenses) pour les frais Airbnb retenus ──
-    if ((b.bookingType === 'new' || b.bookingType === 'payout') && ((b.totalPrice > 0) || (b.hostPayout && b.hostPayout > 0))) {
-          const pid = property?.id || defaultProperty?.id;
-
-          // Frais de service (Mise en gestion/frais Airbnb)
-          if (b.serviceFee && b.serviceFee > 0) {
-            fetch('/api/expenses', {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                title: `Frais de service Airbnb (${b.guestName})`,
-                description: 'Frais de plateforme prélevés par Airbnb',
-                amount: b.serviceFee,
-                currency: b.currency || 'EUR',
-                category: 'MANAGEMENT',
-                date: (b.bookingType === 'payout' && b.payoutDate) ? b.payoutDate : b.checkIn,
-                propertyId: pid,
-                vendor: 'Airbnb',
-                notes: b.confirmationCode ? `Réservation: ${b.confirmationCode}` : '',
-              }),
-            }).catch(console.error); // silencieux
-            summary.expensesCreated++;
-          }
-
-          // Taxes de séjour retenues
-          if (b.taxAmount && b.taxAmount > 0) {
-            fetch('/api/expenses', {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                title: `Taxes de séjour Airbnb (${b.guestName})`,
-                description: 'Taxes retenues et reversées par Airbnb',
-                amount: b.taxAmount,
-                currency: b.currency || 'EUR',
-                category: 'TAX',
-                date: (b.bookingType === 'payout' && b.payoutDate) ? b.payoutDate : b.checkIn,
-                propertyId: pid,
-                vendor: 'Airbnb',
-                notes: b.confirmationCode ? `Réservation: ${b.confirmationCode}` : '',
-              }),
-            }).catch(console.error);
-            summary.expensesCreated++;
-          }
-        }
+      const pid = property?.id || defaultProperty?.id;
+      summary.expensesCreated += syncAirbnbExpensesFromImport({
+        booking: {
+          bookingType: b.bookingType,
+          totalPrice: b.totalPrice,
+          hostPayout: b.hostPayout,
+          serviceFee: b.serviceFee,
+          taxAmount: b.taxAmount,
+          guestName: b.guestName,
+          currency: b.currency,
+          payoutDate: b.payoutDate,
+          checkIn: b.checkIn,
+          confirmationCode: b.confirmationCode,
+        },
+        propertyId: pid,
+      });
       }
 
       const importedMessageIds = Array.from(new Set(
