@@ -29,6 +29,7 @@ import {
   persistBookingUpdateToDb,
   type PersistBookingUpdatePayload,
 } from '../lib/gmail-import-persistence';
+import { resolveNewBookingDuplicate } from '../lib/gmail-duplicate-resolution';
 import { resolveGuestForImport } from '../lib/gmail-guest-resolution';
 import { resolvePropertyAssignment } from '../lib/gmail-property-resolution';
 import NewPropertyWizard, {
@@ -2566,88 +2567,72 @@ export default function GmailImporter() {
 
       // ── 3. Vérifier doublon ───────────────────────────────────────────────
       // a) Par code de confirmation (fiable)
-      // IMPORTANT: la déduplication stricte ne s'applique qu'aux "new".
-      // Pour les réimports, on peut corriger une réservation existante (dates/nuits) au lieu de skip.
-      if (b.bookingType === 'new' && normalizeConfirmationCode(b.confirmationCode)) {
-        const duplicateByCode = localBookings.find((eb) => bookingHasConfirmationCode(eb, b.confirmationCode));
-        if (duplicateByCode) {
-          const canResyncDates = isIsoDate(b.checkIn) && isIsoDate(b.checkOut)
-            && isIsoDate(duplicateByCode.checkIn) && isIsoDate(duplicateByCode.checkOut)
-            && (duplicateByCode.checkIn !== b.checkIn || duplicateByCode.checkOut !== b.checkOut);
+      // b) Sans code: par dates + voyageur + logement
+      // IMPORTANT: déduplication stricte uniquement pour les "new".
+      if (b.bookingType === 'new') {
+        const duplicateResolution = resolveNewBookingDuplicate({
+          booking: {
+            confirmationCode: b.confirmationCode,
+            checkIn: b.checkIn,
+            checkOut: b.checkOut,
+            guests: b.guests,
+            totalPrice: b.totalPrice,
+            receivedAt: b.receivedAt,
+            guestName: b.guestName,
+            guestEmail: b.guestEmail,
+            guestPhone: b.guestPhone,
+          },
+          propertyId: property?.id,
+          localBookings,
+          normalizeConfirmationCode,
+          bookingHasConfirmationCode,
+          bookingMatchesGuestIdentity,
+          computeGuestIdentity,
+          isIsoDate,
+          formatDateLabel: fmt,
+        });
 
-          if (canResyncDates) {
-            const patchedSpecialRequests = [
-              duplicateByCode.specialRequests || '',
-              `[RESYNC DATES Gmail ${fmt(b.receivedAt)}] ${b.checkIn} → ${b.checkOut}`,
-            ].filter(Boolean).join(' | ');
+        if (duplicateResolution.kind === 'resync') {
+          const { duplicateBooking, patchedSpecialRequests, mergedGuests, mergedTotalPrice } = duplicateResolution;
 
-            const mergedGuests = b.guests > 0 ? b.guests : duplicateByCode.guests;
-            const mergedTotalPrice = b.totalPrice > 0 ? b.totalPrice : duplicateByCode.totalPrice;
+          updateBooking(duplicateBooking.id, {
+            checkIn: b.checkIn,
+            checkOut: b.checkOut,
+            guests: mergedGuests,
+            totalPrice: mergedTotalPrice,
+            specialRequests: patchedSpecialRequests,
+          });
+          touchLocalBooking(duplicateBooking.id, {
+            checkIn: b.checkIn,
+            checkOut: b.checkOut,
+            guests: mergedGuests,
+            totalPrice: mergedTotalPrice,
+            specialRequests: patchedSpecialRequests,
+          });
+          await persistUpdateToDb(duplicateBooking.id, {
+            checkIn: b.checkIn,
+            checkOut: b.checkOut,
+            guests: mergedGuests,
+            totalPrice: mergedTotalPrice,
+            status: 'CONFIRMED',
+            specialRequests: patchedSpecialRequests.slice(0, 4900),
+          });
 
-            updateBooking(duplicateByCode.id, {
-              checkIn: b.checkIn,
-              checkOut: b.checkOut,
-              guests: mergedGuests,
-              totalPrice: mergedTotalPrice,
-              specialRequests: patchedSpecialRequests,
-            });
-            touchLocalBooking(duplicateByCode.id, {
-              checkIn: b.checkIn,
-              checkOut: b.checkOut,
-              guests: mergedGuests,
-              totalPrice: mergedTotalPrice,
-              specialRequests: patchedSpecialRequests,
-            });
-            await persistUpdateToDb(duplicateByCode.id, {
-              checkIn: b.checkIn,
-              checkOut: b.checkOut,
-              guests: mergedGuests,
-              totalPrice: mergedTotalPrice,
-              status: 'CONFIRMED',
-              specialRequests: patchedSpecialRequests.slice(0, 4900),
-            });
-
-            summary.created++;
-            summary.datesResynced++;
-            pushTrace({
-              messageId: b.messageId,
-              bookingType: b.bookingType,
-              guestName: b.guestName || '—',
-              status: 'success',
-              action: 'booking_dates_resynced',
-              reason: 'duplicate_confirmation_code_with_wrong_dates',
-              receivedAt: b.receivedAt,
-            });
-          } else {
-            summary.skipped++;
-            summary.skippedDuplicate++;
-            pushTrace({
-              messageId: b.messageId,
-              bookingType: b.bookingType,
-              guestName: b.guestName || '—',
-              status: 'skipped',
-              action: 'skip_duplicate',
-              reason: 'duplicate_confirmation_code',
-              receivedAt: b.receivedAt,
-            });
-          }
+          summary.created++;
+          summary.datesResynced++;
+          pushTrace({
+            messageId: b.messageId,
+            bookingType: b.bookingType,
+            guestName: b.guestName || '—',
+            status: 'success',
+            action: 'booking_dates_resynced',
+            reason: 'duplicate_confirmation_code_with_wrong_dates',
+            receivedAt: b.receivedAt,
+          });
           continue;
         }
-      }
-      // b) Par dates + voyageur + logement (pour emails sans confirmationCode)
-      if (!normalizeConfirmationCode(b.confirmationCode) && property && b.bookingType === 'new') {
-        const incomingGuestIdentity = computeGuestIdentity({
-          name: b.guestName,
-          email: b.guestEmail,
-          phone: b.guestPhone,
-        });
-        const alreadyExists = localBookings.some((eb) => (
-          eb.propertyId === property.id
-          && eb.checkIn === b.checkIn
-          && eb.checkOut === b.checkOut
-          && bookingMatchesGuestIdentity(eb, incomingGuestIdentity)
-        ));
-        if (alreadyExists) {
+
+        if (duplicateResolution.kind === 'skip') {
           summary.skipped++;
           summary.skippedDuplicate++;
           pushTrace({
@@ -2656,7 +2641,7 @@ export default function GmailImporter() {
             guestName: b.guestName || '—',
             status: 'skipped',
             action: 'skip_duplicate',
-            reason: 'duplicate_dates_guest_property',
+            reason: duplicateResolution.reason,
             receivedAt: b.receivedAt,
           });
           continue;
