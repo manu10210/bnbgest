@@ -35,6 +35,7 @@ import {
   buildPayoutFinancialBookingSpecialRequests,
   buildReminderImportNotes,
 } from '../lib/gmail-booking-notes';
+import { deriveWizardPropertySuggestions } from '../lib/gmail-property-wizard';
 import { resolveNewBookingDuplicate } from '../lib/gmail-duplicate-resolution';
 import { resolveGuestForImport } from '../lib/gmail-guest-resolution';
 import { resolvePropertyAssignment } from '../lib/gmail-property-resolution';
@@ -3337,47 +3338,21 @@ export default function GmailImporter() {
       }
 
       // ── 5. Détecter les nouveaux logements inconnus ───────────────────────
-      // Tous les emails (importés ou non) avec un propertyName qui ne correspond
-      // à aucun logement existant → proposer le wizard de création.
-      const isKnownProperty = (name: string) => {
-        const normalizedCandidate = normalizePropertyLabelForWizard(name);
-        return findMatchingProperty(name, runtimeProperties) !== undefined
-          || (!!normalizedCandidate && findMatchingProperty(normalizedCandidate, runtimeProperties) !== undefined);
-      };
+      const wizardSuggestions = deriveWizardPropertySuggestions({
+        bookings: toImport,
+        runtimeProperties,
+        skippedNoPropertyCount: summary.skippedNoProperty,
+        rejectedPropertySet,
+        getWizardPropertyCandidate,
+        normalizeForMatch,
+        normalizePropertyLabelForWizard,
+        normalizeSubjectLabelForWizard,
+        findMatchingProperty,
+      });
 
-      // On prend TOUS les bookings importés (toImport) avec
-      // un propertyName détecté mais inconnu — pour ne rater aucun nouveau logement
-      const allCandidates = toImport
-        .filter(b => {
-          if (b.bookingType === 'review' || b.bookingType === 'payout') return false;
-          const candidateLabel = getWizardPropertyCandidate(b);
-          if (!candidateLabel) return false;
-          if (isKnownProperty(candidateLabel)) return false;
-          const normalizedLabel = normalizeForMatch(candidateLabel);
-          return !rejectedPropertySet.has(normalizedLabel);
-        });
-
-      const allNamesForWizard = allCandidates
-        .map((b) => getWizardPropertyCandidate(b))
-        .filter(Boolean);
-
-      // Cas aucun logement configuré : si aucun nom extrait mais des emails sans logement,
-      // proposer le wizard avec les noms uniques trouvés dans les sujets des emails
-  if (allNamesForWizard.length === 0 && summary.skippedNoProperty > 0) {
-        // Extraire les noms uniques depuis les sujets des emails skippés
-        const fallbackNames = Array.from(new Set(
-          toImport
-            .filter(b => !b.propertyName?.trim())
-            .map(b => {
-              // Si le sujet ressemble à "Prénom arrive le...", "arrive le", "arrive demain"
-              // ou tout autre sujet de rappel/voyageur, ce n'est PAS un nom de logement
-              return normalizeSubjectLabelForWizard(b.subject);
-            })
-      .filter(n => n.length >= 5 && !/[?=&%]|https?:/.test(n) && !(n.length > 50 && !n.includes(' ')))
-      .filter((name) => !rejectedPropertySet.has(normalizeForMatch(name)))
-        ));
-        if (fallbackNames.length > 0) {
-          const queue = fallbackNames.map(n => analyzeAirbnbTitle(n));
+      if (wizardSuggestions.candidateNames.length === 0 && summary.skippedNoProperty > 0) {
+        if (wizardSuggestions.fallbackNames.length > 0) {
+          const queue = wizardSuggestions.fallbackNames.map((name) => analyzeAirbnbTitle(name));
           setPropertyQueue(queue.slice(1));
           setCurrentWizard(queue[0]);
           setStatus('done');
@@ -3391,7 +3366,7 @@ export default function GmailImporter() {
         return;
       }
 
-  const newNames = findNewPropertyNames(allNamesForWizard, runtimeProperties);
+      const newNames = findNewPropertyNames(wizardSuggestions.candidateNames, runtimeProperties);
       if (newNames.length > 0) {
         const queue = newNames.map(n => analyzeAirbnbTitle(n));
         setPropertyQueue(queue.slice(1));
