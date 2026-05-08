@@ -39,6 +39,7 @@ import {
   deriveCheckoutInventoryUpdatePlan,
   resolveCheckoutCompletion,
 } from '../lib/gmail-checkout-resolution';
+import { resolveModifiedPlan } from '../lib/gmail-modified-resolution';
 import { resolvePayoutPlan } from '../lib/gmail-payout-resolution';
 import {
   buildReminderPersistPatch,
@@ -2815,27 +2816,43 @@ export default function GmailImporter() {
           maxCheckInDiffDays: 7,
         });
 
-        if (match) {
-          const patchedSpecialRequests = `[MODIFIÉ] ${notes}`;
-          updateBooking(match.id, {
+        const modifiedPlan = resolveModifiedPlan({
+          booking: {
             checkIn: b.checkIn,
             checkOut: b.checkOut,
             guests: b.guests,
-            totalPrice: b.totalPrice || match.totalPrice,
+            totalPrice: b.totalPrice,
+            guestName: b.guestName,
+            guestEmail: b.guestEmail,
+            guestPhone: b.guestPhone,
+          },
+          match,
+          propertyId: property.id,
+          guestId,
+          notes,
+        });
+
+        if (modifiedPlan.kind === 'update') {
+          const { bookingId, mergedTotalPrice, patchedSpecialRequests } = modifiedPlan;
+          updateBooking(bookingId, {
+            checkIn: b.checkIn,
+            checkOut: b.checkOut,
+            guests: b.guests,
+            totalPrice: mergedTotalPrice,
             specialRequests: patchedSpecialRequests,
           });
-          touchLocalBooking(match.id, {
+          touchLocalBooking(bookingId, {
             checkIn: b.checkIn,
             checkOut: b.checkOut,
             guests: b.guests,
-            totalPrice: b.totalPrice || match.totalPrice,
+            totalPrice: mergedTotalPrice,
             specialRequests: patchedSpecialRequests,
           });
-          await persistUpdateToDb(match.id, {
+          await persistUpdateToDb(bookingId, {
             checkIn: b.checkIn,
             checkOut: b.checkOut,
             guests: b.guests,
-            totalPrice: b.totalPrice || match.totalPrice,
+            totalPrice: mergedTotalPrice,
             status: 'CONFIRMED',
             specialRequests: patchedSpecialRequests.slice(0, 4900),
           });
@@ -2849,18 +2866,7 @@ export default function GmailImporter() {
             receivedAt: b.receivedAt,
           });
         } else {
-          const bookingPayload: Parameters<typeof addBooking>[0] = {
-            propertyId: property.id,
-            guestId,
-            checkIn: b.checkIn,
-            checkOut: b.checkOut,
-            guests: b.guests,
-            totalPrice: b.totalPrice || 0,
-            status: 'confirmed',
-            paymentStatus: b.totalPrice > 0 ? 'paid' : 'pending',
-            specialRequests: `[MODIFIÉ] ${notes}`,
-            guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
-          };
+          const bookingPayload: Parameters<typeof addBooking>[0] = modifiedPlan.bookingPayload;
           const dbPersistResult = await persistToDb(bookingPayload, 'modified');
           if (!dbPersistResult.id) {
             summary.skipped++;
