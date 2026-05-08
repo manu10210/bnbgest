@@ -29,6 +29,7 @@ import {
   persistBookingUpdateToDb,
   type PersistBookingUpdatePayload,
 } from '../lib/gmail-import-persistence';
+import { resolveGuestForImport } from '../lib/gmail-guest-resolution';
 import { resolvePropertyAssignment } from '../lib/gmail-property-resolution';
 import NewPropertyWizard, {
   analyzeAirbnbTitle,
@@ -2545,60 +2546,23 @@ export default function GmailImporter() {
       }
 
       // ── 2. Trouver ou créer le voyageur (Guest) ──────────────────────────
-      let guestId = 0;
-      if (b.guestName && b.guestName !== 'Voyageur Airbnb') {
-        const incomingGuestIdentity = computeGuestIdentity({
-          name: b.guestName,
-          email: b.guestEmail,
-          phone: b.guestPhone,
-        });
-        const existing = localGuests.find((g) => {
-          const identity = computeGuestIdentity({ name: g.name, email: g.email, phone: g.phone });
-          return !!incomingGuestIdentity && !!identity && identity === incomingGuestIdentity;
-        });
-
-        if (existing) {
-          const updates: Partial<typeof existing> = {};
-          if (b.guestEmail && !existing.email) updates.email = b.guestEmail;
-          if (b.guestPhone && !existing.phone) updates.phone = b.guestPhone;
-          if (b.totalPrice > 0) updates.totalSpent = (existing.totalSpent || 0) + b.totalPrice;
-          if (Object.keys(updates).length) {
-            updateGuest(existing.id, updates);
-            Object.assign(existing, updates);
-          }
-          guestId = existing.id;
-          summary.guestsUpdated++;
-        } else if (b.bookingType === 'new') {
-          const nextGuestId = Math.max(...localGuests.map(g => g.id), 0) + 1;
-          addGuest({
-            name: b.guestName,
-            email: b.guestEmail || '',
-            phone: b.guestPhone || '',
-            language: 'fr',
-            status: 'active',
-            nationality: undefined,
-            lastBooking: b.checkIn,
-            preferences: { smoking: false, pets: false, parties: false, preferredAmenities: [] },
-          });
-          localGuests.push({
-            id: nextGuestId,
-            name: b.guestName,
-            email: b.guestEmail || '',
-            phone: b.guestPhone || '',
-            language: 'fr',
-            status: 'active',
-            nationality: undefined,
-            lastBooking: b.checkIn,
-            preferences: { smoking: false, pets: false, parties: false, preferredAmenities: [] },
-            createdAt: new Date().toISOString(),
-            totalBookings: 0,
-            totalSpent: 0,
-            rating: 0,
-          });
-          guestId = nextGuestId;
-          summary.guestsCreated++;
-        }
-      }
+      const guestResolution = resolveGuestForImport({
+        booking: {
+          guestName: b.guestName,
+          guestEmail: b.guestEmail,
+          guestPhone: b.guestPhone,
+          totalPrice: b.totalPrice,
+          bookingType: b.bookingType,
+          checkIn: b.checkIn,
+        },
+        localGuests,
+        computeGuestIdentity,
+        addGuest,
+        updateGuest,
+      });
+      const guestId = guestResolution.guestId;
+      summary.guestsCreated += guestResolution.guestsCreatedDelta;
+      summary.guestsUpdated += guestResolution.guestsUpdatedDelta;
 
       // ── 3. Vérifier doublon ───────────────────────────────────────────────
       // a) Par code de confirmation (fiable)
