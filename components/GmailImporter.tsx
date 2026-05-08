@@ -2320,6 +2320,7 @@ export default function GmailImporter() {
     }
 
   const summary = { created: 0, cancelled: 0, guestsCreated: 0, guestsUpdated: 0, skipped: 0, skippedDuplicate: 0, skippedNoProperty: 0, dbFailed: 0, datesResynced: 0, tasksCreated: 0, reviewsImported: 0, payoutsSaved: 0, expensesCreated: 0, rescuedAggressive: 0, rescuedSingleProperty: 0 };
+    let dbAuthFailed = 0;
     const localGuests = [...guests];
     const localBookings = [...existingBookings];
     const localToDbBookingId = new Map<number, number>();
@@ -2395,6 +2396,13 @@ export default function GmailImporter() {
       });
     };
 
+    const trackDbFailure = (reason?: string) => {
+      summary.dbFailed++;
+      if (typeof reason === 'string' && /^http_(401|403)/.test(reason)) {
+        dbAuthFailed++;
+      }
+    };
+
     const touchLocalBooking = (id: number, updates: Record<string, unknown>) => {
       const idx = localBookings.findIndex(b => b.id === id);
       if (idx === -1) return;
@@ -2436,7 +2444,7 @@ export default function GmailImporter() {
     ): Promise<{ id?: number; error?: string }> => {
       try {
         const specialReqs = payload.specialRequests ?? null;
-        let apiCheckIn = toApiDateTime(payload.checkIn, 15);
+  const apiCheckIn = toApiDateTime(payload.checkIn, 15);
         let apiCheckOut = toApiDateTime(payload.checkOut, 11);
         
         if (!apiCheckIn || !apiCheckOut) {
@@ -2888,7 +2896,7 @@ export default function GmailImporter() {
         const dbPersistResult = await persistToDb(bookingPayload, 'new');
         if (!dbPersistResult.id) {
           summary.skipped++;
-          summary.dbFailed++;
+          trackDbFailure(dbPersistResult.error);
           pushTrace({
             messageId: b.messageId,
             bookingType: b.bookingType,
@@ -3049,7 +3057,7 @@ export default function GmailImporter() {
           const dbPersistResult = await persistToDb(bookingPayload, 'modified');
           if (!dbPersistResult.id) {
             summary.skipped++;
-            summary.dbFailed++;
+            trackDbFailure(dbPersistResult.error);
             pushTrace({
               messageId: b.messageId,
               bookingType: b.bookingType,
@@ -3240,7 +3248,7 @@ export default function GmailImporter() {
           const dbPersistResult = await persistToDb(bookingPayload, 'new');
           if (!dbPersistResult.id) {
             summary.skipped++;
-            summary.dbFailed++;
+            trackDbFailure(dbPersistResult.error);
             pushTrace({
               messageId: b.messageId,
               bookingType: b.bookingType,
@@ -3421,7 +3429,7 @@ export default function GmailImporter() {
             const dbPersistResult = await persistToDb(bookingPayload, 'new');
             if (!dbPersistResult.id) {
               summary.skipped++;
-              summary.dbFailed++;
+              trackDbFailure(dbPersistResult.error);
               pushTrace({
                 messageId: b.messageId,
                 bookingType: b.bookingType,
@@ -3468,6 +3476,7 @@ export default function GmailImporter() {
           if (b.serviceFee && b.serviceFee > 0) {
             fetch('/api/expenses', {
               method: 'POST',
+              credentials: 'include',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 title: `Frais de service Airbnb (${b.guestName})`,
@@ -3488,6 +3497,7 @@ export default function GmailImporter() {
           if (b.taxAmount && b.taxAmount > 0) {
             fetch('/api/expenses', {
               method: 'POST',
+              credentials: 'include',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 title: `Taxes de séjour Airbnb (${b.guestName})`,
@@ -3518,7 +3528,11 @@ export default function GmailImporter() {
       setSelected(new Set());
 
       if (summary.dbFailed > 0) {
-        toast.error(`⚠️ ${summary.dbFailed} réservation(s) non persistée(s) en base.`);
+        if (dbAuthFailed > 0) {
+          toast.error(`⚠️ ${summary.dbFailed} réservation(s) non persistée(s) en base (dont ${dbAuthFailed} erreur(s) d'authentification). Reconnectez-vous puis relancez l'import.`);
+        } else {
+          toast.error(`⚠️ ${summary.dbFailed} réservation(s) non persistée(s) en base.`);
+        }
       }
 
       if (summary.datesResynced > 0) {

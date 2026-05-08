@@ -126,6 +126,8 @@ export default function PlanningPage() {
   const [cleanings, setCleanings]     = useState<Cleaning[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceTask[]>([]);
   const [loading, setLoading]         = useState(true);
+  const [bookingsFetchState, setBookingsFetchState] = useState<'idle' | 'ok' | 'unauthorized' | 'error'>('idle');
+  const [usingLocalFallback, setUsingLocalFallback] = useState(false);
   const [selectedProp, setSelectedProp] = useState<number | 'all'>('all');
   const [dayDetail, setDayDetail]     = useState<{ date: Date; propId: number } | null>(null);
   const [exporting, setExporting]     = useState<ExportFormat | null>(null);
@@ -156,6 +158,8 @@ export default function PlanningPage() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    setUsingLocalFallback(false);
+    setBookingsFetchState('idle');
     try {
       const { start, end } = dateRange();
       const s = isoDay(addDays(start, -1));
@@ -181,6 +185,7 @@ export default function PlanningPage() {
 
       // Bookings
       if (bookRes.ok) {
+        setBookingsFetchState('ok');
         const d = await bookRes.json();
         const list = d.bookings || d || [];
         console.log(`[Planning] API bookings chargées: ${list.length}`, list.slice(0,3));
@@ -197,11 +202,13 @@ export default function PlanningPage() {
             specialRequests: b.specialRequests ?? null, source: undefined, payments: [],
           }));
           console.warn(`[Planning] DB vide → utilisation temporaire du fallback localStorage (${fallback.length} résa)`);
+          setUsingLocalFallback(true);
           setBookings(fallback);
         } else {
           setBookings(list);
         }
       } else {
+        setBookingsFetchState(bookRes.status === 401 || bookRes.status === 403 ? 'unauthorized' : 'error');
         // Fallback : BNBContext localStorage en cas d'erreur de l'API
         const fallback = ctxBookings.map((b) => ({
           id: b.id, propertyId: b.propertyId,
@@ -211,6 +218,9 @@ export default function PlanningPage() {
           confirmationCode: null, guestPhone: b.guestInfo?.phone ?? null,
           specialRequests: b.specialRequests ?? null, source: undefined, payments: [],
         }));
+        if (fallback.length > 0) {
+          setUsingLocalFallback(true);
+        }
         console.warn(`[Planning] API /api/bookings échouée (${bookRes.status}) → fallback localStorage (${fallback.length} résa)`);
         setBookings(fallback);
       }
@@ -232,6 +242,7 @@ export default function PlanningPage() {
         })));
       }
     } catch {
+      setBookingsFetchState('error');
       toast.error('Erreur lors du chargement');
     } finally {
       setLoading(false);
@@ -631,6 +642,15 @@ export default function PlanningPage() {
         ))}
       </div>
 
+      {!loading && usingLocalFallback && (
+        <div className={`mx-4 mb-3 p-3 rounded-xl border ${isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-200' : 'border-amber-300 bg-amber-50 text-amber-800'}`}>
+          <p className="text-sm font-medium">⚠️ Données locales affichées</p>
+          <p className="text-xs opacity-90 mt-0.5">
+            Le planning affiche un fallback local (localStorage). La base distante n&apos;a pas répondu correctement.
+          </p>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="w-10 h-10 border-4 border-[#FF385C] border-t-transparent rounded-full animate-spin" />
@@ -642,8 +662,11 @@ export default function PlanningPage() {
             <div>
               <p className={`font-semibold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>Aucune réservation sur cette période</p>
               <p className={`text-sm ${isDark ? 'text-amber-400/80' : 'text-amber-600'}`}>
-                La base de données ne contient pas encore de réservations. 
-                Veuillez importer vos anciens emails Airbnb via l&apos;outil Gmail.
+                {bookingsFetchState === 'unauthorized'
+                  ? 'Session expirée ou accès refusé à la base. Reconnectez-vous puis rafraîchissez.'
+                  : bookingsFetchState === 'error'
+                    ? 'Impossible de charger les réservations depuis la base pour le moment. Réessayez dans quelques secondes.'
+                    : 'Aucune réservation trouvée pour la période affichée. Importez vos emails Airbnb si besoin.'}
               </p>
             </div>
           </div>
