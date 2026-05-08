@@ -2056,7 +2056,7 @@ export default function GmailImporter() {
     }).catch(() => { /* silencieux — non bloquant */ });
   }, []);
 
-  const normalizeCountryCode = (value?: string): string => {
+  const normalizeCountryCode = useCallback((value?: string): string => {
     const v = (value || '').trim().toUpperCase();
     if (v === 'FR' || v === 'FRANCE') return 'FR';
     if (v === 'BE' || v === 'BELGIUM' || v === 'BELGIQUE') return 'BE';
@@ -2065,9 +2065,9 @@ export default function GmailImporter() {
     if (v === 'IT' || v === 'ITALY' || v === 'ITALIE') return 'IT';
     if (v === 'DE' || v === 'GERMANY' || v === 'ALLEMAGNE') return 'DE';
     return /^[A-Z]{2}$/.test(v) ? v : 'FR';
-  };
+  }, []);
 
-  const toContextPropertyFromApi = (raw: {
+  const toContextPropertyFromApi = useCallback((raw: {
     id: number;
     name: string;
     address: string;
@@ -2124,7 +2124,7 @@ export default function GmailImporter() {
       availabilityCalendar: [],
       rules: [],
     };
-  };
+  }, [normalizeCountryCode]);
 
   const fetchDbProperties = useCallback(async (): Promise<Property[]> => {
     const res = await fetch('/api/properties?limit=300', { credentials: 'include' });
@@ -2221,7 +2221,7 @@ export default function GmailImporter() {
     const data = await res.json();
     if (!data?.property?.id) return undefined;
     return toContextPropertyFromApi(data.property);
-  }, [session, toContextPropertyFromApi]);
+  }, [session, normalizeCountryCode, toContextPropertyFromApi]);
 
   const ensureDefaultProperty = useCallback(async (): Promise<Property | undefined> => {
     const existingDbProperties = await fetchDbProperties().catch(() => [] as Property[]);
@@ -3603,7 +3603,7 @@ export default function GmailImporter() {
 
       setTimeout(() => setStatus('idle'), 2500);
       setStatus('done');
-  }, [bookings, selected, properties, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive, ensureDefaultProperty, ensureCanonicalT3Property, rejectedPropertySet, fetchDbProperties]);
+  }, [bookings, selected, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive, ensureDefaultProperty, ensureCanonicalT3Property, rejectedPropertySet, fetchDbProperties]);
 
   // ─── Purge des données importées depuis Gmail ─────────────────────────────
   // Supprime TOUTES les réservations créées via l'import Gmail.
