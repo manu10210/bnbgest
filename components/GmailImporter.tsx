@@ -29,6 +29,7 @@ import {
   persistBookingUpdateToDb,
   type PersistBookingUpdatePayload,
 } from '../lib/gmail-import-persistence';
+import { resolvePropertyAssignment } from '../lib/gmail-property-resolution';
 import NewPropertyWizard, {
   analyzeAirbnbTitle,
   findNewPropertyNames,
@@ -2465,102 +2466,35 @@ export default function GmailImporter() {
       //   si aucun nom de logement n'a été extrait.
       //   Pour payout/review : logique spécifique ensuite.
       const useFallback = b.bookingType !== 'payout' && b.bookingType !== 'review';
-      const hasDetectedPropertyName = !!b.propertyName?.trim();
       const overridePropertyId = propertyOverrides[b.messageId];
-      const aliasTarget = hasDetectedPropertyName ? resolvePropertyAliasTarget(b.propertyName || '') : undefined;
-      let property = overridePropertyId
-        ? runtimeProperties.find((p) => p.id === overridePropertyId)
-        : findMatchingProperty(b.propertyName, runtimeProperties);
+      const resolvedProperty = resolvePropertyAssignment({
+        booking: b,
+        runtimeProperties,
+        localBookings,
+        defaultProperty,
+        overridePropertyId,
+        expertModeAggressive,
+        useFallback,
+        normalizeForMatch,
+        resolvePropertyAliasTarget,
+        findMatchingProperty,
+        inferPropertyFromContext,
+        findBestPropertyCandidate,
+      });
 
-      if (overridePropertyId && property) {
+      let property = resolvedProperty.property;
+      summary.rescuedAggressive += resolvedProperty.rescuedAggressive;
+      summary.rescuedSingleProperty += resolvedProperty.rescuedSingleProperty;
+      for (const event of resolvedProperty.events) {
         pushTrace({
           messageId: b.messageId,
           bookingType: b.bookingType,
           guestName: b.guestName || '—',
           status: 'success',
-          action: 'property_override_applied',
-          reason: `property_id:${overridePropertyId}`,
+          action: event.action,
+          reason: event.reason,
           receivedAt: b.receivedAt,
         });
-      }
-
-      if (!overridePropertyId && property && aliasTarget && normalizeForMatch(property.name) === normalizeForMatch(aliasTarget)) {
-        const aliasSource = (b.propertyName || '').trim();
-        pushTrace({
-          messageId: b.messageId,
-          bookingType: b.bookingType,
-          guestName: b.guestName || '—',
-          status: 'success',
-          action: 'property_alias_autofix',
-          reason: `alias_match:${aliasSource}=>${property.name}`,
-          receivedAt: b.receivedAt,
-        });
-      }
-
-      if (!property) {
-        const inferred = inferPropertyFromContext(b, runtimeProperties, localBookings);
-        if (inferred) {
-          property = inferred;
-          pushTrace({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'success',
-            action: 'property_inferred_from_context',
-            reason: hasDetectedPropertyName
-              ? `property_name_unmatched_context_used:${inferred.name}`
-              : `property_missing_context_used:${inferred.name}`,
-            receivedAt: b.receivedAt,
-          });
-        }
-      }
-
-      // Mode expert agressif : si le matching standard échoue, tenter un rattachement
-      // avec un seuil plus permissif mais contrôlé (score + ambiguïté). On teste le nom extrait ou le sujet global.
-      if (!property && expertModeAggressive && useFallback) {
-        const candidateText = b.propertyName || b.subject || '';
-        if (candidateText) {
-          const aggressiveCandidate = findBestPropertyCandidate(candidateText, runtimeProperties);
-          const scoreGap = aggressiveCandidate.score - aggressiveCandidate.secondScore;
-          // Seuils rabaissés : on fait davantage confiance au meilleur candidat
-          const hasStrongConfidence = aggressiveCandidate.score >= 25;
-          const hasSafeLead = aggressiveCandidate.score >= 15 && !aggressiveCandidate.ambiguous && scoreGap >= 8;
-
-          if (aggressiveCandidate.property && (hasStrongConfidence || hasSafeLead)) {
-            property = aggressiveCandidate.property;
-            summary.rescuedAggressive++;
-            pushTrace({
-              messageId: b.messageId,
-              bookingType: b.bookingType,
-              guestName: b.guestName || '—',
-              status: 'success',
-              action: 'property_aggressive_autofix',
-              reason: `aggressive_match_score:${aggressiveCandidate.score}`,
-              receivedAt: b.receivedAt,
-            });
-          }
-        }
-      }
-
-      if (!property && !hasDetectedPropertyName && useFallback) {
-        property = defaultProperty;
-      }
-
-      // Cas extrême mono-logement: on force le rattachement pour éviter les imports bloqués.
-      if (!property && expertModeAggressive && useFallback && runtimeProperties.length === 1) {
-        property = defaultProperty;
-        if (property) {
-          summary.rescuedSingleProperty++;
-          pushTrace({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'success',
-            action: 'property_single_property_force',
-            reason: `single_property_forced:${property.name}`,
-            receivedAt: b.receivedAt,
-          });
-        }
       }
 
       // ── 1b. Pour les avis (review) : retrouver le logement par recoupement ──
