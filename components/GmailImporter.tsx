@@ -34,6 +34,11 @@ import {
   buildReminderImportNotes,
 } from '../lib/gmail-booking-notes';
 import { syncAirbnbExpensesFromImport } from '../lib/gmail-expense-sync';
+import {
+  buildCheckoutCleaningTask,
+  deriveCheckoutInventoryUpdatePlan,
+  resolveCheckoutCompletion,
+} from '../lib/gmail-checkout-resolution';
 import { resolvePayoutPlan } from '../lib/gmail-payout-resolution';
 import {
   buildReminderPersistPatch,
@@ -2895,9 +2900,20 @@ export default function GmailImporter() {
           requireCheckOut: true,
         });
 
-        if (match && match.status !== 'completed' && match.status !== 'cancelled') {
-          const checkoutSpecialRequests = `${match.specialRequests || ''} | [TERMINÉ] Départ confirmé Gmail`;
-          const checkoutTotalPrice = b.hostPayout || b.totalPrice || match.totalPrice;
+        const checkoutResolution = resolveCheckoutCompletion({
+          guestName: b.guestName,
+          checkIn: b.checkIn,
+          checkOut: b.checkOut,
+          guests: b.guests,
+          hostPayout: b.hostPayout,
+          totalPrice: b.totalPrice,
+          cleaningFee: b.cleaningFee,
+          currency: b.currency,
+          confirmationCode: b.confirmationCode,
+        }, match);
+
+        if (checkoutResolution.kind === 'complete' && match) {
+          const { checkoutSpecialRequests, checkoutTotalPrice } = checkoutResolution;
           // Marquer comme terminée + montant réel reçu (hostPayout si dispo)
           updateBooking(match.id, {
             status: 'completed',
@@ -2941,37 +2957,32 @@ export default function GmailImporter() {
         }
 
         // Créer automatiquement une tâche de ménage post-départ
-        const cleaningDate = b.checkOut; // jour du départ
         const alreadyHasCleaning = false; // simplifié — on crée toujours
         if (!alreadyHasCleaning) {
-          addMaintenanceTask({
+          addMaintenanceTask(buildCheckoutCleaningTask({
+            booking: {
+              guestName: b.guestName,
+              checkIn: b.checkIn,
+              checkOut: b.checkOut,
+              guests: b.guests,
+              hostPayout: b.hostPayout,
+              totalPrice: b.totalPrice,
+              cleaningFee: b.cleaningFee,
+              currency: b.currency,
+              confirmationCode: b.confirmationCode,
+            },
             propertyId: property.id,
-            title: `🧹 Ménage post-départ — ${b.guestName}`,
-            description: [
-              `Nettoyage complet après séjour du ${fmt(b.checkIn)} au ${fmt(b.checkOut)}.`,
-              b.guests > 1 ? `${b.guests} voyageurs.` : '',
-              b.cleaningFee ? `Frais ménage prévus : ${b.cleaningFee}${b.currency === 'EUR' ? '€' : b.currency}.` : '',
-              notes,
-            ].filter(Boolean).join(' '),
-            priority: 'high',
-            status: 'pending',
-            category: 'cleaning',
-            estimatedCost: b.cleaningFee || 0,
-            scheduledDate: cleaningDate,
-          });
+            notes,
+            formatDateLabel: fmt,
+          }));
           summary.tasksCreated++;
 
           // Décrémenter l'inventaire consommables (ménage/literie/linge) du logement
-          const consumables = inventory.filter(i =>
-            i.propertyId === property.id &&
-            (['cleaning', 'bedding', 'towels'] as string[]).includes(i.category) &&
-            i.quantity > 0
-          );
-          for (const item of consumables) {
-            const newQty = Math.max(0, item.quantity - 1);
-            updateInventoryItem(item.id, {
-              quantity: newQty,
-              status: newQty === 0 ? 'out_of_stock' : newQty <= item.minimumQuantity ? 'low_stock' : 'in_stock',
+          const inventoryUpdatePlan = deriveCheckoutInventoryUpdatePlan(inventory, property.id);
+          for (const update of inventoryUpdatePlan) {
+            updateInventoryItem(update.itemId, {
+              quantity: update.quantity,
+              status: update.status,
             });
           }
           // getLowStockItems() → NotificationCenter auto-génère les alertes stock bas
