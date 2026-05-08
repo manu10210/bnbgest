@@ -1607,6 +1607,8 @@ export default function GmailImporter() {
   const [rejectedBookings, setRejectedBookings] = useState<RejectedBooking[]>([]);
   const [activeRejectReason, setActiveRejectReason] = useState<string>('all');
   const [importTrace, setImportTrace] = useState<ImportTraceEntry[]>([]);
+  const [traceStatusFilter, setTraceStatusFilter] = useState<'all' | ImportTraceEntry['status']>('all');
+  const [traceSearch, setTraceSearch] = useState('');
   const [propertyOverrides, setPropertyOverrides] = useState<Record<string, number>>({});
   const [learnedPropertyAliases, setLearnedPropertyAliases] = useState<Record<string, string>>({});
   const [rejectedPropertyLabels, setRejectedPropertyLabels] = useState<string[]>([]);
@@ -4040,6 +4042,41 @@ export default function GmailImporter() {
     return map[status] || status;
   };
 
+  const importTraceStats = useMemo(() => {
+    return importTrace.reduce(
+      (acc, row) => {
+        acc[row.status] += 1;
+        return acc;
+      },
+      { success: 0, skipped: 0, error: 0 } as Record<ImportTraceEntry['status'], number>,
+    );
+  }, [importTrace]);
+
+  const importTraceTopErrorReasons = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of importTrace) {
+      if (row.status !== 'error') continue;
+      const key = row.reason || 'unknown_error';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+  }, [importTrace]);
+
+  const filteredImportTrace = useMemo(() => {
+    const normalizedQuery = normalizeForMatch(traceSearch);
+    return importTrace.filter((row) => {
+      if (traceStatusFilter !== 'all' && row.status !== traceStatusFilter) return false;
+      if (!normalizedQuery) return true;
+
+      const haystack = normalizeForMatch(
+        `${row.messageId} ${row.guestName} ${row.action} ${row.reason || ''} ${row.bookingType}`,
+      );
+      return haystack.includes(normalizedQuery);
+    });
+  }, [importTrace, traceSearch, traceStatusFilter]);
+
   // ─── Avancer dans la file de nouveaux logements ───────────────────────────
 
   const advanceQueue = useCallback(() => {
@@ -4844,11 +4881,74 @@ export default function GmailImporter() {
 
           {importTrace.length > 0 && (
             <div className={`border rounded-xl ${isDark ? 'border-gray-700 bg-gray-800/40' : 'border-gray-200 bg-white'}`}>
-              <div className={`px-4 py-2 border-b text-xs font-semibold ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-700'}`}>
-                🧾 Trace d&apos;import ({importTrace.length})
+              <div className={`px-4 py-3 border-b space-y-2 ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-700'}`}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-semibold">🧾 Trace d&apos;import ({importTrace.length})</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${isDark ? 'bg-green-900/40 text-green-300' : 'bg-green-100 text-green-700'}`}>
+                    ✅ {importTraceStats.success}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${isDark ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
+                    ⏭️ {importTraceStats.skipped}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${isDark ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700'}`}>
+                    ❌ {importTraceStats.error}
+                  </span>
+                </div>
+
+                {importTraceTopErrorReasons.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 text-[10px]">
+                    {importTraceTopErrorReasons.map(([reason, count]) => (
+                      <span
+                        key={reason}
+                        className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-red-900/30 text-red-200' : 'bg-red-50 text-red-700 border border-red-100'}`}
+                      >
+                        {formatImportTraceReasonLabel(reason)} · {count}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    value={traceStatusFilter}
+                    onChange={(event) => setTraceStatusFilter(event.target.value as 'all' | ImportTraceEntry['status'])}
+                    className={`text-[11px] rounded-md border px-2 py-1 ${isDark ? 'bg-gray-800 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-700'}`}
+                  >
+                    <option value="all">Tous les statuts</option>
+                    <option value="success">Succès</option>
+                    <option value="skipped">Ignorés</option>
+                    <option value="error">Erreurs</option>
+                  </select>
+
+                  <input
+                    type="text"
+                    value={traceSearch}
+                    onChange={(event) => setTraceSearch(event.target.value)}
+                    placeholder="Rechercher (message, action, raison, voyageur...)"
+                    className={`min-w-[260px] flex-1 text-[11px] rounded-md border px-2 py-1 ${isDark ? 'bg-gray-800 border-gray-600 text-gray-200 placeholder:text-gray-500' : 'bg-white border-gray-300 text-gray-700 placeholder:text-gray-400'}`}
+                  />
+
+                  {(traceStatusFilter !== 'all' || traceSearch.trim() !== '') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTraceStatusFilter('all');
+                        setTraceSearch('');
+                      }}
+                      className={`text-[11px] px-2 py-1 rounded-md border font-medium ${isDark ? 'border-gray-600 text-gray-200 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+                    >
+                      Réinitialiser
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="max-h-56 overflow-auto text-[11px]">
-                {importTrace.slice().reverse().map((row, idx) => (
+                {filteredImportTrace.length === 0 && (
+                  <div className={`px-4 py-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Aucun élément ne correspond aux filtres actuels.
+                  </div>
+                )}
+                {filteredImportTrace.slice().reverse().map((row, idx) => (
                   <div key={`${row.messageId}-${idx}`} className={`px-4 py-2 border-b last:border-b-0 ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-100 text-gray-700'}`}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`px-1.5 py-0.5 rounded ${row.status === 'success'
