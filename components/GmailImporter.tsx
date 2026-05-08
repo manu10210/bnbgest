@@ -31,11 +31,10 @@ import {
 } from '../lib/gmail-import-persistence';
 import {
   buildBookingImportNotes,
-  buildPayoutAttachmentSpecialRequests,
-  buildPayoutFinancialBookingSpecialRequests,
   buildReminderImportNotes,
 } from '../lib/gmail-booking-notes';
 import { syncAirbnbExpensesFromImport } from '../lib/gmail-expense-sync';
+import { resolvePayoutPlan } from '../lib/gmail-payout-resolution';
 import { deriveWizardPropertySuggestions } from '../lib/gmail-property-wizard';
 import { resolveNewBookingDuplicate } from '../lib/gmail-duplicate-resolution';
 import { resolveGuestForImport } from '../lib/gmail-guest-resolution';
@@ -3154,18 +3153,25 @@ export default function GmailImporter() {
           propertyId: property?.id,
         });
 
-  const payoutAmount = b.hostPayout || b.totalPrice || 0;
-  const payoutDateStr = b.payoutDate || b.receivedAt?.split('T')[0] || new Date().toISOString().split('T')[0];
+        const payoutPlan = resolvePayoutPlan({
+          booking: {
+            hostPayout: b.hostPayout,
+            totalPrice: b.totalPrice,
+            payoutDate: b.payoutDate,
+            receivedAt: b.receivedAt,
+            confirmationCode: b.confirmationCode,
+            propertyName: b.propertyName,
+          },
+          matchedBooking: payoutBooking,
+          fallbackPropertyId: property?.id ?? (runtimeProperties[0]?.id ?? 0),
+          formatDateLabel: fmt,
+        });
 
-        if (payoutBooking) {
-          const payoutSpecialRequests = buildPayoutAttachmentSpecialRequests(
-            payoutBooking.specialRequests,
-            payoutAmount,
-            payoutDateStr,
-          );
+        if (payoutPlan.kind === 'attach') {
+          const { bookingId, payoutAmount, payoutDateStr, payoutSpecialRequests } = payoutPlan;
 
           // Mettre à jour la réservation existante avec les infos financières
-          updateBooking(payoutBooking.id, {
+          updateBooking(bookingId, {
             paymentStatus: 'paid',
             hostPayout: payoutAmount,
             ...(b.cleaningFee ? { cleaningFee: b.cleaningFee } : {}),
@@ -3174,7 +3180,7 @@ export default function GmailImporter() {
             payoutConfirmed: true,
             specialRequests: payoutSpecialRequests,
           });
-          touchLocalBooking(payoutBooking.id, {
+          touchLocalBooking(bookingId, {
             paymentStatus: 'paid',
             hostPayout: payoutAmount,
             ...(b.cleaningFee ? { cleaningFee: b.cleaningFee } : {}),
@@ -3183,7 +3189,7 @@ export default function GmailImporter() {
             payoutConfirmed: true,
             specialRequests: payoutSpecialRequests,
           });
-          await persistUpdateToDb(payoutBooking.id, {
+          await persistUpdateToDb(bookingId, {
             totalPrice: payoutAmount,
             specialRequests: payoutSpecialRequests.slice(0, 4900),
             paymentStatus: 'paid',
@@ -3199,13 +3205,12 @@ export default function GmailImporter() {
             action: 'payout_attached_to_booking',
             receivedAt: b.receivedAt,
           });
-        } else if (payoutAmount > 0) {
+        } else if (payoutPlan.kind === 'create') {
+          const { targetPropertyId, payoutAmount, payoutDateStr, financialSpecialRequests } = payoutPlan;
           // Aucune réservation trouvée → créer une réservation "fantôme" financière
           // pour tracer le versement dans les données
-          const pid = property?.id ?? (runtimeProperties[0]?.id ?? 0);
-          if (pid) {
             const bookingPayload: Parameters<typeof addBooking>[0] = {
-              propertyId: pid,
+              propertyId: targetPropertyId,
               guestId: guestId || 0,
               checkIn: b.checkIn,
               checkOut: b.checkOut,
@@ -3218,11 +3223,7 @@ export default function GmailImporter() {
               ...(b.serviceFee  ? { serviceFee:  b.serviceFee  } : {}),
               payoutDate: payoutDateStr,
               payoutConfirmed: true,
-              specialRequests: buildPayoutFinancialBookingSpecialRequests({
-                confirmationCode: b.confirmationCode,
-                receivedAt: b.receivedAt,
-                propertyName: b.propertyName,
-              }, payoutAmount, fmt),
+              specialRequests: financialSpecialRequests,
               guestInfo: { name: b.guestName || 'Airbnb Payout', email: b.guestEmail || '', phone: '' },
             };
             const dbPersistResult = await persistToDb(bookingPayload, 'new');
@@ -3253,15 +3254,14 @@ export default function GmailImporter() {
               action: 'payout_created_as_financial_booking',
               receivedAt: b.receivedAt,
             });
-          }
-        } else {
+        } else if (payoutPlan.kind === 'skip') {
           pushTrace({
             messageId: b.messageId,
             bookingType: b.bookingType,
             guestName: b.guestName || '—',
             status: 'skipped',
             action: 'payout_skipped',
-            reason: 'missing_payout_amount',
+            reason: payoutPlan.reason,
             receivedAt: b.receivedAt,
           });
         }
