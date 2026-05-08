@@ -15,6 +15,15 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import {
+  computeImportTraceStats,
+  computeImportTraceTopErrorReasons,
+  filterImportTrace,
+  formatImportTraceActionLabel,
+  formatImportTraceReasonLabel,
+  formatImportTraceStatusLabel,
+  type ImportTraceStatus,
+} from '../lib/gmail-import-trace';
 import NewPropertyWizard, {
   analyzeAirbnbTitle,
   findNewPropertyNames,
@@ -1607,7 +1616,7 @@ export default function GmailImporter() {
   const [rejectedBookings, setRejectedBookings] = useState<RejectedBooking[]>([]);
   const [activeRejectReason, setActiveRejectReason] = useState<string>('all');
   const [importTrace, setImportTrace] = useState<ImportTraceEntry[]>([]);
-  const [traceStatusFilter, setTraceStatusFilter] = useState<'all' | ImportTraceEntry['status']>('all');
+  const [traceStatusFilter, setTraceStatusFilter] = useState<'all' | ImportTraceStatus>('all');
   const [traceSearch, setTraceSearch] = useState('');
   const [propertyOverrides, setPropertyOverrides] = useState<Record<string, number>>({});
   const [learnedPropertyAliases, setLearnedPropertyAliases] = useState<Record<string, string>>({});
@@ -3968,113 +3977,19 @@ export default function GmailImporter() {
     return map[reason] || reason;
   };
 
-  const formatImportTraceActionLabel = (action: string): string => {
-    const map: Record<string, string> = {
-      property_override_applied: 'Logement forcé appliqué',
-      property_alias_autofix: 'Logement rattaché via alias',
-      property_inferred_from_context: 'Logement déduit du contexte',
-      property_aggressive_autofix: 'Logement rattaché en mode expert',
-      property_single_property_force: 'Rattachement forcé (mono-logement)',
-      booking_created: 'Réservation créée',
-      booking_cancelled: 'Réservation annulée',
-      booking_updated: 'Réservation mise à jour',
-      booking_created_from_modified: 'Réservation créée depuis une modification',
-      booking_completed_checkout: 'Séjour marqué terminé (checkout)',
-      booking_enriched_from_reminder: 'Réservation enrichie depuis un rappel',
-      booking_created_from_reminder: 'Réservation créée depuis un rappel',
-      review_imported: 'Avis importé',
-      payout_attached_to_booking: 'Versement rattaché à une réservation',
-      payout_created_as_financial_booking: 'Versement créé en écriture financière',
-      skip_no_property: 'Import ignoré (logement introuvable)',
-      skip_duplicate: 'Import ignoré (doublon)',
-      cancel_not_found: 'Annulation ignorée (réservation introuvable)',
-      checkout_not_found: 'Checkout ignoré (réservation introuvable)',
-      payout_skipped: 'Versement ignoré',
-    };
-    return map[action] || action;
-  };
-
-  const formatImportTraceReasonLabel = (reason: string): string => {
-    if (reason.startsWith('alias_match:')) {
-      const payload = reason.slice('alias_match:'.length);
-      const [fromRaw, toRaw] = payload.split('=>');
-      const from = (fromRaw || '').trim();
-      const to = (toRaw || '').trim();
-      if (from && to) return `Alias appliqué : "${from}" → "${to}"`;
-      return 'Alias logement appliqué automatiquement';
-    }
-    if (reason.startsWith('property_id:')) {
-      return `ID logement appliqué (${reason.split(':')[1] || 'inconnu'})`;
-    }
-    if (reason.startsWith('property_name_unmatched_context_used:')) {
-      const name = reason.split(':').slice(1).join(':').trim();
-      return `Nom logement initial non reconnu, contexte utilisé${name ? ` (${name})` : ''}`;
-    }
-    if (reason.startsWith('property_missing_context_used:')) {
-      const name = reason.split(':').slice(1).join(':').trim();
-      return `Logement manquant, déduit via contexte${name ? ` (${name})` : ''}`;
-    }
-    if (reason.startsWith('aggressive_match_score:')) {
-      const score = reason.split(':')[1] || '0';
-      return `Matching expert appliqué (score ${score}%)`;
-    }
-    if (reason.startsWith('single_property_forced:')) {
-      const name = reason.split(':').slice(1).join(':').trim();
-      return `Affectation forcée (mode mono-logement)${name ? ` (${name})` : ''}`;
-    }
-
-    const map: Record<string, string> = {
-      no_matching_property: 'Aucun logement correspondant',
-      duplicate_confirmation_code: 'Doublon détecté via code de confirmation',
-      duplicate_dates_guest_property: 'Doublon détecté via dates + voyageur + logement',
-      no_matching_booking: 'Aucune réservation correspondante',
-      missing_payout_amount: 'Montant de versement absent',
-    };
-    return map[reason] || reason;
-  };
-
-  const formatImportTraceStatusLabel = (status: ImportTraceEntry['status']): string => {
-    const map: Record<ImportTraceEntry['status'], string> = {
-      success: 'Succès',
-      skipped: 'Ignoré',
-      error: 'Erreur',
-    };
-    return map[status] || status;
-  };
-
   const importTraceStats = useMemo(() => {
-    return importTrace.reduce(
-      (acc, row) => {
-        acc[row.status] += 1;
-        return acc;
-      },
-      { success: 0, skipped: 0, error: 0 } as Record<ImportTraceEntry['status'], number>,
-    );
+    return computeImportTraceStats(importTrace);
   }, [importTrace]);
 
   const importTraceTopErrorReasons = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const row of importTrace) {
-      if (row.status !== 'error') continue;
-      const key = row.reason || 'unknown_error';
-      counts.set(key, (counts.get(key) || 0) + 1);
-    }
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
+    return computeImportTraceTopErrorReasons(importTrace, 3);
   }, [importTrace]);
 
   const filteredImportTrace = useMemo(() => {
-    const normalizedQuery = normalizeForMatch(traceSearch);
-    return importTrace.filter((row) => {
-      if (traceStatusFilter !== 'all' && row.status !== traceStatusFilter) return false;
-      if (!normalizedQuery) return true;
-
-      const haystack = normalizeForMatch(
-        `${row.messageId} ${row.guestName} ${row.action} ${row.reason || ''} ${row.bookingType}`,
-      );
-      return haystack.includes(normalizedQuery);
-    });
+    return filterImportTrace(importTrace, {
+      statusFilter: traceStatusFilter,
+      query: traceSearch,
+    }) as ImportTraceEntry[];
   }, [importTrace, traceSearch, traceStatusFilter]);
 
   // ─── Avancer dans la file de nouveaux logements ───────────────────────────
@@ -4911,7 +4826,7 @@ export default function GmailImporter() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <select
                     value={traceStatusFilter}
-                    onChange={(event) => setTraceStatusFilter(event.target.value as 'all' | ImportTraceEntry['status'])}
+                    onChange={(event) => setTraceStatusFilter(event.target.value as 'all' | ImportTraceStatus)}
                     className={`text-[11px] rounded-md border px-2 py-1 ${isDark ? 'bg-gray-800 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-700'}`}
                   >
                     <option value="all">Tous les statuts</option>
