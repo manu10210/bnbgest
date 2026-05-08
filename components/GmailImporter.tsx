@@ -29,6 +29,12 @@ import {
   persistBookingUpdateToDb,
   type PersistBookingUpdatePayload,
 } from '../lib/gmail-import-persistence';
+import {
+  buildBookingImportNotes,
+  buildPayoutAttachmentSpecialRequests,
+  buildPayoutFinancialBookingSpecialRequests,
+  buildReminderImportNotes,
+} from '../lib/gmail-booking-notes';
 import { resolveNewBookingDuplicate } from '../lib/gmail-duplicate-resolution';
 import { resolveGuestForImport } from '../lib/gmail-guest-resolution';
 import { resolvePropertyAssignment } from '../lib/gmail-property-resolution';
@@ -2648,23 +2654,19 @@ export default function GmailImporter() {
         }
       }
 
-      const notes = [
-        b.confirmationCode ? `Code Airbnb: ${b.confirmationCode}` : '',
-        `Importé depuis Gmail (${fmt(b.receivedAt)})`,
-        b.propertyName ? `Logement: ${b.propertyName}` : '',
-        b.guestPhone ? `Tél: ${b.guestPhone}` : '',
-        b.airbnbListingId ? `Annonce Airbnb ID: ${b.airbnbListingId}` : '',
-        b.guestLanguage ? `Langue: ${b.guestLanguage}` : '',
-        b.guestCountry ? `Pays: ${b.guestCountry}` : '',
-        (b.guestAdults || b.guestChildren || b.guestInfants || b.guestPets)
-          ? `Composition: ${[
-              b.guestAdults ? `${b.guestAdults} adulte${b.guestAdults > 1 ? 's' : ''}` : '',
-              b.guestChildren ? `${b.guestChildren} enfant${b.guestChildren > 1 ? 's' : ''}` : '',
-              b.guestInfants ? `${b.guestInfants} bébé${b.guestInfants > 1 ? 's' : ''}` : '',
-              b.guestPets ? `${b.guestPets} animal${b.guestPets > 1 ? 'aux' : ''}` : '',
-            ].filter(Boolean).join(', ')}`
-          : '',
-      ].filter(Boolean).join(' | ');
+      const notes = buildBookingImportNotes({
+        confirmationCode: b.confirmationCode,
+        receivedAt: b.receivedAt,
+        propertyName: b.propertyName,
+        guestPhone: b.guestPhone,
+        airbnbListingId: b.airbnbListingId,
+        guestLanguage: b.guestLanguage,
+        guestCountry: b.guestCountry,
+        guestAdults: b.guestAdults,
+        guestChildren: b.guestChildren,
+        guestInfants: b.guestInfants,
+        guestPets: b.guestPets,
+      }, fmt);
 
       // ── 4a. Nouvelle réservation ──────────────────────────────────────────
       if (b.bookingType === 'new' && property) {
@@ -3031,12 +3033,12 @@ export default function GmailImporter() {
             cleaningFee:  b.cleaningFee,
             serviceFee:   b.serviceFee,
             taxAmount:    b.taxAmount,
-            specialRequests: [
-              b.confirmationCode ? `Code Airbnb: ${b.confirmationCode}` : '',
-              `Importé depuis rappel Gmail (${fmt(b.receivedAt)})`,
-              b.propertyName ? `Logement: ${b.propertyName}` : '',
-              b.guestPhone   ? `Tél: ${b.guestPhone}`        : '',
-            ].filter(Boolean).join(' | '),
+            specialRequests: buildReminderImportNotes({
+              confirmationCode: b.confirmationCode,
+              receivedAt: b.receivedAt,
+              propertyName: b.propertyName,
+              guestPhone: b.guestPhone,
+            }, fmt),
             guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
           };
           const dbPersistResult = await persistToDb(bookingPayload, 'new');
@@ -3154,10 +3156,11 @@ export default function GmailImporter() {
   const payoutDateStr = b.payoutDate || b.receivedAt?.split('T')[0] || new Date().toISOString().split('T')[0];
 
         if (payoutBooking) {
-          const payoutSpecialRequests = [
-            payoutBooking.specialRequests || '',
-            `[VERSEMENT ${payoutAmount}€ le ${payoutDateStr}]`,
-          ].filter(Boolean).join(' | ');
+          const payoutSpecialRequests = buildPayoutAttachmentSpecialRequests(
+            payoutBooking.specialRequests,
+            payoutAmount,
+            payoutDateStr,
+          );
 
           // Mettre à jour la réservation existante avec les infos financières
           updateBooking(payoutBooking.id, {
@@ -3213,11 +3216,11 @@ export default function GmailImporter() {
               ...(b.serviceFee  ? { serviceFee:  b.serviceFee  } : {}),
               payoutDate: payoutDateStr,
               payoutConfirmed: true,
-              specialRequests: [
-                b.confirmationCode ? `Code Airbnb: ${b.confirmationCode}` : '',
-                `Versement Airbnb ${payoutAmount}€ — importé Gmail (${fmt(b.receivedAt)})`,
-                b.propertyName ? `Logement: ${b.propertyName}` : '',
-              ].filter(Boolean).join(' | '),
+              specialRequests: buildPayoutFinancialBookingSpecialRequests({
+                confirmationCode: b.confirmationCode,
+                receivedAt: b.receivedAt,
+                propertyName: b.propertyName,
+              }, payoutAmount, fmt),
               guestInfo: { name: b.guestName || 'Airbnb Payout', email: b.guestEmail || '', phone: '' },
             };
             const dbPersistResult = await persistToDb(bookingPayload, 'new');
