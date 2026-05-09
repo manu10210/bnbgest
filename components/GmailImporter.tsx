@@ -60,6 +60,10 @@ import {
   buildReminderPrepTask,
   deriveReminderEnrichmentUpdates,
 } from '../lib/gmail-reminder-resolution';
+import {
+  resolveReviewFallbackProperty,
+  shouldSkipImportForMissingProperty,
+} from '../lib/gmail-import-gating';
 import { deriveWizardPropertySuggestions } from '../lib/gmail-property-wizard';
 import { resolveNewBookingDuplicate } from '../lib/gmail-duplicate-resolution';
 import { resolveGuestForImport } from '../lib/gmail-guest-resolution';
@@ -2535,35 +2539,25 @@ export default function GmailImporter() {
       // L'email d'avis Airbnb ne contient pas le nom du logement.
       // Stratégie : chercher la réservation la plus récente du voyageur dans les 30j
       // avant la réception de l'email, puis utiliser son propertyId.
-      if (!property && b.bookingType === 'review') {
-        const reviewDate = new Date(b.receivedAt);
-        const reviewIdentity = computeGuestIdentity({
-          name: b.guestName,
-          email: b.guestEmail,
-          phone: b.guestPhone,
-        });
-        // Chercher une réservation récente du même voyageur (checkout dans les 30j précédents)
-        const recentBooking = localBookings
-          .filter(eb => {
-            const checkOut = new Date(eb.checkOut);
-            const daysDiff = (reviewDate.getTime() - checkOut.getTime()) / (1000 * 60 * 60 * 24);
-            return daysDiff >= 0 && daysDiff <= 30
-              && (
-                bookingMatchesGuestIdentity(eb, reviewIdentity)
-                || bookingHasConfirmationCode(eb, b.confirmationCode)
-              );
-          })
-          .sort((a, z) => new Date(z.checkOut).getTime() - new Date(a.checkOut).getTime())[0];
+      property = resolveReviewFallbackProperty({
+        booking: {
+          bookingType: b.bookingType,
+          receivedAt: b.receivedAt,
+          guestName: b.guestName,
+          guestEmail: b.guestEmail,
+          guestPhone: b.guestPhone,
+          confirmationCode: b.confirmationCode,
+        },
+        property,
+        localBookings,
+        runtimeProperties,
+        defaultProperty,
+        computeGuestIdentity,
+        bookingMatchesGuestIdentity,
+        bookingHasConfirmationCode,
+      });
 
-        if (recentBooking) {
-          property = runtimeProperties.find(p => p.id === recentBooking.propertyId) ?? defaultProperty;
-        } else {
-          // Dernier recours : utiliser le logement par défaut (hôte gère 1 logement)
-          property = defaultProperty;
-        }
-      }
-
-      if (!property && b.bookingType !== 'cancelled' && b.bookingType !== 'payout' && b.bookingType !== 'review') {
+      if (shouldSkipImportForMissingProperty(b.bookingType, property)) {
         summary.skipped++;
         summary.skippedNoProperty++;
         pushTrace({
