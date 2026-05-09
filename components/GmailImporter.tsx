@@ -26,6 +26,10 @@ import {
 } from '../lib/gmail-import-trace';
 import { buildPersistFailureTraceEntry } from '../lib/gmail-import-failures';
 import {
+  buildBookingCreatedTraceEntry,
+  registerLocalDbBookingLink,
+} from '../lib/gmail-import-success';
+import {
   persistBookingToDb,
   persistBookingUpdateToDb,
   type PersistBookingUpdatePayload,
@@ -2725,17 +2729,20 @@ export default function GmailImporter() {
         }
 
         addBooking(bookingPayload);
-        const localBookingId = pushLocalBooking(bookingPayload);
-    localToDbBookingId.set(localBookingId, dbPersistResult.id);
-    summary.created++;
-        pushTrace({
+        registerLocalDbBookingLink({
+          bookingPayload,
+          dbBookingId: dbPersistResult.id,
+          pushLocalBooking,
+          localToDbBookingId,
+        });
+        summary.created++;
+        pushTrace(buildBookingCreatedTraceEntry({
           messageId: b.messageId,
           bookingType: b.bookingType,
-          guestName: b.guestName || '—',
-          status: 'success',
+          guestName: b.guestName,
           action: 'booking_created',
           receivedAt: b.receivedAt,
-        });
+        }));
 
         // Incrémenter le compteur de réservations du voyageur
         if (guestId) {
@@ -2896,17 +2903,20 @@ export default function GmailImporter() {
           }
 
           addBooking(bookingPayload);
-          const localBookingId = pushLocalBooking(bookingPayload);
-          localToDbBookingId.set(localBookingId, dbPersistResult.id);
+          registerLocalDbBookingLink({
+            bookingPayload,
+            dbBookingId: dbPersistResult.id,
+            pushLocalBooking,
+            localToDbBookingId,
+          });
           summary.created++;
-          pushTrace({
+          pushTrace(buildBookingCreatedTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'success',
+            guestName: b.guestName,
             action: 'booking_created_from_modified',
             receivedAt: b.receivedAt,
-          });
+          }));
         }
       }
 
@@ -3095,17 +3105,20 @@ export default function GmailImporter() {
           }
 
           addBooking(bookingPayload);
-          const localBookingId = pushLocalBooking(bookingPayload);
-          localToDbBookingId.set(localBookingId, dbPersistResult.id);
+          registerLocalDbBookingLink({
+            bookingPayload,
+            dbBookingId: dbPersistResult.id,
+            pushLocalBooking,
+            localToDbBookingId,
+          });
           summary.created++;
-          pushTrace({
+          pushTrace(buildBookingCreatedTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'success',
+            guestName: b.guestName,
             action: 'booking_created_from_reminder',
             receivedAt: b.receivedAt,
-          });
+          }));
         }
 
         // ── Créer une tâche de préparation J-1 ────────────────────────────
@@ -3277,17 +3290,20 @@ export default function GmailImporter() {
             }
 
             addBooking(bookingPayload);
-            const localBookingId = pushLocalBooking(bookingPayload);
-            localToDbBookingId.set(localBookingId, dbPersistResult.id);
+            registerLocalDbBookingLink({
+              bookingPayload,
+              dbBookingId: dbPersistResult.id,
+              pushLocalBooking,
+              localToDbBookingId,
+            });
             summary.created++;
-            pushTrace({
+            pushTrace(buildBookingCreatedTraceEntry({
               messageId: b.messageId,
               bookingType: b.bookingType,
-              guestName: b.guestName || '—',
-              status: 'success',
+              guestName: b.guestName,
               action: 'payout_created_as_financial_booking',
               receivedAt: b.receivedAt,
-            });
+            }));
         } else if (payoutPlan.kind === 'skip') {
           pushTrace({
             messageId: b.messageId,
