@@ -1690,6 +1690,7 @@ export default function GmailImporter() {
   const [showAliasManager, setShowAliasManager] = useState(false);
   const [expertModeAggressive, setExpertModeAggressive] = useState(true);
   const scanInFlightRef = useRef(false);
+  const progressStartedAtRef = useRef<number | null>(null);
   const propertyDecisionsHydratedRef = useRef(false);
   const aliasImportInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1697,6 +1698,12 @@ export default function GmailImporter() {
     () => new Set(rejectedPropertyLabels.map((label) => normalizeForMatch(label)).filter(Boolean)),
     [rejectedPropertyLabels]
   );
+
+  useEffect(() => {
+    if (status === 'syncing' || status === 'importing') return;
+    progressStartedAtRef.current = null;
+    setRuntimeProgress(null);
+  }, [status]);
 
   useEffect(() => {
     try {
@@ -1888,6 +1895,7 @@ export default function GmailImporter() {
   const syncGmail = useCallback(async () => {
     if (scanInFlightRef.current) return;
     scanInFlightRef.current = true;
+    progressStartedAtRef.current = Date.now();
     setStatus('syncing');
     setRuntimeProgress({
       phase: 'connect',
@@ -2387,6 +2395,7 @@ export default function GmailImporter() {
   // ─── Importer les réservations sélectionnées ──────────────────────────────
 
   const importSelected = useCallback(async () => {
+  progressStartedAtRef.current = Date.now();
   setStatus('importing');
     const toImport = bookings.filter(b => selected.has(b.messageId));
   setRuntimeProgress({
@@ -3948,6 +3957,23 @@ export default function GmailImporter() {
   const overlayCounterLabel = status === 'importing'
     ? `${overlayProcessed}/${overlayTotal} email${overlayTotal > 1 ? 's' : ''} traité${overlayProcessed > 1 ? 's' : ''}`
     : `Étape ${Math.min(activeOverlayStepIndex + 1, overlaySteps.length)}/${overlaySteps.length}`;
+  const overlayEtaLabel = (() => {
+    const startedAt = progressStartedAtRef.current;
+    if (!startedAt || overlayProcessed <= 0 || overlayProcessed >= overlayTotal) return null;
+
+    const elapsedSec = Math.max(1, (Date.now() - startedAt) / 1000);
+    const throughput = overlayProcessed / elapsedSec;
+    if (!Number.isFinite(throughput) || throughput <= 0) return null;
+
+    const remainingSec = Math.round((overlayTotal - overlayProcessed) / throughput);
+    if (!Number.isFinite(remainingSec) || remainingSec <= 0) return null;
+
+    if (remainingSec < 60) return `~${remainingSec}s restantes`;
+    if (remainingSec < 3600) return `~${Math.ceil(remainingSec / 60)} min restantes`;
+    const hours = Math.floor(remainingSec / 3600);
+    const minutes = Math.ceil((remainingSec % 3600) / 60);
+    return `~${hours}h${minutes.toString().padStart(2, '0')} restantes`;
+  })();
 
   return (
     <>
@@ -3982,7 +4008,7 @@ export default function GmailImporter() {
                     {status === 'importing' ? 'Import en cours' : 'Analyse de votre Gmail'}
                   </h3>
                   <p className={`mt-1 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                    {status === 'importing' ? 'Extraction, classification et préparation des écritures…' : 'Recherche de réservations et données financières…'}
+                    {overlayDetail}
                   </p>
                 </div>
               </div>
@@ -4000,6 +4026,11 @@ export default function GmailImporter() {
                     <span>{overlayCounterLabel}</span>
                     <span>{overlayPercent}%</span>
                   </div>
+                  {overlayEtaLabel && (
+                    <div className={`mt-1 text-[11px] ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                      {overlayEtaLabel}
+                    </div>
+                  )}
                   <div className={`mt-1 h-1.5 w-full overflow-hidden rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
                     <motion.div
                       animate={{ width: `${overlayPercent}%` }}
