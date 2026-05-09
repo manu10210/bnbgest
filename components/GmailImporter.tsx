@@ -65,6 +65,7 @@ import {
   resolveNewBookingPlan,
 } from '../lib/gmail-new-resolution';
 import {
+  buildCheckInReminderEmailPayload,
   buildReminderPersistPatch,
   buildReminderPrepTask,
   deriveReminderEnrichmentUpdates,
@@ -3137,14 +3138,16 @@ export default function GmailImporter() {
         summary.tasksCreated++;
 
         // Email de rappel check-in au voyageur (fire-and-forget)
-        if (b.guestEmail) {
-          notifyEmail({
-            type: 'checkin_reminder',
+        const checkInReminderEmailPayload = buildCheckInReminderEmailPayload({
+          reminder: {
             guestName: b.guestName,
             guestEmail: b.guestEmail,
             checkIn: b.checkIn,
-            property: { name: property.name },
-          });
+          },
+          propertyName: property.name,
+        });
+        if (checkInReminderEmailPayload) {
+          notifyEmail(checkInReminderEmailPayload);
         }
       }
 

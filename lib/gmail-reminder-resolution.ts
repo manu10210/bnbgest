@@ -25,6 +25,16 @@ export interface ReminderMatchedBookingLike {
   taxAmount?: number;
 }
 
+export interface ReminderEmailPayload {
+  type: 'checkin_reminder';
+  guestName: string;
+  guestEmail: string;
+  checkIn: string;
+  property: {
+    name: string;
+  };
+}
+
 export function deriveReminderEnrichmentUpdates(
   reminder: ReminderBookingLike,
   matchedBooking: ReminderMatchedBookingLike,
@@ -86,5 +96,21 @@ export function buildReminderPrepTask(params: {
     category: 'inspection' as const,
     estimatedCost: 0,
     scheduledDate: prepDateStr,
+  };
+}
+
+export function buildCheckInReminderEmailPayload(params: {
+  reminder: Pick<ReminderBookingLike, 'guestName' | 'checkIn'> & { guestEmail?: string };
+  propertyName: string;
+}): ReminderEmailPayload | undefined {
+  const { reminder, propertyName } = params;
+  if (!reminder.guestEmail) return undefined;
+
+  return {
+    type: 'checkin_reminder',
+    guestName: reminder.guestName,
+    guestEmail: reminder.guestEmail,
+    checkIn: reminder.checkIn,
+    property: { name: propertyName },
   };
 }
