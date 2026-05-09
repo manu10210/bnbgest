@@ -3844,6 +3844,89 @@ export default function GmailImporter() {
     return map[reason] || reason;
   };
 
+  const rejectReasonActionHints: Record<string, string> = {
+    missing_message_id: 'Vérifier la réponse API Gmail et ignorer explicitement les messages incomplets.',
+    missing_subject: 'Ajouter un fallback parser sur le body pour classer les emails sans sujet exploitable.',
+    invalid_received_at: 'Sécuriser le parsing de date Gmail (fallback RFC2822/ISO + timezone).',
+    outside_2026_window: 'Ajuster la fenêtre de scan si vous souhaitez reprendre des historiques antérieurs.',
+    low_confidence: 'Prioriser l’enrichissement des règles parser pour les sujets les plus fréquents ci-dessous.',
+    invalid_confirmation_code: 'Tolérer les formats intermédiaires puis normaliser vers HM* lorsque possible.',
+    missing_real_guest_name: 'Renforcer l’extraction nom depuis le sujet et les segments “pour/arrive/part”.',
+    missing_guest_name: 'Ajouter une extraction secondaire depuis le corps de mail.',
+    invalid_date_range: 'Améliorer les règles de déduction check-in/check-out dans les sujets incomplets.',
+    missing_price_or_confirmation_code: 'Conserver ces cas en “pending_review” plutôt que rejet pur.',
+    review_without_rating_or_comment: 'Fallback sur contexte réservation si avis court mais lié à un séjour connu.',
+    payout_without_amount: 'Parser les variantes de devise/montant Airbnb avant classification finale payout.',
+    unsupported_booking_type: 'Étendre la table de classification aux nouveaux templates Airbnb détectés.',
+  };
+
+  const filteredRejectInsights = useMemo(() => {
+    if (filteredRejected.length === 0) return null;
+
+    const reasonCounts = new Map<string, number>();
+    const bookingTypeCounts = new Map<ParsedBooking['bookingType'], number>();
+    const classificationSourceCounts = new Map<string, number>();
+    let confidenceSum = 0;
+
+    for (const entry of filteredRejected) {
+      const { booking, reasons } = entry;
+      confidenceSum += booking.confidence || 0;
+      bookingTypeCounts.set(booking.bookingType, (bookingTypeCounts.get(booking.bookingType) || 0) + 1);
+      const source = booking.classificationSource || 'unknown';
+      classificationSourceCounts.set(source, (classificationSourceCounts.get(source) || 0) + 1);
+
+      for (const reason of reasons) {
+        reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
+      }
+    }
+
+    const total = filteredRejected.length;
+    const topReasons = Array.from(reasonCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([reason, count]) => ({
+        reason,
+        count,
+        share: Math.round((count / total) * 100),
+      }));
+
+    const topBookingTypes = Array.from(bookingTypeCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([bookingType, count]) => ({
+        bookingType,
+        count,
+        share: Math.round((count / total) * 100),
+      }));
+
+    const topClassificationSources = Array.from(classificationSourceCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([source, count]) => ({
+        source,
+        count,
+      }));
+
+    const averageConfidence = Math.round(confidenceSum / total);
+    const examples = filteredRejected.slice(0, 3).map(({ booking, reasons }) => ({
+      messageId: booking.messageId,
+      receivedAt: booking.receivedAt,
+      subject: booking.subject,
+      bookingType: booking.bookingType,
+      confidence: booking.confidence,
+      primaryReason: reasons[0] || 'unknown',
+    }));
+
+    return {
+      total,
+      averageConfidence,
+      topReasons,
+      topBookingTypes,
+      topClassificationSources,
+      examples,
+    };
+  }, [filteredRejected]);
+
   const importTraceStats = useMemo(() => {
     return computeImportTraceStats(importTrace);
   }, [importTrace]);
@@ -4178,6 +4261,50 @@ export default function GmailImporter() {
                   <div className={`px-3 py-2 text-[11px] font-semibold ${isDark ? 'bg-gray-900/40 text-gray-300' : 'bg-gray-50 text-gray-600'}`}>
                     Rejets filtrés ({filteredRejected.length}) — {activeRejectReason === 'all' ? 'toutes raisons' : formatRejectReasonLabel(activeRejectReason)}
                   </div>
+                  {filteredRejectInsights && (
+                    <div className={`px-3 py-2 border-t text-[11px] space-y-2 ${isDark ? 'border-gray-700 bg-gray-900/30 text-gray-300' : 'border-gray-200 bg-gray-50/80 text-gray-700'}`}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`font-semibold ${isDark ? 'text-fuchsia-300' : 'text-fuchsia-700'}`}>Insights utiles :</span>
+                        <span className={`px-1.5 py-0.5 rounded ${isDark ? 'bg-gray-700 text-gray-200' : 'bg-white text-gray-700 border border-gray-200'}`}>
+                          confiance moyenne {filteredRejectInsights.averageConfidence}%
+                        </span>
+                        {filteredRejectInsights.topClassificationSources.map((source) => (
+                          <span key={`source-${source.source}`} className={`px-1.5 py-0.5 rounded ${isDark ? 'bg-blue-900/40 text-blue-200' : 'bg-blue-50 text-blue-700'}`}>
+                            source {source.source} · {source.count}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="space-y-1">
+                        {filteredRejectInsights.topReasons.map((reason) => (
+                          <div key={`insight-${reason.reason}`} className="flex items-start gap-2">
+                            <span className={`mt-0.5 px-1.5 py-0.5 rounded whitespace-nowrap ${isDark ? 'bg-amber-900/40 text-amber-200' : 'bg-amber-100 text-amber-800'}`}>
+                              {formatRejectReasonLabel(reason.reason)} · {reason.count} ({reason.share}%)
+                            </span>
+                            <span className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                              {rejectReasonActionHints[reason.reason] || 'Ajouter une règle parser dédiée pour ce motif de rejet.'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {filteredRejectInsights.topBookingTypes.map((type) => (
+                          <span key={`type-${type.bookingType}`} className={`px-1.5 py-0.5 rounded ${isDark ? 'bg-violet-900/40 text-violet-200' : 'bg-violet-100 text-violet-700'}`}>
+                            {type.bookingType} · {type.count} ({type.share}%)
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="space-y-1">
+                        {filteredRejectInsights.examples.map((example) => (
+                          <div key={`example-${example.messageId}`} className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                            • {fmt(example.receivedAt)} · {example.bookingType} · {example.confidence}% · {formatRejectReasonLabel(example.primaryReason)} — <span className="italic">{example.subject || 'Sujet vide'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className={`max-h-52 overflow-auto text-[11px] ${isDark ? 'bg-gray-800/40' : 'bg-white'}`}>
                     {filteredRejected.length === 0 ? (
                       <div className={`px-3 py-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
