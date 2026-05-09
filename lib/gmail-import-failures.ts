@@ -1,6 +1,8 @@
+import type { GmailImportBookingType } from './gmail-import-types';
+
 export interface PersistFailureTraceParams {
   messageId: string;
-  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review' | 'payout';
+  bookingType: GmailImportBookingType;
   guestName?: string;
   receivedAt: string;
   dbError?: string;

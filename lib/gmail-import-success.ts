@@ -1,4 +1,4 @@
-export type GmailImportBookingType = 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review' | 'payout';
+import type { GmailImportBookingType } from './gmail-import-types';
 
 export function registerLocalDbBookingLink<TPayload>(params: {
   bookingPayload: TPayload;
