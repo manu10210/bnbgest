@@ -28,3 +28,20 @@ export function buildBookingCreatedTraceEntry(params: {
     receivedAt: params.receivedAt,
   };
 }
+
+export function buildBookingProgressTraceEntry(params: {
+  messageId: string;
+  bookingType: GmailImportBookingType;
+  guestName?: string;
+  receivedAt: string;
+  action: 'booking_updated' | 'booking_completed_checkout' | 'booking_enriched_from_reminder' | 'review_imported' | 'payout_attached_to_booking';
+}) {
+  return {
+    messageId: params.messageId,
+    bookingType: params.bookingType,
+    guestName: params.guestName || '—',
+    status: 'success' as const,
+    action: params.action,
+    receivedAt: params.receivedAt,
+  };
+}

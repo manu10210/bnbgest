@@ -27,6 +27,7 @@ import {
 import { buildPersistFailureTraceEntry } from '../lib/gmail-import-failures';
 import {
   buildBookingCreatedTraceEntry,
+  buildBookingProgressTraceEntry,
   registerLocalDbBookingLink,
 } from '../lib/gmail-import-success';
 import { buildSkippedTraceEntry } from '../lib/gmail-import-skips';
@@ -2877,14 +2878,13 @@ export default function GmailImporter() {
             specialRequests: patchedSpecialRequests.slice(0, 4900),
           });
           summary.created++;
-          pushTrace({
+          pushTrace(buildBookingProgressTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'success',
+            guestName: b.guestName,
             action: 'booking_updated',
             receivedAt: b.receivedAt,
-          });
+          }));
         } else {
           const bookingPayload: Parameters<typeof addBooking>[0] = modifiedPlan.bookingPayload;
           const dbPersistResult = await persistToDb(bookingPayload, 'modified');
@@ -2964,14 +2964,13 @@ export default function GmailImporter() {
             paymentTransactionId: b.confirmationCode,
           });
           summary.created++;
-          pushTrace({
+          pushTrace(buildBookingProgressTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'success',
+            guestName: b.guestName,
             action: 'booking_completed_checkout',
             receivedAt: b.receivedAt,
-          });
+          }));
         } else {
           pushTrace(buildSkippedTraceEntry({
             messageId: b.messageId,
@@ -3054,14 +3053,13 @@ export default function GmailImporter() {
             await persistUpdateToDb(matchedReminder.id, buildReminderPersistPatch(updates));
           }
           summary.created++; // compté comme une action (enrichissement)
-          pushTrace({
+          pushTrace(buildBookingProgressTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'success',
+            guestName: b.guestName,
             action: 'booking_enriched_from_reminder',
             receivedAt: b.receivedAt,
-          });
+          }));
         } else {
           // Aucune réservation trouvée → en créer une depuis le rappel
           // (l'email de confirmation n'a peut-être pas encore été importé)
@@ -3193,14 +3191,13 @@ export default function GmailImporter() {
         }
 
         summary.reviewsImported++;
-        pushTrace({
+        pushTrace(buildBookingProgressTraceEntry({
           messageId: b.messageId,
           bookingType: b.bookingType,
-          guestName: b.guestName || '—',
-          status: 'success',
+          guestName: b.guestName,
           action: 'review_imported',
           receivedAt: b.receivedAt,
-        });
+        }));
       }
 
       // ── 4g. Versement (payout) → enrichir la réservation avec données financières ──
@@ -3245,14 +3242,13 @@ export default function GmailImporter() {
             confirmationCode: b.confirmationCode,
           }));
           summary.payoutsSaved++;
-          pushTrace({
+          pushTrace(buildBookingProgressTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'success',
+            guestName: b.guestName,
             action: 'payout_attached_to_booking',
             receivedAt: b.receivedAt,
-          });
+          }));
         } else if (payoutPlan.kind === 'create') {
           const { targetPropertyId, payoutAmount, payoutDateStr, financialSpecialRequests } = payoutPlan;
           // Aucune réservation trouvée → créer une réservation "fantôme" financière
