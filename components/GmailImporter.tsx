@@ -29,6 +29,7 @@ import {
   buildBookingCreatedTraceEntry,
   registerLocalDbBookingLink,
 } from '../lib/gmail-import-success';
+import { buildSkippedTraceEntry } from '../lib/gmail-import-skips';
 import {
   persistBookingToDb,
   persistBookingUpdateToDb,
@@ -2816,15 +2817,14 @@ export default function GmailImporter() {
             receivedAt: b.receivedAt,
           });
         } else {
-          pushTrace({
+          pushTrace(buildSkippedTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'skipped',
+            guestName: b.guestName,
             action: 'cancel_not_found',
             reason: 'no_matching_booking',
             receivedAt: b.receivedAt,
-          });
+          }));
         }
       }
 
@@ -2973,15 +2973,14 @@ export default function GmailImporter() {
             receivedAt: b.receivedAt,
           });
         } else {
-          pushTrace({
+          pushTrace(buildSkippedTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'skipped',
+            guestName: b.guestName,
             action: 'checkout_not_found',
             reason: 'no_matching_booking',
             receivedAt: b.receivedAt,
-          });
+          }));
         }
 
         // Créer automatiquement une tâche de ménage post-départ
@@ -3305,15 +3304,14 @@ export default function GmailImporter() {
               receivedAt: b.receivedAt,
             }));
         } else if (payoutPlan.kind === 'skip') {
-          pushTrace({
+          pushTrace(buildSkippedTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'skipped',
+            guestName: b.guestName,
             action: 'payout_skipped',
             reason: payoutPlan.reason,
             receivedAt: b.receivedAt,
-          });
+          }));
         }
       }
 
