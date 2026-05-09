@@ -52,6 +52,7 @@ import {
   resolveReviewCompletionPlan,
 } from '../lib/gmail-review-resolution';
 import {
+  buildNewBookingConfirmationEmailPayload,
   deriveGuestPostNewBookingUpdates,
   resolveNewBookingPlan,
 } from '../lib/gmail-new-resolution';
@@ -2751,17 +2752,21 @@ export default function GmailImporter() {
         }
 
         // Email de confirmation au voyageur (fire-and-forget)
-        if (b.guestEmail && property) {
-          notifyEmail({
-            type: 'booking_confirmation',
+        const bookingConfirmationEmailPayload = buildNewBookingConfirmationEmailPayload({
+          booking: {
             guestName: b.guestName,
             guestEmail: b.guestEmail,
             checkIn: b.checkIn,
             checkOut: b.checkOut,
             guests: b.guests,
             totalPrice: b.totalPrice,
-            property: { name: property.name },
-          });
+            confirmationCode: b.confirmationCode,
+            guestPhone: b.guestPhone,
+          },
+          propertyName: property.name,
+        });
+        if (bookingConfirmationEmailPayload) {
+          notifyEmail(bookingConfirmationEmailPayload);
         }
       }
 

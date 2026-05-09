@@ -38,6 +38,19 @@ export interface ExistingGuestBookingStatsLike {
   totalSpent?: number;
 }
 
+export interface NewBookingConfirmationEmailPayload {
+  type: 'booking_confirmation';
+  guestName: string;
+  guestEmail: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  totalPrice: number;
+  property: {
+    name: string;
+  };
+}
+
 export function resolveNewBookingPlan(params: {
   booking: NewResolutionBookingLike;
   propertyId: number;
@@ -86,5 +99,27 @@ export function deriveGuestPostNewBookingUpdates(params: {
     totalBookings: (existingGuest.totalBookings || 0) + 1,
     totalSpent: (existingGuest.totalSpent || 0) + (bookingTotalPrice || 0),
     lastBooking: bookingCheckIn,
+  };
+}
+
+export function buildNewBookingConfirmationEmailPayload(params: {
+  booking: NewResolutionBookingLike;
+  propertyName: string;
+}): NewBookingConfirmationEmailPayload | undefined {
+  const { booking, propertyName } = params;
+
+  if (!booking.guestEmail) {
+    return undefined;
+  }
+
+  return {
+    type: 'booking_confirmation',
+    guestName: booking.guestName,
+    guestEmail: booking.guestEmail,
+    checkIn: booking.checkIn,
+    checkOut: booking.checkOut,
+    guests: booking.guests,
+    totalPrice: booking.totalPrice,
+    property: { name: propertyName },
   };
 }
