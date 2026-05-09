@@ -2459,6 +2459,23 @@ export default function GmailImporter() {
       }
     };
 
+    const handlePersistFailure = (params: {
+      booking: ParsedBooking;
+      dbError?: string;
+      fallbackReason: string;
+    }) => {
+      summary.skipped++;
+      trackDbFailure(params.dbError);
+      pushTrace(buildPersistFailureTraceEntry({
+        messageId: params.booking.messageId,
+        bookingType: params.booking.bookingType,
+        guestName: params.booking.guestName,
+        receivedAt: params.booking.receivedAt,
+        dbError: params.dbError,
+        fallbackReason: params.fallbackReason,
+      }));
+    };
+
     const touchLocalBooking = (id: number, updates: Record<string, unknown>) => {
       const idx = localBookings.findIndex(b => b.id === id);
       if (idx === -1) return;
@@ -2706,16 +2723,11 @@ export default function GmailImporter() {
         const bookingPayload: Parameters<typeof addBooking>[0] = newBookingPlan.bookingPayload;
         const dbPersistResult = await persistToDb(bookingPayload, 'new');
         if (!dbPersistResult.id) {
-          summary.skipped++;
-          trackDbFailure(dbPersistResult.error);
-          pushTrace(buildPersistFailureTraceEntry({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName,
-            receivedAt: b.receivedAt,
+          handlePersistFailure({
+            booking: b,
             dbError: dbPersistResult.error,
             fallbackReason: 'db_create_failed',
-          }));
+          });
           continue;
         }
 
@@ -2877,16 +2889,11 @@ export default function GmailImporter() {
           const bookingPayload: Parameters<typeof addBooking>[0] = modifiedPlan.bookingPayload;
           const dbPersistResult = await persistToDb(bookingPayload, 'modified');
           if (!dbPersistResult.id) {
-            summary.skipped++;
-            trackDbFailure(dbPersistResult.error);
-            pushTrace(buildPersistFailureTraceEntry({
-              messageId: b.messageId,
-              bookingType: b.bookingType,
-              guestName: b.guestName,
-              receivedAt: b.receivedAt,
+            handlePersistFailure({
+              booking: b,
               dbError: dbPersistResult.error,
               fallbackReason: 'db_create_failed_from_modified',
-            }));
+            });
             continue;
           }
 
@@ -3076,16 +3083,11 @@ export default function GmailImporter() {
           };
           const dbPersistResult = await persistToDb(bookingPayload, 'new');
           if (!dbPersistResult.id) {
-            summary.skipped++;
-            trackDbFailure(dbPersistResult.error);
-            pushTrace(buildPersistFailureTraceEntry({
-              messageId: b.messageId,
-              bookingType: b.bookingType,
-              guestName: b.guestName,
-              receivedAt: b.receivedAt,
+            handlePersistFailure({
+              booking: b,
               dbError: dbPersistResult.error,
               fallbackReason: 'db_create_failed_from_reminder',
-            }));
+            });
             continue;
           }
 
@@ -3261,16 +3263,11 @@ export default function GmailImporter() {
             });
             const dbPersistResult = await persistToDb(bookingPayload, 'new');
             if (!dbPersistResult.id) {
-              summary.skipped++;
-              trackDbFailure(dbPersistResult.error);
-              pushTrace(buildPersistFailureTraceEntry({
-                messageId: b.messageId,
-                bookingType: b.bookingType,
-                guestName: b.guestName,
-                receivedAt: b.receivedAt,
+              handlePersistFailure({
+                booking: b,
                 dbError: dbPersistResult.error,
                 fallbackReason: 'db_create_failed_from_payout',
-              }));
+              });
               continue;
             }
 
