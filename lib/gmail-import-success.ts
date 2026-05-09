@@ -45,3 +45,22 @@ export function buildBookingProgressTraceEntry(params: {
     receivedAt: params.receivedAt,
   };
 }
+
+export function buildSuccessTraceEntry(params: {
+  messageId: string;
+  bookingType: GmailImportBookingType;
+  guestName?: string;
+  receivedAt: string;
+  action: string;
+  reason?: string;
+}) {
+  return {
+    messageId: params.messageId,
+    bookingType: params.bookingType,
+    guestName: params.guestName || '—',
+    status: 'success' as const,
+    action: params.action,
+    ...(params.reason ? { reason: params.reason } : {}),
+    receivedAt: params.receivedAt,
+  };
+}

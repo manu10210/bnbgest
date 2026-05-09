@@ -28,6 +28,7 @@ import { buildPersistFailureTraceEntry } from '../lib/gmail-import-failures';
 import {
   buildBookingCreatedTraceEntry,
   buildBookingProgressTraceEntry,
+  buildSuccessTraceEntry,
   registerLocalDbBookingLink,
 } from '../lib/gmail-import-success';
 import { buildSkippedTraceEntry } from '../lib/gmail-import-skips';
@@ -2532,15 +2533,14 @@ export default function GmailImporter() {
       summary.rescuedAggressive += resolvedProperty.rescuedAggressive;
       summary.rescuedSingleProperty += resolvedProperty.rescuedSingleProperty;
       for (const event of resolvedProperty.events) {
-        pushTrace({
+        pushTrace(buildSuccessTraceEntry({
           messageId: b.messageId,
           bookingType: b.bookingType,
-          guestName: b.guestName || '—',
-          status: 'success',
+          guestName: b.guestName,
           action: event.action,
           reason: event.reason,
           receivedAt: b.receivedAt,
-        });
+        }));
       }
 
       // ── 1b. Pour les avis (review) : retrouver le logement par recoupement ──
@@ -2653,15 +2653,14 @@ export default function GmailImporter() {
 
           summary.created++;
           summary.datesResynced++;
-          pushTrace({
+          pushTrace(buildSuccessTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'success',
+            guestName: b.guestName,
             action: 'booking_dates_resynced',
             reason: 'duplicate_confirmation_code_with_wrong_dates',
             receivedAt: b.receivedAt,
-          });
+          }));
           continue;
         }
 
@@ -2807,14 +2806,13 @@ export default function GmailImporter() {
             cancellationReason: cancelReason.slice(0, 1900),
           });
           summary.cancelled++;
-          pushTrace({
+          pushTrace(buildSuccessTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'success',
+            guestName: b.guestName,
             action: 'booking_cancelled',
             receivedAt: b.receivedAt,
-          });
+          }));
         } else {
           pushTrace(buildSkippedTraceEntry({
             messageId: b.messageId,
