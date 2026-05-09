@@ -2476,6 +2476,29 @@ export default function GmailImporter() {
       }));
     };
 
+    const handlePersistCreateSuccess = (params: {
+      booking: ParsedBooking;
+      bookingPayload: Parameters<typeof addBooking>[0];
+      dbBookingId: number;
+      action: 'booking_created' | 'booking_created_from_modified' | 'booking_created_from_reminder' | 'payout_created_as_financial_booking';
+    }) => {
+      addBooking(params.bookingPayload);
+      registerLocalDbBookingLink({
+        bookingPayload: params.bookingPayload,
+        dbBookingId: params.dbBookingId,
+        pushLocalBooking,
+        localToDbBookingId,
+      });
+      summary.created++;
+      pushTrace(buildBookingCreatedTraceEntry({
+        messageId: params.booking.messageId,
+        bookingType: params.booking.bookingType,
+        guestName: params.booking.guestName,
+        action: params.action,
+        receivedAt: params.booking.receivedAt,
+      }));
+    };
+
     const touchLocalBooking = (id: number, updates: Record<string, unknown>) => {
       const idx = localBookings.findIndex(b => b.id === id);
       if (idx === -1) return;
@@ -2731,21 +2754,12 @@ export default function GmailImporter() {
           continue;
         }
 
-        addBooking(bookingPayload);
-        registerLocalDbBookingLink({
+        handlePersistCreateSuccess({
+          booking: b,
           bookingPayload,
           dbBookingId: dbPersistResult.id,
-          pushLocalBooking,
-          localToDbBookingId,
-        });
-        summary.created++;
-        pushTrace(buildBookingCreatedTraceEntry({
-          messageId: b.messageId,
-          bookingType: b.bookingType,
-          guestName: b.guestName,
           action: 'booking_created',
-          receivedAt: b.receivedAt,
-        }));
+        });
 
         // Incrémenter le compteur de réservations du voyageur
         if (guestId) {
@@ -2897,21 +2911,12 @@ export default function GmailImporter() {
             continue;
           }
 
-          addBooking(bookingPayload);
-          registerLocalDbBookingLink({
+          handlePersistCreateSuccess({
+            booking: b,
             bookingPayload,
             dbBookingId: dbPersistResult.id,
-            pushLocalBooking,
-            localToDbBookingId,
-          });
-          summary.created++;
-          pushTrace(buildBookingCreatedTraceEntry({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName,
             action: 'booking_created_from_modified',
-            receivedAt: b.receivedAt,
-          }));
+          });
         }
       }
 
@@ -3091,21 +3096,12 @@ export default function GmailImporter() {
             continue;
           }
 
-          addBooking(bookingPayload);
-          registerLocalDbBookingLink({
+          handlePersistCreateSuccess({
+            booking: b,
             bookingPayload,
             dbBookingId: dbPersistResult.id,
-            pushLocalBooking,
-            localToDbBookingId,
-          });
-          summary.created++;
-          pushTrace(buildBookingCreatedTraceEntry({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName,
             action: 'booking_created_from_reminder',
-            receivedAt: b.receivedAt,
-          }));
+          });
         }
 
         // ── Créer une tâche de préparation J-1 ────────────────────────────
@@ -3271,21 +3267,12 @@ export default function GmailImporter() {
               continue;
             }
 
-            addBooking(bookingPayload);
-            registerLocalDbBookingLink({
+            handlePersistCreateSuccess({
+              booking: b,
               bookingPayload,
               dbBookingId: dbPersistResult.id,
-              pushLocalBooking,
-              localToDbBookingId,
-            });
-            summary.created++;
-            pushTrace(buildBookingCreatedTraceEntry({
-              messageId: b.messageId,
-              bookingType: b.bookingType,
-              guestName: b.guestName,
               action: 'payout_created_as_financial_booking',
-              receivedAt: b.receivedAt,
-            }));
+            });
         } else if (payoutPlan.kind === 'skip') {
           pushTrace(buildSkippedTraceEntry({
             messageId: b.messageId,
