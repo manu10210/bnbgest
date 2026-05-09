@@ -43,6 +43,11 @@ import { resolveCancellationPlan } from '../lib/gmail-cancelled-resolution';
 import { resolveModifiedPlan } from '../lib/gmail-modified-resolution';
 import { resolvePayoutPlan } from '../lib/gmail-payout-resolution';
 import {
+  buildPayoutAttachBookingPatch,
+  buildPayoutAttachPersistPatch,
+  buildPayoutCreateBookingPayload,
+} from '../lib/gmail-payout-application';
+import {
   buildReviewPlan,
   resolveReviewCompletionPlan,
 } from '../lib/gmail-review-resolution';
@@ -3212,33 +3217,24 @@ export default function GmailImporter() {
 
         if (payoutPlan.kind === 'attach') {
           const { bookingId, payoutAmount, payoutDateStr, payoutSpecialRequests } = payoutPlan;
+          const payoutAttachPatch = buildPayoutAttachBookingPatch({
+            payoutAmount,
+            payoutDateStr,
+            payoutSpecialRequests,
+            booking: {
+              cleaningFee: b.cleaningFee,
+              serviceFee: b.serviceFee,
+            },
+          });
 
           // Mettre à jour la réservation existante avec les infos financières
-          updateBooking(bookingId, {
-            paymentStatus: 'paid',
-            hostPayout: payoutAmount,
-            ...(b.cleaningFee ? { cleaningFee: b.cleaningFee } : {}),
-            ...(b.serviceFee  ? { serviceFee:  b.serviceFee  } : {}),
-            payoutDate: payoutDateStr,
-            payoutConfirmed: true,
-            specialRequests: payoutSpecialRequests,
-          });
-          touchLocalBooking(bookingId, {
-            paymentStatus: 'paid',
-            hostPayout: payoutAmount,
-            ...(b.cleaningFee ? { cleaningFee: b.cleaningFee } : {}),
-            ...(b.serviceFee  ? { serviceFee:  b.serviceFee  } : {}),
-            payoutDate: payoutDateStr,
-            payoutConfirmed: true,
-            specialRequests: payoutSpecialRequests,
-          });
-          await persistUpdateToDb(bookingId, {
-            totalPrice: payoutAmount,
-            specialRequests: payoutSpecialRequests.slice(0, 4900),
-            paymentStatus: 'paid',
-            paymentAmount: payoutAmount,
-            paymentTransactionId: b.confirmationCode,
-          });
+          updateBooking(bookingId, payoutAttachPatch);
+          touchLocalBooking(bookingId, payoutAttachPatch);
+          await persistUpdateToDb(bookingId, buildPayoutAttachPersistPatch({
+            payoutAmount,
+            payoutSpecialRequests,
+            confirmationCode: b.confirmationCode,
+          }));
           summary.payoutsSaved++;
           pushTrace({
             messageId: b.messageId,
@@ -3252,23 +3248,22 @@ export default function GmailImporter() {
           const { targetPropertyId, payoutAmount, payoutDateStr, financialSpecialRequests } = payoutPlan;
           // Aucune réservation trouvée → créer une réservation "fantôme" financière
           // pour tracer le versement dans les données
-            const bookingPayload: Parameters<typeof addBooking>[0] = {
-              propertyId: targetPropertyId,
+            const bookingPayload: Parameters<typeof addBooking>[0] = buildPayoutCreateBookingPayload({
+              targetPropertyId,
+              payoutAmount,
+              payoutDateStr,
+              financialSpecialRequests,
               guestId: guestId || 0,
-              checkIn: b.checkIn,
-              checkOut: b.checkOut,
-              guests: b.guests || 1,
-              totalPrice: payoutAmount,
-              status: 'completed',
-              paymentStatus: 'paid',
-              hostPayout: payoutAmount,
-              ...(b.cleaningFee ? { cleaningFee: b.cleaningFee } : {}),
-              ...(b.serviceFee  ? { serviceFee:  b.serviceFee  } : {}),
-              payoutDate: payoutDateStr,
-              payoutConfirmed: true,
-              specialRequests: financialSpecialRequests,
-              guestInfo: { name: b.guestName || 'Airbnb Payout', email: b.guestEmail || '', phone: '' },
-            };
+              booking: {
+                checkIn: b.checkIn,
+                checkOut: b.checkOut,
+                guests: b.guests,
+                guestName: b.guestName,
+                guestEmail: b.guestEmail,
+                cleaningFee: b.cleaningFee,
+                serviceFee: b.serviceFee,
+              },
+            });
             const dbPersistResult = await persistToDb(bookingPayload, 'new');
             if (!dbPersistResult.id) {
               summary.skipped++;
