@@ -1674,6 +1674,7 @@ export default function GmailImporter() {
   const [gmailEmail, setGmailEmail] = useState<string>('');
   const [importSummary, setImportSummary] = useState<{ created: number; cancelled: number; guestsCreated: number; guestsUpdated: number; skipped: number; skippedDuplicate: number; skippedNoProperty: number; tasksCreated: number; reviewsImported: number ; payoutsSaved: number; expensesCreated: number; rescuedAggressive: number; rescuedSingleProperty: number } | null>(null);
   const [isExportingRejected, setIsExportingRejected] = useState(false);
+  const [isPreparingRejectBrief, setIsPreparingRejectBrief] = useState(false);
   const [purgeResult, setPurgeResult] = useState<{ bookings: number; guests: number } | null>(null);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
@@ -3927,6 +3928,68 @@ export default function GmailImporter() {
     };
   }, [filteredRejected]);
 
+  const buildRejectInsightsBrief = async () => {
+    if (!filteredRejectInsights || !qualityReport) {
+      toast.error('Aucun insight rejet à exporter pour le moment.');
+      return;
+    }
+
+    setIsPreparingRejectBrief(true);
+    try {
+      const scopeLabel = activeRejectReason === 'all'
+        ? 'toutes raisons'
+        : formatRejectReasonLabel(activeRejectReason);
+
+      const lines: string[] = [
+        `# Brief parser — rejets Gmail Airbnb`,
+        '',
+        `- Date: ${new Date().toLocaleString('fr-FR')}`,
+        `- Portée: ${scopeLabel}`,
+        `- Rejets filtrés: ${filteredRejectInsights.total}/${qualityReport.rejected}`,
+        `- Confiance moyenne: ${filteredRejectInsights.averageConfidence}%`,
+        '',
+        '## Top causes',
+      ];
+
+      for (const reason of filteredRejectInsights.topReasons) {
+        lines.push(`- ${formatRejectReasonLabel(reason.reason)}: ${reason.count} (${reason.share}%)`);
+        lines.push(`  - Action recommandée: ${rejectReasonActionHints[reason.reason] || 'Ajouter une règle parser dédiée pour ce motif de rejet.'}`);
+      }
+
+      lines.push('', '## Types les plus impactés');
+      for (const type of filteredRejectInsights.topBookingTypes) {
+        lines.push(`- ${type.bookingType}: ${type.count} (${type.share}%)`);
+      }
+
+      lines.push('', '## Exemples concrets');
+      for (const example of filteredRejectInsights.examples) {
+        lines.push(`- ${fmt(example.receivedAt)} · ${example.bookingType} · ${example.confidence}% · ${formatRejectReasonLabel(example.primaryReason)}`);
+        lines.push(`  Sujet: ${example.subject || 'Sujet vide'}`);
+      }
+
+      const brief = lines.join('\n');
+
+      try {
+        await navigator.clipboard.writeText(brief);
+        toast.success('Brief parser copié dans le presse-papiers.');
+      } catch {
+        const blob = new Blob([brief], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const dateTag = new Date().toISOString().slice(0, 10);
+        link.href = url;
+        link.download = `gmail-rejects-parser-brief-${dateTag}.md`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        toast.success('Brief parser téléchargé (.md).');
+      }
+    } finally {
+      setIsPreparingRejectBrief(false);
+    }
+  };
+
   const importTraceStats = useMemo(() => {
     return computeImportTraceStats(importTrace);
   }, [importTrace]);
@@ -4208,19 +4271,35 @@ export default function GmailImporter() {
             </div>
 
             {qualityReport.rejected > 0 && (
-              <button
-                onClick={exportRejectedAsCsv}
-                disabled={isExportingRejected}
-                title={isExportingRejected ? 'Export en cours…' : 'Exporter les emails rejetés en CSV'}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                  isDark
-                    ? 'border-amber-700 text-amber-300 hover:bg-amber-900/30 disabled:opacity-60 disabled:cursor-not-allowed'
-                    : 'border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-60 disabled:cursor-not-allowed'
-                }`}
-              >
-                {isExportingRejected ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
-                {isExportingRejected ? 'Export…' : 'Export rejets CSV'}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={buildRejectInsightsBrief}
+                  disabled={isPreparingRejectBrief}
+                  title={isPreparingRejectBrief ? 'Préparation du brief…' : 'Générer un brief parser à partir des rejets filtrés'}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    isDark
+                      ? 'border-fuchsia-700 text-fuchsia-300 hover:bg-fuchsia-900/30 disabled:opacity-60 disabled:cursor-not-allowed'
+                      : 'border-fuchsia-300 text-fuchsia-700 hover:bg-fuchsia-50 disabled:opacity-60 disabled:cursor-not-allowed'
+                  }`}
+                >
+                  {isPreparingRejectBrief ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  {isPreparingRejectBrief ? 'Brief…' : 'Brief parser'}
+                </button>
+
+                <button
+                  onClick={exportRejectedAsCsv}
+                  disabled={isExportingRejected}
+                  title={isExportingRejected ? 'Export en cours…' : 'Exporter les emails rejetés en CSV'}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    isDark
+                      ? 'border-amber-700 text-amber-300 hover:bg-amber-900/30 disabled:opacity-60 disabled:cursor-not-allowed'
+                      : 'border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-60 disabled:cursor-not-allowed'
+                  }`}
+                >
+                  {isExportingRejected ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
+                  {isExportingRejected ? 'Export…' : 'Export rejets CSV'}
+                </button>
+              </div>
             )}
           </div>
 
