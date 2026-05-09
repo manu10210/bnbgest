@@ -1,3 +1,5 @@
+import type { BookingConfirmationNotificationPayload } from './gmail-notification-types';
+
 export interface NewResolutionBookingLike {
   checkIn: string;
   checkOut: string;
@@ -36,19 +38,6 @@ export interface NewResolutionPlan {
 export interface ExistingGuestBookingStatsLike {
   totalBookings?: number;
   totalSpent?: number;
-}
-
-export interface NewBookingConfirmationEmailPayload {
-  type: 'booking_confirmation';
-  guestName: string;
-  guestEmail: string;
-  checkIn: string;
-  checkOut: string;
-  guests: number;
-  totalPrice: number;
-  property: {
-    name: string;
-  };
 }
 
 export function resolveNewBookingPlan(params: {
@@ -105,7 +94,7 @@ export function deriveGuestPostNewBookingUpdates(params: {
 export function buildNewBookingConfirmationEmailPayload(params: {
   booking: NewResolutionBookingLike;
   propertyName: string;
-}): NewBookingConfirmationEmailPayload | undefined {
+}): BookingConfirmationNotificationPayload | undefined {
   const { booking, propertyName } = params;
 
   if (!booking.guestEmail) {

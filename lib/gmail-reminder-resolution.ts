@@ -1,3 +1,5 @@
+import type { CheckInReminderNotificationPayload } from './gmail-notification-types';
+
 export interface ReminderBookingLike {
   guestName: string;
   confirmationCode?: string;
@@ -23,16 +25,6 @@ export interface ReminderMatchedBookingLike {
   cleaningFee?: number;
   serviceFee?: number;
   taxAmount?: number;
-}
-
-export interface ReminderEmailPayload {
-  type: 'checkin_reminder';
-  guestName: string;
-  guestEmail: string;
-  checkIn: string;
-  property: {
-    name: string;
-  };
 }
 
 export function deriveReminderEnrichmentUpdates(
@@ -102,7 +94,7 @@ export function buildReminderPrepTask(params: {
 export function buildCheckInReminderEmailPayload(params: {
   reminder: Pick<ReminderBookingLike, 'guestName' | 'checkIn'> & { guestEmail?: string };
   propertyName: string;
-}): ReminderEmailPayload | undefined {
+}): CheckInReminderNotificationPayload | undefined {
   const { reminder, propertyName } = params;
   if (!reminder.guestEmail) return undefined;
 

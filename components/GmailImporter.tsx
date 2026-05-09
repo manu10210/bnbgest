@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import type { GmailNotificationPayload } from '../lib/gmail-notification-types';
 import {
   computeImportTraceStats,
   computeImportTraceTopErrorReasons,
@@ -2102,17 +2103,7 @@ export default function GmailImporter() {
   }, [rejectedBookings]);
 
   // ─── Notification email (fire-and-forget, côté serveur) ─────────────────
-  const notifyEmail = useCallback((payload: {
-    type: 'booking_confirmation' | 'checkin_reminder';
-    guestName: string;
-    guestEmail: string;
-    checkIn: string;
-    checkOut?: string;
-    guests?: number;
-    totalPrice?: number;
-    bookingId?: number;
-    property: { name: string; address?: string; city?: string };
-  }) => {
+  const notifyEmail = useCallback((payload: GmailNotificationPayload) => {
     if (!payload.guestEmail || payload.guestEmail.includes('@example') || payload.guestEmail === '') return;
     fetch('/api/gmail-import/notify', {
       method: 'POST',
