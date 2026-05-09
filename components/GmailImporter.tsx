@@ -2516,6 +2516,21 @@ export default function GmailImporter() {
       }));
     };
 
+    const handleSuccess = (params: {
+      booking: ParsedBooking;
+      action: Parameters<typeof buildSuccessTraceEntry>[0]['action'];
+      reason?: Parameters<typeof buildSuccessTraceEntry>[0]['reason'];
+    }) => {
+      pushTrace(buildSuccessTraceEntry({
+        messageId: params.booking.messageId,
+        bookingType: params.booking.bookingType,
+        guestName: params.booking.guestName,
+        action: params.action,
+        reason: params.reason,
+        receivedAt: params.booking.receivedAt,
+      }));
+    };
+
     const handleSkipped = (params: {
       booking: ParsedBooking;
       action: Parameters<typeof buildSkippedTraceEntry>[0]['action'];
@@ -2611,14 +2626,11 @@ export default function GmailImporter() {
       summary.rescuedAggressive += resolvedProperty.rescuedAggressive;
       summary.rescuedSingleProperty += resolvedProperty.rescuedSingleProperty;
       for (const event of resolvedProperty.events) {
-        pushTrace(buildSuccessTraceEntry({
-          messageId: b.messageId,
-          bookingType: b.bookingType,
-          guestName: b.guestName,
+        handleSuccess({
+          booking: b,
           action: event.action,
           reason: event.reason,
-          receivedAt: b.receivedAt,
-        }));
+        });
       }
 
       // ── 1b. Pour les avis (review) : retrouver le logement par recoupement ──
@@ -2731,14 +2743,11 @@ export default function GmailImporter() {
 
           summary.created++;
           summary.datesResynced++;
-          pushTrace(buildSuccessTraceEntry({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName,
+          handleSuccess({
+            booking: b,
             action: 'booking_dates_resynced',
             reason: 'duplicate_confirmation_code_with_wrong_dates',
-            receivedAt: b.receivedAt,
-          }));
+          });
           continue;
         }
 
@@ -2870,13 +2879,10 @@ export default function GmailImporter() {
             },
           });
           summary.cancelled++;
-          pushTrace(buildSuccessTraceEntry({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName,
+          handleSuccess({
+            booking: b,
             action: 'booking_cancelled',
-            receivedAt: b.receivedAt,
-          }));
+          });
         } else {
           handleSkipped({
             booking: b,
