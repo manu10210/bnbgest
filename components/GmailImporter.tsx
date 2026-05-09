@@ -43,6 +43,10 @@ import { resolveCancellationPlan } from '../lib/gmail-cancelled-resolution';
 import { resolveModifiedPlan } from '../lib/gmail-modified-resolution';
 import { resolvePayoutPlan } from '../lib/gmail-payout-resolution';
 import {
+  buildReviewPlan,
+  resolveReviewCompletionPlan,
+} from '../lib/gmail-review-resolution';
+import {
   buildReminderPersistPatch,
   buildReminderPrepTask,
   deriveReminderEnrichmentUpdates,
@@ -3142,21 +3146,32 @@ export default function GmailImporter() {
           requireCheckOut: true,
         });
 
-        const rating = b.reviewRating ?? 5; // défaut 5 étoiles si non extrait
+        const reviewPlan = buildReviewPlan({
+          booking: {
+            guestName: b.guestName,
+            reviewRating: b.reviewRating,
+            reviewComment: b.reviewComment,
+            receivedAt: b.receivedAt,
+          },
+          formatDateLabel: fmt,
+        });
+
         addReview({
           propertyId: property.id,
           bookingId: matchedBooking?.id ?? 0,
           guestId: guestId,
-          rating,
-          title: `Avis ${rating}★ — ${b.guestName}`,
-          comment: b.reviewComment || `Avis importé automatiquement depuis Gmail (${fmt(b.receivedAt)}).`,
+          rating: reviewPlan.rating,
+          title: reviewPlan.title,
+          comment: reviewPlan.comment,
         });
 
         // Si la réservation correspondante n'est pas déjà "completed", la marquer
-        if (matchedBooking && matchedBooking.status !== 'completed' && matchedBooking.status !== 'cancelled') {
-          updateBooking(matchedBooking.id, { status: 'completed' });
-          touchLocalBooking(matchedBooking.id, { status: 'completed' });
-          await persistUpdateToDb(matchedBooking.id, {
+        const reviewCompletionPlan = resolveReviewCompletionPlan(matchedBooking);
+        if (reviewCompletionPlan.kind === 'complete') {
+          const { bookingId } = reviewCompletionPlan;
+          updateBooking(bookingId, { status: 'completed' });
+          touchLocalBooking(bookingId, { status: 'completed' });
+          await persistUpdateToDb(bookingId, {
             status: 'CHECKED_OUT',
           });
         }
