@@ -47,6 +47,10 @@ import {
   resolveReviewCompletionPlan,
 } from '../lib/gmail-review-resolution';
 import {
+  deriveGuestPostNewBookingUpdates,
+  resolveNewBookingPlan,
+} from '../lib/gmail-new-resolution';
+import {
   buildReminderPersistPatch,
   buildReminderPrepTask,
   deriveReminderEnrichmentUpdates,
@@ -2687,25 +2691,23 @@ export default function GmailImporter() {
 
       // ── 4a. Nouvelle réservation ──────────────────────────────────────────
       if (b.bookingType === 'new' && property) {
-  const bookingPayload: Parameters<typeof addBooking>[0] = {
+        const newBookingPlan = resolveNewBookingPlan({
+          booking: {
+            checkIn: b.checkIn,
+            checkOut: b.checkOut,
+            guests: b.guests,
+            totalPrice: b.totalPrice,
+            confirmationCode: b.confirmationCode,
+            guestName: b.guestName,
+            guestEmail: b.guestEmail,
+            guestPhone: b.guestPhone,
+          },
           propertyId: property.id,
           guestId,
-          checkIn: b.checkIn,
-          checkOut: b.checkOut,
-          guests: b.guests,
-          totalPrice: b.totalPrice || 0,
-          status: 'confirmed',
-          paymentStatus: b.totalPrice > 0 ? 'paid' : 'pending',
-          specialRequests: notes,
-          guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
-          ...(b.totalPrice > 0 && b.confirmationCode ? {
-            paymentInfo: {
-              method: 'airbnb',
-              transactionId: b.confirmationCode,
-              amount: b.totalPrice,
-            },
-          } : {}),
-        };
+          notes,
+        });
+
+        const bookingPayload: Parameters<typeof addBooking>[0] = newBookingPlan.bookingPayload;
         const dbPersistResult = await persistToDb(bookingPayload, 'new');
         if (!dbPersistResult.id) {
           summary.skipped++;
@@ -2739,11 +2741,11 @@ export default function GmailImporter() {
         if (guestId) {
           const g = localGuests.find(gg => gg.id === guestId);
           if (g) {
-            const guestUpdates = {
-              totalBookings: (g.totalBookings || 0) + 1,
-              totalSpent: (g.totalSpent || 0) + (b.totalPrice || 0),
-              lastBooking: b.checkIn,
-            };
+            const guestUpdates = deriveGuestPostNewBookingUpdates({
+              existingGuest: g,
+              bookingTotalPrice: b.totalPrice,
+              bookingCheckIn: b.checkIn,
+            });
             updateGuest(guestId, guestUpdates);
             Object.assign(g, guestUpdates);
           }
