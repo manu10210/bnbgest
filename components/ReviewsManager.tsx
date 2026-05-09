@@ -5,9 +5,8 @@ import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
   Star, StarHalf, MessageSquare, ThumbsUp, ThumbsDown, 
-  TrendingUp, Filter, Search, Calendar, User, Home,
+  Search, Calendar, Home,
   Award, AlertCircle, Check, X, Eye, Reply, Flag,
-  BarChart3, PieChart, Activity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -64,95 +63,59 @@ interface ReviewStats {
 // ==================== COMPONENT ====================
 
 export default function ReviewsManager() {
-  const { properties, guests, bookings } = useBNB();
+  const { properties, guests, bookings, reviews: persistedReviews, respondToReview } = useBNB();
   const { isDark } = useTheme();
 
-  const [reviews, setReviews] = useState<Review[]>([
-    {
-      id: 1,
-      guestId: 1,
-      guestName: 'Marie Dupont',
-      propertyId: 1,
-      propertyName: 'Appartement Marais',
-      bookingId: 1,
-      rating: 4.5,
-      cleanliness: 5,
-      communication: 5,
-      checkIn: 4,
-      accuracy: 4,
-      location: 5,
-      value: 4,
-      comment: 'Excellent séjour dans ce magnifique appartement ! La localisation est idéale, à deux pas du métro et des commerces. L\'appartement est exactement conforme aux photos, très bien équipé et décoré avec goût.',
-      pros: ['Emplacement parfait', 'Très propre', 'Bien équipé'],
-      cons: ['Bruit de la rue le matin'],
-      helpful: 12,
-      notHelpful: 1,
-      response: {
-        text: 'Merci beaucoup Marie pour votre retour détaillé ! Nous sommes ravis que vous ayez apprécié votre séjour. Concernant le bruit, nous allons installer des rideaux occultants et phoniques.',
-        date: '2026-03-15',
-        author: 'Équipe BNBGest'
-      },
-      status: 'published',
-      isVerifiedBooking: true,
-      createdAt: '2026-03-10',
-      publishedAt: '2026-03-10'
-    },
-    {
-      id: 2,
-      guestId: 2,
-      guestName: 'Jean Martin',
-      propertyId: 2,
-      propertyName: 'Studio Montmartre',
-      bookingId: 2,
-      rating: 5,
-      cleanliness: 5,
-      communication: 5,
-      checkIn: 5,
-      accuracy: 5,
-      location: 5,
-      value: 5,
-      comment: 'Parfait de A à Z ! Hôte très réactif, appartement impeccable, quartier vivant et authentique. Je recommande à 100% et reviendrai sans hésiter.',
-      pros: ['Hôte au top', 'Quartier animé', 'Excellent rapport qualité-prix'],
-      cons: [],
-      helpful: 8,
-      notHelpful: 0,
-      status: 'published',
-      isVerifiedBooking: true,
-      createdAt: '2026-03-05',
-      publishedAt: '2026-03-05'
-    },
-    {
-      id: 3,
-      guestId: 3,
-      guestName: 'Sophie Bernard',
-      propertyId: 1,
-      propertyName: 'Appartement Marais',
-      bookingId: 3,
-      rating: 3,
-      cleanliness: 3,
-      communication: 4,
-      checkIn: 3,
-      accuracy: 3,
-      location: 4,
-      value: 3,
-      comment: 'Séjour correct mais quelques points à améliorer. L\'appartement est bien situé mais mériterait un rafraîchissement. Bon accueil de la part de l\'hôte.',
-      pros: ['Bonne localisation', 'Hôte sympathique'],
-      cons: ['Équipements vieillissants', 'Literie à changer'],
-      helpful: 5,
-      notHelpful: 2,
-      status: 'pending',
-      isVerifiedBooking: true,
-      createdAt: '2026-03-20'
-    }
-  ]);
+  const [reviewMeta, setReviewMeta] = useState<Record<number, { status: Review['status']; helpful: number; notHelpful: number }>>({});
+
+  const reviews = useMemo<Review[]>(() => {
+    return persistedReviews.map((review) => {
+      const booking = bookings.find((b) => b.id === review.bookingId);
+      const property = properties.find((p) => p.id === review.propertyId);
+      const guest = guests.find((g) => g.id === review.guestId);
+      const rating = typeof review.rating === 'number' ? review.rating : 0;
+      const meta = reviewMeta[review.id];
+
+      return {
+        id: review.id,
+        guestId: review.guestId,
+  guestName: guest?.name || booking?.guestInfo?.name || 'Voyageur',
+        propertyId: review.propertyId,
+        propertyName: property?.name || `Propriété #${review.propertyId}`,
+        bookingId: review.bookingId,
+        rating,
+        cleanliness: rating,
+        communication: rating,
+        checkIn: rating,
+        accuracy: rating,
+        location: rating,
+        value: rating,
+        comment: review.comment || 'Avis sans commentaire',
+        pros: [],
+        cons: [],
+        helpful: meta?.helpful ?? review.helpful ?? 0,
+        notHelpful: meta?.notHelpful ?? 0,
+        response: review.response
+          ? {
+              text: review.response.message,
+              date: review.response.respondedAt,
+              author: 'Équipe BNBGest',
+            }
+          : undefined,
+        status: meta?.status ?? 'published',
+        isVerifiedBooking: review.verified,
+        createdAt: review.createdAt,
+        publishedAt: review.createdAt,
+      };
+    });
+  }, [persistedReviews, bookings, properties, guests, reviewMeta]);
 
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [responseText, setResponseText] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'published' | 'hidden' | 'reported'>('all');
   const [filterRating, setFilterRating] = useState<number | null>(null);
-  const [filterProperty, setFilterProperty] = useState<number | null>(null);
+  const [filterProperty] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'recent' | 'rating' | 'helpful'>('recent');
 
@@ -259,38 +222,42 @@ export default function ReviewsManager() {
   // ==================== ACTIONS ====================
 
   const handlePublishReview = (id: number) => {
-    setReviews(prev => prev.map(r =>
-      r.id === id ? { ...r, status: 'published', publishedAt: new Date().toISOString() } : r
-    ));
+    setReviewMeta((prev) => ({
+      ...prev,
+      [id]: {
+        status: 'published',
+        helpful: prev[id]?.helpful ?? reviews.find((r) => r.id === id)?.helpful ?? 0,
+        notHelpful: prev[id]?.notHelpful ?? reviews.find((r) => r.id === id)?.notHelpful ?? 0,
+      },
+    }));
   };
 
   const handleHideReview = (id: number) => {
-    setReviews(prev => prev.map(r =>
-      r.id === id ? { ...r, status: 'hidden' } : r
-    ));
+    setReviewMeta((prev) => ({
+      ...prev,
+      [id]: {
+        status: 'hidden',
+        helpful: prev[id]?.helpful ?? reviews.find((r) => r.id === id)?.helpful ?? 0,
+        notHelpful: prev[id]?.notHelpful ?? reviews.find((r) => r.id === id)?.notHelpful ?? 0,
+      },
+    }));
   };
 
   const handleReportReview = (id: number) => {
-    setReviews(prev => prev.map(r =>
-      r.id === id ? { ...r, status: 'reported' } : r
-    ));
+    setReviewMeta((prev) => ({
+      ...prev,
+      [id]: {
+        status: 'reported',
+        helpful: prev[id]?.helpful ?? reviews.find((r) => r.id === id)?.helpful ?? 0,
+        notHelpful: prev[id]?.notHelpful ?? reviews.find((r) => r.id === id)?.notHelpful ?? 0,
+      },
+    }));
   };
 
   const handleAddResponse = () => {
     if (!selectedReview || !responseText.trim()) return;
 
-    setReviews(prev => prev.map(r =>
-      r.id === selectedReview.id
-        ? {
-            ...r,
-            response: {
-              text: responseText,
-              date: new Date().toISOString().split('T')[0],
-              author: 'Équipe BNBGest'
-            }
-          }
-        : r
-    ));
+    respondToReview(selectedReview.id, responseText, 1);
 
     setResponseText('');
     setShowResponseModal(false);
@@ -298,9 +265,20 @@ export default function ReviewsManager() {
   };
 
   const handleMarkHelpful = (id: number) => {
-    setReviews(prev => prev.map(r =>
-      r.id === id ? { ...r, helpful: r.helpful + 1 } : r
-    ));
+    setReviewMeta((prev) => {
+      const review = reviews.find((r) => r.id === id);
+      const currentHelpful = prev[id]?.helpful ?? review?.helpful ?? 0;
+      const currentNotHelpful = prev[id]?.notHelpful ?? review?.notHelpful ?? 0;
+
+      return {
+        ...prev,
+        [id]: {
+          status: prev[id]?.status ?? review?.status ?? 'published',
+          helpful: currentHelpful + 1,
+          notHelpful: currentNotHelpful,
+        },
+      };
+    });
   };
 
   // ==================== RENDER ====================
@@ -501,7 +479,7 @@ export default function ReviewsManager() {
             {/* Status Filter */}
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
+              onChange={(e) => setFilterStatus(e.target.value as 'all' | 'pending' | 'published' | 'hidden' | 'reported')}
               className={`px-4 py-2 rounded-xl border ${
                 isDark
                   ? 'bg-gray-700 border-gray-600 text-white'
@@ -536,7 +514,7 @@ export default function ReviewsManager() {
             {/* Sort */}
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as 'recent' | 'rating' | 'helpful')}
               className={`px-4 py-2 rounded-xl border ${
                 isDark
                   ? 'bg-gray-700 border-gray-600 text-white'
@@ -707,7 +685,6 @@ export default function ReviewsManager() {
                     <button
                       onClick={() => {
                         setSelectedReview(review);
-                        setShowDetails(true);
                       }}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${
                         isDark
@@ -786,7 +763,7 @@ export default function ReviewsManager() {
           >
             <div className="flex items-center justify-between mb-6">
               <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Répondre à l'avis
+                Répondre à l&apos;avis
               </h2>
               <button
                 onClick={() => {
