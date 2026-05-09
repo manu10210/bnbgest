@@ -5,7 +5,7 @@ export function buildSkippedTraceEntry(params: {
   bookingType: GmailImportBookingType;
   guestName?: string;
   receivedAt: string;
-  action: 'cancel_not_found' | 'checkout_not_found' | 'payout_skipped';
+  action: 'skip_no_property' | 'skip_duplicate' | 'cancel_not_found' | 'checkout_not_found' | 'payout_skipped';
   reason: string;
 }) {
   return {

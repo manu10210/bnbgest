@@ -2568,15 +2568,14 @@ export default function GmailImporter() {
       if (shouldSkipImportForMissingProperty(b.bookingType, property)) {
         summary.skipped++;
         summary.skippedNoProperty++;
-        pushTrace({
+        pushTrace(buildSkippedTraceEntry({
           messageId: b.messageId,
           bookingType: b.bookingType,
-          guestName: b.guestName || '—',
-          status: 'skipped',
+          guestName: b.guestName,
           action: 'skip_no_property',
           reason: 'no_matching_property',
           receivedAt: b.receivedAt,
-        });
+        }));
         continue;
       }
 
@@ -2669,15 +2668,14 @@ export default function GmailImporter() {
         if (duplicateResolution.kind === 'skip') {
           summary.skipped++;
           summary.skippedDuplicate++;
-          pushTrace({
+          pushTrace(buildSkippedTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'skipped',
+            guestName: b.guestName,
             action: 'skip_duplicate',
             reason: duplicateResolution.reason,
             receivedAt: b.receivedAt,
-          });
+          }));
           continue;
         }
       }
