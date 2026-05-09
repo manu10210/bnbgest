@@ -2516,6 +2516,21 @@ export default function GmailImporter() {
       }));
     };
 
+    const handleSkipped = (params: {
+      booking: ParsedBooking;
+      action: Parameters<typeof buildSkippedTraceEntry>[0]['action'];
+      reason: Parameters<typeof buildSkippedTraceEntry>[0]['reason'];
+    }) => {
+      pushTrace(buildSkippedTraceEntry({
+        messageId: params.booking.messageId,
+        bookingType: params.booking.bookingType,
+        guestName: params.booking.guestName,
+        action: params.action,
+        reason: params.reason,
+        receivedAt: params.booking.receivedAt,
+      }));
+    };
+
     const touchLocalBooking = (id: number, updates: Record<string, unknown>) => {
       const idx = localBookings.findIndex(b => b.id === id);
       if (idx === -1) return;
@@ -2631,14 +2646,11 @@ export default function GmailImporter() {
       if (shouldSkipImportForMissingProperty(b.bookingType, property)) {
         summary.skipped++;
         summary.skippedNoProperty++;
-        pushTrace(buildSkippedTraceEntry({
-          messageId: b.messageId,
-          bookingType: b.bookingType,
-          guestName: b.guestName,
+        handleSkipped({
+          booking: b,
           action: 'skip_no_property',
           reason: 'no_matching_property',
-          receivedAt: b.receivedAt,
-        }));
+        });
         continue;
       }
 
@@ -2733,14 +2745,11 @@ export default function GmailImporter() {
         if (duplicateResolution.kind === 'skip') {
           summary.skipped++;
           summary.skippedDuplicate++;
-          pushTrace(buildSkippedTraceEntry({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName,
+          handleSkipped({
+            booking: b,
             action: 'skip_duplicate',
             reason: duplicateResolution.reason,
-            receivedAt: b.receivedAt,
-          }));
+          });
           continue;
         }
       }
@@ -2869,14 +2878,11 @@ export default function GmailImporter() {
             receivedAt: b.receivedAt,
           }));
         } else {
-          pushTrace(buildSkippedTraceEntry({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName,
+          handleSkipped({
+            booking: b,
             action: 'cancel_not_found',
             reason: 'no_matching_booking',
-            receivedAt: b.receivedAt,
-          }));
+          });
         }
       }
 
@@ -3009,14 +3015,11 @@ export default function GmailImporter() {
             incrementCreated: true,
           });
         } else {
-          pushTrace(buildSkippedTraceEntry({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName,
+          handleSkipped({
+            booking: b,
             action: 'checkout_not_found',
             reason: 'no_matching_booking',
-            receivedAt: b.receivedAt,
-          }));
+          });
         }
 
         // Créer automatiquement une tâche de ménage post-départ
@@ -3311,14 +3314,11 @@ export default function GmailImporter() {
               action: 'payout_created_as_financial_booking',
             });
         } else if (payoutPlan.kind === 'skip') {
-          pushTrace(buildSkippedTraceEntry({
-            messageId: b.messageId,
-            bookingType: b.bookingType,
-            guestName: b.guestName,
+          handleSkipped({
+            booking: b,
             action: 'payout_skipped',
             reason: payoutPlan.reason,
-            receivedAt: b.receivedAt,
-          }));
+          });
         }
       }
 
