@@ -39,6 +39,7 @@ import {
   deriveCheckoutInventoryUpdatePlan,
   resolveCheckoutCompletion,
 } from '../lib/gmail-checkout-resolution';
+import { resolveCancellationPlan } from '../lib/gmail-cancelled-resolution';
 import { resolveModifiedPlan } from '../lib/gmail-modified-resolution';
 import { resolvePayoutPlan } from '../lib/gmail-payout-resolution';
 import {
@@ -2777,13 +2778,15 @@ export default function GmailImporter() {
           });
         }
 
-        if (match && match.status !== 'cancelled') {
-          const cancelReason = `Annulé via Gmail — ${notes}`;
-          cancelBooking(match.id, cancelReason);
-          touchLocalBooking(match.id, { status: 'cancelled' });
-          await persistUpdateToDb(match.id, {
+        const cancellationPlan = resolveCancellationPlan({ match, notes });
+
+        if (cancellationPlan.kind === 'cancel') {
+          const { bookingId, cancelReason, preservedSpecialRequests } = cancellationPlan;
+          cancelBooking(bookingId, cancelReason);
+          touchLocalBooking(bookingId, { status: 'cancelled' });
+          await persistUpdateToDb(bookingId, {
             status: 'CANCELLED',
-            specialRequests: (match.specialRequests || '').slice(0, 4900),
+            specialRequests: preservedSpecialRequests.slice(0, 4900),
             cancellationReason: cancelReason.slice(0, 1900),
           });
           summary.cancelled++;
