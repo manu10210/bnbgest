@@ -154,6 +154,15 @@ interface QualityReport {
   reasonBreakdown: Record<string, number>;
 }
 
+type RuntimeProgressPhase = 'connect' | 'detect' | 'normalize' | 'prepare' | 'finalize';
+
+interface RuntimeProgressState {
+  phase: RuntimeProgressPhase;
+  processed: number;
+  total: number;
+  currentLabel?: string;
+}
+
 interface ImportTraceEntry {
   messageId: string;
   bookingType: ParsedBooking['bookingType'];
@@ -1671,6 +1680,7 @@ export default function GmailImporter() {
   const [rejectedBookings, setRejectedBookings] = useState<RejectedBooking[]>([]);
   const [activeRejectReason, setActiveRejectReason] = useState<string>('all');
   const [importTrace, setImportTrace] = useState<ImportTraceEntry[]>([]);
+  const [runtimeProgress, setRuntimeProgress] = useState<RuntimeProgressState | null>(null);
   const [traceStatusFilter, setTraceStatusFilter] = useState<'all' | ImportTraceStatus>('all');
   const [traceSearch, setTraceSearch] = useState('');
   const [propertyOverrides, setPropertyOverrides] = useState<Record<string, number>>({});
@@ -1879,6 +1889,12 @@ export default function GmailImporter() {
     if (scanInFlightRef.current) return;
     scanInFlightRef.current = true;
     setStatus('syncing');
+    setRuntimeProgress({
+      phase: 'connect',
+      processed: 0,
+      total: 1,
+      currentLabel: 'Connexion à Gmail…',
+    });
     setError(null);
     setStats(null);
     setBookings([]);
@@ -1906,7 +1922,13 @@ export default function GmailImporter() {
       const allBookings: ParsedBooking[] = [];
       const seen = new Set<string>();
 
-      for (const q of queries) {
+      for (const [queryIndex, q] of queries.entries()) {
+        setRuntimeProgress({
+          phase: 'detect',
+          processed: queryIndex,
+          total: queries.length,
+          currentLabel: `Détection Gmail ${queryIndex + 1}/${queries.length}`,
+        });
         const res = await fetch(`/api/gmail/sync?q=${encodeURIComponent(q)}&max=500`);
         if (!res.ok) {
           const err = await res.json();
@@ -1931,6 +1953,13 @@ export default function GmailImporter() {
             : data.stats
           );
         }
+
+        setRuntimeProgress({
+          phase: 'normalize',
+          processed: queryIndex + 1,
+          total: queries.length,
+          currentLabel: `${seen.size} email(s) détecté(s)`,
+        });
       }
 
       const qualityEvaluations = allBookings.map((booking) => {
@@ -2039,6 +2068,13 @@ export default function GmailImporter() {
   const enrichedFinalBookings = finalBookings.map((b) =>
     repairSingleDateRangeForBooking(ensureBookingNightsConsistency(enrichPayoutFromContext(enrichReviewFromContext(b, existingBookings, properties), existingBookings, properties, dbBookingsByCode, finalBookings)))
   );
+
+  setRuntimeProgress({
+    phase: 'finalize',
+    processed: queries.length,
+    total: queries.length,
+    currentLabel: `${enrichedFinalBookings.length} réservation(s) consolidée(s)`,
+  });
 
   setBookings(enrichedFinalBookings);
       // Auto-sélectionner uniquement :
@@ -2353,6 +2389,12 @@ export default function GmailImporter() {
   const importSelected = useCallback(async () => {
   setStatus('importing');
     const toImport = bookings.filter(b => selected.has(b.messageId));
+  setRuntimeProgress({
+    phase: 'detect',
+    processed: 0,
+    total: Math.max(toImport.length, 1),
+    currentLabel: toImport.length > 0 ? 'Préparation des éléments à importer…' : 'Aucun email sélectionné',
+  });
   let runtimeProperties = await fetchDbProperties().catch(() => [] as Property[]);
   let defaultProperty = runtimeProperties[0];
 
@@ -2366,6 +2408,7 @@ export default function GmailImporter() {
 
     if (!defaultProperty) {
       toast.error('Import arrêté: aucune propriété persistée en DB disponible.');
+      setRuntimeProgress(null);
       setStatus('error');
       return;
     }
@@ -2598,7 +2641,21 @@ export default function GmailImporter() {
       await persistUpdateToDb(bookingId, persistPatch);
     };
 
-    for (const b of toImport) {
+    for (const [importIndex, b] of toImport.entries()) {
+      const ratio = toImport.length > 0 ? (importIndex + 1) / toImport.length : 0;
+      const phase: RuntimeProgressPhase = ratio < 0.35
+        ? 'detect'
+        : ratio < 0.75
+          ? 'normalize'
+          : 'prepare';
+
+      setRuntimeProgress({
+        phase,
+        processed: importIndex + 1,
+        total: Math.max(toImport.length, 1),
+        currentLabel: `${b.guestName || 'Voyageur'} · ${b.bookingType}`,
+      });
+
       await new Promise(r => setTimeout(r, 200)); // Animation de transfert visible
 
       // ── 1. Trouver le logement ────────────────────────────────────────────
@@ -3353,6 +3410,13 @@ export default function GmailImporter() {
           .map((entry) => entry.messageId),
       ));
 
+      setRuntimeProgress({
+        phase: 'finalize',
+        processed: toImport.length,
+        total: Math.max(toImport.length, 1),
+        currentLabel: `Finalisation de ${toImport.length} import(s)…`,
+      });
+
       setImported(importedMessageIds);
       setImportSummary(summary);
       setImportTrace(trace.slice(-200));
@@ -3855,6 +3919,36 @@ export default function GmailImporter() {
   const cardSelected = isDark ? 'border-violet-500 bg-violet-900/30' : 'border-violet-400 bg-violet-50';
   const cardImported = isDark ? 'border-green-700 bg-green-900/20 opacity-70' : 'border-green-300 bg-green-50 opacity-70';
 
+  const overlaySteps = status === 'importing'
+    ? [
+      { phase: 'detect' as RuntimeProgressPhase, label: 'Détection des emails Airbnb', icon: Search },
+      { phase: 'normalize' as RuntimeProgressPhase, label: 'Normalisation des données', icon: Database },
+      { phase: 'prepare' as RuntimeProgressPhase, label: 'Préparation de l\'import', icon: DownloadCloud },
+      { phase: 'finalize' as RuntimeProgressPhase, label: 'Finalisation import', icon: CheckCircle2 },
+    ]
+    : [
+      { phase: 'connect' as RuntimeProgressPhase, label: 'Connexion Gmail', icon: Mail },
+      { phase: 'detect' as RuntimeProgressPhase, label: 'Détection des emails Airbnb', icon: Search },
+      { phase: 'normalize' as RuntimeProgressPhase, label: 'Classification et normalisation', icon: Database },
+      { phase: 'finalize' as RuntimeProgressPhase, label: 'Consolidation des réservations', icon: CheckCircle2 },
+    ];
+
+  const activeOverlayStepIndex = Math.max(
+    0,
+    overlaySteps.findIndex((step) => step.phase === (runtimeProgress?.phase ?? (status === 'importing' ? 'detect' : 'connect'))),
+  );
+
+  const overlayTotal = Math.max(runtimeProgress?.total ?? 1, 1);
+  const overlayProcessed = Math.max(0, Math.min(runtimeProgress?.processed ?? 0, overlayTotal));
+  const overlayPercentRaw = Math.round((overlayProcessed / overlayTotal) * 100);
+  const overlayPercent = status === 'importing' ? Math.max(5, overlayPercentRaw) : Math.max(10, overlayPercentRaw);
+  const overlayHeaderStep = overlaySteps[activeOverlayStepIndex]?.label ?? (status === 'importing' ? 'Import en cours' : 'Scan Gmail');
+  const overlayDetail = runtimeProgress?.currentLabel
+    ?? (status === 'importing' ? 'Extraction, classification et préparation des écritures…' : 'Recherche de réservations et données financières…');
+  const overlayCounterLabel = status === 'importing'
+    ? `${overlayProcessed}/${overlayTotal} email${overlayTotal > 1 ? 's' : ''} traité${overlayProcessed > 1 ? 's' : ''}`
+    : `Étape ${Math.min(activeOverlayStepIndex + 1, overlaySteps.length)}/${overlaySteps.length}`;
+
   return (
     <>
       <AnimatePresence>
@@ -3897,23 +3991,59 @@ export default function GmailImporter() {
                 <div className="flex items-center justify-between text-xs">
                   <span className={`${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Étapes</span>
                   <span className={`font-medium ${status === 'importing' ? (isDark ? 'text-violet-300' : 'text-violet-700') : (isDark ? 'text-pink-300' : 'text-pink-700')}`}>
-                    {status === 'importing' ? 'Finalisation import' : 'Scan Gmail'}
+                    {overlayHeaderStep}
                   </span>
                 </div>
 
+                <div className="mt-2">
+                  <div className={`flex items-center justify-between text-[11px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <span>{overlayCounterLabel}</span>
+                    <span>{overlayPercent}%</span>
+                  </div>
+                  <div className={`mt-1 h-1.5 w-full overflow-hidden rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
+                    <motion.div
+                      animate={{ width: `${overlayPercent}%` }}
+                      transition={{ duration: 0.35, ease: 'easeOut' }}
+                      className={`h-full rounded-full ${status === 'importing' ? 'bg-violet-400' : 'bg-pink-400'}`}
+                    />
+                  </div>
+                </div>
+
                 <div className="mt-2 grid gap-1.5 text-sm">
-                  <div className={`flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    <Search className="w-3.5 h-3.5" />
-                    Détection des emails Airbnb
-                  </div>
-                  <div className={`flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    <Database className="w-3.5 h-3.5" />
-                    Normalisation des données
-                  </div>
-                  <div className={`flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    <DownloadCloud className="w-3.5 h-3.5" />
-                    Préparation de l&apos;import
-                  </div>
+                  {overlaySteps.map((step, index) => {
+                    const Icon = step.icon;
+                    const isDone = index < activeOverlayStepIndex;
+                    const isActive = index === activeOverlayStepIndex;
+
+                    return (
+                      <div
+                        key={step.phase}
+                        className={`flex items-center gap-2 transition-all ${
+                          isDone
+                            ? (isDark ? 'text-green-300' : 'text-green-700')
+                            : isActive
+                              ? (status === 'importing'
+                                ? (isDark ? 'text-violet-200' : 'text-violet-700')
+                                : (isDark ? 'text-pink-200' : 'text-pink-700'))
+                              : (isDark ? 'text-gray-300' : 'text-gray-700')
+                        }`}
+                      >
+                        {isDone ? (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        ) : isActive ? (
+                          <motion.div
+                            animate={{ scale: [1, 1.15, 1] }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                          >
+                            <Icon className="w-3.5 h-3.5" />
+                          </motion.div>
+                        ) : (
+                          <Icon className="w-3.5 h-3.5 opacity-80" />
+                        )}
+                        {step.label}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -3923,7 +4053,7 @@ export default function GmailImporter() {
                   transition={{ duration: 1.2, repeat: Infinity }}
                   className={`w-2 h-2 rounded-full ${status === 'importing' ? 'bg-violet-400' : 'bg-pink-400'}`}
                 />
-                Patientez quelques secondes…
+                {overlayDetail}
               </div>
             </motion.div>
           </motion.div>
