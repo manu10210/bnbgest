@@ -24,6 +24,7 @@ import {
   formatImportTraceStatusLabel,
   type ImportTraceStatus,
 } from '../lib/gmail-import-trace';
+import { buildPersistFailureTraceEntry } from '../lib/gmail-import-failures';
 import {
   persistBookingToDb,
   persistBookingUpdateToDb,
@@ -2712,15 +2713,14 @@ export default function GmailImporter() {
         if (!dbPersistResult.id) {
           summary.skipped++;
           trackDbFailure(dbPersistResult.error);
-          pushTrace({
+          pushTrace(buildPersistFailureTraceEntry({
             messageId: b.messageId,
             bookingType: b.bookingType,
-            guestName: b.guestName || '—',
-            status: 'error',
-            action: 'booking_persist_failed',
-            reason: dbPersistResult.error || 'db_create_failed',
+            guestName: b.guestName,
             receivedAt: b.receivedAt,
-          });
+            dbError: dbPersistResult.error,
+            fallbackReason: 'db_create_failed',
+          }));
           continue;
         }
 
@@ -2884,15 +2884,14 @@ export default function GmailImporter() {
           if (!dbPersistResult.id) {
             summary.skipped++;
             trackDbFailure(dbPersistResult.error);
-            pushTrace({
+            pushTrace(buildPersistFailureTraceEntry({
               messageId: b.messageId,
               bookingType: b.bookingType,
-              guestName: b.guestName || '—',
-              status: 'error',
-              action: 'booking_persist_failed',
-              reason: dbPersistResult.error || 'db_create_failed_from_modified',
+              guestName: b.guestName,
               receivedAt: b.receivedAt,
-            });
+              dbError: dbPersistResult.error,
+              fallbackReason: 'db_create_failed_from_modified',
+            }));
             continue;
           }
 
@@ -3084,15 +3083,14 @@ export default function GmailImporter() {
           if (!dbPersistResult.id) {
             summary.skipped++;
             trackDbFailure(dbPersistResult.error);
-            pushTrace({
+            pushTrace(buildPersistFailureTraceEntry({
               messageId: b.messageId,
               bookingType: b.bookingType,
-              guestName: b.guestName || '—',
-              status: 'error',
-              action: 'booking_persist_failed',
-              reason: dbPersistResult.error || 'db_create_failed_from_reminder',
+              guestName: b.guestName,
               receivedAt: b.receivedAt,
-            });
+              dbError: dbPersistResult.error,
+              fallbackReason: 'db_create_failed_from_reminder',
+            }));
             continue;
           }
 
@@ -3267,15 +3265,14 @@ export default function GmailImporter() {
             if (!dbPersistResult.id) {
               summary.skipped++;
               trackDbFailure(dbPersistResult.error);
-              pushTrace({
+              pushTrace(buildPersistFailureTraceEntry({
                 messageId: b.messageId,
                 bookingType: b.bookingType,
-                guestName: b.guestName || '—',
-                status: 'error',
-                action: 'booking_persist_failed',
-                reason: dbPersistResult.error || 'db_create_failed_from_payout',
+                guestName: b.guestName,
                 receivedAt: b.receivedAt,
-              });
+                dbError: dbPersistResult.error,
+                fallbackReason: 'db_create_failed_from_payout',
+              }));
               continue;
             }
 
