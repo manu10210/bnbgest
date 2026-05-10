@@ -36,6 +36,12 @@ type PreviousIdentity = {
   phone?: string;
 };
 
+type SessionUser = {
+  id?: string | null;
+  email?: string | null;
+  name?: string | null;
+};
+
 type UpsertPayload = {
   guest?: GuestPayload;
   previousIdentity?: PreviousIdentity;
@@ -76,6 +82,20 @@ function buildIdentityWhere(identity: PreviousIdentity | GuestPayload): Prisma.B
   return orFilters.length > 0 ? { OR: orFilters } : {};
 }
 
+function isSyntheticTravelerName(name?: string | null): boolean {
+  const normalized = normalizeGuestName(name);
+  if (!normalized) return true;
+
+  return (
+    normalized === 'voyageur airbnb'
+    || normalized === 'airbnb guest'
+    || normalized === 'guest'
+    || normalized === 'inconnu'
+    || normalized === 'airbnb payout'
+    || normalized.startsWith('reglement du sejour')
+  );
+}
+
 export async function GET(request: Request) {
   const rateLimitResult = await rateLimit(request, 'relaxed');
   if (rateLimitResult) return rateLimitResult;
@@ -83,7 +103,7 @@ export async function GET(request: Request) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
 
-  const sessionUser = authResult.user as any;
+  const sessionUser = authResult.user as SessionUser;
   const normalizedEmail = (sessionUser.email || '').trim().toLowerCase();
   let owner = sessionUser.id ? await prisma.user.findUnique({ where: { id: sessionUser.id }, select: { id: true } }) : null;
   if (!owner && normalizedEmail) {
@@ -226,6 +246,8 @@ export async function GET(request: Request) {
     }
 
     for (const booking of bookings) {
+      if (isSyntheticTravelerName(booking.guestName)) continue;
+
       const identityKey = computeGuestIdentityKey({
         name: booking.guestName,
         email: booking.guestEmail,
@@ -257,6 +279,8 @@ export async function GET(request: Request) {
 
     const reviewByName = new Map<string, { sum: number; count: number }>();
     for (const review of reviews) {
+      if (isSyntheticTravelerName(review.guestName)) continue;
+
       const normalizedName = normalizeGuestName(review.guestName);
       if (!normalizedName) continue;
       const existing = reviewByName.get(normalizedName) || { sum: 0, count: 0 };
@@ -266,6 +290,8 @@ export async function GET(request: Request) {
     }
 
     for (const thread of threads) {
+      if (isSyntheticTravelerName(thread.guestName)) continue;
+
       const identityKey = computeGuestIdentityKey({
         name: thread.guestName,
         email: thread.guestEmail,
@@ -339,7 +365,7 @@ export async function POST(request: Request) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
 
-  const sessionUser = authResult.user as any;
+  const sessionUser = authResult.user as SessionUser;
   const normalizedEmail = (sessionUser.email || '').trim().toLowerCase();
   let owner = sessionUser.id ? await prisma.user.findUnique({ where: { id: sessionUser.id }, select: { id: true } }) : null;
   if (!owner && normalizedEmail) {
