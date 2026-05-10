@@ -127,6 +127,11 @@ export const BookingSchema = z.object({
     .optional(),
 
   confirmationCode: z.string().max(100).optional().nullable(),
+
+  externalId: z.string()
+    .max(191, 'External ID must be less than 191 characters')
+    .optional()
+    .nullable(),
   
 }).refine(data => {
   const checkIn = new Date(data.checkIn);
@@ -453,7 +458,7 @@ export const VideoUploadSchema = FileUploadSchema.extend({
 export function validateOrError<T>(
   schema: z.ZodSchema<T>,
   data: unknown
-): { success: true; data: T } | { success: false; error: any } {
+): { success: true; data: T } | { success: false; error: unknown } {
   try {
     const validated = schema.parse(data);
     return { success: true, data: validated };

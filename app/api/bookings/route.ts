@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
-import { BookingSource, BookingStatus } from '@prisma/client';
+import { BookingSource, BookingStatus, Role } from '@prisma/client';
 import { sendBookingConfirmationEmail } from '@/lib/email-notifications';
 import { requireAuth } from '@/lib/auth-middleware';
 import { rateLimit } from '@/lib/rate-limit';
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
         create: {
           email: normalizedEmail,
           name: sessionUser.name || normalizedEmail.split('@')[0],
-          role: validRole as any,
+          role: validRole as Role,
         },
         select: { id: true },
       });
@@ -165,6 +165,40 @@ export async function POST(request: Request) {
     const normalizedGuestEmail = normalizeGuestEmail(validatedData.guestEmail) || '';
     const normalizedGuestPhone = normalizeGuestPhone(validatedData.guestPhone);
     const normalizedConfirmationCode = normalizeConfirmationCode(validatedData.confirmationCode);
+    const normalizedExternalId = typeof validatedData.externalId === 'string' && validatedData.externalId.trim().length > 0
+      ? validatedData.externalId.trim()
+      : null;
+
+    // Déduplication idempotente primaire via ID externe (message Gmail)
+    if (normalizedExternalId) {
+      const duplicateByExternalId = await prisma.booking.findFirst({
+        where: {
+          propertyId: validatedData.propertyId,
+          source: (validatedData.source as BookingSource) ?? 'AIRBNB',
+          externalId: normalizedExternalId,
+        },
+        include: {
+          property: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              city: true,
+              price: true,
+            },
+          },
+        },
+      });
+
+      if (duplicateByExternalId) {
+        return NextResponse.json({
+          success: true,
+          duplicate: true,
+          dedupeReason: 'external_id',
+          booking: duplicateByExternalId,
+        });
+      }
+    }
 
     // Déduplication primaire via code de confirmation Airbnb
     if (normalizedConfirmationCode) {
@@ -296,6 +330,7 @@ export async function POST(request: Request) {
         notes: validatedData.notes ?? null,
         specialRequests: validatedData.specialRequests ?? null,
         confirmationCode: normalizedConfirmationCode,
+  externalId: normalizedExternalId,
         status: (validatedData.status as BookingStatus) ?? 'PENDING',
         source: (validatedData.source as BookingSource) ?? 'DIRECT',
       },

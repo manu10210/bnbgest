@@ -2,6 +2,7 @@ export type PersistBookingType = 'new' | 'cancelled' | 'modified';
 
 export interface PersistBookingPayload {
   propertyId: number;
+  sourceMessageId?: string;
   guestInfo?: {
     name?: string;
     email?: string;
@@ -72,6 +73,7 @@ export async function persistBookingToDb(
 
     const body: Record<string, unknown> = {
       propertyId: payload.propertyId,
+      externalId: payload.sourceMessageId || null,
       guestName: (payload.guestInfo?.name ?? 'Voyageur').slice(0, 100),
       guestEmail: payload.guestInfo?.email || undefined,
       guestPhone: payload.guestInfo?.phone || null,

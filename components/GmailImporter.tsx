@@ -2395,10 +2395,11 @@ export default function GmailImporter() {
 
   // ─── Importer les réservations sélectionnées ──────────────────────────────
 
-  const importSelected = useCallback(async () => {
+  const importSelected = useCallback(async (forcedMessageIds?: string[]) => {
   progressStartedAtRef.current = Date.now();
   setStatus('importing');
-    const toImport = bookings.filter(b => selected.has(b.messageId));
+    const messageIdSet = forcedMessageIds ? new Set(forcedMessageIds) : selected;
+    const toImport = bookings.filter(b => messageIdSet.has(b.messageId));
   setRuntimeProgress({
     phase: 'detect',
     processed: 0,
@@ -2625,8 +2626,12 @@ export default function GmailImporter() {
     const persistToDb = async (
       payload: Parameters<typeof addBooking>[0],
       bookingType: 'new' | 'cancelled' | 'modified',
+      booking: ParsedBooking,
     ): Promise<{ id?: number; error?: string }> => {
-      return persistBookingToDb(payload, bookingType);
+      return persistBookingToDb({
+        ...payload,
+        sourceMessageId: booking.messageId,
+      }, bookingType);
     };
 
     const persistUpdateToDb = async (
@@ -2863,7 +2868,7 @@ export default function GmailImporter() {
         });
 
         const bookingPayload: Parameters<typeof addBooking>[0] = newBookingPlan.bookingPayload;
-        const dbPersistResult = await persistToDb(bookingPayload, 'new');
+  const dbPersistResult = await persistToDb(bookingPayload, 'new', b);
         if (!dbPersistResult.id) {
           handlePersistFailure({
             booking: b,
@@ -3017,7 +3022,7 @@ export default function GmailImporter() {
           });
         } else {
           const bookingPayload: Parameters<typeof addBooking>[0] = modifiedPlan.bookingPayload;
-          const dbPersistResult = await persistToDb(bookingPayload, 'modified');
+          const dbPersistResult = await persistToDb(bookingPayload, 'modified', b);
           if (!dbPersistResult.id) {
             handlePersistFailure({
               booking: b,
@@ -3199,7 +3204,7 @@ export default function GmailImporter() {
             }, fmt),
             guestInfo: { name: b.guestName, email: b.guestEmail || '', phone: b.guestPhone || '' },
           };
-          const dbPersistResult = await persistToDb(bookingPayload, 'new');
+          const dbPersistResult = await persistToDb(bookingPayload, 'new', b);
           if (!dbPersistResult.id) {
             handlePersistFailure({
               booking: b,
@@ -3370,7 +3375,7 @@ export default function GmailImporter() {
                 serviceFee: b.serviceFee,
               },
             });
-            const dbPersistResult = await persistToDb(bookingPayload, 'new');
+            const dbPersistResult = await persistToDb(bookingPayload, 'new', b);
             if (!dbPersistResult.id) {
               handlePersistFailure({
                 booking: b,
@@ -4044,6 +4049,17 @@ export default function GmailImporter() {
   // Sélectionnable : tout type
   const selectedNew = bookings.filter(b => selected.has(b.messageId)).length;
 
+  const replayableFailedMessageIds = useMemo(() => {
+    const inList = new Set(bookings.map((b) => b.messageId));
+    const ids = new Set<string>();
+    for (const entry of importTrace) {
+      if (entry.action !== 'booking_persist_failed') continue;
+      if (!inList.has(entry.messageId)) continue;
+      ids.add(entry.messageId);
+    }
+    return Array.from(ids);
+  }, [bookings, importTrace]);
+
   const importPerformance = useMemo(() => {
     if (!importSummary || imported.length === 0) return null;
 
@@ -4482,10 +4498,25 @@ export default function GmailImporter() {
             </button>
             {selectedNew > 0 && (
               <button
-                onClick={importSelected}
+                onClick={() => { void importSelected(); }}
                 className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl hover:from-violet-700 hover:to-purple-700 font-semibold text-sm shadow-sm"
               >
                 <Download className="w-4 h-4" /> Traiter {selectedNew} email{selectedNew > 1 ? 's' : ''}
+              </button>
+            )}
+
+            {replayableFailedMessageIds.length > 0 && (
+              <button
+                onClick={() => importSelected(replayableFailedMessageIds)}
+                disabled={status === 'syncing' || status === 'checking' || status === 'importing'}
+                title="Rejouer uniquement les imports ayant échoué en persistance DB"
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm border transition-colors disabled:opacity-50 ${
+                  isDark
+                    ? 'border-amber-700 text-amber-300 bg-amber-900/20 hover:bg-amber-900/35'
+                    : 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'
+                }`}
+              >
+                <RefreshCw className="w-4 h-4" /> Rejouer les échecs DB ({replayableFailedMessageIds.length})
               </button>
             )}
 
@@ -5539,7 +5570,7 @@ export default function GmailImporter() {
 
               {selectedNew > 0 && (
                 <div className="flex justify-center pt-2">
-                  <button onClick={importSelected}
+                  <button onClick={() => { void importSelected(); }}
                     className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl hover:from-violet-700 hover:to-purple-700 font-bold shadow-md">
                     <Zap className="w-5 h-5" />
                     Traiter {selectedNew} email{selectedNew > 1 ? 's' : ''} sélectionné{selectedNew > 1 ? 's' : ''}
