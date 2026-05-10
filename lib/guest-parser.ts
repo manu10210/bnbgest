@@ -110,7 +110,7 @@ export interface GuestComposition {
   total?: number;
 }
 
-export function extractGuestComposition(body: string, subject?: string): GuestComposition {
+export function extractGuestComposition(body: string, _subject?: string): GuestComposition {
   const result: GuestComposition = {};
 
   const adultPatterns = [/(\d+)\s+adulte[s]?/i, /(\d+)\s+adult[s]?/i];
@@ -202,13 +202,35 @@ export function extractGuestPhone(body: string): string | undefined {
 // ============================================================
 
 export function extractGuestEmail(body: string): string | undefined {
-  const m = body.match(/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/);
-  if (m && m[1]) {
-    const email = m[1].trim();
-    if (!email.includes('airbnb.com') && !email.includes('noreply')) {
-      return email;
-    }
-  }
+  const matches = body.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) || [];
+  if (matches.length === 0) return undefined;
+
+  const blockedLocalParts = new Set([
+    'noreply',
+    'no-reply',
+    'automated',
+    'express',
+    'support',
+    'reply',
+  ]);
+
+  const normalizedCandidates = Array.from(new Set(matches.map((raw) => raw.trim().toLowerCase())));
+
+  const nonAirbnb = normalizedCandidates.find((email) => {
+    const [localPart, domain = ''] = email.split('@');
+    if (blockedLocalParts.has(localPart)) return false;
+    if (domain.includes('airbnb.com')) return false;
+    return true;
+  });
+  if (nonAirbnb) return nonAirbnb;
+
+  const relayAirbnb = normalizedCandidates.find((email) => {
+    const [localPart, domain = ''] = email.split('@');
+    if (blockedLocalParts.has(localPart)) return false;
+    return /(?:guest|reply|messages?)\.airbnb\.com$/.test(domain);
+  });
+  if (relayAirbnb) return relayAirbnb;
+
   return undefined;
 }
 
@@ -216,7 +238,7 @@ export function extractGuestEmail(body: string): string | undefined {
 // DETECT GUEST LANGUAGE
 // ============================================================
 
-export function detectGuestLanguage(body: string, subject?: string): string {
+export function detectGuestLanguage(body: string, _subject?: string): string {
   const frWords = ['bonjour', 'merci', 'voyageur', 'reservation', 'arrivee', 'depart', 'nuit', 'logement'];
   const enWords = ['hello', 'thank', 'guest', 'booking', 'reservation', 'check-in', 'checkout', 'night', 'property'];
 

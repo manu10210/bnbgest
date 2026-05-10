@@ -619,10 +619,10 @@ function enrichPayoutFromContext(
       propertyId: number;
       specialRequests?: string;
       paymentInfo?: { transactionId?: string };
-      guestInfo?: { name?: string };
+      guestInfo?: { name?: string; email?: string; phone?: string };
     }>,
     properties: Array<{ id: number; name: string }>,
-    dbBookingsByCode?: Map<string, { guestName?: string; propertyId?: number }>,
+    dbBookingsByCode?: Map<string, { guestName?: string; guestEmail?: string; guestPhone?: string; propertyId?: number }>,
     batchBookings: ParsedBooking[] = [],
   ): ParsedBooking {
     if (booking.bookingType !== 'payout') return booking;
@@ -664,6 +664,14 @@ function enrichPayoutFromContext(
   return {
     ...booking,
     guestName: newGuestName,
+    guestEmail: booking.guestEmail
+      || batchMatch?.guestEmail
+      || dbMatch?.guestEmail
+      || candidateByCode?.guestInfo?.email,
+    guestPhone: booking.guestPhone
+      || batchMatch?.guestPhone
+      || dbMatch?.guestPhone
+      || candidateByCode?.guestInfo?.phone,
     propertyName: booking.propertyName
       || (batchMatch?.propertyName ? properties.find(p => p.name === batchMatch.propertyName)?.name : undefined)
       || (dbMatch?.propertyId ? properties.find(p => p.id === dbMatch.propertyId)?.name : undefined)
@@ -680,7 +688,7 @@ function enrichReviewFromContext(
       checkOut: string;
       specialRequests?: string;
       paymentInfo?: { transactionId?: string };
-      guestInfo?: { name?: string };
+      guestInfo?: { name?: string; email?: string; phone?: string };
       status?: string;
     }>,
     properties: Array<{ id: number; name: string }>,
@@ -727,6 +735,8 @@ function enrichReviewFromContext(
   return {
     ...booking,
     guestName: hasGuest ? booking.guestName : (match.guestInfo?.name || booking.guestName),
+    guestEmail: booking.guestEmail || match.guestInfo?.email,
+    guestPhone: booking.guestPhone || match.guestInfo?.phone,
     propertyName: hasProperty ? booking.propertyName : (matchedProperty?.name || booking.propertyName),
     checkIn: hasDates ? booking.checkIn : (isIsoDate(match.checkIn) ? match.checkIn : booking.checkIn),
     checkOut: hasDates ? booking.checkOut : (isIsoDate(match.checkOut) ? match.checkOut : booking.checkOut),
@@ -2066,7 +2076,7 @@ export default function GmailImporter() {
     .filter(b => b.bookingType === 'payout' && b.confirmationCode && /^HM[A-Z0-9]{6,12}$/i.test(b.confirmationCode))
     .map(b => b.confirmationCode!.toUpperCase());
 
-  const dbBookingsByCode = new Map<string, { guestName?: string; propertyId?: number }>();
+  const dbBookingsByCode = new Map<string, { guestName?: string; guestEmail?: string; guestPhone?: string; propertyId?: number }>();
   await Promise.allSettled(
     [...new Set(payoutCodes)].map(async (code) => {
       try {
@@ -2074,8 +2084,13 @@ export default function GmailImporter() {
         if (res.ok) {
           const data = await res.json();
           const found = data.bookings?.[0];
-          if (found?.guestName) {
-            dbBookingsByCode.set(code, { guestName: found.guestName, propertyId: found.propertyId });
+          if (found) {
+            dbBookingsByCode.set(code, {
+              guestName: found.guestName,
+              guestEmail: found.guestEmail,
+              guestPhone: found.guestPhone,
+              propertyId: found.propertyId,
+            });
           }
         }
       } catch {
