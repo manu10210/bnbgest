@@ -38,6 +38,47 @@ export interface PersistBookingResult {
   error?: string;
 }
 
+const RETRYABLE_HTTP_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function recoverExistingBookingId(params: {
+  propertyId: number;
+  sourceMessageId?: string;
+  confirmationCode?: string | null;
+}): Promise<number | null> {
+  const { propertyId, sourceMessageId, confirmationCode } = params;
+
+  const tryLookup = async (query: string): Promise<number | null> => {
+    const res = await fetch(`/api/bookings?${query}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+
+    if (!res.ok) return null;
+    const payload = await res.json().catch(() => ({} as { bookings?: Array<{ id?: number }> }));
+    const id = Number(payload?.bookings?.[0]?.id);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  };
+
+  if (typeof sourceMessageId === 'string' && sourceMessageId.trim().length > 0) {
+    const existingByExternalId = await tryLookup(
+      `propertyId=${propertyId}&source=AIRBNB&externalId=${encodeURIComponent(sourceMessageId.trim())}`,
+    );
+    if (existingByExternalId) return existingByExternalId;
+  }
+
+  if (typeof confirmationCode === 'string' && confirmationCode.trim().length > 0) {
+    const existingByCode = await tryLookup(
+      `propertyId=${propertyId}&confirmationCode=${encodeURIComponent(confirmationCode.trim())}`,
+    );
+    if (existingByCode) return existingByCode;
+  }
+
+  return null;
+}
+
 export function toApiDateTime(value?: string, fallbackHour = 12): string | undefined {
   if (!value) return undefined;
 
@@ -56,74 +97,112 @@ export async function persistBookingToDb(
   payload: PersistBookingPayload,
   bookingType: PersistBookingType,
 ): Promise<PersistBookingResult> {
-  try {
-    const specialReqs = payload.specialRequests ?? null;
-    const apiCheckIn = toApiDateTime(payload.checkIn, 15);
-    let apiCheckOut = toApiDateTime(payload.checkOut, 11);
+  const specialReqs = payload.specialRequests ?? null;
+  const apiCheckIn = toApiDateTime(payload.checkIn, 15);
+  let apiCheckOut = toApiDateTime(payload.checkOut, 11);
 
-    if (!apiCheckIn || !apiCheckOut) {
-      console.warn('[persistToDb] Dates invalides, persistance annulée', payload.checkIn, payload.checkOut);
-      return { error: 'invalid_dates' };
-    }
-
-    // Corriger l'inversion d'heure si les jours sont identiques (ex: payout importé)
-    if (payload.checkIn === payload.checkOut) {
-      apiCheckOut = toApiDateTime(payload.checkOut, 17); // Forcer 17h, donc après 15h
-    }
-
-    const body: Record<string, unknown> = {
-      propertyId: payload.propertyId,
-      externalId: payload.sourceMessageId || null,
-      guestName: (payload.guestInfo?.name ?? 'Voyageur').slice(0, 100),
-      guestEmail: payload.guestInfo?.email || undefined,
-      guestPhone: payload.guestInfo?.phone || null,
-      checkIn: apiCheckIn,
-      checkOut: apiCheckOut,
-      guests: payload.guests ?? 1,
-      totalPrice: payload.totalPrice ?? 0,
-      status:
-        bookingType === 'cancelled'
-          ? 'CANCELLED'
-          : payload.status === 'confirmed'
-            ? 'CONFIRMED'
-            : payload.status === 'completed'
-              ? 'CHECKED_OUT'
-              : 'CONFIRMED',
-      source: 'AIRBNB',
-      specialRequests: specialReqs ? specialReqs.slice(0, 4900) : null,
-      confirmationCode: payload.paymentInfo?.transactionId ?? null,
-      notes: null,
-    };
-
-    const res = await fetch('/api/bookings', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const apiError =
-        typeof err?.error === 'string'
-          ? err.error
-          : typeof err?.message === 'string'
-            ? err.message
-            : 'unknown_error';
-      const reason = `http_${res.status}:${apiError}`;
-      console.warn(`[persistToDb] HTTP ${res.status}:`, apiError);
-      return { error: reason };
-    }
-
-    const data = await res.json().catch(() => ({}));
-    const dbId = Number((data as { booking?: { id?: number } })?.booking?.id);
-    return Number.isFinite(dbId) && dbId > 0
-      ? { id: dbId }
-      : { error: 'missing_booking_id_in_response' };
-  } catch (error) {
-    console.warn('[persistToDb] Erreur réseau (non bloquant):', error);
-    return { error: 'network_error' };
+  if (!apiCheckIn || !apiCheckOut) {
+    console.warn('[persistToDb] Dates invalides, persistance annulée', payload.checkIn, payload.checkOut);
+    return { error: 'invalid_dates' };
   }
+
+  // Corriger l'inversion d'heure si les jours sont identiques (ex: payout importé)
+  if (payload.checkIn === payload.checkOut) {
+    apiCheckOut = toApiDateTime(payload.checkOut, 17); // Forcer 17h, donc après 15h
+  }
+
+  const body: Record<string, unknown> = {
+    propertyId: payload.propertyId,
+    externalId: payload.sourceMessageId || null,
+    guestName: (payload.guestInfo?.name ?? 'Voyageur').slice(0, 100),
+    guestEmail: payload.guestInfo?.email || undefined,
+    guestPhone: payload.guestInfo?.phone || null,
+    checkIn: apiCheckIn,
+    checkOut: apiCheckOut,
+    guests: payload.guests ?? 1,
+    totalPrice: payload.totalPrice ?? 0,
+    status:
+      bookingType === 'cancelled'
+        ? 'CANCELLED'
+        : payload.status === 'confirmed'
+          ? 'CONFIRMED'
+          : payload.status === 'completed'
+            ? 'CHECKED_OUT'
+            : 'CONFIRMED',
+    source: 'AIRBNB',
+    specialRequests: specialReqs ? specialReqs.slice(0, 4900) : null,
+    confirmationCode: payload.paymentInfo?.transactionId ?? null,
+    notes: null,
+  };
+
+  const confirmationCode = payload.paymentInfo?.transactionId ?? null;
+  const maxAttempts = 2;
+  let lastError = 'unknown_error';
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const apiError =
+          typeof err?.error === 'string'
+            ? err.error
+            : typeof err?.message === 'string'
+              ? err.message
+              : 'unknown_error';
+        const reason = `http_${res.status}:${apiError}`;
+        lastError = reason;
+        console.warn(`[persistToDb] HTTP ${res.status}:`, apiError);
+
+        if (res.status === 409) {
+          const recoveredBookingId = await recoverExistingBookingId({
+            propertyId: payload.propertyId,
+            sourceMessageId: payload.sourceMessageId,
+            confirmationCode,
+          });
+          if (recoveredBookingId) {
+            return { id: recoveredBookingId };
+          }
+        }
+
+        if (RETRYABLE_HTTP_STATUS.has(res.status) && attempt < maxAttempts) {
+          await sleep(250 * attempt);
+          continue;
+        }
+
+        return { error: reason };
+      }
+
+      const data = await res.json().catch(() => ({}));
+      const dbId = Number((data as { booking?: { id?: number } })?.booking?.id);
+      if (Number.isFinite(dbId) && dbId > 0) {
+        return { id: dbId };
+      }
+
+      lastError = 'missing_booking_id_in_response';
+      if (attempt < maxAttempts) {
+        await sleep(200 * attempt);
+        continue;
+      }
+      return { error: lastError };
+    } catch (error) {
+      console.warn('[persistToDb] Erreur réseau (non bloquant):', error);
+      lastError = 'network_error';
+      if (attempt < maxAttempts) {
+        await sleep(250 * attempt);
+        continue;
+      }
+      return { error: lastError };
+    }
+  }
+
+  return { error: lastError };
 }
 
 export async function persistBookingUpdateToDb(

@@ -37,6 +37,7 @@ export async function GET(request: Request) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const confirmationCodeFilter = searchParams.get('confirmationCode');
+  const externalIdFilter = searchParams.get('externalId');
 
     const bookings = await prisma.booking.findMany({
       where: {
@@ -54,6 +55,9 @@ export async function GET(request: Request) {
             { confirmationCode: { equals: confirmationCodeFilter, mode: 'insensitive' } },
             { specialRequests: { contains: confirmationCodeFilter, mode: 'insensitive' } },
           ],
+        }),
+        ...(externalIdFilter && {
+          externalId: externalIdFilter,
         }),
       },
       include: {
