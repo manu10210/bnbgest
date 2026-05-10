@@ -86,13 +86,17 @@ function isSyntheticTravelerName(name?: string | null): boolean {
   const normalized = normalizeGuestName(name);
   if (!normalized) return true;
 
+  const folded = normalized
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
   return (
-    normalized === 'voyageur airbnb'
-    || normalized === 'airbnb guest'
-    || normalized === 'guest'
-    || normalized === 'inconnu'
-    || normalized === 'airbnb payout'
-    || normalized.startsWith('reglement du sejour')
+    folded === 'voyageur airbnb'
+    || folded === 'airbnb guest'
+    || folded === 'guest'
+    || folded === 'inconnu'
+    || folded === 'airbnb payout'
+    || folded.startsWith('reglement du sejour')
   );
 }
 
@@ -231,6 +235,8 @@ export async function GET(request: Request) {
     };
 
     for (const profile of profiles) {
+      if (isSyntheticTravelerName(profile.name)) continue;
+
       upsertGuest(profile.identityKey, {
         id: profile.id,
         name: profile.name,
