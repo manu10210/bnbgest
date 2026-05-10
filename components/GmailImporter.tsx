@@ -1667,7 +1667,7 @@ export default function GmailImporter() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterType>('all');
-  const [stats, setStats] = useState<{ found: number; parsed: number; errors: number } | null>(null);
+  const [stats, setStats] = useState<{ found: number; parsed: number; errors: number; skippedPersisted: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [imported, setImported] = useState<string[]>([]);
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
@@ -1938,7 +1938,7 @@ export default function GmailImporter() {
           total: queries.length,
           currentLabel: `Détection Gmail ${queryIndex + 1}/${queries.length}`,
         });
-        const res = await fetch(`/api/gmail/sync?q=${encodeURIComponent(q)}&max=500`);
+  const res = await fetch(`/api/gmail/sync?q=${encodeURIComponent(q)}&max=500&excludePersisted=1`);
         if (!res.ok) {
           const err = await res.json();
           if (err.action === 'reconnect') { setError('reconnect'); setStatus('error'); return; }
@@ -1958,8 +1958,18 @@ export default function GmailImporter() {
             }
           }
           if (data.stats) setStats(s => s
-            ? { found: s.found + data.stats.found, parsed: s.parsed + data.stats.parsed, errors: s.errors + data.stats.errors }
-            : data.stats
+            ? {
+              found: s.found + data.stats.found,
+              parsed: s.parsed + data.stats.parsed,
+              errors: s.errors + data.stats.errors,
+              skippedPersisted: s.skippedPersisted + (data.stats.skippedPersisted ?? 0),
+            }
+            : {
+              found: data.stats.found,
+              parsed: data.stats.parsed,
+              errors: data.stats.errors,
+              skippedPersisted: data.stats.skippedPersisted ?? 0,
+            }
           );
         }
 
@@ -4433,7 +4443,10 @@ export default function GmailImporter() {
         {status === 'done' && stats && (
           <div className={`text-right text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
             <div className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>{stats.parsed} réservations trouvées</div>
-            <div>{stats.found} emails analysés · depuis 2026</div>
+            <div>
+              {stats.found} emails analysés · depuis 2026
+              {stats.skippedPersisted > 0 ? ` · ${stats.skippedPersisted} déjà persisté(s) ignoré(s)` : ''}
+            </div>
           </div>
         )}
       </div>

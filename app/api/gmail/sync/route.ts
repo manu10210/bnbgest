@@ -7,6 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
+import { Role } from '@prisma/client';
 import {
   parseAirbnbEmail,
   extractBodyFromPayload,
@@ -34,6 +36,13 @@ interface GmailMessageDetail {
   snippet: string;
 }
 
+type SessionUser = {
+  id?: string | null;
+  email?: string | null;
+  name?: string | null;
+  role?: string | null;
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function gmailFetch(
@@ -50,6 +59,42 @@ async function gmailFetch(
 
 function getHeader(headers: { name: string; value: string }[], name: string): string {
   return headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value ?? '';
+}
+
+async function resolveDbOwner(sessionUser: SessionUser): Promise<{ id: string } | null> {
+  const normalizedEmail = (sessionUser.email || '').trim().toLowerCase();
+
+  let owner = sessionUser.id
+    ? await prisma.user.findUnique({ where: { id: sessionUser.id }, select: { id: true } })
+    : null;
+
+  if (!owner && normalizedEmail) {
+    const dbRole = String(sessionUser.role || 'USER').toUpperCase();
+    const validRole = dbRole === 'ADMIN' || dbRole === 'EMPLOYEE' || dbRole === 'USER' ? dbRole : 'USER';
+    owner = await prisma.user.upsert({
+      where: { email: normalizedEmail },
+      update: {
+        ...(sessionUser.name ? { name: sessionUser.name } : {}),
+      },
+      create: {
+        email: normalizedEmail,
+        name: sessionUser.name || normalizedEmail.split('@')[0],
+        role: validRole as Role,
+      },
+      select: { id: true },
+    });
+  }
+
+  return owner;
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  if (size <= 0) return [items];
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
 }
 
 // ─── GET : Analyser les emails Airbnb ────────────────────────────────────────
@@ -79,6 +124,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const maxPerPage = Math.min(parseInt(searchParams.get('max') ?? String(MAX_RESULTS)), MAX_RESULTS);
   const query = searchParams.get('q') ?? 'from:automated@airbnb.com';
+  const excludePersisted = searchParams.get('excludePersisted') !== '0';
 
   try {
     // 3. Lister TOUS les emails Airbnb (avec pagination)
@@ -117,7 +163,57 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         success: true,
         bookings: [],
-        stats: { found: 0, parsed: 0, errors: 0 },
+        stats: { found: 0, parsed: 0, errors: 0, skippedPersisted: 0 },
+      });
+    }
+
+    let messagesToProcess = messages;
+    let skippedPersisted = 0;
+
+    if (excludePersisted) {
+      try {
+        const owner = await resolveDbOwner(session.user as SessionUser);
+        if (owner) {
+          const candidateIds = Array.from(new Set(messages.map((msg) => msg.id).filter(Boolean)));
+          const persistedIds = new Set<string>();
+
+          for (const idChunk of chunkArray(candidateIds, 400)) {
+            const existing = await prisma.booking.findMany({
+              where: {
+                userId: owner.id,
+                source: 'AIRBNB',
+                externalId: { in: idChunk },
+              },
+              select: {
+                externalId: true,
+              },
+            });
+
+            for (const row of existing) {
+              if (row.externalId) persistedIds.add(row.externalId);
+            }
+          }
+
+          if (persistedIds.size > 0) {
+            messagesToProcess = messages.filter((msg) => !persistedIds.has(msg.id));
+            skippedPersisted = messages.length - messagesToProcess.length;
+          }
+        }
+      } catch (dbFilterError) {
+        console.warn('Gmail sync persisted filter failed (non-blocking):', dbFilterError);
+      }
+    }
+
+    if (messagesToProcess.length === 0) {
+      return NextResponse.json({
+        success: true,
+        bookings: [],
+        stats: {
+          found: 0,
+          parsed: 0,
+          errors: 0,
+          skippedPersisted,
+        },
       });
     }
 
@@ -126,8 +222,8 @@ export async function GET(req: NextRequest) {
     const errors: string[] = [];
     const batchSize = 10;
 
-    for (let i = 0; i < messages.length; i += batchSize) {
-      const batch = messages.slice(i, i + batchSize);
+    for (let i = 0; i < messagesToProcess.length; i += batchSize) {
+      const batch = messagesToProcess.slice(i, i + batchSize);
       const details = await Promise.all(
         batch.map(async (msg) => {
           const res = await gmailFetch(
@@ -156,7 +252,7 @@ export async function GET(req: NextRequest) {
           if (parsed && parsed.confidence >= 40) {
             bookings.push(parsed);
           }
-        } catch (e) {
+        } catch (_e) {
           errors.push(detail.id);
         }
       }
@@ -169,9 +265,10 @@ export async function GET(req: NextRequest) {
       success: true,
       bookings,
       stats: {
-        found: messages.length,
+        found: messagesToProcess.length,
         parsed: bookings.length,
         errors: errors.length,
+        skippedPersisted,
       },
     });
 
@@ -186,7 +283,7 @@ export async function GET(req: NextRequest) {
 
 // ─── POST : Tester la connexion Gmail ────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
