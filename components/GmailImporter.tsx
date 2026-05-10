@@ -2270,6 +2270,31 @@ export default function GmailImporter() {
     };
   }, [fetchDbProperties]);
 
+  const getNeedsManualReview = useCallback((booking: ParsedBooking) => {
+    if (booking.bookingType === 'cancelled' || booking.bookingType === 'payout' || booking.bookingType === 'review') {
+      return false;
+    }
+
+    const overridePropertyId = propertyOverrides[booking.messageId];
+    if (overridePropertyId) return false;
+
+    const normalizedPropertyLabel = booking.propertyName ? normalizeForMatch(booking.propertyName) : '';
+    const isRejectedPropertyLabel = !!normalizedPropertyLabel && rejectedPropertySet.has(normalizedPropertyLabel);
+    if (isRejectedPropertyLabel) return true;
+
+    // Sans libellé logement, le fallback par défaut est acceptable (pas de blocage manuel)
+    if (!booking.propertyName?.trim()) return false;
+
+    const matchedProperty = findMatchingProperty(booking.propertyName, availableProperties);
+    if (matchedProperty) return false;
+
+    const bestCandidate = findBestPropertyCandidate(booking.propertyName, availableProperties);
+    const hasStrongUnambiguousSuggestion = !!bestCandidate.property && bestCandidate.score >= 28 && !bestCandidate.ambiguous;
+
+    // Phase B: si rien de solide / ambigu, on exige revue manuelle avant import
+    return !hasStrongUnambiguousSuggestion;
+  }, [availableProperties, propertyOverrides, rejectedPropertySet]);
+
   const createPropertyInDb = useCallback(async (payload: {
     name: string;
     description?: string;
@@ -2396,10 +2421,23 @@ export default function GmailImporter() {
   // ─── Importer les réservations sélectionnées ──────────────────────────────
 
   const importSelected = useCallback(async (forcedMessageIds?: string[]) => {
-  progressStartedAtRef.current = Date.now();
-  setStatus('importing');
     const messageIdSet = forcedMessageIds ? new Set(forcedMessageIds) : selected;
     const toImport = bookings.filter(b => messageIdSet.has(b.messageId));
+
+    const blockedForReview = toImport.filter(getNeedsManualReview);
+    if (blockedForReview.length > 0) {
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        for (const booking of blockedForReview) next.add(booking.messageId);
+        return next;
+      });
+      toast.error(`🧩 ${blockedForReview.length} import(s) bloqué(s): revue manuelle logement requise avant import.`);
+      setStatus('idle');
+      return;
+    }
+
+  progressStartedAtRef.current = Date.now();
+  setStatus('importing');
   setRuntimeProgress({
     phase: 'detect',
     processed: 0,
@@ -3487,7 +3525,7 @@ export default function GmailImporter() {
 
       setTimeout(() => setStatus('idle'), 2500);
       setStatus('done');
-  }, [bookings, selected, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive, ensureDefaultProperty, ensureCanonicalT3Property, rejectedPropertySet, fetchDbProperties]);
+  }, [bookings, selected, existingBookings, guests, addBooking, updateBooking, cancelBooking, addGuest, updateGuest, addMaintenanceTask, addReview, notifyEmail, inventory, updateInventoryItem, getLowStockItems, propertyOverrides, expertModeAggressive, ensureDefaultProperty, ensureCanonicalT3Property, rejectedPropertySet, fetchDbProperties, getNeedsManualReview]);
 
   // ─── Purge des données importées depuis Gmail ─────────────────────────────
   // Supprime TOUTES les réservations créées via l'import Gmail.
@@ -4049,6 +4087,24 @@ export default function GmailImporter() {
   // Sélectionnable : tout type
   const selectedNew = bookings.filter(b => selected.has(b.messageId)).length;
 
+  const manualReviewIds = useMemo(() => {
+    return bookings.filter(getNeedsManualReview).map((booking) => booking.messageId);
+  }, [bookings, getNeedsManualReview]);
+
+  const selectedManualReviewCount = useMemo(() => {
+    const selectedIds = new Set(Array.from(selected));
+    return manualReviewIds.filter((id) => selectedIds.has(id)).length;
+  }, [manualReviewIds, selected]);
+
+  const openManualReviewQueue = useCallback(() => {
+    const ids = new Set(manualReviewIds);
+    setSelected(ids);
+    setExpanded(ids);
+    if (ids.size > 0) {
+      toast.info(`🔎 ${ids.size} email(s) nécessitent une revue manuelle.`);
+    }
+  }, [manualReviewIds]);
+
   const replayableFailedMessageIds = useMemo(() => {
     const inList = new Set(bookings.map((b) => b.messageId));
     const ids = new Set<string>();
@@ -4505,6 +4561,21 @@ export default function GmailImporter() {
               </button>
             )}
 
+            {manualReviewIds.length > 0 && (
+              <button
+                type="button"
+                onClick={openManualReviewQueue}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm border transition-colors ${
+                  isDark
+                    ? 'border-amber-700 text-amber-300 bg-amber-900/20 hover:bg-amber-900/35'
+                    : 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100'
+                }`}
+                title="Afficher/sélectionner les emails à valider manuellement"
+              >
+                <AlertTriangle className="w-4 h-4" /> Revue manuelle ({manualReviewIds.length})
+              </button>
+            )}
+
             {replayableFailedMessageIds.length > 0 && (
               <button
                 onClick={() => importSelected(replayableFailedMessageIds)}
@@ -4537,6 +4608,14 @@ export default function GmailImporter() {
               <Zap className="w-4 h-4" />
               Mode expert {expertModeAggressive ? 'ON' : 'OFF'}
             </button>
+
+            {selectedManualReviewCount > 0 && (
+              <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                isDark ? 'bg-rose-900/40 text-rose-200 border border-rose-700/70' : 'bg-rose-100 text-rose-700 border border-rose-300'
+              }`}>
+                Import bloqué: {selectedManualReviewCount} à valider
+              </span>
+            )}
 
             {/* ── Bouton PURGE (dev) ── */}
             {existingBookings.some(b => b.specialRequests?.includes('Importé depuis Gmail')) && (
