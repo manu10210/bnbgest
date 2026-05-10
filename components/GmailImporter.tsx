@@ -4193,6 +4193,43 @@ export default function GmailImporter() {
     return `~${hours}h${minutes.toString().padStart(2, '0')} restantes`;
   })();
 
+  const overlayThroughputLabel = (() => {
+    const startedAt = progressStartedAtRef.current;
+    if (!startedAt || overlayProcessed <= 0) return null;
+
+    const elapsedSec = Math.max(1, (Date.now() - startedAt) / 1000);
+    const throughput = overlayProcessed / elapsedSec;
+    if (!Number.isFinite(throughput) || throughput <= 0) return null;
+
+    if (throughput >= 1) {
+      return `${throughput.toFixed(1)} email/s`;
+    }
+    return `${Math.max(1, Math.round(60 * throughput))} email/min`;
+  })();
+
+  const overlayTone = status === 'importing'
+    ? {
+      bg: isDark ? 'from-violet-500/20 via-fuchsia-500/10 to-transparent' : 'from-violet-100 via-fuchsia-50 to-white',
+      icon: isDark ? 'bg-violet-500/20 text-violet-300' : 'bg-violet-100 text-violet-700',
+      ring: isDark ? 'border-violet-400/40' : 'border-violet-300',
+      bar: isDark ? 'from-violet-400 via-fuchsia-400 to-cyan-400' : 'from-violet-500 via-fuchsia-500 to-cyan-500',
+      pill: isDark ? 'bg-violet-900/40 text-violet-200 border-violet-700/70' : 'bg-violet-100 text-violet-700 border-violet-300',
+      dot: 'bg-violet-400',
+    }
+    : {
+      bg: isDark ? 'from-pink-500/20 via-rose-500/10 to-transparent' : 'from-pink-100 via-rose-50 to-white',
+      icon: isDark ? 'bg-pink-500/20 text-pink-300' : 'bg-pink-100 text-pink-700',
+      ring: isDark ? 'border-pink-400/40' : 'border-pink-300',
+      bar: isDark ? 'from-pink-400 via-rose-400 to-orange-300' : 'from-pink-500 via-rose-500 to-orange-500',
+      pill: isDark ? 'bg-pink-900/40 text-pink-200 border-pink-700/70' : 'bg-pink-100 text-pink-700 border-pink-300',
+      dot: 'bg-pink-400',
+    };
+
+  const ringRadius = 22;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringOffset = ringCircumference * (1 - Math.max(0, Math.min(overlayPercent, 100)) / 100);
+  const overlayShowCelebration = status === 'importing' && (runtimeProgress?.phase === 'finalize') && overlayPercent >= 96;
+
   return (
     <>
       <AnimatePresence>
@@ -4204,30 +4241,100 @@ export default function GmailImporter() {
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
           >
             <motion.div 
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className={`relative w-full max-w-md rounded-2xl p-6 shadow-2xl overflow-hidden ${isDark ? 'bg-gray-900 border border-white/10' : 'bg-white border border-black/5'}`}
+              initial={{ scale: 0.93, y: 24, filter: 'blur(6px)' }}
+              animate={{ scale: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ scale: 0.96, y: -10, opacity: 0, filter: 'blur(3px)' }}
+              className={`relative w-full max-w-lg rounded-3xl p-6 shadow-2xl overflow-hidden ${isDark ? 'bg-gray-900/95 border border-white/10' : 'bg-white border border-black/5'}`}
             >
-              <div className={`absolute inset-0 pointer-events-none ${status === 'importing' ? 'bg-violet-500/5' : 'bg-pink-500/5'}`} />
+              <div className={`absolute inset-0 pointer-events-none bg-gradient-to-br ${overlayTone.bg}`} />
+              <motion.div
+                aria-hidden
+                className="absolute -top-16 -right-16 w-52 h-52 rounded-full bg-white/10 blur-3xl"
+                animate={{ scale: [1, 1.15, 1], opacity: [0.2, 0.35, 0.2] }}
+                transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+              />
+
+              <AnimatePresence>
+                {overlayShowCelebration && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 pointer-events-none"
+                  >
+                    {Array.from({ length: 16 }, (_, i) => {
+                      const left = ((i * 17) % 97) + 1;
+                      const delay = (i % 8) * 0.07;
+                      const duration = 1.8 + (i % 3) * 0.25;
+                      const colorClass = [
+                        'bg-violet-400',
+                        'bg-fuchsia-400',
+                        'bg-cyan-300',
+                        'bg-emerald-300',
+                      ][i % 4];
+                      return (
+                        <motion.span
+                          key={`confetti-${i}`}
+                          className={`absolute top-2 w-1.5 h-1.5 rounded-sm ${colorClass}`}
+                          style={{ left: `${left}%` }}
+                          initial={{ y: -18, rotate: 0, opacity: 0 }}
+                          animate={{ y: 220, rotate: 240, opacity: [0, 1, 0] }}
+                          transition={{ duration, delay, repeat: Infinity, ease: 'easeInOut' }}
+                        />
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <div className="relative z-10 flex items-start gap-4">
-                <div className={`relative w-12 h-12 flex items-center justify-center rounded-xl ${status === 'importing' ? 'bg-violet-500/15 text-violet-400' : 'bg-pink-500/15 text-pink-400'}`}>
+                <div className="relative w-16 h-16 flex items-center justify-center">
+                  <svg viewBox="0 0 52 52" className="absolute inset-0 w-16 h-16 -rotate-90">
+                    <circle cx="26" cy="26" r={ringRadius} className={isDark ? 'fill-transparent stroke-white/10' : 'fill-transparent stroke-gray-200'} strokeWidth="4" />
+                    <motion.circle
+                      cx="26"
+                      cy="26"
+                      r={ringRadius}
+                      className={status === 'importing' ? 'fill-transparent stroke-violet-400' : 'fill-transparent stroke-pink-400'}
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      strokeDasharray={ringCircumference}
+                      animate={{ strokeDashoffset: ringOffset }}
+                      transition={{ duration: 0.35, ease: 'easeOut' }}
+                    />
+                  </svg>
+                  <div className={`relative w-12 h-12 flex items-center justify-center rounded-xl ${overlayTone.icon}`}>
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 2.8, repeat: Infinity, ease: 'linear' }}
-                    className={`absolute inset-0 rounded-xl border ${status === 'importing' ? 'border-violet-500/30' : 'border-pink-500/30'}`}
+                    className={`absolute inset-0 rounded-xl border ${overlayTone.ring}`}
                   />
                   {status === 'importing' ? <DownloadCloud className="w-5 h-5" /> : <Search className="w-5 h-5" />}
                 </div>
+                </div>
 
                 <div className="flex-1">
-                  <h3 className={`text-base font-semibold leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  <h3 className={`text-lg font-semibold leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
                     {status === 'importing' ? 'Import en cours' : 'Analyse de votre Gmail'}
                   </h3>
                   <p className={`mt-1 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                     {overlayDetail}
                   </p>
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full border ${overlayTone.pill}`}>
+                      {overlayCounterLabel}
+                    </span>
+                    {overlayThroughputLabel && (
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full border ${isDark ? 'border-emerald-700/70 bg-emerald-900/30 text-emerald-200' : 'border-emerald-300 bg-emerald-100 text-emerald-700'}`}>
+                        ⚡ {overlayThroughputLabel}
+                      </span>
+                    )}
+                    {overlayEtaLabel && (
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full border ${isDark ? 'border-sky-700/70 bg-sky-900/30 text-sky-200' : 'border-sky-300 bg-sky-100 text-sky-700'}`}>
+                        ⏳ {overlayEtaLabel}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -4244,16 +4351,17 @@ export default function GmailImporter() {
                     <span>{overlayCounterLabel}</span>
                     <span>{overlayPercent}%</span>
                   </div>
-                  {overlayEtaLabel && (
-                    <div className={`mt-1 text-[11px] ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                      {overlayEtaLabel}
-                    </div>
-                  )}
-                  <div className={`mt-1 h-1.5 w-full overflow-hidden rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
+                  <div className={`relative mt-1 h-1.5 w-full overflow-hidden rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
                     <motion.div
                       animate={{ width: `${overlayPercent}%` }}
                       transition={{ duration: 0.35, ease: 'easeOut' }}
-                      className={`h-full rounded-full ${status === 'importing' ? 'bg-violet-400' : 'bg-pink-400'}`}
+                      className={`h-full rounded-full bg-gradient-to-r ${overlayTone.bar}`}
+                    />
+                    <motion.div
+                      aria-hidden
+                      className="absolute mt-[-6px] h-1.5 w-24 bg-gradient-to-r from-transparent via-white/60 to-transparent"
+                      animate={{ x: ['-120%', '420%'] }}
+                      transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
                     />
                   </div>
                 </div>
@@ -4300,7 +4408,7 @@ export default function GmailImporter() {
                 <motion.div 
                   animate={{ opacity: [0.3, 1, 0.3] }}
                   transition={{ duration: 1.2, repeat: Infinity }}
-                  className={`w-2 h-2 rounded-full ${status === 'importing' ? 'bg-violet-400' : 'bg-pink-400'}`}
+                  className={`w-2 h-2 rounded-full ${overlayTone.dot}`}
                 />
                 {overlayDetail}
               </div>
