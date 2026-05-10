@@ -329,6 +329,25 @@ const CASES: Case[] = [
     },
   },
   {
+    name: 'REVIEW_FR_named_author_must_override_context_guest',
+    messageId: 'msg_review_named_author_001',
+    subject: 'Cedric a laissé une évaluation 4 étoiles',
+    from: 'automated@airbnb.com',
+    receivedAt: '2026-05-10T08:15:00.000Z',
+    body: [
+      'Carine Picotin',
+      'Séjour : 01 mai 2026 → 10 mai 2026',
+      'Cedric a laissé une évaluation 4 étoiles',
+      'Commentaire: "Très bon séjour."',
+      'https://www.airbnb.com/rooms/87654321/reviews',
+    ].join('\n'),
+    expected: {
+      bookingType: 'review',
+      minConfidence: 65,
+      expectedGuestNameIncludes: ['Cedric'],
+    },
+  },
+  {
     name: 'NEW_FR_noise_property_label_must_be_rejected',
     messageId: 'msg_new_noise_property_001',
     subject: 'Réservation pour les lieux ou pour, 03 avr. – 05 avr. 2026',

@@ -767,6 +767,43 @@ function extractReviewComment(text: string): string | undefined {
   return m ? m[1].trim() : undefined;
 }
 
+function extractReviewAuthorName(text: string, subject: string): string | undefined {
+  const combined = `${subject}\n${text}`;
+  const NAME_TOKEN = "[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'’\-]{1,30}";
+  const NAME_RE = `${NAME_TOKEN}(?:\\s+${NAME_TOKEN}){0,2}`;
+
+  const patterns = [
+    // "Cédric a laissé une évaluation 4 étoiles"
+    new RegExp(`\\b(${NAME_RE})\\s+a\\s+(?:r[ée]cemment\\s+)?laiss[ée]\\s+(?:une?\\s+)?(?:[ée]valuation|avis)\\b`, 'i'),
+    // "Cédric a évalué/noté votre logement"
+    new RegExp(`\\b(${NAME_RE})\\s+a\\s+(?:r[ée]cemment\\s+)?(?:[ée]valu[ée]|not[ée])\\s+votre\\s+(?:logement|s[ée]jour|annonce)\\b`, 'i'),
+    // EN: "Cedric has recently left a review"
+    new RegExp(`\\b(${NAME_RE})\\s+has\\s+(?:recently\\s+)?left\\s+(?:a\\s+)?(?:review|rating)\\b`, 'i'),
+    // EN: "Cedric rated your place"
+    new RegExp(`\\b(${NAME_RE})\\s+rated?\\s+your\\s+(?:place|listing|home)\\b`, 'i'),
+  ];
+
+  for (const pattern of patterns) {
+    const match = combined.match(pattern);
+    const rawName = match?.[1]?.trim();
+    if (!rawName) continue;
+
+    const normalized = rawName
+      .replace(/^[-–•\s]+/, '')
+      .replace(/[\s,.;:!?]+$/, '')
+      .trim();
+    if (!normalized) continue;
+
+    // Cas anonymisés / faux positifs à ignorer
+    if (/^(un(?:e)?\s+voyageur|voyageur\s+airbnb|a\s+guest|guest)$/i.test(normalized)) continue;
+    if (/^vous$/i.test(normalized)) continue;
+
+    return normalized;
+  }
+
+  return undefined;
+}
+
 function extractCurrency(text: string, subject: string): string {
   const combined = `${text} ${subject}`;
   // ⚠️  Ne pas tester \bFr\.?\b — correspond à "fr" dans "airbnb.fr" (domaine FR)
@@ -1659,6 +1696,13 @@ export function parseAirbnbEmail(
   const guestComposition    = bookingType !== 'payout'
     ? extractGuestComposition(text, subject)
     : { total: 0 };
+
+  if (bookingType === 'review') {
+    const reviewAuthorName = extractReviewAuthorName(text, subject);
+    if (reviewAuthorName) {
+      guestNameExtracted = reviewAuthorName;
+    }
+  }
 
   // ── Champs financiers : selon le type ────────────────────────────────────
   // new/modified/cancelled/reminder → détail complet des frais
