@@ -44,7 +44,23 @@ export async function GET(req: NextRequest) {
     });
 
     if (properties.length === 0) {
-      return NextResponse.json({ properties: [], monthly: [], summary: {} });
+      return NextResponse.json({
+        year,
+        months: safeMonths,
+        startMonth: safeStartMonth,
+        properties: [],
+        monthly: [],
+        summary: {
+          totalRevenue: 0,
+          totalExpenses: 0,
+          totalProfit: 0,
+          avgOccupancy: 0,
+          avgRevPAR: 0,
+          avgADR: 0,
+          totalBookings: 0,
+          roi: 0,
+        },
+      });
     }
 
     const propIds = properties.map(p => p.id);

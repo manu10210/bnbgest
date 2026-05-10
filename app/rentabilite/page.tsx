@@ -7,7 +7,7 @@ import ThemeToggle from '../../components/ThemeToggle';
 import { toast } from 'sonner';
 import {
   TrendingUp, TrendingDown, Building2, Euro, BarChart3,
-  Calendar, RefreshCw, ChevronDown, ArrowUpRight, ArrowDownRight,
+  RefreshCw, ChevronDown, ArrowUpRight, ArrowDownRight,
   Percent, Bed, Star, Download
 } from 'lucide-react';
 
@@ -49,6 +49,25 @@ interface RentabiliteData {
   properties: PropStats[];
   monthly: Monthly[];
   summary: Summary;
+}
+
+function buildEmptyRentabiliteData(year: number): RentabiliteData {
+  return {
+    year,
+    months: 12,
+    properties: [],
+    monthly: [],
+    summary: {
+      totalRevenue: 0,
+      totalExpenses: 0,
+      totalProfit: 0,
+      avgOccupancy: 0,
+      avgRevPAR: 0,
+      avgADR: 0,
+      totalBookings: 0,
+      roi: 0,
+    },
+  };
 }
 
 // ─── SVG Bar Chart ────────────────────────────────────────────────────────────
@@ -202,8 +221,9 @@ export default function RentabilitePage() {
   const { isDark } = useTheme();
   const [data, setData]         = useState<RentabiliteData | null>(null);
   const [loading, setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [year, setYear]         = useState(new Date().getFullYear());
-  const [propFilter, setProp]   = useState('');
+  const [propFilter]            = useState('');
   const [sortBy, setSortBy]     = useState<'revenue' | 'roi' | 'occupancy'>('revenue');
   const [showDetails, setShow]  = useState<number | null>(null);
 
@@ -211,13 +231,32 @@ export default function RentabilitePage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const qs = new URLSearchParams({ year: String(year) });
       if (propFilter) qs.set('propertyId', propFilter);
       const res = await fetch(`/api/rentabilite?${qs}`);
       if (!res.ok) throw new Error('Erreur API');
-      setData(await res.json());
+      const raw = await res.json();
+      setData({
+        year: Number(raw?.year) || year,
+        months: Number(raw?.months) || 12,
+        properties: Array.isArray(raw?.properties) ? raw.properties : [],
+        monthly: Array.isArray(raw?.monthly) ? raw.monthly : [],
+        summary: {
+          totalRevenue: Number(raw?.summary?.totalRevenue) || 0,
+          totalExpenses: Number(raw?.summary?.totalExpenses) || 0,
+          totalProfit: Number(raw?.summary?.totalProfit) || 0,
+          avgOccupancy: Number(raw?.summary?.avgOccupancy) || 0,
+          avgRevPAR: Number(raw?.summary?.avgRevPAR) || 0,
+          avgADR: Number(raw?.summary?.avgADR) || 0,
+          totalBookings: Number(raw?.summary?.totalBookings) || 0,
+          roi: Number(raw?.summary?.roi) || 0,
+        },
+      });
     } catch {
+      setLoadError('Impossible de charger les données API (session expirée ou serveur indisponible).');
+      setData((prev) => prev ?? buildEmptyRentabiliteData(year));
       toast.error('Impossible de charger les données de rentabilité');
     } finally {
       setLoading(false);
@@ -308,6 +347,23 @@ export default function RentabilitePage() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
+
+          {loadError && (
+            <div className={`rounded-xl p-4 border flex items-center justify-between gap-3 ${
+              isDark ? 'bg-red-900/20 border-red-800/50 text-red-300' : 'bg-red-50 border-red-200 text-red-700'
+            }`}>
+              <p className="text-sm">{loadError}</p>
+              <button
+                type="button"
+                onClick={load}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  isDark ? 'bg-red-800/50 hover:bg-red-800 text-red-100' : 'bg-red-100 hover:bg-red-200 text-red-700'
+                }`}
+              >
+                Réessayer
+              </button>
+            </div>
+          )}
 
           {loading && !data ? (
             <div className="flex items-center justify-center h-64">
