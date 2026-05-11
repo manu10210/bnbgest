@@ -194,26 +194,44 @@ export default function SmartPropertyIntelligence() {
     const slC=slB.map(()=>0);
     pb.forEach(b=>{const n=ddays(b.checkIn,b.checkOut);const i=slB.findIndex(k=>n>=k.a&&n<=k.z);if(i>=0)slC[i]++;});
     const sl=slB.map((b,i)=>({label:b.l,count:slC[i]}));
-    return {dow,lt,sl,name:p.name,total:pb.length};
+    const revByDow=DLBL.map((label,d)=>{const db=pb.filter(b=>new Date(b.checkIn).getDay()===d);const avgRev=db.length>0?Math.round(db.reduce((s,b)=>s+(b.totalPrice||0),0)/db.length):0;return{label,avgRev,count:db.length};});
+    const adr=pb.filter(b=>b.status==='completed'&&b.totalPrice&&ddays(b.checkIn,b.checkOut)>0).reduce((acc,b,_,arr)=>{const n=ddays(b.checkIn,b.checkOut);return acc+(b.totalPrice||0)/Math.max(n,1)/arr.length;},0);
+    return {dow,lt,sl,revByDow,adr:Math.round(adr),name:p.name,total:pb.length};
   },[properties,bookings,selId]);
 
   /* ── PORTFOLIO ── */
   const port=useMemo(()=>{
-    if(!scores.length)return{avg:0,top:null,atRisk:0,critical:0,total:0};
+    if(!scores.length)return{avg:0,top:null,atRisk:0,critical:0,total:0,ytdRev:0,avgOcc:0};
     const avg=Math.round(scores.reduce((s,p)=>s+p.total,0)/scores.length);
     const top=[...scores].sort((a,b)=>b.total-a.total)[0];
-    return{avg,top,atRisk:scores.filter(p=>p.total<50).length,critical:actions.filter(a=>a.priority==='critical'||a.priority==='high').length,total:actions.length};
-  },[scores,actions]);
+    const ys=new Date(now.getFullYear(),0,1).toISOString().split('T')[0];
+    const ye=now.toISOString().split('T')[0];
+    const ytdRev=Math.round(properties.reduce((s,p)=>s+getRevenueByProperty(p.id,ys,ye),0));
+    const avgOcc=properties.length>0?Math.round(properties.reduce((s,p)=>s+getOccupancyRate(p.id,ys,ye),0)/properties.length):0;
+    return{avg,top,atRisk:scores.filter(p=>p.total<50).length,critical:actions.filter(a=>a.priority==='critical'||a.priority==='high').length,total:actions.length,ytdRev,avgOcc};
+  },[scores,actions,properties,getRevenueByProperty,getOccupancyRate,now]);
 
   /* ── TREND ── */
-  const trend=useMemo(()=>Array.from({length:12},(_,i)=>{
+  const trend=useMemo(()=>{
+    const propsF=selId?properties.filter(p=>p.id===selId):properties;
+    return Array.from({length:12},(_,i)=>{
+      const ms=new Date(now.getFullYear(),i,1).toISOString().split('T')[0];
+      const me=new Date(now.getFullYear(),i+1,0).toISOString().split('T')[0];
+      const rev=propsF.reduce((s,p)=>s+getRevenueByProperty(p.id,ms,me),0);
+      const occ=propsF.length>0?propsF.reduce((s,p)=>s+getOccupancyRate(p.id,ms,me),0)/propsF.length:0;
+      const bk=bookings.filter(b=>(selId?b.propertyId===selId:true)&&b.checkIn>=ms&&b.checkIn<=me).length;
+      return{month:['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][i],rev:Math.round(rev),occ:Math.round(occ),bk};
+    });
+  },[properties,bookings,getRevenueByProperty,getOccupancyRate,now,selId]);
+
+  /* ── PROP MONTHLY (multi-property revenue comparison) ── */
+  const propMonthly=useMemo(()=>Array.from({length:12},(_,i)=>{
     const ms=new Date(now.getFullYear(),i,1).toISOString().split('T')[0];
     const me=new Date(now.getFullYear(),i+1,0).toISOString().split('T')[0];
-    const rev=properties.reduce((s,p)=>s+getRevenueByProperty(p.id,ms,me),0);
-    const occ=properties.length>0?properties.reduce((s,p)=>s+getOccupancyRate(p.id,ms,me),0)/properties.length:0;
-    const bk=bookings.filter(b=>b.checkIn>=ms&&b.checkIn<=me).length;
-    return{month:['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][i],rev:Math.round(rev),occ:Math.round(occ),bk};
-  }),[properties,bookings,getRevenueByProperty,getOccupancyRate,now]);
+    const entry:Record<string,number|string>={month:['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][i]};
+    properties.forEach(p=>{entry[p.name.split(' ').slice(0,2).join(' ')]=Math.round(getRevenueByProperty(p.id,ms,me));});
+    return entry;
+  }),[properties,getRevenueByProperty,now]);
 
   /* ── RADAR ── */
   const radar=useMemo(()=>{
@@ -266,8 +284,8 @@ export default function SmartPropertyIntelligence() {
         {/* KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
           {[
-            {label:'Score Portfolio',value:`${port.avg}/100`,sub:sl(port.avg),icon:<ShieldCheck className="w-5 h-5"/>,color:sc(port.avg)},
-            {label:'Actions Critiques',value:`${port.critical}`,sub:`sur ${port.total} totales`,icon:<Zap className="w-5 h-5"/>,color:'#f59e0b'},
+            {label:'Score Portfolio',value:`${port.avg}/100`,sub:`${port.avgOcc}% occupation YTD`,icon:<ShieldCheck className="w-5 h-5"/>,color:sc(port.avg)},
+            {label:'Revenus YTD',value:port.ytdRev>=1000?`${(port.ytdRev/1000).toFixed(1)}k€`:`${port.ytdRev}€`,sub:`${now.getFullYear()} · tous biens`,icon:<Euro className="w-5 h-5"/>,color:'#22c55e'},
             {label:'Risques Annulation',value:`${risks.length}`,sub:risks.length>0?`${risks.filter(r=>r.riskScore>=70).length} élevés`:'Aucun',icon:<AlertTriangle className="w-5 h-5"/>,color:risks.length>0?'#ef4444':'#22c55e'},
             {label:'Meilleur Bien',value:port.top?.propertyName.split(' ').slice(0,2).join(' ')??'—',sub:port.top?`${port.top.total}/100`:'—',icon:<Award className="w-5 h-5"/>,color:'#a78bfa'},
           ].map((k,i)=>(
@@ -347,10 +365,17 @@ export default function SmartPropertyIntelligence() {
                 </div>
               )}
               <div className={`${C} p-5`}>
-                <div className="flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-violet-400"/><h3 className={`${T} font-semibold text-sm`}>Revenus & Occupation {now.getFullYear()}</h3></div>
+                <div className="flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-violet-400"/><h3 className={`${T} font-semibold text-sm`}>Revenus & Occupation {now.getFullYear()} — {selId?scores.find(s=>s.propertyId===selId)?.propertyName??'Sélection':'Tous les biens'}</h3></div>
                 <div className="h-56"><ResponsiveContainer width="100%" height="100%"><AreaChart data={trend}><defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={.3}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke={isDark?'rgba(255,255,255,0.05)':'#f0f0f0'}/><XAxis dataKey="month" tick={{fill:isDark?'rgba(255,255,255,0.4)':'#9ca3af',fontSize:10}} axisLine={false} tickLine={false}/><YAxis tick={{fill:isDark?'rgba(255,255,255,0.4)':'#9ca3af',fontSize:10}} axisLine={false} tickLine={false}/><Tooltip {...TC} formatter={(v:unknown,n:unknown)=>[n==='rev'?`${v}€`:`${v}%`,n==='rev'?'Revenus':'Occupation']}/><Area type="monotone" dataKey="rev" stroke="#8b5cf6" fill="url(#rg)" strokeWidth={2}/></AreaChart></ResponsiveContainer></div>
               </div>
             </div>
+            {properties.length>1&&(
+              <div className={`${C} p-5`}>
+                <div className="flex items-center gap-2 mb-3"><BarChart2 className="w-4 h-4 text-violet-400"/><h3 className={`${T} font-semibold text-sm`}>Revenus par bien — comparaison mensuelle {now.getFullYear()}</h3></div>
+                <div className="h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={propMonthly}><CartesianGrid strokeDasharray="3 3" stroke={isDark?'rgba(255,255,255,0.05)':'#f0f0f0'}/><XAxis dataKey="month" tick={{fill:isDark?'rgba(255,255,255,0.4)':'#9ca3af',fontSize:10}} axisLine={false} tickLine={false}/><YAxis tick={{fill:isDark?'rgba(255,255,255,0.4)':'#9ca3af',fontSize:10}} axisLine={false} tickLine={false} unit="€"/><Tooltip {...TC} formatter={(v:unknown)=>[`${v}€`]}/>{properties.map((p,pi)=><Bar key={p.id} dataKey={p.name.split(' ').slice(0,2).join(' ')} stackId="a" fill={['#8b5cf6','#6366f1','#a78bfa','#7c3aed','#c4b5fd'][pi%5]} radius={pi===properties.length-1?[4,4,0,0]:[0,0,0,0]}/>)}</BarChart></ResponsiveContainer></div>
+                <div className="flex flex-wrap gap-3 mt-2">{properties.map((p,pi)=><div key={p.id} className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{backgroundColor:['#8b5cf6','#6366f1','#a78bfa','#7c3aed','#c4b5fd'][pi%5]}}/><span className={`${M} text-xs`}>{p.name.split(' ').slice(0,2).join(' ')}</span></div>)}</div>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -458,7 +483,7 @@ export default function SmartPropertyIntelligence() {
         {/* PATTERNS */}
         {tab==='patterns'&&(
           <motion.div key="pt" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} className="space-y-4">
-            <div className={`${C} p-4 flex items-center gap-3`}><Users className="w-5 h-5 text-violet-400 flex-shrink-0"/><p className={`${S} text-sm`}><strong className={T}>{patterns.total} réservations</strong> analysées pour {patterns.name||'—'}. Cliquez une carte Scores pour changer de bien.</p></div>
+            <div className={`${C} p-4 flex items-center gap-3`}><Users className="w-5 h-5 text-violet-400 flex-shrink-0"/><p className={`${S} text-sm`}><strong className={T}>{patterns.total} réservations</strong> analysées pour {patterns.name||'—'}. {(patterns.adr??0)>0&&<span>ADR réel : <strong className={T}>{patterns.adr}€/nuit</strong>. </span>}Cliquez une carte Scores pour changer de bien.</p></div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className={`${C} p-5`}>
                 <div className="flex items-center gap-2 mb-4"><Star className="w-4 h-4 text-violet-400"/><h3 className={`${T} font-semibold text-sm`}>Jour d&apos;arrivée</h3></div>
@@ -475,6 +500,11 @@ export default function SmartPropertyIntelligence() {
                 <div className="h-44"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={patterns.sl} dataKey="count" nameKey="label" cx="50%" cy="50%" outerRadius={55} paddingAngle={3}>{patterns.sl.map((_,i)=><Cell key={i} fill={['#8b5cf6','#a78bfa','#6366f1','#7c3aed','#c4b5fd','#ddd6fe'][i%6]}/>)}</Pie><Tooltip {...TC} formatter={(v:unknown)=>[`${v} rés.`]}/></PieChart></ResponsiveContainer></div>
                 <p className={`${M} text-xs mt-2`}>💡 Durée optimale : {scores.find(s=>s.propertyId===(selId??properties[0]?.id))?.optimalStay||3} nuits</p>
               </div>
+            </div>
+            <div className={`${C} p-5`}>
+              <div className="flex items-center gap-2 mb-4"><Euro className="w-4 h-4 text-violet-400"/><h3 className={`${T} font-semibold text-sm`}>Revenu moyen par jour d&apos;arrivée</h3></div>
+              <div className="h-48"><ResponsiveContainer width="100%" height="100%"><BarChart data={patterns.revByDow??[]}><CartesianGrid strokeDasharray="3 3" stroke={isDark?'rgba(255,255,255,0.05)':'#f0f0f0'}/><XAxis dataKey="label" tick={{fill:isDark?'rgba(255,255,255,0.4)':'#9ca3af',fontSize:11}} axisLine={false} tickLine={false}/><YAxis tick={{fill:isDark?'rgba(255,255,255,0.4)':'#9ca3af',fontSize:10}} axisLine={false} tickLine={false} unit="€"/><Tooltip {...TC} formatter={(v:unknown,n:unknown)=>[n==='avgRev'?`${v}€`:`${v} rés.`,n==='avgRev'?'Revenu moyen':'Réservations']}/><Bar dataKey="avgRev" radius={[4,4,0,0]}>{(patterns.revByDow??[]).map((_,i)=><Cell key={i} fill={i===5||i===6?'#8b5cf6':'#6b7280'}/>)}</Bar></BarChart></ResponsiveContainer></div>
+              <p className={`${M} text-xs mt-2`}>💡 Ven/Sam = revenu moyen plus élevé — opportunité de tarification dynamique</p>
             </div>
             <div className={`${C} p-5`}>
               <div className="flex items-center gap-2 mb-4"><Activity className="w-4 h-4 text-violet-400"/><h3 className={`${T} font-semibold text-sm`}>Activité mensuelle — Réservations & Revenus</h3></div>
