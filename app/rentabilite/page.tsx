@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import AdminSidebar from '../../components/AdminSidebar';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -236,7 +236,11 @@ export default function RentabilitePage() {
       const qs = new URLSearchParams({ year: String(year) });
       if (propFilter) qs.set('propertyId', propFilter);
       const res = await fetch(`/api/rentabilite?${qs}`);
-      if (!res.ok) throw new Error('Erreur API');
+      if (res.status === 401) {
+        window.location.href = '/login?callbackUrl=/rentabilite';
+        return;
+      }
+      if (!res.ok) throw new Error(`Erreur API (${res.status})`);
       const raw = await res.json();
       setData({
         year: Number(raw?.year) || year,
@@ -471,7 +475,7 @@ export default function RentabilitePage() {
                           </td>
                         </tr>
                       ) : sorted.map(p => (
-                        <>
+                        <Fragment key={p.property.id}>
                           <tr key={p.property.id}
                             className={`transition-colors cursor-pointer ${
                               isDark ? 'hover:bg-gray-750' : 'hover:bg-gray-50'
@@ -585,7 +589,7 @@ export default function RentabilitePage() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>

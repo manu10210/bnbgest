@@ -9,14 +9,14 @@ export const runtime = 'nodejs';
 async function requireAuth() {
   const session = await auth();
   if (!session?.user?.email) {
-    return { error: NextResponse.json({ error: 'Non autorisé' }, { status: 401 }) };
+    return { error: NextResponse.json({ error: 'Non autorisé' }, { status: 401 }), session: null };
   }
-  return { session };
+  return { error: null, session };
 }
 
 // GET /api/rentabilite?year=2025&propertyId=&months=12
 export async function GET(req: NextRequest) {
-  const { error } = await requireAuth();
+  const { error, session } = await requireAuth();
   if (error) return error;
 
   const { searchParams } = new URL(req.url);
@@ -32,8 +32,21 @@ export async function GET(req: NextRequest) {
   const endDate   = new Date(year, safeStartMonth - 1 + safeMonths, 0, 23, 59, 59); // fin du dernier mois
 
   try {
+    // ── Résolution userId depuis la session
+    const userEmail = session!.user!.email!;
+    const dbUser = await prisma.user.findUnique({
+      where: { email: userEmail },
+      select: { id: true },
+    });
+    if (!dbUser) {
+      return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 });
+    }
+    const userId = dbUser.id;
+
     // ── Propriétés
-    const propWhere = propertyId ? { id: parseInt(propertyId) } : {};
+    const propWhere = propertyId
+      ? { id: parseInt(propertyId), userId }
+      : { userId };
     const properties = await prisma.property.findMany({
       where: propWhere,
       select: {

@@ -18,6 +18,16 @@ const PROTECTED_PATHS = [
   '/gallery',
   '/monitoring',
   '/upload-video',
+  '/rentabilite',
+  '/rapports-fiscaux',
+  '/planning',
+  '/calendar',
+  '/expenses',
+  '/inspections',
+  '/messages',
+  '/notifications',
+  '/photos',
+  '/client',
 ];
 
 // Simple rate limit store (in-memory, par IP)
