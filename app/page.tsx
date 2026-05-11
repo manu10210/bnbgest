@@ -130,7 +130,13 @@ export default function HomePage() {
     setUserName('');
   };
 
-  if (!mounted) return null;
+  if (!mounted) return (
+    <div className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e]' : 'bg-white'}`}>
+      <div className="flex items-center justify-center flex-1 h-screen">
+        <div className="w-12 h-12 border-4 border-[#FF385C] border-t-transparent rounded-full animate-spin" />
+      </div>
+    </div>
+  );
 
   const totalRevenue = bookings.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + b.totalPrice, 0);
   const avgRating = reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : '0';
