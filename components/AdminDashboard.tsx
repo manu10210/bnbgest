@@ -867,10 +867,10 @@ export default function AdminDashboard() {
       
       <main id="main-content" role="main" className="flex-1 h-screen overflow-y-auto relative scrollbar-hide mobile-nav-pb">
         {/* Top Header */}
-        <header role="banner" className={`sticky top-0 z-30 pl-16 lg:pl-6 pr-4 sm:pr-6 py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e]/90 border-white/5' : 'bg-white/90 border-gray-200'}`}>
-          <div className="flex items-center gap-4">
+        <header role="banner" className={`sticky top-0 z-30 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e]/90 border-white/5' : 'bg-white/90 border-gray-200'}`}>
+          <div className="flex items-center gap-3">
              <div>
-               <h1 className={`text-xl font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>
+               <h1 className={`text-base sm:text-xl font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>
                  {({
                    overview:       'Tableau de bord',
                    bookings:       'Réservations',
@@ -902,17 +902,17 @@ export default function AdminDashboard() {
                    'gmail-import': '📧 Import Gmail',
                  } as Record<string, string>)[activeTab] ?? activeTab}
                </h1>
-               <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+               <p className={`text-xs mt-0.5 hidden sm:block ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                  {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                </p>
              </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Global Search Button */}
             <button
               onClick={() => setIsSearchOpen(true)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+              className={`flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl text-sm font-medium transition-all border ${
                 isDark
                   ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
                   : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'
@@ -920,15 +920,15 @@ export default function AdminDashboard() {
             >
               <Search className="w-4 h-4" />
               <span className="hidden sm:inline">Rechercher...</span>
-              <kbd className={`ml-2 px-1.5 py-0.5 text-xs rounded ${isDark ? 'bg-white/10' : 'bg-white'}`}>
+              <kbd className={`ml-2 px-1.5 py-0.5 text-xs rounded hidden sm:inline ${isDark ? 'bg-white/10' : 'bg-white'}`}>
                 ⌘K
               </kbd>
             </button>
 
-            {/* Export/Import Button */}
+            {/* Export/Import Button — desktop only */}
             <button
               onClick={() => setShowExportImport(true)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+              className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
                 isDark
                   ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
                   : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'
@@ -958,27 +958,28 @@ export default function AdminDashboard() {
               )}
             </a>
             
+            {/* Property selector — hidden on small mobile */}
             <select
               value={selectedPropertyId ?? ''}
               onChange={(e) => setSelectedPropertyId(e.target.value ? Number(e.target.value) : undefined)}
-              className={`border rounded-xl px-3 py-2 text-sm transition-all outline-none focus:ring-2 focus:ring-indigo-500/20 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-white border-gray-200 text-gray-900'}`}
+              className={`hidden sm:block border rounded-xl px-3 py-2 text-sm transition-all outline-none focus:ring-2 focus:ring-indigo-500/20 ${isDark ? 'bg-white/[0.04] border-white/[0.08] text-white [&>option]:bg-[#222244]' : 'bg-white border-gray-200 text-gray-900'}`}
             >
               <option value="">Toutes les propriétés</option>
               {properties.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
-            <div className={`h-8 w-[1px] ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
-            <LanguageSelector size="sm" />
+            <div className={`hidden sm:block h-8 w-[1px] ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
+            <div className="hidden sm:block"><LanguageSelector size="sm" /></div>
             <ThemeToggle size="sm" />
-            <NextLink href="/" className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:bg-white/10 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+            <NextLink href="/" className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:bg-white/10 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
               <Home className="w-4 h-4" />
             </NextLink>
           </div>
         </header>
 
-        {/* Breadcrumbs Navigation (Accessibilité WCAG 2.1 AA) */}
-        <nav aria-label="Fil d'Ariane" className={`px-6 py-3 border-b ${isDark ? 'border-white/5' : 'border-gray-200'}`}>
+        {/* Breadcrumbs Navigation (Accessibilité WCAG 2.1 AA) — desktop only */}
+        <nav aria-label="Fil d'Ariane" className={`hidden sm:block px-6 py-3 border-b ${isDark ? 'border-white/5' : 'border-gray-200'}`}>
           <ol className="flex items-center gap-2 text-sm">
             <li>
               <NextLink 

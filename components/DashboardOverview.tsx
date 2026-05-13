@@ -263,7 +263,8 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                 Voir tout <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div className="grid grid-cols-7 gap-2">
+            <div className="overflow-x-auto -mx-1 px-1">
+            <div className="grid grid-cols-7 gap-1.5 min-w-[340px]">
               {days.map(({ d, arrivals, departures, isToday }, i) => (
                 <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.04 }}
                   onClick={() => nav('bookings')}
@@ -293,6 +294,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                   )}
                 </motion.div>
               ))}
+            </div>
             </div>
             {!hasEvents && (
               <p className={`text-center text-xs mt-2 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
@@ -737,7 +739,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
             <div className={`p-2 rounded-xl ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><Zap className="w-4 h-4 text-violet-500" /></div>
             <h3 className={`font-bold text-base ${text}`}>Accès rapide</h3>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-11 gap-3">
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-11 gap-2 sm:gap-3">
             {[
               { href: '/rentabilite',     label: 'Rentabilité',     icon: TrendingUp, color: 'bg-emerald-500/10 text-emerald-500', badge: 'NEW' },
               { href: '/rapports-fiscaux',label: 'Rapports fiscaux',icon: FileText,   color: 'bg-violet-500/10 text-violet-500',  badge: 'NEW' },

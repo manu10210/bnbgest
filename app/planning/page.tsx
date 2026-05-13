@@ -565,35 +565,35 @@ export default function PlanningPage() {
 
           {/* Property filter */}
           <select value={selectedProp} onChange={e => setSelectedProp(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
-            className={`px-3 py-2 rounded-xl text-sm ${card} border ${text} outline-none min-w-[180px]`}>
+            className={`hidden sm:block px-3 py-2 rounded-xl text-sm ${card} border ${text} outline-none min-w-[160px]`}>
             <option value="all">Toutes propriétés</option>
             {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
 
-          <button onClick={fetchAll} className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
+          <button onClick={fetchAll} className={`p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
             <RefreshCw size={16} className={muted} />
           </button>
           <button
             onClick={exportCsv}
             disabled={csvDisabled}
-            title={visibleBookings.length === 0 ? 'Aucune réservation visible à exporter' : 'Exporter en CSV'}
-            className={`px-3 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-1.5 border disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'bg-white/5 border-white/10 text-gray-200 hover:bg-white/10' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+            title="Exporter en CSV"
+            className={`hidden sm:inline-flex px-3 py-2 rounded-xl text-xs font-semibold transition items-center gap-1.5 border disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'bg-white/5 border-white/10 text-gray-200 hover:bg-white/10' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
           >
-            {exporting === 'csv' ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />} {exporting === 'csv' ? 'CSV…' : 'CSV'}
+            {exporting === 'csv' ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />} CSV
           </button>
           <button
             onClick={exportIcs}
             disabled={icsDisabled}
-            title={visibleBookings.length === 0 ? 'Aucune réservation visible à exporter' : 'Exporter en iCal (.ics)'}
-            className={`px-3 py-2 rounded-xl text-xs font-semibold transition inline-flex items-center gap-1.5 border disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'bg-white/5 border-white/10 text-gray-200 hover:bg-white/10' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+            title="Exporter en iCal"
+            className={`hidden sm:inline-flex px-3 py-2 rounded-xl text-xs font-semibold transition items-center gap-1.5 border disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? 'bg-white/5 border-white/10 text-gray-200 hover:bg-white/10' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
           >
-            {exporting === 'ics' ? <RefreshCw size={14} className="animate-spin" /> : <Calendar size={14} />} {exporting === 'ics' ? 'iCal…' : 'iCal'}
+            {exporting === 'ics' ? <RefreshCw size={14} className="animate-spin" /> : <Calendar size={14} />} iCal
           </button>
           <button
             onClick={() => toast.info('Création rapide d\'événement bientôt disponible')}
-            className="px-3 py-2 rounded-xl bg-[#FF385C] text-white text-xs font-semibold hover:bg-[#E31C5F] transition inline-flex items-center gap-1.5"
+            className="px-3 py-2 rounded-xl bg-[#FF385C] text-white text-xs font-semibold hover:bg-[#E31C5F] transition inline-flex items-center gap-1.5 min-h-[44px]"
           >
-            <Plus size={14} /> Ajouter
+            <Plus size={14} /> <span className="hidden sm:inline">Ajouter</span>
           </button>
           <ThemeToggle />
         </div>
@@ -688,8 +688,75 @@ export default function PlanningPage() {
         </div>
       ) : (
         <div className="overflow-x-auto px-2 pb-8">
-          {/* ── WEEK VIEW ── */}
+          {/* ── MOBILE LIST VIEW (< lg) ── */}
           {view === 'week' && (
+            <div className="lg:hidden space-y-3 py-2">
+              {visibleBookings.length === 0 ? (
+                <div className={`text-center py-10 ${muted}`}>Aucune réservation sur la période</div>
+              ) : (
+                visibleBookings
+                  .slice()
+                  .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime())
+                  .map(b => {
+                    const prop = properties.find(p => p.id === b.propertyId);
+                    const nights = bookingNights(b);
+                    const ci = new Date(b.checkIn);
+                    const co = new Date(b.checkOut);
+                    const isCI = days.some(d => sameDay(d, ci));
+                    const isCO = days.some(d => sameDay(d, co));
+                    const statusColor = b.status === 'confirmed' ? 'border-l-green-500 bg-green-500/5'
+                      : b.status === 'pending' ? 'border-l-amber-500 bg-amber-500/5'
+                      : b.status === 'cancelled' ? 'border-l-red-500 bg-red-500/5'
+                      : 'border-l-blue-500 bg-blue-500/5';
+                    return (
+                      <div key={b.id} className={`border-l-4 ${statusColor} rounded-r-2xl px-4 py-3 ${isDark ? 'bg-white/[0.03]' : 'bg-white'} border border-l-[3px] ${isDark ? 'border-white/10' : 'border-gray-100'}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className={`font-bold text-sm truncate ${text}`}>{b.guestName}</p>
+                            {prop && <p className={`text-xs ${muted} truncate`}>{prop.name}</p>}
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className={`text-sm font-bold ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>{Math.round(b.totalPrice)}€</p>
+                            <p className={`text-[10px] ${muted}`}>{nights}🌙 · {b.guests}👤</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                          {isCI && (
+                            <span className={`px-2 py-0.5 rounded-full font-semibold ${isDark ? 'bg-green-500/15 text-green-300' : 'bg-green-50 text-green-700'}`}>
+                              ▶ {ci.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}{bookingTimeStr(b.checkIn) ? ' ' + bookingTimeStr(b.checkIn) : ''}
+                            </span>
+                          )}
+                          {isCO && (
+                            <span className={`px-2 py-0.5 rounded-full font-semibold ${isDark ? 'bg-gray-500/15 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                              ■ {co.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}{bookingTimeStr(b.checkOut) ? ' ' + bookingTimeStr(b.checkOut) : ''}
+                            </span>
+                          )}
+                          {!isCI && !isCO && (
+                            <span className={`px-2 py-0.5 rounded-full font-semibold ${isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
+                              En cours
+                            </span>
+                          )}
+                          {bookingPaymentStatus(b) && (
+                            <span className={`px-2 py-0.5 rounded-full ${isDark ? 'bg-white/5 text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
+                              {bookingPaymentStatus(b)}
+                            </span>
+                          )}
+                          {b.source && (
+                            <span className={`px-2 py-0.5 rounded-full ${isDark ? 'bg-white/5 text-gray-500' : 'bg-gray-100 text-gray-500'}`}>
+                              {sourceLabel(b.source)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+          )}
+
+          {/* ── WEEK VIEW (desktop) ── */}
+          {view === 'week' && (
+            <div className="hidden lg:block">
             <table className="min-w-full border-separate" style={{ borderSpacing: '6px' }}>
               <thead>
                 <tr>
@@ -806,6 +873,7 @@ export default function PlanningPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           {/* ── MONTH VIEW ── */}
