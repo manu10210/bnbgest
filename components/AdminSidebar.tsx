@@ -43,7 +43,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useBNB } from '../contexts/BNBContext';
 import { useState, useMemo, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import type { TabType } from './AdminDashboard';
+
+const MobileBottomNav = dynamic(() => import('./MobileBottomNav'), { ssr: false });
 
 // Routes that open dedicated pages instead of in-dashboard tabs
 const EXTERNAL_ROUTES: Record<string, { href: string; color: string }> = {
@@ -184,18 +187,6 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
 
   return (
     <>
-      {/* Mobile hamburger button */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        className={`lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl shadow-lg border transition-colors ${
-          isDark ? 'bg-[#1a1a2e] border-white/10 text-white' : 'bg-white border-gray-200 text-gray-700'
-        }`}
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
       {/* Mobile overlay */}
       <AnimatePresence>
         {mobileOpen && (
@@ -510,6 +501,9 @@ export default function AdminSidebar({ activeTab = 'overview', setActiveTab }: A
         </motion.aside>
       )}
     </AnimatePresence>
+
+    {/* Mobile bottom navigation — rendered here so every page that uses AdminSidebar gets it */}
+    <MobileBottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
     </>
   );
 }

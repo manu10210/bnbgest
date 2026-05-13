@@ -865,9 +865,9 @@ export default function AdminDashboard() {
       { /* Sidebar Navigation */ }
       <AdminSidebar activeTab={activeTab} setActiveTab={(tab: TabType) => setActiveTab(tab)} />
       
-      <main id="main-content" role="main" className="flex-1 h-screen overflow-y-auto relative scrollbar-hide">
+      <main id="main-content" role="main" className="flex-1 h-screen overflow-y-auto relative scrollbar-hide mobile-nav-pb">
         {/* Top Header */}
-        <header role="banner" className={`sticky top-0 z-30 px-6 py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e]/90 border-white/5' : 'bg-white/90 border-gray-200'}`}>
+        <header role="banner" className={`sticky top-0 z-30 pl-16 lg:pl-6 pr-4 sm:pr-6 py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e]/90 border-white/5' : 'bg-white/90 border-gray-200'}`}>
           <div className="flex items-center gap-4">
              <div>
                <h1 className={`text-xl font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>

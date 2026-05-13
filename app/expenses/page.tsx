@@ -257,7 +257,7 @@ export default function ExpensesPage() {
   return (
     <div className={`flex h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <AdminSidebar />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden mobile-nav-pb">
       {/* Header */}
       <header className={`sticky top-0 z-40 backdrop-blur-md ${isDark ? 'bg-gray-950/90 border-b border-white/10' : 'bg-white/90 border-b border-gray-200'}`}>
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">

@@ -756,3 +756,19 @@ input[type="number"]::-webkit-outer-spin-button {
 .stagger-children > *:nth-child(10) { animation-delay: 540ms; }
 .stagger-children > *:nth-child(11) { animation-delay: 600ms; }
 .stagger-children > *:nth-child(12) { animation-delay: 660ms; }
+
+/* iOS safe-area bottom padding (notch / home indicator) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Bottom nav spacer — ensures content is not hidden behind the mobile bottom nav */
+@media (max-width: 1023px) {
+  .mobile-nav-pb {
+    padding-bottom: 5rem;
+  }
+}

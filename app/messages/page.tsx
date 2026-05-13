@@ -279,7 +279,7 @@ export default function MessagesPage() {
   return (
     <div className={`flex h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <AdminSidebar />
-      <div className={`flex-1 flex flex-col min-w-0 overflow-hidden ${bg}`}>
+      <div className={`flex-1 flex flex-col min-w-0 overflow-hidden ${bg} mobile-nav-pb`}>
 
       {/* Header */}
       <header className={`flex-shrink-0 z-40 backdrop-blur-md ${isDark ? 'bg-gray-950/90 border-b border-white/10' : 'bg-white/90 border-b border-gray-200'}`}>

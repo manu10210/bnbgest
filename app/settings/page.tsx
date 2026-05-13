@@ -219,7 +219,7 @@ export default function SettingsPage() {
   return (
     <div className={`flex h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <AdminSidebar />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden mobile-nav-pb">
       <div className="flex-1 overflow-y-auto">
       <div className="p-6 max-w-7xl mx-auto">
         {/* Header */}

@@ -308,7 +308,7 @@ export default function RentabilitePage() {
     <div className={`flex h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <AdminSidebar />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden mobile-nav-pb">
         {/* ── Header */}
         <header className={`flex items-center justify-between px-6 py-4 border-b ${
           isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'

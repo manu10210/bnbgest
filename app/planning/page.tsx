@@ -509,13 +509,14 @@ export default function PlanningPage() {
   const icsDisabled = loading || exporting !== null || visibleBookings.length === 0;
 
   return (
+    <>
     <div className={`flex h-screen ${isDark ? 'bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950' : 'bg-gradient-to-br from-gray-50 via-white to-indigo-50/40'}`}>
       <AdminSidebar />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden mobile-nav-pb">
       {/* Header */}
       <header className={`sticky top-0 z-40 backdrop-blur-xl ${isDark ? 'bg-gray-950/85 border-b border-white/10 shadow-[0_6px_24px_rgba(0,0,0,0.35)]' : 'bg-white/85 border-b border-gray-200 shadow-[0_6px_24px_rgba(15,23,42,0.06)]'}`}>
         <div className="max-w-[1800px] mx-auto px-4 py-3.5 flex items-center gap-3 flex-wrap">
-          <button onClick={() => router.back()} className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
+          <button onClick={() => router.back()} className={`p-2 rounded-xl min-w-[44px] min-h-[44px] ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
             <ArrowLeft size={20} className={muted} />
           </button>
           <div className="flex items-center gap-2">
@@ -963,6 +964,7 @@ export default function PlanningPage() {
       )}
       </div>
     </div>
+    </>
   );
 }
 
