@@ -124,55 +124,69 @@ export default function MobileBottomNav({ activeTab = 'overview', setActiveTab }
 
   return (
     <>
-      {/* More drawer backdrop */}
+      {/* Backdrop — z-[45] sits above nav bar (z-40) but below drawer (z-50) */}
       <AnimatePresence>
         {moreOpen && (
           <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="lg:hidden fixed inset-0 z-[45] bg-black/60 backdrop-blur-sm"
             onClick={() => setMoreOpen(false)}
           />
         )}
       </AnimatePresence>
 
-      {/* More drawer — slides up from bottom */}
+      {/* More drawer — iOS-style bottom sheet */}
       <AnimatePresence>
         {moreOpen && (
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl shadow-2xl pb-safe ${
-              isDark ? 'bg-[#1a1a2e]' : 'bg-white'
+            transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+            className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-[28px] shadow-2xl scroll-ios ${
+              isDark ? 'bg-[#1c1c2e]' : 'bg-white'
             }`}
-            style={{ maxHeight: '78vh', overflowY: 'auto' }}
+            style={{
+              maxHeight: 'min(85dvh, 85vh)',
+              overflowY: 'auto',
+              overscrollBehavior: 'contain',
+              paddingBottom: 'env(safe-area-inset-bottom, 12px)',
+            }}
           >
-            {/* Handle bar */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className={`w-10 h-1 rounded-full ${isDark ? 'bg-white/20' : 'bg-gray-300'}`} />
-            </div>
-            {/* Close button */}
-            <div className="flex items-center justify-between px-5 py-2">
-              <span className={`font-bold text-base ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Menu
-              </span>
-              <button
-                onClick={() => setMoreOpen(false)}
-                className={`p-2 rounded-xl ${isDark ? 'text-gray-400 hover:bg-white/10' : 'text-gray-500 hover:bg-gray-100'}`}
-              >
-                <X className="w-5 h-5" />
-              </button>
+            {/* Grab handle — larger tap zone */}
+            <div className="sticky top-0 flex flex-col items-center pt-2.5 pb-1 z-10"
+              style={{ background: isDark ? '#1c1c2e' : 'white' }}>
+              <div className={`w-9 h-[5px] rounded-full mb-2 ${isDark ? 'bg-white/20' : 'bg-gray-300'}`} />
+              {/* Header row */}
+              <div className="flex items-center justify-between w-full px-5 pb-2">
+                <span className={`font-bold text-base ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Menu
+                </span>
+                <button
+                  onClick={() => setMoreOpen(false)}
+                  className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
+                    isDark ? 'bg-white/10 text-gray-300 active:bg-white/20' : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+                  }`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {/* Separator */}
+              <div className={`w-full h-px ${isDark ? 'bg-white/[0.07]' : 'bg-gray-100'}`} />
             </div>
 
             {/* Groups */}
-            <div className="px-4 pb-8 space-y-5">
+            <div className="px-4 pt-4 pb-6 space-y-6">
               {MORE_GROUPS.map(group => (
                 <div key={group.title}>
-                  <p className={`px-2 mb-2 text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  <p className={`px-1 mb-2.5 text-[11px] font-bold uppercase tracking-widest ${
+                    isDark ? 'text-gray-500' : 'text-gray-400'
+                  }`}>
                     {group.title}
                   </p>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-2.5">
                     {group.items.map(item => {
                       const Icon = item.icon;
                       const active = isActive(item.id, (item as { external?: string }).external);
@@ -180,20 +194,27 @@ export default function MobileBottomNav({ activeTab = 'overview', setActiveTab }
                         <button
                           key={item.id}
                           onClick={() => navigate(item.id, (item as { external?: string }).external)}
-                          className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl min-h-[72px] justify-center transition-all active:scale-95 ${
+                          className={`relative flex flex-col items-center gap-2 py-3.5 px-2 rounded-2xl min-h-[76px] justify-center transition-all active:scale-[0.93] ${
                             active
                               ? isDark
-                                ? 'bg-indigo-500/20 text-indigo-400'
+                                ? 'bg-indigo-500/25 text-indigo-400'
                                 : 'bg-indigo-50 text-indigo-600'
                               : isDark
-                                ? 'bg-white/[0.04] text-gray-400 active:bg-white/10'
-                                : 'bg-gray-50 text-gray-600 active:bg-gray-100'
+                                ? 'bg-white/[0.05] text-gray-400'
+                                : 'bg-gray-50 text-gray-600'
                           }`}
                         >
-                          <Icon className="w-5 h-5" />
-                          <span className="text-[11px] font-medium text-center leading-tight">{item.label}</span>
-                          {(item as { external?: string }).external && (
-                            <ExternalLink className="w-2.5 h-2.5 opacity-40" />
+                          {active && (
+                            <span className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${
+                              isDark ? 'bg-indigo-400' : 'bg-indigo-500'
+                            }`} />
+                          )}
+                          <Icon className="w-[22px] h-[22px]" />
+                          <span className="text-[12px] font-medium text-center leading-tight w-full px-0.5 break-words">
+                            {item.label}
+                          </span>
+                          {(item as { external?: string }).external && !active && (
+                            <ExternalLink className="w-2.5 h-2.5 opacity-30 absolute bottom-2 right-2" />
                           )}
                         </button>
                       );
@@ -206,16 +227,17 @@ export default function MobileBottomNav({ activeTab = 'overview', setActiveTab }
         )}
       </AnimatePresence>
 
-      {/* Bottom navigation bar */}
+      {/* ── Bottom navigation bar ── */}
       <nav
         className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t ${
           isDark
-            ? 'bg-[#1a1a2e]/95 backdrop-blur-xl border-white/[0.08]'
-            : 'bg-white/95 backdrop-blur-xl border-gray-200'
+            ? 'bg-[#1a1a2e]/96 backdrop-blur-xl border-white/[0.08]'
+            : 'bg-white/96 backdrop-blur-xl border-gray-200/80'
         }`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
-        <div className="flex items-stretch justify-around px-1 pt-1 pb-2">
+        {/* Use grid for perfectly equal columns */}
+        <div className="grid grid-cols-5 pt-1 pb-1.5">
           {PRIMARY_TABS.map(tab => {
             const Icon = tab.icon;
             const active = isActive(tab.id, (tab as { external?: string }).external);
@@ -224,43 +246,69 @@ export default function MobileBottomNav({ activeTab = 'overview', setActiveTab }
               <button
                 key={tab.id}
                 onClick={() => navigate(tab.id, (tab as { external?: string }).external)}
-                className={`flex flex-col items-center gap-0.5 px-2 min-w-[52px] min-h-[48px] justify-center rounded-xl transition-all active:scale-90 relative ${
+                className={`flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-[50px] w-full relative transition-colors active:opacity-60 ${
                   active
                     ? isDark ? 'text-indigo-400' : 'text-indigo-600'
                     : isDark ? 'text-gray-500' : 'text-gray-400'
                 }`}
               >
+                {/* Pill indicator */}
                 {active && (
                   <motion.div
-                    layoutId="bottomNavActive"
-                    className={`absolute inset-0 rounded-xl ${isDark ? 'bg-indigo-500/15' : 'bg-indigo-50'}`}
-                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                    layoutId="bottomNavPill"
+                    className={`absolute top-1 left-1/2 -translate-x-1/2 w-10 h-[34px] rounded-xl ${
+                      isDark ? 'bg-indigo-500/18' : 'bg-indigo-50'
+                    }`}
+                    transition={{ type: 'spring', damping: 28, stiffness: 320 }}
                   />
                 )}
-                <div className="relative">
-                  <Icon className="w-5 h-5 relative z-10" />
+                <div className="relative z-10">
+                  <Icon className={`w-[22px] h-[22px] transition-transform ${active ? 'scale-110' : 'scale-100'}`} />
                   {badge > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none z-10">
+                    <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center leading-none">
                       {badge > 9 ? '9+' : badge}
                     </span>
                   )}
                 </div>
-                <span className={`text-[10px] font-medium relative z-10 ${active ? 'font-bold' : ''}`}>
+                <span className={`text-[11px] leading-none relative z-10 transition-all ${
+                  active ? 'font-semibold' : 'font-normal'
+                }`}>
                   {tab.label}
                 </span>
               </button>
             );
           })}
 
-          {/* More button */}
+          {/* More button — highlights when drawer is open */}
           <button
-            onClick={() => setMoreOpen(true)}
-            className={`flex flex-col items-center gap-0.5 px-2 min-w-[52px] min-h-[48px] justify-center rounded-xl transition-all active:scale-90 ${
-              isDark ? 'text-gray-500' : 'text-gray-400'
+            onClick={() => setMoreOpen(v => !v)}
+            className={`flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-[50px] w-full relative transition-colors active:opacity-60 ${
+              moreOpen
+                ? isDark ? 'text-indigo-400' : 'text-indigo-600'
+                : isDark ? 'text-gray-500' : 'text-gray-400'
             }`}
           >
-            <Menu className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Plus</span>
+            {moreOpen && (
+              <motion.div
+                layoutId="bottomNavPill"
+                className={`absolute top-1 left-1/2 -translate-x-1/2 w-10 h-[34px] rounded-xl ${
+                  isDark ? 'bg-indigo-500/18' : 'bg-indigo-50'
+                }`}
+                transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              />
+            )}
+            <motion.div
+              animate={{ rotate: moreOpen ? 90 : 0 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+              className="relative z-10"
+            >
+              <Menu className="w-[22px] h-[22px]" />
+            </motion.div>
+            <span className={`text-[11px] leading-none relative z-10 ${
+              moreOpen ? 'font-semibold' : 'font-normal'
+            }`}>
+              Plus
+            </span>
           </button>
         </div>
       </nav>
