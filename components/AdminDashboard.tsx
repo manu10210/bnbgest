@@ -1044,41 +1044,49 @@ export default function AdminDashboard() {
 
               {/* Properties Tab */}
               {activeTab === 'properties' && (
-                <div className={`glass-pro rounded-2xl p-6 border-gradient animate-fadeInUp`}>
-                  <div className="flex items-center justify-between mb-6">
+                <div className={`glass-pro rounded-2xl p-4 sm:p-6 border-gradient animate-fadeInUp`}>
+                  {/* ── Header ── */}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                     <div>
-                      <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Gestion des Propriétés</h2>
-                      <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>
-                        Gérez vos <span className="font-bold text-[#FF385C]">{visiblePropertiesData.length}</span> propriété{visiblePropertiesData.length > 1 ? 's' : ''} visible{visiblePropertiesData.length > 1 ? 's' : ''}
+                      <h2 className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Gestion des Propriétés</h2>
+                      <p className={`mt-1 text-xs sm:text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}>
+                        <span className="font-bold text-[#FF385C]">{visiblePropertiesData.length}</span> propriété{visiblePropertiesData.length > 1 ? 's' : ''}
                         {hiddenByAirbnbInactivityIds.size > 0 && (
-                          <span className="ml-2">• <span className="font-semibold text-amber-500">{hiddenByAirbnbInactivityIds.size}</span> masquée{hiddenByAirbnbInactivityIds.size > 1 ? 's' : ''} (&gt;30j sans nouvelle réservation)</span>
+                          <span className="ml-1.5">• <span className="font-semibold text-amber-500">{hiddenByAirbnbInactivityIds.size}</span> masquée{hiddenByAirbnbInactivityIds.size > 1 ? 's' : ''}</span>
                         )}
                         {visiblePropertiesData.length > 0 && (
-                          <span className="ml-2">• <span className="font-semibold">{propertiesFiltered.length}</span> affichée{propertiesFiltered.length > 1 ? 's' : ''}</span>
+                          <span className="ml-1.5">• <span className="font-semibold">{propertiesFiltered.length}</span> affichée{propertiesFiltered.length > 1 ? 's' : ''}</span>
                         )}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    {/* Action buttons — icon-only on mobile, full label on sm+ */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       {hiddenByAirbnbInactivityIds.size > 0 && (
-                        <Button
-                          variant="secondary"
+                        <button
                           onClick={() => setShowHiddenPropertiesAudit((v) => !v)}
-                          className="flex items-center gap-2"
+                          title={showHiddenPropertiesAudit ? 'Masquer' : 'Voir les masquées'}
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${isDark ? 'bg-white/10 text-gray-200 hover:bg-white/15' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'}`}
                         >
-                          <Eye className="w-4 h-4" />
-                          {showHiddenPropertiesAudit ? 'Masquer' : 'Voir'} les propriétés masquées
-                        </Button>
+                          <Eye className="w-4 h-4 shrink-0" />
+                          <span className="hidden sm:inline">{showHiddenPropertiesAudit ? 'Masquer' : 'Voir les masquées'}</span>
+                        </button>
                       )}
-                      <Button
-                        variant="secondary"
+                      <button
                         onClick={() => setShowPropertyMerger(true)}
-                        className="flex items-center gap-2"
+                        title="Fusionner des annonces"
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${isDark ? 'bg-white/10 text-gray-200 hover:bg-white/15' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'}`}
                       >
-                        <Building2 className="w-4 h-4" /> Fusionner des annonces
-                      </Button>
-                      <Button onClick={() => setShowPropertyConfigurator(true)} className="flex items-center gap-2 hover-lift">
-                        <Plus className="w-4 h-4" /> Ajouter une Propriété
-                      </Button>
+                        <Building2 className="w-4 h-4 shrink-0" />
+                        <span className="hidden sm:inline">Fusionner</span>
+                      </button>
+                      <button
+                        onClick={() => setShowPropertyConfigurator(true)}
+                        title="Ajouter une propriété"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold aurora-bg text-white shadow-md hover:opacity-90 transition-opacity"
+                      >
+                        <Plus className="w-4 h-4 shrink-0" />
+                        <span className="hidden sm:inline">Ajouter une Propriété</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1130,20 +1138,23 @@ export default function AdminDashboard() {
                   )}
 
                   {visiblePropertiesData.length > 0 && (
-                    <div className="mb-5 grid md:grid-cols-3 gap-3">
-                      <div className={`flex items-center gap-2 rounded-xl px-3 py-2 border ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'}`}>
-                        <Search className={`w-4 h-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+                    <div className="mb-5 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                      <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 border ${isDark ? 'bg-white/[0.03] border-white/10' : 'bg-white border-gray-200'}`}>
+                        <Search className={`w-4 h-4 shrink-0 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
                         <input
                           value={propertySearch}
                           onChange={(e) => setPropertySearch(e.target.value)}
-                          placeholder="Rechercher (nom, ville, adresse)"
+                          placeholder="Rechercher…"
                           className={`w-full bg-transparent text-sm outline-none ${isDark ? 'text-white placeholder:text-gray-500' : 'text-gray-800 placeholder:text-gray-400'}`}
                         />
+                        {propertySearch && (
+                          <button onClick={() => setPropertySearch('')} className="shrink-0 text-gray-400 hover:text-gray-600">✕</button>
+                        )}
                       </div>
                       <select
                         value={propertyStatusFilter}
                         onChange={(e) => setPropertyStatusFilter(e.target.value as 'all' | 'active' | 'maintenance' | 'inactive')}
-                        className={`rounded-xl px-3 py-2 text-sm border outline-none ${isDark ? 'bg-white/[0.03] border-white/10 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                        className={`rounded-xl px-3 py-2.5 text-sm border outline-none ${isDark ? 'bg-white/[0.03] border-white/10 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
                       >
                         <option value="all">Statut: Tous</option>
                         <option value="active">Actives ({propertyStatusCounts.active})</option>
@@ -1153,31 +1164,31 @@ export default function AdminDashboard() {
                       <select
                         value={propertySort}
                         onChange={(e) => setPropertySort(e.target.value as 'revenue-desc' | 'bookings-desc' | 'name-asc' | 'price-desc')}
-                        className={`rounded-xl px-3 py-2 text-sm border outline-none ${isDark ? 'bg-white/[0.03] border-white/10 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                        className={`rounded-xl px-3 py-2.5 text-sm border outline-none ${isDark ? 'bg-white/[0.03] border-white/10 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
                       >
-                        <option value="revenue-desc">Trier: Revenus décroissants</option>
-                        <option value="bookings-desc">Trier: Réservations décroissantes</option>
-                        <option value="price-desc">Trier: Prix/nuit décroissant</option>
-                        <option value="name-asc">Trier: Nom A → Z</option>
+                        <option value="revenue-desc">Revenus ↓</option>
+                        <option value="bookings-desc">Réservations ↓</option>
+                        <option value="price-desc">Prix/nuit ↓</option>
+                        <option value="name-asc">Nom A → Z</option>
                       </select>
                     </div>
                   )}
 
                   {visiblePropertiesData.length > 0 && (
-                    <div className="mb-5 grid md:grid-cols-3 gap-3">
-                      <div className={`rounded-xl px-3 py-2 text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
-                        <span>Revenus annuels (vue)</span>
-                        <span className="font-bold text-emerald-500">
+                    <div className="mb-5 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+                      <div className={`rounded-xl px-3 py-2.5 text-xs sm:text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
+                        <span className="truncate mr-2">Revenus</span>
+                        <span className="font-bold text-emerald-500 shrink-0">
                           {propertiesFiltered.reduce((sum, p) => sum + getRevenueByProperty(p.id, yearStart, yearEnd), 0).toLocaleString('fr-FR')}€
                         </span>
                       </div>
-                      <div className={`rounded-xl px-3 py-2 text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
-                        <span>Prix moyen / nuit</span>
-                        <span className="font-bold text-indigo-500">{avgNightlyPrice.toLocaleString('fr-FR')}€</span>
+                      <div className={`rounded-xl px-3 py-2.5 text-xs sm:text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
+                        <span className="truncate mr-2">Moy./nuit</span>
+                        <span className="font-bold text-indigo-500 shrink-0">{avgNightlyPrice.toLocaleString('fr-FR')}€</span>
                       </div>
-                      <div className={`rounded-xl px-3 py-2 text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
-                        <span>CA total portefeuille</span>
-                        <span className="font-bold text-emerald-500">{totalRevenue.toLocaleString('fr-FR')}€</span>
+                      <div className={`col-span-2 sm:col-span-1 rounded-xl px-3 py-2.5 text-xs sm:text-sm border flex items-center justify-between ${isDark ? 'bg-white/[0.03] border-white/10 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
+                        <span className="truncate mr-2">CA total</span>
+                        <span className="font-bold text-emerald-500 shrink-0">{totalRevenue.toLocaleString('fr-FR')}€</span>
                       </div>
                     </div>
                   )}
@@ -1208,7 +1219,7 @@ export default function AdminDashboard() {
                       </button>
                     </div>
                   ) : (
-                    <div className="grid md:grid-cols-2 gap-4 stagger-children">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 stagger-children">
                       {dbPropertiesError && (
                         <div className={`md:col-span-2 rounded-xl border px-4 py-2 text-sm ${isDark ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
                           {dbPropertiesError}
@@ -1230,7 +1241,7 @@ export default function AdminDashboard() {
                         const nights = nextBooking ? Math.max(1, Math.round((new Date(nextBooking.checkOut).getTime() - new Date(nextBooking.checkIn).getTime()) / 86400000)) : 0;
 
                         return (
-                          <div key={property.id} className={`group relative rounded-3xl p-6 transition-all duration-300 border hover:-translate-y-1 ${
+                          <div key={property.id} className={`group relative rounded-2xl sm:rounded-3xl p-4 sm:p-6 transition-all duration-300 border hover:-translate-y-0.5 sm:hover:-translate-y-1 ${
                             isDark
                               ? 'bg-[#1e1e2d] border-white/[0.06] hover:border-indigo-500/30' 
                               : 'bg-white border-gray-100 hover:border-indigo-200 shadow-xl shadow-gray-200/50'
@@ -1241,20 +1252,20 @@ export default function AdminDashboard() {
                             }`} />
                             
                             <div className="relative z-10">
-                              <div className="flex items-start justify-between mb-6">
-                                <div className="flex items-center gap-4">
-                                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                              <div className="flex items-start justify-between mb-4 sm:mb-6">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
                                     isDark ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white' : 'bg-gradient-to-br from-white to-indigo-50 text-indigo-600 border border-indigo-100'
                                   }`}>
-                                    <Building2 className="w-7 h-7" />
+                                    <Building2 className="w-5 h-5 sm:w-7 sm:h-7" />
                                   </div>
-                                  <div>
-                                    <h3 className={`font-black text-xl tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{property.name}</h3>
-                                    <div className={`flex items-center gap-1.5 mt-1 text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                      <MapPin className="w-3.5 h-3.5 text-indigo-500" />
-                                      {property.address}
+                                  <div className="min-w-0">
+                                    <h3 className={`font-black text-base sm:text-xl tracking-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{property.name}</h3>
+                                    <div className={`flex items-center gap-1 mt-0.5 text-xs sm:text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                      <MapPin className="w-3 h-3 text-indigo-500 shrink-0" />
+                                      <span className="truncate">{property.address}</span>
                                     </div>
-                                    <div className="mt-2 flex items-center gap-2">
+                                    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
                                         statusLabel === 'active'
                                           ? 'bg-emerald-500/15 text-emerald-500'
@@ -1264,61 +1275,66 @@ export default function AdminDashboard() {
                                       }`}>
                                         {statusLabel}
                                       </span>
-                                      <span className={`text-[11px] font-semibold ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>
-                                        Occupation mois: {occupancyMonth}%
+                                      <span className={`text-[10px] font-semibold ${isDark ? 'text-indigo-300' : 'text-indigo-600'}`}>
+                                        {occupancyMonth}% ce mois
                                       </span>
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 translate-x-0 md:translate-x-2 md:group-hover:translate-x-0">
-                                  <button onClick={() => {
-                                    const localProperty = properties.find(p => p.id === property.id);
-                                    if (localProperty) setPropertyToEdit(localProperty);
-                                    else toast.info('Édition locale indisponible pour cet élément DB (bientôt en PATCH direct).');
-                                  }} className={`p-2.5 rounded-xl transition-all hover:scale-110 ${
-                                    isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-gray-50 hover:bg-white text-gray-600 shadow-sm border border-gray-100'
-                                  }`}>
+                                {/* Actions — toujours visibles sur mobile, hover-reveal sur desktop */}
+                                <div className="flex gap-1.5 sm:gap-2 sm:opacity-0 sm:group-hover:opacity-100 sm:transition-all sm:duration-300">
+                                  <button
+                                    onClick={() => {
+                                      const localProperty = properties.find(p => p.id === property.id);
+                                      if (localProperty) setPropertyToEdit(localProperty);
+                                      else toast.info('Édition locale indisponible pour cet élément DB (bientôt en PATCH direct).');
+                                    }}
+                                    className={`p-2.5 min-w-[40px] min-h-[40px] rounded-xl transition-all hover:scale-110 active:scale-95 ${
+                                      isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-gray-50 hover:bg-white text-gray-600 shadow-sm border border-gray-100'
+                                    }`}>
                                     <Edit className="w-4 h-4" />
                                   </button>
-                                  <button onClick={() => setPropertyToDelete(property.id)} className={`p-2.5 rounded-xl transition-all hover:scale-110 ${
-                                    isDark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-500'
-                                  }`}>
+                                  <button
+                                    onClick={() => setPropertyToDelete(property.id)}
+                                    className={`p-2.5 min-w-[40px] min-h-[40px] rounded-xl transition-all hover:scale-110 active:scale-95 ${
+                                      isDark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-500'
+                                    }`}>
                                     <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-3 gap-3 mb-6">
-                                <div className={`rounded-2xl p-3 text-center transition-colors ${
+                              <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
+                                <div className={`rounded-xl sm:rounded-2xl p-2 sm:p-3 text-center transition-colors ${
                                   isDark ? 'bg-white/[0.03] group-hover:bg-white/[0.06]' : 'bg-gray-50 group-hover:bg-gray-100'
                                 }`}>
-                                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Réservations</p>
-                                  <p className={`font-black text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{propBookings.length}</p>
+                                  <p className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider mb-0.5 sm:mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Résas</p>
+                                  <p className={`font-black text-base sm:text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{propBookings.length}</p>
                                 </div>
-                                <div className={`rounded-2xl p-3 text-center transition-colors ${
+                                <div className={`rounded-xl sm:rounded-2xl p-2 sm:p-3 text-center transition-colors ${
                                   isDark ? 'bg-white/[0.03] group-hover:bg-white/[0.06]' : 'bg-gray-50 group-hover:bg-gray-100'
                                 }`}>
-                                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Revenus</p>
-                                  <p className="font-black text-lg text-emerald-500">{revenue.toLocaleString('fr-FR')}&euro;</p>
+                                  <p className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider mb-0.5 sm:mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Revenus</p>
+                                  <p className="font-black text-base sm:text-lg text-emerald-500">{revenue.toLocaleString('fr-FR')}&euro;</p>
                                 </div>
-                                <div className={`rounded-2xl p-3 text-center transition-colors ${
+                                <div className={`rounded-xl sm:rounded-2xl p-2 sm:p-3 text-center transition-colors ${
                                   isDark ? 'bg-white/[0.03] group-hover:bg-white/[0.06]' : 'bg-gray-50 group-hover:bg-gray-100'
                                 }`}>
-                                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Capacité</p>
-                                  <p className={`font-black text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{property.maxGuests}</p>
+                                  <p className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider mb-0.5 sm:mb-1 opacity-60 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Capacité</p>
+                                  <p className={`font-black text-base sm:text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{property.maxGuests}</p>
                                 </div>
                               </div>
 
-                              <div className={`mb-6 rounded-2xl p-3 border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-gray-50'}`}>
+                              <div className={`mb-4 sm:mb-6 rounded-xl sm:rounded-2xl p-2.5 sm:p-3 border ${isDark ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-gray-50'}`}>
                                 <div className="flex items-center justify-between mb-1.5">
-                                  <span className={`text-[11px] font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                                    Nuits réservées ce mois
+                                  <span className={`text-[10px] sm:text-[11px] font-semibold ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                    Nuits ce mois
                                   </span>
                                   <span className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>
                                     {bookedNightsMonth}/{daysInCurrentMonth}
                                   </span>
                                 </div>
-                                <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
+                                <div className={`h-1.5 sm:h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
                                   <div
                                     className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all"
                                     style={{ width: `${occupancyMonth}%` }}
@@ -1326,59 +1342,57 @@ export default function AdminDashboard() {
                                 </div>
                               </div>
 
-                              {/* Affichage de la prochaine réservation inline */}
+                              {/* Prochaine réservation */}
                               {nextBooking ? (
-                                <div className={`mb-6 p-4 rounded-2xl border ${isDark ? 'bg-indigo-500/5 border-indigo-500/10' : 'bg-indigo-50/50 border-indigo-100'}`}>
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Calendar className={`w-4 h-4 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
-                                    <span className={`text-xs font-bold uppercase tracking-wide ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                                <div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-xl sm:rounded-2xl border ${isDark ? 'bg-indigo-500/5 border-indigo-500/10' : 'bg-indigo-50/50 border-indigo-100'}`}>
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    <Calendar className={`w-3.5 h-3.5 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
+                                    <span className={`text-[10px] font-bold uppercase tracking-wide ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
                                       En cours / À venir
                                     </span>
                                   </div>
-                                  <div className={`flex flex-col gap-1 text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  <div className={`flex flex-col gap-1 text-xs sm:text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                                     <div className="flex items-center justify-between">
-                                      <span className="font-bold">{nextBooking.guestInfo.name}</span>
-                                      <span className="font-bold text-emerald-500">{nextBooking.totalPrice.toLocaleString('fr-FR')} €</span>
+                                      <span className="font-bold truncate mr-2">{nextBooking.guestInfo.name}</span>
+                                      <span className="font-bold text-emerald-500 shrink-0">{nextBooking.totalPrice.toLocaleString('fr-FR')} €</span>
                                     </div>
                                     <div className="flex justify-between items-center opacity-80">
                                       <span>
-                                        {new Date(nextBooking.checkIn).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} &rarr; {new Date(nextBooking.checkOut).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} ({nights}n)
+                                        {new Date(nextBooking.checkIn).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} → {new Date(nextBooking.checkOut).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} ({nights}n)
                                       </span>
-                                      <div className="flex items-center gap-2">
-                                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {nextBooking.guests}</span>
-                                      </div>
+                                      <span className="flex items-center gap-1 shrink-0"><Users className="w-3 h-3" /> {nextBooking.guests}</span>
                                     </div>
                                   </div>
                                 </div>
                               ) : (
-                                <div className={`mb-6 p-4 rounded-2xl border border-dashed flex flex-col items-center justify-center text-center ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
-                                  <span className="text-xl mb-1 block">🏖️</span>
-                                  <span className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Aucune prochaine réservation</span>
+                                <div className={`mb-4 sm:mb-6 p-3 rounded-xl border border-dashed flex items-center justify-center gap-2 ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200 bg-gray-50'}`}>
+                                  <span className="text-lg">🏖️</span>
+                                  <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Aucune prochaine réservation</span>
                                 </div>
                               )}
 
-                              <div className="flex items-center justify-between pt-4 border-t border-dashed border-gray-500/20">
-                                <div className={`px-4 py-1.5 rounded-full text-sm font-bold ${
+                              <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-dashed border-gray-500/20">
+                                <div className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold ${
                                   isDark ? 'bg-white/5 text-gray-300' : 'bg-gray-100 text-gray-600'
                                 }`}>
-                                {property.price}€ <span className="opacity-60 text-xs font-normal">/ nuit</span>
+                                  {property.price}€ <span className="opacity-60 text-[10px] font-normal">/ nuit</span>
+                                </div>
+                                <button
+                                  onClick={() => { setSelectedPropertyId(property.id); setActiveTab('bookings'); }}
+                                  className="group/btn flex items-center gap-1.5 text-xs sm:text-sm font-bold text-indigo-500 hover:text-indigo-400 transition-colors min-h-[40px] px-1"
+                                >
+                                  Voir le détail
+                                  <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5" />
+                                </button>
                               </div>
-                              <button
-                                onClick={() => { setSelectedPropertyId(property.id); setActiveTab('bookings'); }}
-                                className="group/btn flex items-center gap-2 text-sm font-bold text-indigo-500 hover:text-indigo-400 transition-colors"
-                              >
-                                Voir le détail
-                                <ArrowUpRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5" />
-                              </button>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
             {/* Guests Tab */}
             {activeTab === 'guests' && (
