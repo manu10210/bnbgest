@@ -805,29 +805,29 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
 
   // ========== RENDU ==========
   return (
-    <div className={`min-h-screen p-6 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className={`min-h-screen p-3 sm:p-6 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         
         {/* HEADER */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className={`text-3xl font-bold flex items-center gap-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              <Wrench className="w-8 h-8 text-indigo-600" />
-              Maintenance Avancée
+            <h1 className={`text-xl sm:text-3xl font-bold flex items-center gap-2 sm:gap-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <Wrench className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600 shrink-0" />
+              Maintenance
             </h1>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               {stats.totalTasks} tâches · {stats.overdueCount} en retard · {stats.completedTasks} terminées
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <Button
               onClick={handleExport}
               variant="outline"
               icon={Download}
               size="sm"
             >
-              Exporter
+              <span className="hidden sm:inline">Exporter</span>
             </Button>
             <input
               id="import-file"
@@ -842,7 +842,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
               size="sm"
               onClick={() => document.getElementById('import-file')?.click()}
             >
-              Importer
+              <span className="hidden sm:inline">Importer</span>
             </Button>
             <Button
               variant="primary"
@@ -850,86 +850,86 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
               data-testid="new-maintenance-button"
               onClick={() => setShowNewTaskModal(true)}
             >
-              Nouvelle tâche
+              <span className="hidden sm:inline">Nouvelle </span>tâche
             </Button>
           </div>
         </div>
 
         {/* KPI CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card className="p-5">
             <div className="flex items-start justify-between">
               <div>
                 <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   Total Tâches
                 </p>
-                <p className={`text-3xl font-bold mt-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                <p className={`text-2xl sm:text-3xl font-bold mt-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   {stats.totalTasks}
                 </p>
                 <p className="text-xs text-green-600 mt-1">
                   {stats.completedTasks} terminées ({Math.round((stats.completedTasks / stats.totalTasks) * 100)}%)
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                <Wrench className="w-6 h-6 text-white" />
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+                <Wrench className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
             </div>
           </Card>
 
-          <Card className="p-5">
+          <Card className="p-3 sm:p-5">
             <div className="flex items-start justify-between">
-              <div>
-                <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              <div className="min-w-0">
+                <p className={`text-xs sm:text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   Coût Total
                 </p>
-                <p className={`text-3xl font-bold mt-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                <p className={`text-xl sm:text-3xl font-bold mt-1 truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   {formatCurrency(stats.totalCost)}
                 </p>
                 <p className={`text-xs mt-1 ${stats.costVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {stats.costVariance >= 0 ? '+' : ''}{stats.costVariance.toFixed(1)}% vs estimé
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-white" />
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shrink-0">
+                <DollarSign className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
             </div>
           </Card>
 
-          <Card className="p-5">
+          <Card className="p-3 sm:p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`text-xs sm:text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   Délai Moyen
                 </p>
-                <p className={`text-3xl font-bold mt-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                <p className={`text-2xl sm:text-3xl font-bold mt-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   {stats.avgCompletionTime.toFixed(1)}
-                  <span className="text-lg ml-1">jours</span>
+                  <span className="text-base sm:text-lg ml-1">j</span>
                 </p>
                 <p className="text-xs text-blue-600 mt-1">
                   {stats.onTimeCompletion.toFixed(0)}% à temps
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
-                <Clock className="w-6 h-6 text-white" />
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shrink-0">
+                <Clock className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
             </div>
           </Card>
 
-          <Card className="p-5">
+          <Card className="p-3 sm:p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`text-xs sm:text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   En Retard
                 </p>
-                <p className={`text-3xl font-bold mt-1 ${stats.overdueCount > 0 ? 'text-red-600' : isDark ? 'text-white' : 'text-gray-900'}`}>
+                <p className={`text-2xl sm:text-3xl font-bold mt-1 ${stats.overdueCount > 0 ? 'text-red-600' : isDark ? 'text-white' : 'text-gray-900'}`}>
                   {stats.overdueCount}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Nécessite attention
                 </p>
               </div>
-              <div className={`w-12 h-12 rounded-xl ${stats.overdueCount > 0 ? 'bg-gradient-to-br from-red-500 to-orange-600' : 'bg-gradient-to-br from-gray-400 to-gray-500'} flex items-center justify-center`}>
-                <AlertTriangle className="w-6 h-6 text-white" />
+              <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl ${stats.overdueCount > 0 ? 'bg-gradient-to-br from-red-500 to-orange-600' : 'bg-gradient-to-br from-gray-400 to-gray-500'} flex items-center justify-center shrink-0`}>
+                <AlertTriangle className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
             </div>
           </Card>
@@ -937,7 +937,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
 
         {/* NAVIGATION TABS */}
         <div className={`border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-          <nav className="flex space-x-8">
+          <nav className="flex overflow-x-auto scrollbar-hide gap-0 -mb-px">
             {[
               { key: 'tasks', label: 'Tâches', icon: Wrench },
               { key: 'calendar', label: 'Calendrier', icon: Calendar },
@@ -950,7 +950,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as any)}
-                className={`flex items-center gap-2 py-4 px-2 border-b-2 transition-colors ${
+                className={`flex items-center gap-1.5 py-3 px-2 sm:px-3 border-b-2 transition-colors whitespace-nowrap shrink-0 ${
                   activeTab === tab.key
                     ? 'border-indigo-600 text-indigo-600'
                     : isDark
@@ -958,8 +958,8 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <tab.icon className="w-4 h-4" />
-                <span className="font-medium text-sm">{tab.label}</span>
+                <tab.icon className="w-4 h-4 shrink-0" />
+                <span className="font-medium text-xs sm:text-sm hidden xs:inline sm:inline">{tab.label}</span>
               </button>
             ))}
           </nav>
@@ -999,11 +999,11 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                   isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
                 } rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto`}
               >
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                  <h3 id="new-task-modal-title" className="text-2xl font-bold">Nouvelle tâche de maintenance</h3>
+                <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+                  <h3 id="new-task-modal-title" className="text-xl sm:text-2xl font-bold">Nouvelle tâche de maintenance</h3>
                 </div>
 
-                <div id="new-task-modal-desc" className="p-6 space-y-4">
+                <div id="new-task-modal-desc" className="p-4 sm:p-6 space-y-4">
                   {/* Titre */}
                   <div>
                     <label htmlFor="task-title-input" className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1066,7 +1066,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     {/* Catégorie */}
                     <div>
                       <label htmlFor="task-category-select" className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1112,7 +1112,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     {/* Date d'échéance */}
                     <div>
                       <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1168,7 +1168,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                   </div>
                 </div>
 
-                <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
                   <Button
                     variant="outline"
                     onClick={() => setShowNewTaskModal(false)}
@@ -1208,13 +1208,13 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                 } rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto`}
               >
                 {/* Header */}
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="text-3xl">{getCategoryIcon(selectedTask.category)}</span>
-                      <div>
-                        <h3 className="text-2xl font-bold">{selectedTask.title}</h3>
-                        <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <span className="text-2xl sm:text-3xl">{getCategoryIcon(selectedTask.category)}</span>
+                      <div className="min-w-0">
+                        <h3 className="text-lg sm:text-2xl font-bold">{selectedTask.title}</h3>
+                        <p className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                           Tâche #{selectedTask.id} • Créée le {formatDate(selectedTask.createdAt)}
                         </p>
                       </div>
@@ -1231,10 +1231,10 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                 </div>
 
                 {/* Body */}
-                <div className="p-6 space-y-6">
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                   {/* Statut et badges */}
                   <div className="flex flex-wrap gap-2">
-                    <span className={`px-4 py-2 rounded-full font-bold text-sm ${
+                    <span className={`px-3 py-1 rounded-full font-bold text-xs sm:text-sm ${
                       selectedTask.status === 'completed'
                         ? 'bg-green-100 text-green-700'
                         : selectedTask.status === 'in_progress'
@@ -1249,7 +1249,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                       {selectedTask.status === 'cancelled' && '✕ Annulée'}
                     </span>
                     
-                    <span className={`px-4 py-2 rounded-full font-bold text-sm ${
+                    <span className={`px-3 py-1 rounded-full font-bold text-xs sm:text-sm ${
                       selectedTask.priority === 'urgent'
                         ? 'bg-red-100 text-red-700'
                         : selectedTask.priority === 'high'
@@ -1265,7 +1265,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                     </span>
 
                     {new Date(selectedTask.scheduledDate) < new Date() && selectedTask.status !== 'completed' && (
-                      <span className="px-4 py-2 rounded-full font-bold text-sm bg-red-100 text-red-700">
+                      <span className="px-3 py-1 rounded-full font-bold text-xs sm:text-sm bg-red-100 text-red-700">
                         ⚠️ EN RETARD
                       </span>
                     )}
@@ -1284,7 +1284,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                   )}
 
                   {/* Informations */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className={`p-4 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-50'}`}>
                       <div className="flex items-center gap-2 mb-1">
                         <Calendar className="w-4 h-4" />
@@ -1365,7 +1365,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                 </div>
 
                 {/* Footer - Boutons d'action */}
-                <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex flex-wrap gap-3">
                     {selectedTask.status === 'pending' && (
                       <Button
@@ -1450,11 +1450,11 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                   isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
                 } rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto`}
               >
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                  <h3 className="text-2xl font-bold">Modifier la tâche</h3>
+                <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="text-xl sm:text-2xl font-bold">Modifier la tâche</h3>
                 </div>
 
-                <div className="p-6 space-y-4">
+                <div className="p-4 sm:p-6 space-y-4">
                   {/* Titre */}
                   <div>
                     <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1489,7 +1489,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     {/* Catégorie */}
                     <div>
                       <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1534,7 +1534,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     {/* Date */}
                     <div>
                       <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1571,7 +1571,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                   </div>
                 </div>
 
-                <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
                   <Button
                     variant="outline"
                     onClick={() => setShowEditTaskModal(false)}
@@ -1598,17 +1598,17 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
 
   function TasksView() {
     return (
-      <Card className="p-6">
-        <div className="flex justify-between items-center mb-6">
+      <Card className="p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 sm:mb-6">
           <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
             Liste des tâches
           </h2>
-          <div className="flex gap-2">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
             {['cards', 'table', 'kanban', 'timeline'].map(mode => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode as any)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                   viewMode === mode
                     ? 'bg-indigo-600 text-white'
                     : isDark
@@ -1623,7 +1623,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
         </div>
 
         {/* Filtres */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
           <input
             type="text"
             placeholder="Rechercher..."
@@ -1693,7 +1693,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
               key={task.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`p-5 rounded-xl border cursor-pointer transition-all hover:shadow-lg ${
+              className={`p-3 sm:p-5 rounded-xl border cursor-pointer transition-all hover:shadow-lg ${
                 isDark
                   ? 'bg-gray-800 border-gray-700 hover:border-indigo-500'
                   : 'bg-white border-gray-200 hover:border-indigo-300'
@@ -1705,9 +1705,9 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-2xl">{getCategoryIcon(task.category)}</span>
-                    <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">{getCategoryIcon(task.category)}</span>
+                    <h3 className={`font-bold text-sm sm:text-base ${isDark ? 'text-white' : 'text-gray-900'}`}>
                       {task.title}
                     </h3>
                     {new Date(task.scheduledDate) < new Date() && task.status !== 'completed' && (
@@ -1721,8 +1721,8 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                     {task.description}
                   </p>
 
-                  <div className="flex flex-wrap gap-2 text-sm">
-                    <span className={`px-3 py-1 rounded-full font-medium ${
+                  <div className="flex flex-wrap gap-1.5 text-xs">
+                    <span className={`px-2 py-0.5 rounded-full font-medium ${
                       task.status === 'completed'
                         ? 'bg-green-100 text-green-700'
                         : task.status === 'in_progress'
@@ -1735,7 +1735,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                       {task.status === 'cancelled' && '✕ Annulée'}
                     </span>
                     
-                    <span className={`px-3 py-1 rounded-full font-medium ${
+                    <span className={`px-2 py-0.5 rounded-full font-medium ${
                       task.priority === 'urgent'
                         ? 'bg-red-100 text-red-700'
                         : task.priority === 'high'
@@ -1750,11 +1750,11 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
                       {task.priority === 'low' && '🟢 Basse'}
                     </span>
 
-                    <span className={`px-3 py-1 rounded-full font-medium ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
+                    <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
                       📅 {formatDate(task.scheduledDate)}
                     </span>
 
-                    <span className={`px-3 py-1 rounded-full font-medium ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
+                    <span className={`px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
                       💶 {formatCurrency(task.estimatedCost)}
                     </span>
                   </div>
@@ -1790,8 +1790,8 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
 
   function SuppliersView({ suppliers }: { suppliers: Supplier[] }) {
     return (
-      <Card className="p-6">
-        <div className="flex justify-between items-center mb-6">
+      <Card className="p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 sm:mb-6">
           <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
             Fournisseurs
           </h2>
@@ -1800,7 +1800,8 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
             icon={Users}
             onClick={() => setShowNewSupplierModal(true)}
           >
-            Ajouter un fournisseur
+            <span className="hidden sm:inline">Ajouter un fournisseur</span>
+            <span className="sm:hidden">Ajouter</span>
           </Button>
         </div>
 
@@ -1810,7 +1811,7 @@ export default function MaintenanceManagerAdvanced({ tasksData, propertiesData }
               key={supplier.id}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className={`p-5 rounded-xl border ${
+              className={`p-4 sm:p-5 rounded-xl border ${
                 isDark
                   ? 'bg-gray-800 border-gray-700'
                   : 'bg-white border-gray-200'
