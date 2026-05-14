@@ -865,12 +865,16 @@ export default function AdminDashboard() {
       { /* Sidebar Navigation */ }
       <AdminSidebar activeTab={activeTab} setActiveTab={(tab: TabType) => setActiveTab(tab)} />
       
-      <main id="main-content" role="main" className="flex-1 h-screen overflow-y-auto relative scrollbar-hide mobile-nav-pb">
+      <main id="main-content" role="main" className="flex-1 h-screen overflow-y-auto relative scrollbar-hide mobile-nav-pb scroll-ios">
         {/* Top Header */}
-        <header role="banner" className={`sticky top-0 z-30 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e]/90 border-white/5' : 'bg-white/90 border-gray-200'}`}>
-          <div className="flex items-center gap-3">
+        <header role="banner" className={`sticky top-0 z-30 px-3 sm:px-6 py-2.5 sm:py-4 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-300 ${isDark ? 'bg-[#1a1a2e]/90 border-white/5' : 'bg-white/90 border-gray-200'}`}>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Logo mini — mobile only, tap pour aller accueil */}
+            <NextLink href="/admin" className={`lg:hidden flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shrink-0`}>
+              <Home className="w-4 h-4 text-white" />
+            </NextLink>
              <div>
-               <h1 className={`text-base sm:text-xl font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>
+               <h1 className={`text-sm sm:text-xl font-bold tracking-tight leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>
                  {({
                    overview:       'Tableau de bord',
                    bookings:       'Réservations',
@@ -1025,7 +1029,7 @@ export default function AdminDashboard() {
           </ol>
         </nav>
 
-        <div className="p-6 pb-32 space-y-6 max-w-[1600px] mx-auto">
+        <div className="p-3 sm:p-6 pb-32 space-y-4 sm:space-y-6 max-w-[1600px] mx-auto">
            {/* Overview Tab */}
            {activeTab === 'overview' && (
              <DashboardOverview onNavigate={(tab) => setActiveTab(tab)} />
@@ -1407,19 +1411,20 @@ export default function AdminDashboard() {
 
             {/* Reviews Tab */}
             {activeTab === 'reviews' && (
-              <div className={`glass-pro rounded-2xl p-6 border-gradient animate-fadeInUp`}>
-                <div className="flex items-center justify-between mb-6">
+              <div className={`glass-pro rounded-2xl p-4 sm:p-6 border-gradient animate-fadeInUp`}>
+                {/* Header */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                   <div>
-                    <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Avis Clients</h2>
-                    <p className={`mt-1 text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}><span className="font-bold text-[#FF385C]">{reviews.length}</span> avis au total</p>
+                    <h2 className={`text-xl sm:text-2xl font-black ${isDark ? 'text-white' : 'text-[#222222]'}`}>Avis Clients</h2>
+                    <p className={`mt-1 text-xs sm:text-sm ${isDark ? 'text-gray-500' : 'text-[#717171]'}`}><span className="font-bold text-[#FF385C]">{reviews.length}</span> avis au total</p>
                   </div>
-                  <div className="flex items-center gap-3 text-sm stagger-children">
-                    <div className={`glass-card rounded-xl px-4 py-2.5 hover-lift card-shine`}>
-                      <span className={`${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Positifs : </span>
+                  <div className="flex items-center gap-2 sm:gap-3 text-sm">
+                    <div className={`glass-card rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 hover-lift card-shine flex items-center gap-1.5`}>
+                      <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Positifs</span>
                       <span className="font-black text-emerald-400">{reviews.filter(r => r.rating >= 4).length}</span>
                     </div>
-                    <div className={`glass-card rounded-xl px-4 py-2.5 hover-lift card-shine`}>
-                      <span className={`${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Note : </span>
+                    <div className={`glass-card rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 hover-lift card-shine flex items-center gap-1.5`}>
+                      <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Note</span>
                       <span className="font-black text-amber-400">{averageRating}/5</span>
                     </div>
                   </div>
@@ -1433,17 +1438,18 @@ export default function AdminDashboard() {
                     <p className={`text-sm mt-1 ${isDark ? 'text-gray-600' : 'text-[#b0b0b0]'}`}>Les avis de vos clients apparaîtront ici</p>
                   </div>
                 ) : (
-                  <div className="space-y-4 stagger-children">
+                  <div className="space-y-3 sm:space-y-4 stagger-children">
                     {filteredReviews.map(review => {
                       const prop = properties.find(p => p.id === review.propertyId);
                       return (
-                        <div key={review.id} className={`group relative rounded-3xl p-6 transition-all duration-300 border ${
+                        <div key={review.id} className={`group relative rounded-2xl sm:rounded-3xl p-4 sm:p-6 transition-all duration-300 border ${
                           isDark 
                             ? 'bg-[#1e1e2d] border-white/[0.06] hover:border-indigo-500/30' 
                             : 'bg-white border-gray-100 hover:border-indigo-200 shadow-xl shadow-gray-200/50'
                         }`}>
-                          <div className="flex items-start gap-4">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg font-black text-lg ${
+                          <div className="flex items-start gap-3 sm:gap-4">
+                            {/* Rating badge */}
+                            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-lg font-black text-base sm:text-lg ${
                               review.rating >= 4 
                                 ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-emerald-500/20' 
                                 : review.rating >= 3 
@@ -1454,25 +1460,27 @@ export default function AdminDashboard() {
                             </div>
                             
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between mb-2">
-                                <div>
-                                  <h4 className={`font-bold text-base truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                              {/* Header row — stacks on mobile */}
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-2">
+                                <div className="min-w-0">
+                                  <h4 className={`font-bold text-sm sm:text-base truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
                                     {prop?.name}
                                   </h4>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                                       par <span className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                                         {guests.find(g => g.id === review.guestId)?.name ?? 'Client'}
                                       </span>
                                     </span>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-white/5 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isDark ? 'bg-white/5 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
                                       {new Date(review.createdAt).toLocaleDateString('fr-FR')}
                                     </span>
                                   </div>
                                 </div>
+                                {/* Reply button — full width on mobile */}
                                 <button
                                   onClick={() => { setReviewToReply(review); setReplyText(review.response?.message || ''); }}
-                                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all hover:scale-105 ${
+                                  className={`self-start sm:self-auto px-3 py-2 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all hover:scale-105 active:scale-95 whitespace-nowrap ${
                                     review.response?.message 
                                       ? isDark 
                                         ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20' 
@@ -1480,15 +1488,16 @@ export default function AdminDashboard() {
                                       : 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 hover:bg-indigo-500'
                                   }`}
                                 >
-                                  {review.response?.message ? 'Modifier' : 'Répondre'}
+                                  {review.response?.message ? '✓ Modifier' : '↩ Répondre'}
                                 </button>
                               </div>
 
-                              <div className="flex items-center gap-1 mb-3">
+                              {/* Stars */}
+                              <div className="flex items-center gap-0.5 sm:gap-1 mb-2 sm:mb-3">
                                 {Array.from({ length: 5 }, (_, i) => (
                                   <Star 
                                     key={i} 
-                                    className={`w-4 h-4 ${
+                                    className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${
                                       i < review.rating 
                                         ? 'text-amber-400 fill-amber-400' 
                                         : isDark ? 'text-gray-700' : 'text-gray-200'
@@ -1497,30 +1506,32 @@ export default function AdminDashboard() {
                                 ))}
                               </div>
 
-                              <div className={`p-4 rounded-2xl relative ${isDark ? 'bg-white/[0.02]' : 'bg-gray-50'}`}>
-                                <Quote className={`w-8 h-8 absolute -top-4 -left-2 opacity-10 ${isDark ? 'text-white' : 'text-gray-900'}`} />
-                                <p className={`text-sm leading-relaxed relative z-10 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                              {/* Comment */}
+                              <div className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl relative ${isDark ? 'bg-white/[0.02]' : 'bg-gray-50'}`}>
+                                <Quote className={`w-6 h-6 sm:w-8 sm:h-8 absolute -top-3 -left-1.5 opacity-10 ${isDark ? 'text-white' : 'text-gray-900'}`} />
+                                <p className={`text-xs sm:text-sm leading-relaxed relative z-10 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                                   {review.comment}
                                 </p>
                               </div>
 
+                              {/* Response */}
                               {review.response?.message && (
-                                <div className={`mt-3 ml-8 p-4 rounded-2xl border-l-4 ${
+                                <div className={`mt-2.5 ml-3 sm:ml-8 p-3 sm:p-4 rounded-xl sm:rounded-2xl border-l-4 ${
                                   isDark 
                                     ? 'border-indigo-500 bg-indigo-500/5' 
                                     : 'border-indigo-500 bg-indigo-50'
                                 }`}>
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-bold ${
                                       isDark ? 'bg-indigo-500 text-white' : 'bg-indigo-600 text-white'
                                     }`}>
                                       V
                                     </div>
-                                    <span className={`text-xs font-bold uppercase tracking-wide ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wide ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
                                       Votre réponse
                                     </span>
                                   </div>
-                                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  <p className={`text-xs sm:text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                                     {review.response.message}
                                   </p>
                                 </div>

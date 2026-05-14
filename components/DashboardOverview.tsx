@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useBNB } from '../contexts/BNBContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -27,7 +27,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
 
-  // ── Stats this month ──────────────────────────────────────────────────────
+  // -- Stats this month ------------------------------------------------------
   const thisMonth = today.getMonth();
   const thisYear  = today.getFullYear();
 
@@ -55,21 +55,21 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
   const checkinsToday        = dashboardBookings.filter(b => b.checkIn?.toString().split('T')[0]  === todayStr);
   const checkoutsToday       = dashboardBookings.filter(b => b.checkOut?.toString().split('T')[0] === todayStr);
   const avgRatingNum         = reviews.length > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
-  const avgRating            = avgRatingNum > 0 ? avgRatingNum.toFixed(1) : '—';
+  const avgRating            = avgRatingNum > 0 ? avgRatingNum.toFixed(1) : '�';
   const pendingResponses     = reviews.filter(r => !r.response).length;
 
-  // ── Net Profit (rough estimate: revenue - 20% platform fees) ─────────────
+  // -- Net Profit (rough estimate: revenue - 20% platform fees) -------------
   const estimatedExpenses  = Math.round(revenueThisMonth * 0.22);
   const netProfitThisMonth = revenueThisMonth - estimatedExpenses;
 
-  // ── Avg night price ───────────────────────────────────────────────────────
+  // -- Avg night price -------------------------------------------------------
   const bookedNights = bookingsThisMonth.reduce((s, b) => {
     const ci = new Date(b.checkIn); const co = new Date(b.checkOut);
     return s + Math.max(1, Math.ceil((co.getTime() - ci.getTime()) / 86400000));
   }, 0);
   const avgNightPrice = bookedNights > 0 ? Math.round(revenueThisMonth / bookedNights) : 0;
 
-  // ── Health score ─────────────────────────────────────────────────────────
+  // -- Health score ---------------------------------------------------------
   const healthScore = useMemo(() => {
     let score = 100;
     if (urgentMaintenance > 0) score -= urgentMaintenance * 15;
@@ -83,7 +83,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
   const healthBg    = healthScore >= 80 ? isDark ? 'bg-emerald-500/10' : 'bg-emerald-50' : healthScore >= 50 ? isDark ? 'bg-amber-500/10' : 'bg-amber-50' : isDark ? 'bg-rose-500/10' : 'bg-rose-50';
   const healthLabel = healthScore >= 80 ? 'Excellent' : healthScore >= 50 ? 'Moyen' : 'Critique';
 
-  // ── Next arrivals (next 7 days) ───────────────────────────────────────────
+  // -- Next arrivals (next 7 days) -------------------------------------------
   const nextArrivals = useMemo(() => {
     const next7 = new Date(today); next7.setDate(next7.getDate() + 7);
     return dashboardBookings
@@ -95,7 +95,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
       .slice(0, 5);
   }, [dashboardBookings]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Revenue chart ─────────────────────────────────────────────────────────
+  // -- Revenue chart ---------------------------------------------------------
   const revenueData = useMemo(() => ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((name, i) => {
     const v = dashboardBookings
       .filter(b => b.status === 'confirmed' && new Date(b.checkIn).getDay() === (i + 1) % 7)
@@ -103,14 +103,14 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
     return { name, value: v };
   }), [dashboardBookings]);
 
-  // ── Monthly bars (mois en cours uniquement) ────────────────────────────────
+  // -- Monthly bars (mois en cours uniquement) --------------------------------
   const monthlyData = useMemo(() => ([{
     name: today.toLocaleDateString('fr-FR', { month: 'short' }),
     value: revenueThisMonth,
     isCurrent: true,
   }]), [today, revenueThisMonth]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Per-property revenue (this month) ────────────────────────────────────
+  // -- Per-property revenue (this month) ------------------------------------
   const propertyRevenue = useMemo(() => properties.map((p, i) => {
     const rev = bookingsThisMonth.filter(b => b.propertyId === p.id).reduce((s, b) => s + b.totalPrice, 0);
     const bks = bookingsThisMonth.filter(b => b.propertyId === p.id).length;
@@ -124,17 +124,17 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
   const nav  = (tab: TabType) => onNavigate?.(tab);
 
   const statusBadge = (status: string) =>
-    status === 'confirmed' ? { label: 'Confirmé',  cls: 'text-emerald-500 bg-emerald-500/10' }
+    status === 'confirmed' ? { label: 'Confirm�',  cls: 'text-emerald-500 bg-emerald-500/10' }
     : status === 'pending' ? { label: 'En attente', cls: 'text-amber-500 bg-amber-500/10' }
-    : { label: 'Annulé', cls: 'text-rose-500 bg-rose-500/10' };
+    : { label: 'Annul�', cls: 'text-rose-500 bg-rose-500/10' };
 
   const quickActions: { label: string; icon: React.ElementType; tab: TabType; color: string }[] = [
-    { label: 'Nouvelle réservation', icon: Plus,          tab: 'bookings',    color: 'from-indigo-500 to-purple-500'  },
+    { label: 'Nouvelle r�servation', icon: Plus,          tab: 'bookings',    color: 'from-indigo-500 to-purple-500'  },
     { label: 'Check-in voyageur',    icon: LogIn,         tab: 'qrcheckin',   color: 'from-blue-500 to-cyan-500'      },
     { label: 'Ajouter maintenance',  icon: Wrench,        tab: 'maintenance', color: 'from-rose-500 to-orange-500'    },
     { label: 'Voir inventaire',      icon: ClipboardList, tab: 'inventory',   color: 'from-emerald-500 to-teal-500'   },
     { label: 'QR Check-in',          icon: QrCode,        tab: 'qrcheckin',   color: 'from-violet-500 to-fuchsia-500' },
-    { label: 'Répondre aux avis',    icon: MessageSquare, tab: 'reviews',     color: 'from-amber-500 to-yellow-500'   },
+    { label: 'R�pondre aux avis',    icon: MessageSquare, tab: 'reviews',     color: 'from-amber-500 to-yellow-500'   },
     { label: 'Rapports financiers',  icon: BarChart2,     tab: 'financial',   color: 'from-teal-500 to-cyan-500'      },
     { label: 'Nouveau contrat',      icon: FileText,      tab: 'contract',    color: 'from-gray-500 to-slate-500'     },
   ];
@@ -142,7 +142,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
   return (
     <div className="space-y-8 p-2">
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* -- Header ----------------------------------------------------------- */}
       <div className="flex flex-col md:flex-row justify-between items-end gap-4">
         <div>
           <h2 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 pb-1">
@@ -158,8 +158,8 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
             className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border cursor-default ${healthBg} ${isDark ? 'border-white/[0.08]' : 'border-gray-100'}`}>
             <ShieldCheck className={`w-4 h-4 ${healthColor}`} />
             <div>
-              <p className={`text-[10px] font-bold uppercase tracking-wider ${sub}`}>Santé</p>
-              <p className={`text-sm font-black ${healthColor}`}>{healthScore}% — {healthLabel}</p>
+              <p className={`text-[10px] font-bold uppercase tracking-wider ${sub}`}>Sant�</p>
+              <p className={`text-sm font-black ${healthColor}`}>{healthScore}% � {healthLabel}</p>
             </div>
           </motion.div>
           <div className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold border backdrop-blur-xl ${
@@ -171,7 +171,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
         </div>
       </div>
 
-      {/* ── Today Banner ───────────────────────────────────────────────────── */}
+      {/* -- Today Banner ----------------------------------------------------- */}
       {(checkinsToday.length > 0 || checkoutsToday.length > 0 || urgentMaintenance > 0) && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className={`rounded-2xl p-4 border ${isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
@@ -191,7 +191,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                   isDark ? 'bg-green-500/15 text-green-300' : 'bg-green-50 text-green-700 border border-green-200'
                 }`}>
                 <LogIn className="w-3.5 h-3.5" />
-                Arrivée — {b.guestInfo?.name || 'Invité'}
+                Arriv�e � {b.guestInfo?.name || 'Invit�'}
               </button>
             ))}
             {checkoutsToday.map((b, i) => (
@@ -200,7 +200,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                   isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-50 text-blue-700 border border-blue-200'
                 }`}>
                 <LogOut className="w-3.5 h-3.5" />
-                Départ — {b.guestInfo?.name || 'Invité'}
+                D�part � {b.guestInfo?.name || 'Invit�'}
               </button>
             ))}
             {urgentMaintenance > 0 && (
@@ -209,14 +209,14 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                   isDark ? 'bg-red-500/15 text-red-300' : 'bg-red-50 text-red-700 border border-red-200'
                 }`}>
                 <Wrench className="w-3.5 h-3.5" />
-                {urgentMaintenance} tâche{urgentMaintenance > 1 ? 's' : ''} urgente{urgentMaintenance > 1 ? 's' : ''}
+                {urgentMaintenance} t�che{urgentMaintenance > 1 ? 's' : ''} urgente{urgentMaintenance > 1 ? 's' : ''}
               </button>
             )}
           </div>
         </motion.div>
       )}
 
-      {/* ── Quick Actions ─────────────────────────────────────────────────── */}
+      {/* -- Quick Actions --------------------------------------------------- */}
       <div>
         <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
           Actions rapides
@@ -240,7 +240,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
         </div>
       </div>
 
-      {/* ── Next 7 Days Forecast Strip ────────────────────────────────────── */}
+      {/* -- Next 7 Days Forecast Strip -------------------------------------- */}
       {(() => {
         const days = Array.from({ length: 7 }, (_, i) => {
           const d = new Date(today);
@@ -298,19 +298,19 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
             </div>
             {!hasEvents && (
               <p className={`text-center text-xs mt-2 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                Aucun arrivée ou départ prévu cette semaine
+                Aucun arriv�e ou d�part pr�vu cette semaine
               </p>
             )}
           </motion.div>
         );
       })()}
 
-      {/* ── Bento Grid ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* -- Bento Grid ------------------------------------------------------- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
 
         {/* Revenue Card (large) */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-          className={`col-span-1 md:col-span-2 row-span-2 p-7 ${card} group cursor-pointer`}
+          className={`col-span-1 md:col-span-2 row-span-2 p-4 sm:p-7 ${card} group cursor-pointer`}
           onClick={() => nav('financial')}>
           <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-[80px] group-hover:bg-indigo-500/30 transition-all duration-700" />
           <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/20 rounded-full blur-[80px] group-hover:bg-purple-500/30 transition-all duration-700" />
@@ -339,13 +339,13 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                   isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'
                 }`}>
                   <TrendingUp className="w-3.5 h-3.5" />
-                  {revenueThisMonth.toLocaleString('fr-FR')} €
+                  {revenueThisMonth.toLocaleString('fr-FR')} �
                 </div>
                 <span className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>ce mois</span>
               </div>
             </div>
 
-            {/* Monthly bars — interactive */}
+            {/* Monthly bars � interactive */}
             <div className="flex items-end gap-1 h-14 mb-5">
               {monthlyData.map((m, i) => {
                 const maxVal = Math.max(...monthlyData.map(d => d.value));
@@ -358,7 +358,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                       {isHov && (
                         <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                           className={`text-[9px] font-black px-1 py-0.5 rounded ${isDark ? 'bg-indigo-500 text-white' : 'bg-indigo-500 text-white'}`}>
-                          {m.value.toLocaleString('fr-FR')}€
+                          {m.value.toLocaleString('fr-FR')}�
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -384,7 +384,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                   <XAxis dataKey="name" tick={{ fill: isDark ? '#4b5563' : '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={{ backgroundColor: isDark ? '#1e1e3a' : '#fff', borderRadius: '14px', border: isDark ? '1px solid rgba(255,255,255,0.08)' : 'none', boxShadow: '0 16px 32px rgba(0,0,0,0.12)', padding: '10px 14px', fontSize: 13 }}
                     labelStyle={{ color: '#6366f1', fontWeight: 700 }} itemStyle={{ color: isDark ? '#e5e7eb' : '#111', fontWeight: 600 }}
-                    formatter={(value: unknown) => [`${(value as number).toLocaleString('fr-FR')} €`, 'Revenus'] as [string, string]} />
+                    formatter={(value: unknown) => [`${(value as number).toLocaleString('fr-FR')} �`, 'Revenus'] as [string, string]} />
                   <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#gradRevenue)" dot={false} activeDot={{ r: 5, fill: '#6366f1', strokeWidth: 0 }} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -394,12 +394,12 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
 
         {/* Active Bookings */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-          className={`p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
+          className={`p-4 sm:p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
           onClick={() => nav('bookings')}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-[40px] -mr-10 -mt-10" />
           <div className="flex items-center gap-3 mb-4 relative">
             <div className={`p-3 rounded-2xl ${isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}><Calendar className="w-5 h-5" /></div>
-            <span className={`font-bold text-sm ${sub}`}>Réservations actives</span>
+            <span className={`font-bold text-sm ${sub}`}>R�servations actives</span>
           </div>
           <div className={`text-4xl font-black mb-1 ${text}`}>{activeBookings}</div>
           <div className="flex items-center gap-2 text-sm font-bold text-blue-500"><Activity className="w-4 h-4" /> En cours</div>
@@ -417,7 +417,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
 
         {/* Occupancy */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
-          className={`p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
+          className={`p-4 sm:p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
           onClick={() => nav('properties')}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-[40px] -mr-10 -mt-10" />
           <div className="flex items-center gap-3 mb-4 relative">
@@ -429,12 +429,12 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
             <motion.div initial={{ width: 0 }} animate={{ width: `${occupancyRate}%` }} transition={{ duration: 1.2, delay: 0.5, ease: 'easeOut' }}
               className={`h-2.5 rounded-full bg-gradient-to-r ${occupancyRate > 75 ? 'from-emerald-400 to-emerald-600' : occupancyRate > 40 ? 'from-orange-400 to-orange-600' : 'from-rose-400 to-rose-600'}`} />
           </div>
-          <div className={`mt-2 text-xs ${sub}`}>{activeBookings} / {properties.length} propriété{properties.length > 1 ? 's' : ''} occupée{activeBookings > 1 ? 's' : ''}</div>
+          <div className={`mt-2 text-xs ${sub}`}>{activeBookings} / {properties.length} propri�t�{properties.length > 1 ? 's' : ''} occup�e{activeBookings > 1 ? 's' : ''}</div>
         </motion.div>
 
         {/* Maintenance */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
-          className={`p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
+          className={`p-4 sm:p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
           onClick={() => nav('maintenance')}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-[40px] -mr-10 -mt-10" />
           <div className="flex items-center gap-3 mb-4 relative">
@@ -454,7 +454,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
 
         {/* Rating */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.35 }}
-          className={`p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
+          className={`p-4 sm:p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
           onClick={() => nav('reviews')}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-[40px] -mr-10 -mt-10" />
           <div className="flex items-center gap-3 mb-4 relative">
@@ -470,14 +470,14 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
           </div>
           {pendingResponses > 0 && (
             <div className={`mt-2 flex items-center gap-1.5 text-xs font-semibold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
-              <MessageSquare className="w-3.5 h-3.5" />{pendingResponses} réponse{pendingResponses > 1 ? 's' : ''} en attente
+              <MessageSquare className="w-3.5 h-3.5" />{pendingResponses} r�ponse{pendingResponses > 1 ? 's' : ''} en attente
             </div>
           )}
         </motion.div>
 
         {/* Guests summary */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.38 }}
-          className={`p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
+          className={`p-4 sm:p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
           onClick={() => nav('guests')}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/10 rounded-full blur-[40px] -mr-10 -mt-10" />
           <div className="flex items-center gap-3 mb-4 relative">
@@ -485,33 +485,33 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
             <span className={`font-bold text-sm ${sub}`}>Voyageurs</span>
           </div>
           <div className={`text-4xl font-black mb-1 ${text}`}>{totalGuests}</div>
-          <div className={`text-sm font-medium ${sub}`}>voyageurs enregistrés</div>
-          <div className={`mt-3 text-xs ${sub}`}>{totalGuestNights} nuit{totalGuestNights > 1 ? 's' : ''} cumulées &bull; {properties.length} propriété{properties.length > 1 ? 's' : ''}</div>
+          <div className={`text-sm font-medium ${sub}`}>voyageurs enregistr�s</div>
+          <div className={`mt-3 text-xs ${sub}`}>{totalGuestNights} nuit{totalGuestNights > 1 ? 's' : ''} cumul�es &bull; {properties.length} propri�t�{properties.length > 1 ? 's' : ''}</div>
         </motion.div>
 
         {/* Net Profit this month */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.40 }}
-          className={`p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
+          className={`p-4 sm:p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
           onClick={() => nav('financial')}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-[40px] -mr-10 -mt-10" />
           <div className="flex items-center gap-3 mb-4 relative">
             <div className={`p-3 rounded-2xl ${isDark ? 'bg-teal-500/10 text-teal-400' : 'bg-teal-50 text-teal-600'}`}><CreditCard className="w-5 h-5" /></div>
-            <span className={`font-bold text-sm ${sub}`}>Bénéfice net</span>
+            <span className={`font-bold text-sm ${sub}`}>B�n�fice net</span>
           </div>
           <div className={`text-4xl font-black mb-1 ${netProfitThisMonth >= 0 ? 'text-teal-400' : 'text-rose-400'}`}>
-            {netProfitThisMonth >= 0 ? '+' : ''}{netProfitThisMonth.toLocaleString('fr-FR')} €
+            {netProfitThisMonth >= 0 ? '+' : ''}{netProfitThisMonth.toLocaleString('fr-FR')} �
           </div>
           <div className={`text-xs ${sub} mb-2`}>ce mois (rev. - charges est.)</div>
           {avgNightPrice > 0 && (
             <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-xl inline-flex ${isDark ? 'bg-teal-500/10 text-teal-400' : 'bg-teal-50 text-teal-600'}`}>
-              <Wallet className="w-3 h-3" />{avgNightPrice} €/nuit moy.
+              <Wallet className="w-3 h-3" />{avgNightPrice} �/nuit moy.
             </div>
           )}
         </motion.div>
 
         {/* Inventory alert */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.42 }}
-          className={`p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
+          className={`p-4 sm:p-6 ${card} group hover:-translate-y-1 transition-transform duration-300 cursor-pointer`}
           onClick={() => nav('inventory')}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-[40px] -mr-10 -mt-10" />
           <div className="flex items-center gap-3 mb-4 relative">
@@ -519,19 +519,19 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
             <span className={`font-bold text-sm ${sub}`}>Inventaire</span>
           </div>
           <div className={`text-4xl font-black mb-1 ${text}`}>{bookingsThisMonth.length}</div>
-          <div className={`text-sm font-medium ${sub}`}>réservations ce mois</div>
+          <div className={`text-sm font-medium ${sub}`}>r�servations ce mois</div>
           <div className={`mt-3 flex items-center gap-1.5 text-xs font-semibold ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
             <PieChart className="w-3.5 h-3.5" /> Voir le stock &rarr;
           </div>
         </motion.div>
 
-        {/* ── NEW: Prochaines arrivées ──────────────────────────────────────── */}
+        {/* -- NEW: Prochaines arriv�es ---------------------------------------- */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.42 }}
-          className={`col-span-1 md:col-span-2 p-6 ${card}`}>
+          className={`col-span-1 md:col-span-2 p-4 sm:p-6 ${card}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className={`p-2 rounded-xl ${isDark ? 'bg-indigo-500/10' : 'bg-indigo-50'}`}><LogIn className="w-4 h-4 text-indigo-500" /></div>
-              <h3 className={`font-bold text-base ${text}`}>Prochaines arrivées</h3>
+              <h3 className={`font-bold text-base ${text}`}>Prochaines arriv�es</h3>
               <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${isDark ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>7 jours</span>
             </div>
             <button onClick={() => nav('bookings')} className={`flex items-center gap-1 text-xs font-semibold transition-colors ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-700'}`}>
@@ -541,7 +541,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
           {nextArrivals.length === 0 ? (
             <div className={`text-sm text-center py-8 ${sub}`}>
               <Moon className="w-10 h-10 mx-auto mb-3 opacity-20" />
-              Aucune arrivée prévue dans les 7 prochains jours
+              Aucune arriv�e pr�vue dans les 7 prochains jours
             </div>
           ) : (
             <div className="space-y-2">
@@ -559,14 +559,14 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                       {b.guestInfo?.name?.charAt(0)?.toUpperCase() || 'G'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold truncate ${text}`}>{b.guestInfo?.name || 'Invité'}</p>
-                      <p className={`text-xs ${sub}`}>{checkInDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })} · {nights} nuit{nights > 1 ? 's' : ''}</p>
+                      <p className={`text-sm font-bold truncate ${text}`}>{b.guestInfo?.name || 'Invit�'}</p>
+                      <p className={`text-xs ${sub}`}>{checkInDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })} � {nights} nuit{nights > 1 ? 's' : ''}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-[11px] font-black px-2.5 py-1 rounded-xl ${daysUntil === 0 ? 'bg-rose-500/15 text-rose-400' : daysUntil <= 2 ? 'bg-amber-500/15 text-amber-400' : isDark ? 'bg-white/[0.06] text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
                         {daysUntil === 0 ? 'Aujourd\'hui' : daysUntil === 1 ? 'Demain' : `J-${daysUntil}`}
                       </span>
-                      <span className="text-xs font-bold text-emerald-400">{b.totalPrice.toLocaleString('fr-FR')} €</span>
+                      <span className="text-xs font-bold text-emerald-400">{b.totalPrice.toLocaleString('fr-FR')} �</span>
                     </div>
                   </motion.button>
                 );
@@ -575,9 +575,9 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
           )}
         </motion.div>
 
-        {/* ── NEW: Revenue par propriété ────────────────────────────────────── */}
+        {/* -- NEW: Revenue par propri�t� -------------------------------------- */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.45 }}
-          className={`col-span-1 md:col-span-2 p-6 ${card}`}>
+          className={`col-span-1 md:col-span-2 p-4 sm:p-6 ${card}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className={`p-2 rounded-xl ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}><BarChart2 className="w-4 h-4 text-emerald-500" /></div>
@@ -592,7 +592,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
           </div>
           {propertyRevenue.length === 0 ? (
             <div className={`text-sm text-center py-8 ${sub}`}>
-              <MapPin className="w-8 h-8 mx-auto mb-2 opacity-20" />Aucune propriété
+              <MapPin className="w-8 h-8 mx-auto mb-2 opacity-20" />Aucune propri�t�
             </div>
           ) : (
             <div className="space-y-3">
@@ -607,8 +607,8 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                         <span className={`text-xs font-semibold truncate max-w-[140px] ${text}`}>{p.name}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className={`text-[10px] ${sub}`}>{p.bks} rés.</span>
-                        <span className="text-xs font-black" style={{ color: p.color }}>{p.rev.toLocaleString('fr-FR')} €</span>
+                        <span className={`text-[10px] ${sub}`}>{p.bks} r�s.</span>
+                        <span className="text-xs font-black" style={{ color: p.color }}>{p.rev.toLocaleString('fr-FR')} �</span>
                       </div>
                     </div>
                     <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-white/[0.05]' : 'bg-gray-100'}`}>
@@ -624,11 +624,11 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
 
         {/* Recent Activity */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }}
-          className={`col-span-1 md:col-span-2 lg:col-span-4 p-6 ${card}`}>
+          className={`col-span-1 md:col-span-2 lg:col-span-4 p-4 sm:p-6 ${card}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className={`p-2 rounded-xl ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}><Activity className="w-4 h-4 text-blue-500" /></div>
-              <h3 className={`font-bold text-base ${text}`}>Activité récente</h3>
+              <h3 className={`font-bold text-base ${text}`}>Activit� r�cente</h3>
             </div>
             <button onClick={() => nav('bookings')} className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors ${isDark ? 'text-indigo-400 hover:bg-indigo-500/10' : 'text-indigo-600 hover:bg-indigo-50'}`}>
               Voir tout <ArrowUpRight className="w-3.5 h-3.5" />
@@ -636,7 +636,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
           </div>
           {bookings.length === 0 ? (
             <div className={`text-sm text-center py-10 ${sub}`}>
-              <Calendar className="w-10 h-10 mx-auto mb-3 opacity-30" />Aucune réservation pour le moment
+              <Calendar className="w-10 h-10 mx-auto mb-3 opacity-30" />Aucune r�servation pour le moment
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -651,8 +651,8 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                       {booking.guestInfo?.name?.charAt(0)?.toUpperCase() || 'G'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold truncate ${text}`}>{booking.guestInfo?.name || 'Invité'}</p>
-                      <p className={`text-xs ${sub}`}>{booking.totalPrice.toLocaleString('fr-FR')} € &bull; {booking.guests} pers.</p>
+                      <p className={`text-sm font-bold truncate ${text}`}>{booking.guestInfo?.name || 'Invit�'}</p>
+                      <p className={`text-xs ${sub}`}>{booking.totalPrice.toLocaleString('fr-FR')} � &bull; {booking.guests} pers.</p>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${badge.cls}`}>{badge.label}</span>
@@ -667,9 +667,9 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
           )}
         </motion.div>
 
-        {/* ── Alertes & Actions prioritaires ───────────────────────────────── */}
+        {/* -- Alertes & Actions prioritaires --------------------------------- */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.46 }}
-          className={`col-span-1 md:col-span-2 lg:col-span-4 p-6 ${card}`}>
+          className={`col-span-1 md:col-span-2 lg:col-span-4 p-4 sm:p-6 ${card}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className={`p-2 rounded-xl ${isDark ? 'bg-rose-500/10' : 'bg-rose-50'}`}><Bell className="w-4 h-4 text-rose-500" /></div>
@@ -688,8 +688,8 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                   <Wrench className="w-4 h-4 text-rose-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-bold ${isDark ? 'text-rose-300' : 'text-rose-700'}`}>{urgentMaintenance} tâche{urgentMaintenance > 1 ? 's' : ''} urgente{urgentMaintenance > 1 ? 's' : ''}</p>
-                  <p className={`text-xs ${isDark ? 'text-rose-400/60' : 'text-rose-500/70'}`}>Intervention requise immédiatement</p>
+                  <p className={`text-sm font-bold ${isDark ? 'text-rose-300' : 'text-rose-700'}`}>{urgentMaintenance} t�che{urgentMaintenance > 1 ? 's' : ''} urgente{urgentMaintenance > 1 ? 's' : ''}</p>
+                  <p className={`text-xs ${isDark ? 'text-rose-400/60' : 'text-rose-500/70'}`}>Intervention requise imm�diatement</p>
                 </div>
                 <span className="text-xs font-black px-2 py-0.5 rounded-lg bg-rose-500 text-white shrink-0">URGENT</span>
               </motion.button>
@@ -702,7 +702,7 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                   <Calendar className="w-4 h-4 text-amber-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-bold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>{pendingBookingsCount} réservation{pendingBookingsCount > 1 ? 's' : ''} en attente</p>
+                  <p className={`text-sm font-bold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>{pendingBookingsCount} r�servation{pendingBookingsCount > 1 ? 's' : ''} en attente</p>
                   <p className={`text-xs ${isDark ? 'text-amber-400/60' : 'text-amber-500/70'}`}>Confirmation requise</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-amber-500 shrink-0" />
@@ -716,8 +716,8 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
                   <Star className="w-4 h-4 text-indigo-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-bold ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>{pendingResponses} avis sans réponse</p>
-                  <p className={`text-xs ${isDark ? 'text-indigo-400/60' : 'text-indigo-500/70'}`}>Répondez pour soigner votre e-réputation</p>
+                  <p className={`text-sm font-bold ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>{pendingResponses} avis sans r�ponse</p>
+                  <p className={`text-xs ${isDark ? 'text-indigo-400/60' : 'text-indigo-500/70'}`}>R�pondez pour soigner votre e-r�putation</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-indigo-500 shrink-0" />
               </motion.button>
@@ -732,26 +732,26 @@ export default function DashboardOverview({ onNavigate }: DashboardOverviewProps
           </div>
         </motion.div>
 
-        {/* ── Accès rapide pages dédiées ────────────────────────────────────── */}
+        {/* -- Acc�s rapide pages d�di�es -------------------------------------- */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.48 }}
-          className={`col-span-1 md:col-span-2 lg:col-span-4 p-6 ${card}`}>
+          className={`col-span-1 md:col-span-2 lg:col-span-4 p-4 sm:p-6 ${card}`}>
           <div className="flex items-center gap-2 mb-4">
             <div className={`p-2 rounded-xl ${isDark ? 'bg-violet-500/10' : 'bg-violet-50'}`}><Zap className="w-4 h-4 text-violet-500" /></div>
-            <h3 className={`font-bold text-base ${text}`}>Accès rapide</h3>
+            <h3 className={`font-bold text-base ${text}`}>Acc�s rapide</h3>
           </div>
           <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-11 gap-2 sm:gap-3">
             {[
-              { href: '/rentabilite',     label: 'Rentabilité',     icon: TrendingUp, color: 'bg-emerald-500/10 text-emerald-500', badge: 'NEW' },
+              { href: '/rentabilite',     label: 'Rentabilit�',     icon: TrendingUp, color: 'bg-emerald-500/10 text-emerald-500', badge: 'NEW' },
               { href: '/rapports-fiscaux',label: 'Rapports fiscaux',icon: FileText,   color: 'bg-violet-500/10 text-violet-500',  badge: 'NEW' },
-              { href: '/expenses',        label: 'Dépenses',        icon: Euro,       color: 'bg-rose-500/10 text-rose-500',      badge: '' },
+              { href: '/expenses',        label: 'D�penses',        icon: Euro,       color: 'bg-rose-500/10 text-rose-500',      badge: '' },
               { href: '/planning',        label: 'Planning',        icon: Calendar,   color: 'bg-blue-500/10 text-blue-500',      badge: '' },
               { href: '/messages',        label: 'Messagerie',      icon: Inbox,      color: 'bg-teal-500/10 text-teal-500',      badge: '' },
               { href: '/notifications',   label: 'Notifications',   icon: Bell,       color: 'bg-amber-500/10 text-amber-500',    badge: '' },
-              { href: '/inspections',     label: 'États des lieux', icon: ShieldCheck,color: 'bg-orange-500/10 text-orange-500',  badge: '' },
-              { href: '/access-codes',    label: 'Codes d\'accès',  icon: Zap,        color: 'bg-pink-500/10 text-pink-500',      badge: '' },
+              { href: '/inspections',     label: '�tats des lieux', icon: ShieldCheck,color: 'bg-orange-500/10 text-orange-500',  badge: '' },
+              { href: '/access-codes',    label: 'Codes d\'acc�s',  icon: Zap,        color: 'bg-pink-500/10 text-pink-500',      badge: '' },
               { href: '/calendar',        label: 'Calendrier',      icon: Calendar,   color: 'bg-indigo-500/10 text-indigo-500',  badge: '' },
               { href: '/photos',          label: 'Photos',          icon: MapPin,     color: 'bg-fuchsia-500/10 text-fuchsia-500',badge: '' },
-              { href: '/settings',        label: 'Paramètres',      icon: Activity,   color: 'bg-gray-500/10 text-gray-400',      badge: '' },
+              { href: '/settings',        label: 'Param�tres',      icon: Activity,   color: 'bg-gray-500/10 text-gray-400',      badge: '' },
             ].map(({ href, label, icon: Icon, color, badge }) => (
               <a key={href} href={href}
                 className={`relative flex flex-col items-center gap-2 p-3 rounded-2xl transition-all hover:scale-105 text-center group ${isDark ? 'hover:bg-white/[0.04]' : 'hover:bg-gray-50'}`}>

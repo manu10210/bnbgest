@@ -762,6 +762,11 @@ input[type="number"]::-webkit-outer-spin-button {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Safe area top (Dynamic Island / status bar) */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 /* Scrollbar hide utility */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
@@ -769,6 +774,29 @@ input[type="number"]::-webkit-outer-spin-button {
 /* Bottom nav spacer — ensures content is not hidden behind the mobile bottom nav */
 @media (max-width: 1023px) {
   .mobile-nav-pb {
-    padding-bottom: 5rem;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   }
+}
+
+/* Prevent horizontal overflow on mobile */
+@media (max-width: 639px) {
+  .overflow-x-safe {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Ensure tables/wide content scroll horizontally instead of breaking layout */
+  table {
+    min-width: 100%;
+  }
+}
+
+/* Touch-friendly tap highlight removal */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth momentum scroll on iOS */
+.scroll-ios {
+  -webkit-overflow-scrolling: touch;
+  overflow-scrolling: touch;
 }

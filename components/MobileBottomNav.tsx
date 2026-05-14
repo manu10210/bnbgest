@@ -208,11 +208,12 @@ export default function MobileBottomNav({ activeTab = 'overview', setActiveTab }
 
       {/* Bottom navigation bar */}
       <nav
-        className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t pb-safe ${
+        className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t ${
           isDark
             ? 'bg-[#1a1a2e]/95 backdrop-blur-xl border-white/[0.08]'
             : 'bg-white/95 backdrop-blur-xl border-gray-200'
         }`}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         <div className="flex items-stretch justify-around px-1 pt-1 pb-2">
           {PRIMARY_TABS.map(tab => {
@@ -223,7 +224,7 @@ export default function MobileBottomNav({ activeTab = 'overview', setActiveTab }
               <button
                 key={tab.id}
                 onClick={() => navigate(tab.id, (tab as { external?: string }).external)}
-                className={`flex flex-col items-center gap-0.5 px-3 min-w-[56px] min-h-[44px] justify-center rounded-xl transition-all active:scale-90 relative ${
+                className={`flex flex-col items-center gap-0.5 px-2 min-w-[52px] min-h-[48px] justify-center rounded-xl transition-all active:scale-90 relative ${
                   active
                     ? isDark ? 'text-indigo-400' : 'text-indigo-600'
                     : isDark ? 'text-gray-500' : 'text-gray-400'
@@ -254,7 +255,7 @@ export default function MobileBottomNav({ activeTab = 'overview', setActiveTab }
           {/* More button */}
           <button
             onClick={() => setMoreOpen(true)}
-            className={`flex flex-col items-center gap-0.5 px-3 min-w-[56px] min-h-[44px] justify-center rounded-xl transition-all active:scale-90 ${
+            className={`flex flex-col items-center gap-0.5 px-2 min-w-[52px] min-h-[48px] justify-center rounded-xl transition-all active:scale-90 ${
               isDark ? 'text-gray-500' : 'text-gray-400'
             }`}
           >
