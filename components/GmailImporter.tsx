@@ -125,6 +125,8 @@ interface ParsedBooking {
   reviewRating?: number;
   reviewComment?: string;
   airbnbListingId?: string;
+  modifiedCheckIn?: string;   // Nouvelles dates proposées (modified uniquement)
+  modifiedCheckOut?: string;
   relatedMessageIds?: string[];
   timelineEvents?: Array<{
     messageId: string;
@@ -643,6 +645,26 @@ function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
 
   if (isValidDateRange(booking.checkIn, booking.checkOut)) return booking;
 
+  // ── Fallback modified : utiliser les dates modifiées si checkIn/checkOut absents ──
+  // Cas "Kevin souhaite changer sa réservation" : seules les nouvelles dates sont dans le corps.
+  if (booking.bookingType === 'modified') {
+    const mci = booking.modifiedCheckIn;
+    const mco = booking.modifiedCheckOut;
+    if (isValidDateRange(mci, mco)) {
+      const nights = deriveNightsFromIsoRange(mci as string, mco as string) || booking.nights || 1;
+      return {
+        ...booking,
+        checkIn:  booking.checkIn  && isIsoDate(booking.checkIn)  ? booking.checkIn  : mci as string,
+        checkOut: booking.checkOut && isIsoDate(booking.checkOut) ? booking.checkOut : mco as string,
+        nights,
+        warnings: Array.from(new Set([
+          ...(booking.warnings || []),
+          'dates_from_modified_proposal',
+        ])),
+      };
+    }
+  }
+
   // 1) Inférence précise si le sujet contient une plage détectable (compact ou "du...au...")
   const inferredRange = parseDateRangeFromSubject(booking.subject, booking.receivedAt);
   if (inferredRange) {
@@ -1152,7 +1174,10 @@ function evaluateBookingQuality(b: ParsedBooking): { accepted: boolean; reasons:
       break;
     case 'modified':
       if (!hasRealGuestName) reasons.push('missing_real_guest_name');
-      if (!isValidDateRange(b.checkIn, b.checkOut)) reasons.push('invalid_date_range');
+      // Pour les modifications, on accepte si les dates modifiées sont valides même sans checkIn/checkOut
+      if (!isValidDateRange(b.checkIn, b.checkOut) && !isValidDateRange(b.modifiedCheckIn, b.modifiedCheckOut)) {
+        reasons.push('invalid_date_range');
+      }
       break;
     case 'cancelled':
       if (!hasGuestName) reasons.push('missing_guest_name');
@@ -3973,6 +3998,7 @@ export default function GmailImporter() {
   checkout_defaulted_from_extracted_nights: 'Date de départ recalculée depuis le nombre de nuits extrait',
       checkout_inferred_from_nights: 'Date de départ calculée à partir du nombre de nuits',
       nights_recomputed_from_dates: 'Nombre de nuitées recalculé depuis les dates de séjour',
+      dates_from_modified_proposal: 'Dates issues de la demande de modification',
       property_inferred_from_subject: 'Logement déduit depuis le sujet',
       property_inferred_single_property_fallback: 'Logement affecté automatiquement (mode mono-logement)',
       guest_name_inferred_from_subject: 'Nom du voyageur déduit du sujet',

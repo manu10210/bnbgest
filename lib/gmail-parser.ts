@@ -1831,6 +1831,49 @@ export function parseAirbnbEmail(
       }
     }
 
+    // ── 2b. Pattern plage compacte : "10–13 avr. 2026" dans le corps modification ──
+    // Format le plus courant dans les notifications Airbnb de changement
+    if (!modifiedCheckIn) {
+      const MOIS_MOD = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?\\.?|octobre?|nov\\.?|d[eé]c\\.?|d[eé]cembre?)`;
+      // Cross-month: "29 avr.–2 mai 2026"
+      const crossMonth = new RegExp(
+        `(\\d{1,2})\\s+(${MOIS_MOD})(?:\\.?)\\s*[–\\-]\\s*(\\d{1,2})\\s+(${MOIS_MOD}(?:\\.?))(?:\\s+(\\d{4}))?`,
+        'i'
+      );
+      const cmM = text.match(crossMonth);
+      if (cmM) {
+        const yr = cmM[5] || '';
+        const d1 = normalizeDate(`${cmM[1]} ${cmM[2]}${yr ? ' ' + yr : ''}`, receivedAt);
+        let d2  = normalizeDate(`${cmM[3]} ${cmM[4]}${yr ? ' ' + yr : ''}`, receivedAt);
+        if (!yr && /^\d{4}-\d{2}-\d{2}$/.test(d1) && /^\d{4}-\d{2}-\d{2}$/.test(d2) && d2 <= d1) {
+          d2 = normalizeDate(`${cmM[3]} ${cmM[4]} ${parseInt(d1.slice(0, 4), 10) + 1}`, receivedAt);
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d1) && /^\d{4}-\d{2}-\d{2}$/.test(d2) && d2 > d1 && (d1 !== checkIn || d2 !== checkOut)) {
+          modifiedCheckIn  = d1;
+          modifiedCheckOut = d2;
+        }
+      }
+      // Same-month: "10–13 avr. 2026"
+      if (!modifiedCheckIn) {
+        const sameMonth = new RegExp(`(\\d{1,2})\\s*[–\\-]\\s*(\\d{1,2})\\s+(${MOIS_MOD}(?:\\.?))(?:\\s+(\\d{4}))?`, 'i');
+        const smM = text.match(sameMonth);
+        if (smM) {
+          const yr = smM[4] || '';
+          const d1 = normalizeDate(`${smM[1]} ${smM[3]}${yr ? ' ' + yr : ''}`, receivedAt);
+          let d2  = normalizeDate(`${smM[2]} ${smM[3]}${yr ? ' ' + yr : ''}`, receivedAt);
+          if (!yr && /^\d{4}-\d{2}-\d{2}$/.test(d1) && /^\d{4}-\d{2}-\d{2}$/.test(d2) && d2 <= d1) {
+            const d1Date = new Date(d1 + 'T00:00:00.000Z');
+            const d2Fix = new Date(Date.UTC(d1Date.getUTCFullYear(), d1Date.getUTCMonth() + 1, parseInt(smM[2], 10)));
+            if (!isNaN(d2Fix.getTime())) d2 = d2Fix.toISOString().slice(0, 10);
+          }
+          if (/^\d{4}-\d{2}-\d{2}$/.test(d1) && /^\d{4}-\d{2}-\d{2}$/.test(d2) && d2 > d1 && (d1 !== checkIn || d2 !== checkOut)) {
+            modifiedCheckIn  = d1;
+            modifiedCheckOut = d2;
+          }
+        }
+      }
+    }
+
     // ── 3. Toutes les plages de dates dans le texte → prendre la 2e si différente ──
     if (!modifiedCheckIn) {
       DATE_RANGE_RE.lastIndex = 0;
@@ -1850,6 +1893,15 @@ export function parseAirbnbEmail(
         }
       }
     }
+  }
+
+  // ── Fallback modified : si checkIn/checkOut non trouvés mais modifiedCheckIn/Out oui,
+  // utiliser les dates modifiées comme dates principales du séjour.
+  // Cas typique : "Kevin souhaite changer sa réservation" — le corps ne contient que les
+  // NOUVELLES dates proposées, pas les dates originales (pas de récap séjour actuel).
+  if (bookingType === 'modified' && (!checkIn || !checkOut) && modifiedCheckIn && modifiedCheckOut) {
+    checkIn  = checkIn  || modifiedCheckIn;
+    checkOut = checkOut || modifiedCheckOut;
   }
 
   // 7. Calculer la confiance
