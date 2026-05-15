@@ -9,7 +9,8 @@ import {
   RefreshCw, Archive, Check, CheckCheck, Inbox,
   Sparkles, Building2, Calendar, Mail, MoreVertical,
   Airplay, Globe, Edit3, User, Clock, Filter, Trash2,
-  Reply, Bot, ChevronDown
+  Reply, Bot, ChevronDown, FileText, Zap, Tag,
+  AlertCircle, CheckCircle2, Euro, Home, Hash
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AdminSidebar from '../../components/AdminSidebar';
@@ -124,6 +125,70 @@ export default function MessagesPage() {
   const [showAIPanel, setShowAIPanel]     = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // ── Email parser
+  const [showEmailParser, setShowEmailParser] = useState(false);
+  const [emailSubject, setEmailSubject]       = useState('');
+  const [emailBody, setEmailBody]             = useState('');
+  const [emailParsing, setEmailParsing]       = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [emailResult, setEmailResult]         = useState<any>(null);
+  const [emailError, setEmailError]           = useState('');
+  const [emailImporting, setEmailImporting]   = useState(false);
+
+  const parseEmail = async () => {
+    if (!emailSubject.trim()) { toast.error('Collez d\'abord le sujet de l\'email'); return; }
+    setEmailParsing(true);
+    setEmailResult(null);
+    setEmailError('');
+    try {
+      const res = await fetch('/api/messages/parse-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: emailSubject.trim(), body: emailBody.trim() }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setEmailError(d.error || 'Erreur'); return; }
+      setEmailResult(d.parsed);
+    } catch (e) { setEmailError(String(e)); }
+    finally { setEmailParsing(false); }
+  };
+
+  const importEmailBooking = async () => {
+    if (!emailResult) return;
+    const p = emailResult;
+    if (!p.guestName || !p.checkIn || !p.checkOut) {
+      toast.error('Données incomplètes — nom, check-in et check-out requis');
+      return;
+    }
+    setEmailImporting(true);
+    try {
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          guestName: p.guestName,
+          checkIn: p.checkIn,
+          checkOut: p.checkOut,
+          totalPrice: p.totalPrice || 0,
+          platform: 'airbnb',
+          confirmationCode: p.confirmationCode || null,
+          status: 'confirmed',
+          notes: `Importé depuis email Airbnb\nSujet: ${emailSubject}`,
+        }),
+      });
+      if (res.ok) {
+        toast.success('Réservation créée ✅');
+        setEmailResult(null);
+        setEmailSubject('');
+        setEmailBody('');
+      } else {
+        const d = await res.json();
+        toast.error(d.error || 'Erreur import');
+      }
+    } catch (e) { toast.error(String(e)); }
+    finally { setEmailImporting(false); }
+  };
 
   const [newForm, setNewForm] = useState({
     platform: 'manual', propertyId: '', guestName: '',
@@ -309,8 +374,146 @@ export default function MessagesPage() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Thread List (left panel) ─────────────────────── */}
-        <div className={`w-full sm:w-80 lg:w-96 flex-shrink-0 flex flex-col border-r ${isDark ? 'border-white/10' : 'border-gray-200'} ${selected ? 'hidden sm:flex' : 'flex'}`}>
+        <div className={`w-full sm:w-80 lg:w-96 flex-shrink-0 flex flex-col border-r ${isDark ? 'border-white/10' : 'border-gray-200'} ${selected && !showEmailParser ? 'hidden sm:flex' : 'flex'}`}>
 
+          {/* Tab switcher */}
+          <div className={`flex border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+            <button
+              onClick={() => setShowEmailParser(false)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition ${!showEmailParser ? 'text-[#FF385C] border-b-2 border-[#FF385C]' : isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              <MessageSquare size={13} />Conversations
+            </button>
+            <button
+              onClick={() => { setShowEmailParser(true); setSelected(null); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition ${showEmailParser ? 'text-amber-500 border-b-2 border-amber-500' : isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              <FileText size={13} />Analyser Email
+            </button>
+          </div>
+
+          {showEmailParser ? (
+            /* ── Email Parser Panel ── */
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div>
+                <label className={`block text-xs font-semibold uppercase tracking-wide mb-1.5 ${muted}`}>
+                  Sujet de l&apos;email Airbnb *
+                </label>
+                <input
+                  value={emailSubject}
+                  onChange={e => setEmailSubject(e.target.value)}
+                  placeholder="Ex: Réservation confirmée · Jean Dupont · 10–13 avr."
+                  className={`w-full px-3 py-2.5 rounded-xl text-sm outline-none ${inp}`}
+                  onKeyDown={e => { if (e.key === 'Enter') parseEmail(); }}
+                />
+              </div>
+              <div>
+                <label className={`block text-xs font-semibold uppercase tracking-wide mb-1.5 ${muted}`}>
+                  Corps de l&apos;email <span className="normal-case font-normal">(optionnel)</span>
+                </label>
+                <textarea
+                  value={emailBody}
+                  onChange={e => setEmailBody(e.target.value)}
+                  placeholder="Collez le corps de l'email ici pour une meilleure précision…"
+                  rows={6}
+                  className={`w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none ${inp}`}
+                />
+              </div>
+              <button
+                onClick={parseEmail}
+                disabled={emailParsing || !emailSubject.trim()}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-white font-semibold text-sm hover:bg-amber-600 disabled:opacity-50 transition"
+              >
+                {emailParsing
+                  ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Analyse…</>
+                  : <><Zap size={16} />Analyser</>}
+              </button>
+
+              {emailError && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                  <AlertCircle size={15} className="text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-400">{emailError}</p>
+                </div>
+              )}
+
+              {emailResult && (
+                <div className={`rounded-2xl border overflow-hidden ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+                  {/* Result header */}
+                  <div className={`px-4 py-3 flex items-center gap-2 ${isDark ? 'bg-amber-500/10 border-b border-white/10' : 'bg-amber-50 border-b border-amber-100'}`}>
+                    <CheckCircle2 size={16} className="text-amber-500" />
+                    <span className={`text-sm font-bold ${text}`}>
+                      {emailResult.bookingType === 'new' ? '🆕 Nouvelle réservation'
+                        : emailResult.bookingType === 'cancelled' ? '❌ Annulation'
+                        : emailResult.bookingType === 'modified' ? '✏️ Modification'
+                        : emailResult.bookingType === 'reminder' ? '🔔 Rappel'
+                        : '📧 Email Airbnb'}
+                    </span>
+                    <span className={`ml-auto text-xs px-2 py-0.5 rounded-lg font-medium ${
+                      emailResult.confidence >= 80 ? 'bg-green-500/15 text-green-400'
+                      : emailResult.confidence >= 50 ? 'bg-yellow-500/15 text-yellow-400'
+                      : 'bg-red-500/15 text-red-400'
+                    }`}>
+                      {emailResult.confidence ?? '?'}% confiance
+                    </span>
+                  </div>
+
+                  {/* Fields */}
+                  <div className="px-4 py-3 space-y-2.5">
+                    {[
+                      { icon: <User size={13} />,     label: 'Voyageur',       value: emailResult.guestName },
+                      { icon: <Hash size={13} />,     label: 'Code',           value: emailResult.confirmationCode },
+                      { icon: <Calendar size={13} />, label: 'Arrivée',        value: emailResult.checkIn },
+                      { icon: <Calendar size={13} />, label: 'Départ',         value: emailResult.checkOut },
+                      { icon: <Euro size={13} />,     label: 'Montant',        value: emailResult.totalPrice ? `${emailResult.totalPrice} €` : null },
+                      { icon: <Home size={13} />,     label: 'Logement',       value: emailResult.propertyName },
+                      { icon: <Tag size={13} />,      label: 'Nuits',          value: emailResult.nights ? `${emailResult.nights} nuits` : null },
+                    ].filter(r => r.value).map((r, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className={`shrink-0 ${muted}`}>{r.icon}</span>
+                        <span className={`text-xs ${muted} w-20 shrink-0`}>{r.label}</span>
+                        <span className={`text-xs font-medium ${text} truncate`}>{r.value}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Warnings */}
+                  {emailResult.warnings?.length > 0 && (
+                    <div className={`px-4 pb-3 space-y-1`}>
+                      {emailResult.warnings.map((w: string, i: number) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <AlertCircle size={11} className="text-yellow-400 shrink-0" />
+                          <span className="text-[10px] text-yellow-400">{w}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className={`px-4 py-3 border-t flex gap-2 ${isDark ? 'border-white/10' : 'border-gray-100'}`}>
+                    {emailResult.checkIn && emailResult.checkOut && emailResult.guestName && (
+                      <button
+                        onClick={importEmailBooking}
+                        disabled={emailImporting}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[#FF385C] text-white text-xs font-semibold hover:bg-[#E31C5F] disabled:opacity-50 transition"
+                      >
+                        {emailImporting
+                          ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          : <Plus size={13} />}
+                        Importer réservation
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setEmailResult(null); setEmailSubject(''); setEmailBody(''); }}
+                      className={`px-4 py-2 rounded-xl text-xs font-medium ${isDark ? 'bg-white/5 text-gray-400 hover:bg-white/10' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'} transition`}
+                    >
+                      Effacer
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+          <>
           {/* Search + filters */}
           <div className={`p-3 border-b ${isDark ? 'border-white/10' : 'border-gray-100'} space-y-2`}>
             <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${card}`}>
@@ -383,10 +586,34 @@ export default function MessagesPage() {
               })
             )}
           </div>
+          </>
+          )}
         </div>
 
         {/* ── Conversation panel (right) ────────────────────── */}
-        {selected ? (
+        {showEmailParser ? (
+          /* Email parser right panel — instructions/empty */
+          <div className="flex-1 hidden sm:flex flex-col items-center justify-center gap-4 p-8">
+            <div className={`w-20 h-20 rounded-3xl flex items-center justify-center ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}>
+              <FileText size={40} className="text-amber-500" />
+            </div>
+            <div className="text-center max-w-sm">
+              <p className={`text-lg font-black ${text}`}>Analyseur d&apos;emails Airbnb</p>
+              <p className={`text-sm mt-2 ${muted}`}>
+                Collez le <strong>sujet</strong> d&apos;un email Airbnb dans le panneau de gauche.<br/>
+                Ajoutez le corps pour une meilleure précision.<br/>
+                BNBGest extrait automatiquement : voyageur, dates, montant, code de confirmation.
+              </p>
+              <div className={`mt-4 p-3 rounded-xl text-left text-xs space-y-1.5 ${isDark ? 'bg-white/5' : 'bg-gray-100'} ${muted}`}>
+                <p className="font-semibold text-amber-500 mb-2">Exemples de sujets supportés :</p>
+                <p>• Réservation confirmée · Jean Dupont · 10–13 avr.</p>
+                <p>• Demande de réservation de Sophie M.</p>
+                <p>• Jean souhaite changer sa réservation</p>
+                <p>• Réservation annulée par Kevin D.</p>
+              </div>
+            </div>
+          </div>
+        ) : selected ? (
           <div className="flex-1 flex flex-col overflow-hidden">
 
             {/* Conversation header */}
