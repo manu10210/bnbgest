@@ -16,7 +16,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 const CODE_TYPES = [
   { value: 'DOOR_CODE',   label: 'Code porte',    icon: <Lock size={16} />,    bg: 'bg-blue-500/15',   text: 'text-blue-400',    border: 'border-blue-500/30' },
-  { value: 'KEY_BOX',     label: 'Boite à clés',  icon: <Key size={16} />,     bg: 'bg-amber-500/15',  text: 'text-amber-400',   border: 'border-amber-500/30' },
+  { value: 'KEY_BOX',     label: 'Boite Ã  clÃ©s',  icon: <Key size={16} />,     bg: 'bg-amber-500/15',  text: 'text-amber-400',   border: 'border-amber-500/30' },
   { value: 'SMART_LOCK',  label: 'Serrure smart', icon: <Shield size={16} />,  bg: 'bg-purple-500/15', text: 'text-purple-400',  border: 'border-purple-500/30' },
   { value: 'WIFI',        label: 'WiFi',           icon: <Wifi size={16} />,    bg: 'bg-green-500/15',  text: 'text-green-400',   border: 'border-green-500/30' },
   { value: 'PARKING',     label: 'Parking',        icon: <Car size={16} />,     bg: 'bg-orange-500/15', text: 'text-orange-400',  border: 'border-orange-500/30' },
@@ -113,8 +113,8 @@ export default function AccessCodesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.propertyId)     { toast.error('Sélectionnez une propriété'); return; }
-    if (!form.label.trim())   { toast.error('Le libellé est obligatoire'); return; }
+    if (!form.propertyId)     { toast.error('SÃ©lectionnez une propriÃ©tÃ©'); return; }
+    if (!form.label.trim())   { toast.error('Le libellÃ© est obligatoire'); return; }
     if (!form.code.trim())    { toast.error('Le code est obligatoire'); return; }
     setSaving(true);
     try {
@@ -122,18 +122,18 @@ export default function AccessCodesPage() {
       const url    = editingId ? `/api/access-codes/${editingId}` : '/api/access-codes';
       const res    = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       if (res.ok) {
-        toast.success(editingId ? 'Code mis à jour ?' : 'Code ajouté ?');
+        toast.success(editingId ? 'Code mis Ã  jour ?' : 'Code ajoutÃ© ?');
         setShowModal(false); fetchCodes();
       } else { const d = await res.json(); toast.error(d.error || 'Erreur'); }
-    } catch { toast.error('Erreur réseau'); }
+    } catch { toast.error('Erreur rÃ©seau'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number) => {
     try {
       const res = await fetch(`/api/access-codes/${id}`, { method: 'DELETE' });
-      if (res.ok) { toast.success('Code supprimé'); setDeleteId(null); fetchCodes(); }
-    } catch { toast.error('Erreur réseau'); }
+      if (res.ok) { toast.success('Code supprimÃ©'); setDeleteId(null); fetchCodes(); }
+    } catch { toast.error('Erreur rÃ©seau'); }
   };
 
   const toggleActive = async (c: AccessCode) => {
@@ -144,14 +144,14 @@ export default function AccessCodesPage() {
       });
       if (res.ok) {
         setCodes(prev => prev.map(x => x.id === c.id ? { ...x, isActive: !c.isActive } : x));
-        toast.success(c.isActive ? 'Code désactivé' : 'Code activé ?');
+        toast.success(c.isActive ? 'Code dÃ©sactivÃ©' : 'Code activÃ© ?');
       }
-    } catch { toast.error('Erreur réseau'); }
+    } catch { toast.error('Erreur rÃ©seau'); }
   };
 
   const copyCode = (id: number, code: string) => {
     navigator.clipboard.writeText(code);
-    setCopied(id); toast.success('Code copié !');
+    setCopied(id); toast.success('Code copiÃ© !');
     setTimeout(() => setCopied(null), 2000);
   };
 
@@ -164,7 +164,7 @@ export default function AccessCodesPage() {
       });
       if (res.ok) {
         setCodes(prev => prev.map(x => x.id === c.id ? { ...x, sentByEmail: true, sentAt: new Date().toISOString() } : x));
-        toast.success('Marqué comme envoyé par email ?');
+        toast.success('MarquÃ© comme envoyÃ© par email ?');
       }
     } catch { toast.error('Erreur'); }
     finally { setSendingEmail(null); }
@@ -203,7 +203,7 @@ export default function AccessCodesPage() {
   const grouped: Record<string, AccessCode[]> = {};
   if (groupByProp) {
     filtered.forEach(c => {
-      const key = c.property?.name || 'Sans propriété';
+      const key = c.property?.name || 'Sans propriÃ©tÃ©';
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(c);
     });
@@ -214,7 +214,7 @@ export default function AccessCodesPage() {
     const expired = isExpired(c);
     const days    = daysUntilExpiry(c);
     const visible = visibleCodes.has(c.id);
-    const masked  = visible ? c.code : '•'.repeat(Math.min(c.code.length, 6));
+    const masked  = visible ? c.code : 'Â•'.repeat(Math.min(c.code.length, 6));
 
     return (
       <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }}
@@ -235,14 +235,14 @@ export default function AccessCodesPage() {
                   <h3 className={`font-bold text-sm leading-tight ${text}`}>{c.label}</h3>
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                     <span className={`text-xs font-medium ${t?.text}`}>{t?.label}</span>
-                    {c.property && <><span className={`text-xs ${muted}`}>·</span><span className={`text-xs ${muted} flex items-center gap-1`}><Home size={10} />{c.property.name}</span></>}
+                    {c.property && <><span className={`text-xs ${muted}`}>Â·</span><span className={`text-xs ${muted} flex items-center gap-1`}><Home size={10} />{c.property.name}</span></>}
                   </div>
                 </div>
                 {/* Status badges */}
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
                   {expired && (
                     <span className="px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 text-[10px] font-bold flex items-center gap-1">
-                      <AlertCircle size={9} />Expiré
+                      <AlertCircle size={9} />ExpirÃ©
                     </span>
                   )}
                   {!expired && days !== null && days <= 3 && days > 0 && (
@@ -273,7 +273,7 @@ export default function AccessCodesPage() {
                       ? 'bg-green-500/20 text-green-400'
                       : isDark ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}>
-                  {copied === c.id ? <><Check size={12} />Copié</> : <><Copy size={12} />Copier</>}
+                  {copied === c.id ? <><Check size={12} />CopiÃ©</> : <><Copy size={12} />Copier</>}
                 </button>
               </div>
 
@@ -309,7 +309,7 @@ export default function AccessCodesPage() {
                   }`}>
                   {sendingEmail === c.id
                     ? <><RefreshCw size={11} className="animate-spin" />Envoi...</>
-                    : <><Mail size={11} />{c.sentByEmail ? 'Envoyé' : 'Email'}</>}
+                    : <><Mail size={11} />{c.sentByEmail ? 'EnvoyÃ©' : 'Email'}</>}
                 </button>
 
                 <div className="flex-1" />
@@ -344,8 +344,8 @@ export default function AccessCodesPage() {
                 <KeyRound size={18} className="text-white" />
               </div>
               <div>
-                <h1 className={`font-bold text-base ${text}`}>Codes d&apos;accès</h1>
-                <p className={`text-xs ${muted}`}>{activeCount} actif{activeCount !== 1 ? 's' : ''} · {codes.length} total</p>
+                <h1 className={`font-bold text-base ${text}`}>Codes d&apos;accÃ¨s</h1>
+                <p className={`text-xs ${muted}`}>{activeCount} actif{activeCount !== 1 ? 's' : ''} Â· {codes.length} total</p>
               </div>
             </div>
             <ThemeToggle />
@@ -363,8 +363,8 @@ export default function AccessCodesPage() {
               {[
                 { icon: <Power size={16} />,       label: 'Actifs',      value: activeCount,  color: 'text-green-400',  bg: 'bg-green-500/10' },
                 { icon: <Wifi size={16} />,         label: 'WiFi',        value: wifiCount,    color: 'text-blue-400',   bg: 'bg-blue-500/10' },
-                { icon: <Clock size={16} />,        label: 'Expirent bientôt', value: soonCount, color: 'text-orange-400', bg: 'bg-orange-500/10' },
-                { icon: <AlertCircle size={16} />,  label: 'Expirés',     value: expiredCount, color: 'text-red-400',    bg: 'bg-red-500/10' },
+                { icon: <Clock size={16} />,        label: 'Expirent bientÃ´t', value: soonCount, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+                { icon: <AlertCircle size={16} />,  label: 'ExpirÃ©s',     value: expiredCount, color: 'text-red-400',    bg: 'bg-red-500/10' },
               ].map((s, i) => (
                 <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
                   className={`${card} border rounded-2xl p-4`}>
@@ -385,7 +385,7 @@ export default function AccessCodesPage() {
               </div>
               <select value={filterProp} onChange={e => setFilterProp(e.target.value)}
                 className={`px-3 py-2 rounded-xl text-sm border ${card} ${text} outline-none`}>
-                <option value="all">Toutes propriétés</option>
+                <option value="all">Toutes propriÃ©tÃ©s</option>
                 {properties.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
               </select>
               <select value={filterType} onChange={e => setFilterType(e.target.value)}
@@ -413,8 +413,8 @@ export default function AccessCodesPage() {
             {/* Results count */}
             {!loading && filtered.length > 0 && (
               <p className={`text-xs ${muted}`}>
-                {filtered.length} code{filtered.length > 1 ? 's' : ''} affiché{filtered.length > 1 ? 's' : ''}
-                {groupByProp && ` · Groupé par propriété`}
+                {filtered.length} code{filtered.length > 1 ? 's' : ''} affichÃ©{filtered.length > 1 ? 's' : ''}
+                {groupByProp && ` Â· GroupÃ© par propriÃ©tÃ©`}
               </p>
             )}
 
@@ -430,8 +430,8 @@ export default function AccessCodesPage() {
                 <div className="w-16 h-16 rounded-2xl bg-gray-500/10 flex items-center justify-center mx-auto mb-4">
                   <KeyRound size={28} className="text-gray-400" />
                 </div>
-                <p className={`font-bold text-base ${text}`}>Aucun code trouvé</p>
-                <p className={`text-sm ${muted} mt-1 mb-5`}>Ajoutez vos codes d&apos;accès pour les gérer ici.</p>
+                <p className={`font-bold text-base ${text}`}>Aucun code trouvÃ©</p>
+                <p className={`text-sm ${muted} mt-1 mb-5`}>Ajoutez vos codes d&apos;accÃ¨s pour les gÃ©rer ici.</p>
                 <button onClick={openNew} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FF385C] text-white font-semibold text-sm hover:bg-[#E31C5F] transition shadow">
                   <Plus size={16} />Ajouter un code
                 </button>
@@ -475,14 +475,14 @@ export default function AccessCodesPage() {
                 initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
                 className={`relative w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl shadow-2xl ${isDark ? 'bg-gray-900 border border-white/10' : 'bg-white border border-gray-200'} overflow-y-auto max-h-[90vh]`}>
                 <div className={`flex items-center justify-between px-5 pt-5 pb-4 border-b ${isDark ? 'border-white/8' : 'border-gray-100'}`}>
-                  <h2 className={`font-bold text-lg ${text}`}>{editingId ? 'Modifier le code' : 'Nouveau code d\'accès'}</h2>
+                  <h2 className={`font-bold text-lg ${text}`}>{editingId ? 'Modifier le code' : 'Nouveau code d\'accÃ¨s'}</h2>
                   <button onClick={() => setShowModal(false)} className={`p-2 rounded-xl ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'} transition`}>
                     <X size={18} className={muted} />
                   </button>
                 </div>
                 <div className="px-5 pb-6 pt-4 space-y-4">
 
-                  {/* Type selector — visual pills */}
+                  {/* Type selector Â— visual pills */}
                   <div>
                     <label className={`block text-xs font-semibold ${muted} mb-2 uppercase tracking-wide`}>Type *</label>
                     <div className="grid grid-cols-4 gap-2">
@@ -502,11 +502,11 @@ export default function AccessCodesPage() {
 
                   {/* Property */}
                   <div>
-                    <label className={`block text-xs font-semibold ${muted} mb-1.5 uppercase tracking-wide`}>Propriété *</label>
+                    <label className={`block text-xs font-semibold ${muted} mb-1.5 uppercase tracking-wide`}>PropriÃ©tÃ© *</label>
                     <div className="relative">
                       <select value={form.propertyId} onChange={e => setForm(f => ({ ...f, propertyId: e.target.value }))}
                         className={`w-full px-3 py-2.5 pr-8 rounded-xl text-sm outline-none appearance-none ${inp}`}>
-                        <option value="">Sélectionner...</option>
+                        <option value="">SÃ©lectionner...</option>
                         {properties.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
                       </select>
                       <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 ${muted} pointer-events-none`} />
@@ -515,7 +515,7 @@ export default function AccessCodesPage() {
 
                   {/* Label */}
                   <div>
-                    <label className={`block text-xs font-semibold ${muted} mb-1.5 uppercase tracking-wide`}>Libellé *</label>
+                    <label className={`block text-xs font-semibold ${muted} mb-1.5 uppercase tracking-wide`}>LibellÃ© *</label>
                     <input ref={firstRef} value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
                       placeholder="Ex: Porte principale, WiFi Salon..." className={`w-full px-3 py-2.5 rounded-xl text-sm outline-none ${inp}`} />
                   </div>
@@ -527,7 +527,7 @@ export default function AccessCodesPage() {
                       <input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
                         placeholder={form.type === 'WIFI' ? 'MotDePasseWiFi' : '4821'} className={`flex-1 px-3 py-2.5 rounded-xl text-sm outline-none font-mono ${inp}`} />
                       <button type="button" onClick={generateCode} className={`px-3 py-2.5 rounded-xl text-xs font-medium border transition ${isDark ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-100'}`}>
-                        Générer
+                        GÃ©nÃ©rer
                       </button>
                     </div>
                   </div>
@@ -562,7 +562,7 @@ export default function AccessCodesPage() {
                   <div>
                     <label className={`block text-xs font-semibold ${muted} mb-1.5 uppercase tracking-wide`}>Notes</label>
                     <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                      placeholder="Instructions d'accès, remarques..." rows={2}
+                      placeholder="Instructions d'accÃ¨s, remarques..." rows={2}
                       className={`w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none ${inp}`} />
                   </div>
 
@@ -598,7 +598,7 @@ export default function AccessCodesPage() {
                   </div>
                   <div>
                     <p className={`font-bold ${text}`}>Supprimer ce code ?</p>
-                    <p className={`text-sm ${muted}`}>Cette action est irréversible.</p>
+                    <p className={`text-sm ${muted}`}>Cette action est irrÃ©versible.</p>
                   </div>
                 </div>
                 <div className="flex gap-3">
