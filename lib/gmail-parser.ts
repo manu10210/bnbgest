@@ -639,6 +639,9 @@ function normalizeDate(raw: string, referenceDate?: string | Date): string {
       // Si la date est dans le passé lointain (> 180j), c'est probablement une réservation future
       // de l'année prochaine (ex: email reçu en novembre avec "10 avr." = avril prochain)
       if (diff < -180) return `${year + 1}-${monthNum}-${noYear[1].padStart(2, '0')}`;
+      // Si la date est très loin dans le futur (> 270j), c'est probablement une date de l'année
+      // précédente (ex: email reçu en janvier 2026 avec "28 déc." = décembre 2025)
+      if (diff > 270) return `${year - 1}-${monthNum}-${noYear[1].padStart(2, '0')}`;
       return candidate;
     }
   }
@@ -671,6 +674,7 @@ function normalizeDate(raw: string, referenceDate?: string | Date): string {
     const candidate = `${year}-${monthNum}-${textEnNoYear[2].padStart(2, '0')}`;
     const diff = (new Date(candidate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
     if (diff < -180) return `${year + 1}-${monthNum}-${textEnNoYear[2].padStart(2, '0')}`;
+    if (diff > 270) return `${year - 1}-${monthNum}-${textEnNoYear[2].padStart(2, '0')}`;
     return candidate;
   }
   // "10 Apr" / "10 April" (jour avant mois EN, sans année)
@@ -683,6 +687,7 @@ function normalizeDate(raw: string, referenceDate?: string | Date): string {
     const candidate = `${year}-${monthNum}-${textEnNoYearRev[1].padStart(2, '0')}`;
     const diff = (new Date(candidate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
     if (diff < -180) return `${year + 1}-${monthNum}-${textEnNoYearRev[1].padStart(2, '0')}`;
+    if (diff > 270) return `${year - 1}-${monthNum}-${textEnNoYearRev[1].padStart(2, '0')}`;
     return candidate;
   }
 
@@ -1584,38 +1589,55 @@ export function parseAirbnbEmail(
         if (/^\d{4}-\d{2}-\d{2}$/.test(d2) && d2 !== d1) checkOut = d2;
       }
       
-      // DEBUG: Si toujours échoué, on pousse un extrait brut dans les warnings pour voir la structure réelle
-      if (!checkOut || checkIn === checkOut) {
-        const idxArriv = text.toLowerCase().indexOf('arriv');
-        const idxDepart = text.toLowerCase().indexOf('part'); // pour 'dpart'
-        
-        let snippet = `LEN:${text.length} | `;
-        if (idxArriv !== -1) {
-          snippet += `ARRIV: ${text.substring(Math.max(0, idxArriv - 15), idxArriv + 60).replace(/\n/g, ' \\n ')} | `;
-        }
-        if (idxDepart !== -1) {
-          snippet += `DEPART: ${text.substring(Math.max(0, idxDepart - 15), idxDepart + 60).replace(/\n/g, ' \\n ')}`;
-        }
-        
-        warnings.push(`DEBUG_DATES: ${snippet}`);
-      }
     }
 
-    // ── Post-traitement : plage FR compacte "10–13 avr. 2026" ────────────────
-    // Les patterns avec 3 groupes capturés (jour1, mois, année) ne sont pas gérés
-    // par extractDate (qui lit seulement match[1]). On les traite ici.
+    // ── Post-traitement : plage FR compacte ──────────────────────────────────
+    // Cas A : même mois — "10–13 avr. 2026" / "10-13 avr. 2026" / "10 – 13 avril 2026"
+    // Cas B : mois différents — "29 avr.–2 mai 2026" / "28 déc.–2 jan. 2027"
+    // Les patterns avec 3 groupes capturés ne sont pas gérés par extractDate → traitement ici.
     if (!checkIn || !checkOut) {
       const combinedSrc = text + ' ' + subject;
-      // "10–13 avr. 2026" / "10-13 avr. 2026" / "10 – 13 avril 2026"
       const MOIS_BOTH2 = `(?:janv?\\.?|f[eé]vr?\\.?|mars|avr\\.?|avril|mai|juin|juil\\.?|ao[uû]t|sept?\\.?|octobre?|nov\\.?|d[eé]c\\.?|d[eé]cembre?)`;
-      const frCompact = new RegExp(`(\\d{1,2})\\s*[–\\-]\\s*(\\d{1,2})\\s+(${MOIS_BOTH2}(?:\\.?))(?:\\s+(\\d{4}))?`, 'i');
-      const fcm = combinedSrc.match(frCompact);
-      if (fcm) {
-        const day1 = fcm[1]; const day2 = fcm[2]; const mon = fcm[3]; const yr = fcm[4] || '';
-  const d1 = normalizeDate(`${day1} ${mon}${yr ? ' ' + yr : ''}`, receivedAt);
-  const d2 = normalizeDate(`${day2} ${mon}${yr ? ' ' + yr : ''}`, receivedAt);
+
+      // Cas B d'abord (plus spécifique) : "29 avr.–2 mai 2026" — deux mois différents
+      const frCrossMonth = new RegExp(
+        `(\\d{1,2})\\s+(${MOIS_BOTH2})(?:\\.?)\\s*[–\\-]\\s*(\\d{1,2})\\s+(${MOIS_BOTH2}(?:\\.?))(?:\\s+(\\d{4}))?`,
+        'i',
+      );
+      const fcmCross = combinedSrc.match(frCrossMonth);
+      if (fcmCross) {
+        const yr = fcmCross[5] || '';
+        const d1 = normalizeDate(`${fcmCross[1]} ${fcmCross[2]}${yr ? ' ' + yr : ''}`, receivedAt);
+        let d2 = normalizeDate(`${fcmCross[3]} ${fcmCross[4]}${yr ? ' ' + yr : ''}`, receivedAt);
+        // Passage d'année sans année explicite (ex: "28 déc.–2 jan.")
+        if (!yr && /^\d{4}-\d{2}-\d{2}$/.test(d1) && /^\d{4}-\d{2}-\d{2}$/.test(d2) && d2 <= d1) {
+          const nextYear = String(parseInt(d1.slice(0, 4), 10) + 1);
+          d2 = normalizeDate(`${fcmCross[3]} ${fcmCross[4]} ${nextYear}`, receivedAt);
+        }
         if (/^\d{4}-\d{2}-\d{2}$/.test(d1)) checkIn  = checkIn  || d1;
-        if (/^\d{4}-\d{2}-\d{2}$/.test(d2)) checkOut = checkOut || d2;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d2) && d2 > d1) checkOut = checkOut || d2;
+      }
+
+      // Cas A : même mois — "10–13 avr. 2026"
+      if (!checkIn || !checkOut) {
+        const frCompact = new RegExp(`(\\d{1,2})\\s*[–\\-]\\s*(\\d{1,2})\\s+(${MOIS_BOTH2}(?:\\.?))(?:\\s+(\\d{4}))?`, 'i');
+        const fcm = combinedSrc.match(frCompact);
+        if (fcm) {
+          const yr = fcm[4] || '';
+          const d1 = normalizeDate(`${fcm[1]} ${fcm[3]}${yr ? ' ' + yr : ''}`, receivedAt);
+          let d2 = normalizeDate(`${fcm[2]} ${fcm[3]}${yr ? ' ' + yr : ''}`, receivedAt);
+          // Si d2 <= d1 (passage de mois sans mois explicite pour checkOut) : avancer d'un mois
+          if (!yr && /^\d{4}-\d{2}-\d{2}$/.test(d1) && /^\d{4}-\d{2}-\d{2}$/.test(d2) && d2 <= d1) {
+            const d1Date = new Date(d1 + 'T00:00:00.000Z');
+            const d2Fix = new Date(Date.UTC(
+              d1Date.getUTCFullYear(), d1Date.getUTCMonth() + 1,
+              parseInt(fcm[2], 10),
+            ));
+            if (!isNaN(d2Fix.getTime())) d2 = d2Fix.toISOString().slice(0, 10);
+          }
+          if (/^\d{4}-\d{2}-\d{2}$/.test(d1)) checkIn  = checkIn  || d1;
+          if (/^\d{4}-\d{2}-\d{2}$/.test(d2) && d2 > d1) checkOut = checkOut || d2;
+        }
       }
     }
 

@@ -397,6 +397,77 @@ function parseDateRangeFromSubject(subject?: string, receivedAt?: string): { che
     .toLowerCase();
   const fallbackYear = receivedAt ? new Date(receivedAt).getFullYear() : new Date().getFullYear();
 
+  // ── FORMAT COMPACT AIRBNB : "10–13 avr.", "29 avr.–2 mai 2026", "28 déc.–2 jan. 2027" ──
+  // Priorité maximale car c'est le format natif des sujets Airbnb hôte.
+
+  // Cas 1 : même mois — "10–13 avr. 2026"
+  const sameMonthCompact = normalized.match(new RegExp(
+    `(\\d{1,2})\\s*[–\\-]\\s*(\\d{1,2})\\s+(${MONTH_TOKEN})(?:\\s+(\\d{4}))?`,
+    'i',
+  ));
+  if (sameMonthCompact) {
+    const yr = sameMonthCompact[4] ? Number.parseInt(sameMonthCompact[4], 10) : undefined;
+    let ci = parseIsoDateFromFrenchParts(sameMonthCompact[1], sameMonthCompact[3], sameMonthCompact[4], fallbackYear);
+    let co = parseIsoDateFromFrenchParts(sameMonthCompact[2], sameMonthCompact[3], sameMonthCompact[4], fallbackYear);
+    if (ci && co) {
+      const ciTs = toUtcTimestampFromIso(ci);
+      const coTs = toUtcTimestampFromIso(co);
+      // Détection fin-de-mois → début-de-mois suivant sans changement explicite de mois
+      // Ex: "29–2 avr." => d2 < d1 => checkOut appartient au mois suivant
+      if (ciTs !== undefined && coTs !== undefined && coTs <= ciTs && !yr) {
+        const coDate = new Date(ciTs!);
+        coDate.setUTCDate(coDate.getUTCDate() + (Number.parseInt(sameMonthCompact[2], 10) - Number.parseInt(sameMonthCompact[1], 10) + 32) % 32 + 1);
+        // Approche plus robuste : avancer checkOut d'un mois
+        const coDateAlt = new Date(Date.UTC(
+          new Date(ciTs!).getUTCFullYear(),
+          new Date(ciTs!).getUTCMonth() + 1,
+          Number.parseInt(sameMonthCompact[2], 10),
+        ));
+        const coAlt = formatIsoDate(coDateAlt);
+        if (isValidDateRange(ci, coAlt)) co = coAlt;
+      }
+      // Passage d'année (ex: "28 déc.–2 jan." where checkIn dec > checkOut jan)
+      if (!yr && ciTs !== undefined && coTs !== undefined && coTs <= ciTs) {
+        const coNextYear = parseIsoDateFromFrenchParts(
+          sameMonthCompact[2],
+          sameMonthCompact[3],
+          String(new Date(ciTs!).getUTCFullYear() + 1),
+          fallbackYear,
+        );
+        if (coNextYear && isValidDateRange(ci, coNextYear)) co = coNextYear;
+      }
+      if (isValidDateRange(ci, co)) {
+        const nights = deriveNightsFromIsoRange(ci as string, co as string) || 1;
+        return { checkIn: ci as string, checkOut: co as string, nights };
+      }
+    }
+  }
+
+  // Cas 2 : mois différents — "29 avr.–2 mai 2026" ou "28 déc.–2 jan. 2027"
+  const crossMonthCompact = normalized.match(new RegExp(
+    `(\\d{1,2})\\s+(${MONTH_TOKEN})\\s*[–\\-]\\s*(\\d{1,2})\\s+(${MONTH_TOKEN})(?:\\s+(\\d{4}))?`,
+    'i',
+  ));
+  if (crossMonthCompact) {
+    const explicitYear = crossMonthCompact[5];
+    let ci = parseIsoDateFromFrenchParts(crossMonthCompact[1], crossMonthCompact[2], explicitYear, fallbackYear);
+    let co = parseIsoDateFromFrenchParts(crossMonthCompact[3], crossMonthCompact[4], explicitYear, fallbackYear);
+    if (ci && co) {
+      const ciTs = toUtcTimestampFromIso(ci);
+      const coTs = toUtcTimestampFromIso(co);
+      // Passage d'année (ex: "28 déc.–2 jan." sans année explicite)
+      if (!explicitYear && ciTs !== undefined && coTs !== undefined && coTs <= ciTs) {
+        const nextYear = String(new Date(ciTs!).getUTCFullYear() + 1);
+        const coNextYear = parseIsoDateFromFrenchParts(crossMonthCompact[3], crossMonthCompact[4], nextYear, fallbackYear);
+        if (coNextYear && isValidDateRange(ci, coNextYear)) co = coNextYear;
+      }
+      if (isValidDateRange(ci, co)) {
+        const nights = deriveNightsFromIsoRange(ci as string, co as string) || 1;
+        return { checkIn: ci as string, checkOut: co as string, nights };
+      }
+    }
+  }
+
   // Ex: "du 12 mars au 15 mars", "du 28 déc 2026 au 2 janv 2027"
   const frRange = normalized.match(new RegExp(
     `\\bdu\\s+(\\d{1,2})\\s+(${MONTH_TOKEN})(?:\\s+(\\d{4}))?\\s+au\\s+(\\d{1,2})\\s+(${MONTH_TOKEN})?(?:\\s+(\\d{4}))?`,
@@ -547,9 +618,32 @@ function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
     return booking;
   }
 
+  // ── Filet de sécurité : checkIn > checkOut (inversion d'année) ─────────────
+  // Cas typique : email reçu en janvier 2026, dates extraites sans année → "28 déc."
+  // donne 2026-12-28 (futur) mais checkOut "2 jan." donne 2026-01-02 → inversés.
+  // Correction : si checkIn est dans le futur lointain et checkOut est cohérent, on
+  // soustrait 1 an à checkIn.
+  let ci = booking.checkIn;
+  let co = booking.checkOut;
+  if (isIsoDate(ci) && isIsoDate(co)) {
+    const ciTs = toUtcTimestampFromIso(ci);
+    const coTs = toUtcTimestampFromIso(co);
+    if (ciTs !== undefined && coTs !== undefined && ciTs > coTs) {
+      // checkIn > checkOut → essai de correction year-1 sur checkIn
+      const ciPrevYear = `${parseInt(ci!.slice(0, 4), 10) - 1}${ci!.slice(4)}`;
+      if (isValidDateRange(ciPrevYear, co)) {
+        booking = {
+          ...booking,
+          checkIn: ciPrevYear,
+          warnings: Array.from(new Set([...(booking.warnings || []), 'checkin_year_corrected_minus_one'])),
+        };
+      }
+    }
+  }
+
   if (isValidDateRange(booking.checkIn, booking.checkOut)) return booking;
 
-  // 1) Inférence précise si le sujet contient explicitement une plage "du ... au ..."
+  // 1) Inférence précise si le sujet contient une plage détectable (compact ou "du...au...")
   const inferredRange = parseDateRangeFromSubject(booking.subject, booking.receivedAt);
   if (inferredRange) {
     return {
