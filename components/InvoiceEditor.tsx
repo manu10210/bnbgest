@@ -882,14 +882,60 @@ function SendModal({ invoice, onClose, onSent }: {
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSend = () => {
+  const handleSend = async () => {
+    setError(null);
+    if (!invoice.clientEmail) {
+      setError('Renseignez l’email du client avant d’envoyer.');
+      return;
+    }
     setSending(true);
-    setTimeout(() => {
-      setSending(false);
+    try {
+      const res = await fetch('/api/invoices/send', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentType: invoice.documentType ?? 'invoice',
+          number: invoice.number,
+          issueDate: invoice.issueDate,
+          dueDate: invoice.dueDate,
+          issuerName: invoice.issuerName,
+          issuerEmail: invoice.issuerEmail,
+          issuerPhone: invoice.issuerPhone,
+          issuerAddress: invoice.issuerAddress,
+          issuerZip: invoice.issuerZip,
+          issuerCity: invoice.issuerCity,
+          issuerSiret: invoice.issuerSiret,
+          clientName: invoice.clientName,
+          clientEmail: invoice.clientEmail,
+          lines: invoice.lines.map(l => ({
+            description: l.description, quantity: l.quantity,
+            unitPrice: l.unitPrice, discount: l.discount,
+          })),
+          globalDiscount: invoice.globalDiscount,
+          paymentTerms: invoice.paymentTerms,
+          notes: invoice.notes,
+          message: note || undefined,
+          accentColor: invoice.accentColor,
+        }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.error ?? `Erreur serveur (${res.status})`);
+      }
+      if (payload?.simulated) {
+        setError('Email non envoyé : RESEND_API_KEY n’est pas configurée sur le serveur.');
+        return;
+      }
       setDone(true);
       setTimeout(() => { onSent(note); onClose(); }, 1200);
-    }, 1500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de l’envoi de l’email.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const totals = calcTotalsWithDiscount(invoice.lines, invoice.globalDiscount);
@@ -932,6 +978,12 @@ function SendModal({ invoice, onClose, onSent }: {
               placeholder={`Veuillez trouver ci-joint votre ${docLabelCap(invoice).toLowerCase()}…`}
               className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white placeholder-gray-600 outline-none focus:ring-2 focus:ring-blue-500/30 resize-none" />
           </div>
+          {error && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-sm text-rose-400">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
         </div>
         {/* Footer */}
         <div className="px-6 pb-6 flex gap-3">
