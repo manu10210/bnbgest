@@ -211,7 +211,7 @@ function docLabelCap(inv: { documentType?: InvoiceDocType }): string {
 }
 
 function newLine(): InvoiceLine {
-  return { id: `line_${Date.now()}_${Math.random()}`, description: '', quantity: 1, unitPrice: 0, vatRate: 20, discount: 0 };
+  return { id: `line_${Date.now()}_${Math.random()}`, description: '', quantity: 1, unitPrice: 0, vatRate: 0, discount: 0 };
 }
 
 function nextInvoiceNumber(invoices: Invoice[], docType: InvoiceDocType = 'invoice'): string {
@@ -272,9 +272,9 @@ function emptyInvoice(invoices: Invoice[]): Invoice {
 }
 
 function calcLine(line: InvoiceLine) {
+  // Auto-entreprise : TVA non applicable, art. 293 B du CGI — aucune TVA calculée
   const base = line.quantity * line.unitPrice * (1 - line.discount / 100);
-  const vat  = base * (line.vatRate / 100);
-  return { ht: base, vat, ttc: base + vat };
+  return { ht: base, vat: 0, ttc: base };
 }
 
 function calcTotals(lines: InvoiceLine[]) {
@@ -285,19 +285,6 @@ function calcTotals(lines: InvoiceLine[]) {
     },
     { ht: 0, vat: 0, ttc: 0 }
   );
-}
-
-function calcVatBreakdown(lines: InvoiceLine[]): { rate: number; base: number; vat: number }[] {
-  const map: Record<number, { base: number; vat: number }> = {};
-  lines.forEach(l => {
-    const { ht, vat } = calcLine(l);
-    if (!map[l.vatRate]) map[l.vatRate] = { base: 0, vat: 0 };
-    map[l.vatRate].base += ht;
-    map[l.vatRate].vat  += vat;
-  });
-  return Object.entries(map)
-    .map(([rate, v]) => ({ rate: Number(rate), ...v }))
-    .sort((a, b) => a.rate - b.rate);
 }
 
 function calcTotalsWithDiscount(lines: InvoiceLine[], globalDiscount = 0) {
@@ -454,13 +441,13 @@ const ACCENT_COLORS = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f
 
 const LINE_PRESETS: { label: string; icon: React.ElementType; line: Partial<InvoiceLine> }[] = [
   { label: 'Nuit(s)',         icon: Moon,   line: { description: 'Location — nuit(s)', quantity: 1, unitPrice: 80,  vatRate: 0,  discount: 0 } },
-  { label: 'Ménage',          icon: Sparkles,line: { description: 'Forfait ménage',      quantity: 1, unitPrice: 50,  vatRate: 20, discount: 0 } },
+  { label: 'Ménage',          icon: Sparkles,line: { description: 'Forfait ménage',      quantity: 1, unitPrice: 50,  vatRate: 0,  discount: 0 } },
   { label: 'Taxe séjour',     icon: Euro,   line: { description: 'Taxe de séjour',      quantity: 1, unitPrice: 2.5, vatRate: 0,  discount: 0 } },
   { label: 'Caution',         icon: Star,   line: { description: 'Dépôt de garantie',   quantity: 1, unitPrice: 300, vatRate: 0,  discount: 0 } },
-  { label: 'Petit-déjeuner',  icon: Coffee, line: { description: 'Petit-déjeuner',      quantity: 1, unitPrice: 12,  vatRate: 10, discount: 0 } },
-  { label: 'Piscine/Spa',     icon: Waves,  line: { description: 'Accès piscine / spa', quantity: 1, unitPrice: 25,  vatRate: 20, discount: 0 } },
-  { label: 'Parking',         icon: Car,    line: { description: 'Parking',             quantity: 1, unitPrice: 10,  vatRate: 20, discount: 0 } },
-  { label: 'Wi-Fi premium',   icon: Wifi,   line: { description: 'Wi-Fi haut débit',    quantity: 1, unitPrice: 5,   vatRate: 20, discount: 0 } },
+  { label: 'Petit-déjeuner',  icon: Coffee, line: { description: 'Petit-déjeuner',      quantity: 1, unitPrice: 12,  vatRate: 0,  discount: 0 } },
+  { label: 'Piscine/Spa',     icon: Waves,  line: { description: 'Accès piscine / spa', quantity: 1, unitPrice: 25,  vatRate: 0,  discount: 0 } },
+  { label: 'Parking',         icon: Car,    line: { description: 'Parking',             quantity: 1, unitPrice: 10,  vatRate: 0,  discount: 0 } },
+  { label: 'Wi-Fi premium',   icon: Wifi,   line: { description: 'Wi-Fi haut débit',    quantity: 1, unitPrice: 5,   vatRate: 0,  discount: 0 } },
 ];
 
 // ─── Due-date helpers ─────────────────────────────────────────────────────────
@@ -493,10 +480,8 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
   bookings: { id: number; checkIn: string; checkOut: string }[];
 }) {
   const totals      = calcTotalsWithDiscount(invoice.lines, invoice.globalDiscount);
-  const vatBreakdown = calcVatBreakdown(invoice.lines);
   const prop        = properties.find(p => p.id === invoice.propertyId);
   const booking     = bookings.find(b => b.id === invoice.bookingId);
-  const multiVat    = vatBreakdown.length > 1;
   const layout      = invoice.layout ?? 'classic';
   const isCancelled = invoice.status === 'cancelled';
   // future: detect re-sent
@@ -771,11 +756,9 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
                 <tr className="border-b-2" style={{ borderColor: invoice.accentColor }}>
                   <th className="pb-2 text-left font-bold text-gray-700">Description</th>
                   <th className="pb-2 text-right font-bold text-gray-700 w-16">Qté</th>
-                  <th className="pb-2 text-right font-bold text-gray-700 w-24">P.U. HT</th>
+                  <th className="pb-2 text-right font-bold text-gray-700 w-24">P.U.</th>
                   <th className="pb-2 text-right font-bold text-gray-700 w-16">Rem.</th>
-                  <th className="pb-2 text-right font-bold text-gray-700 w-24">HT</th>
-                  <th className="pb-2 text-right font-bold text-gray-700 w-14">TVA</th>
-                  <th className="pb-2 text-right font-bold text-gray-700 w-24">TTC</th>
+                  <th className="pb-2 text-right font-bold text-gray-700 w-24">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -787,8 +770,6 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
                       <td className="py-2.5 text-right">{line.quantity}</td>
                       <td className="py-2.5 text-right">{fmt(line.unitPrice)} €</td>
                       <td className="py-2.5 text-right">{line.discount > 0 ? `${line.discount}%` : '—'}</td>
-                      <td className="py-2.5 text-right">{fmt(c.ht)} €</td>
-                      <td className="py-2.5 text-right">{line.vatRate}%</td>
                       <td className="py-2.5 text-right font-semibold">{fmt(c.ttc)} €</td>
                     </tr>
                   );
@@ -796,33 +777,25 @@ function PreviewModal({ invoice, onClose, properties, bookings }: {
               </tbody>
             </table>
 
-            {/* Totals + VAT breakdown */}
+            {/* Totals */}
             <div className="flex justify-end mb-8">
               <div className="w-80 space-y-1">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Total HT</span><span className="font-semibold">{fmt(totals.ht)} €</span>
-                </div>
-                {/* VAT breakdown if multiple rates */}
-                {multiVat ? vatBreakdown.map(v => (
-                  <div key={v.rate} className="flex justify-between text-sm text-gray-500">
-                    <span className="pl-3">TVA {v.rate}% (base {fmt(v.base)} €)</span>
-                    <span>{fmt(v.vat * (1 - (invoice.globalDiscount ?? 0)/100))} €</span>
-                  </div>
-                )) : (
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>TVA ({vatBreakdown[0]?.rate ?? 0}%)</span>
-                    <span className="font-semibold">{fmt(totals.vat)} €</span>
-                  </div>
-                )}
-                {/* Global discount */}
                 {(invoice.globalDiscount ?? 0) > 0 && (
-                  <div className="flex justify-between text-sm text-rose-500">
-                    <span>Remise globale ({invoice.globalDiscount}%)</span>
-                    <span className="font-semibold">− {fmt(totals.discount)} €</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>Sous-total</span><span className="font-semibold">{fmt(totals.raw.ttc)} €</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-rose-500">
+                      <span>Remise globale ({invoice.globalDiscount}%)</span>
+                      <span className="font-semibold">− {fmt(totals.discount)} €</span>
+                    </div>
+                  </>
                 )}
                 <div className="flex justify-between text-lg font-black border-t-2 pt-2 mt-2" style={{ borderColor: invoice.accentColor, color: invoice.accentColor }}>
-                  <span>Total TTC</span><span>{fmt(totals.ttc)} €</span>
+                  <span>Total</span><span>{fmt(totals.ttc)} €</span>
+                </div>
+                <div className="text-right text-xs text-gray-500 italic pt-1">
+                  TVA non applicable, art. 293 B du CGI
                 </div>
               </div>
             </div>
@@ -950,7 +923,7 @@ function SendModal({ invoice, onClose, onSent }: {
           <div>
             <label className="block text-xs font-semibold text-gray-400 mb-1">Objet</label>
             <div className="px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-gray-300">
-              {docLabelCap(invoice)} {invoice.number} — {fmt(totals.ttc)} € TTC
+              {docLabelCap(invoice)} {invoice.number} — {fmt(totals.ttc)} €
             </div>
           </div>
           <div>
@@ -1381,13 +1354,13 @@ export default function InvoiceEditor() {
 
   // ── Export CSV ──
   const exportCSV = () => {
-    const header = ['N°','Statut','Client','Email','Émission','Échéance','HT','TVA','TTC','Remise globale %','Lignes'];
+    const header = ['N°','Statut','Client','Email','Émission','Échéance','Total','Remise globale %','Lignes'];
     const rows = invoices.map(i => {
       const t = calcTotalsWithDiscount(i.lines, i.globalDiscount);
       return [
         i.number, STATUS_META[i.status].label, i.clientName, i.clientEmail,
         i.issueDate, i.dueDate,
-        fmt(t.ht), fmt(t.vat), fmt(t.ttc), i.globalDiscount,
+        fmt(t.ttc), i.globalDiscount,
         i.lines.length,
       ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
     });
@@ -1893,13 +1866,12 @@ export default function InvoiceEditor() {
 
               {/* Header row */}
               <div className={`grid text-[11px] font-bold uppercase tracking-wide mb-2 px-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}
-                style={{ gridTemplateColumns: '1fr 70px 100px 70px 70px 90px 36px' }}>
+                style={{ gridTemplateColumns: '1fr 70px 110px 80px 100px 36px' }}>
                 <span>Description</span>
                 <span className="text-right">Qté</span>
-                <span className="text-right">P.U. HT (€)</span>
+                <span className="text-right">P.U. (€)</span>
                 <span className="text-right">Remise %</span>
-                <span className="text-right">TVA %</span>
-                <span className="text-right">TTC (€)</span>
+                <span className="text-right">Total (€)</span>
                 <span />
               </div>
 
@@ -1911,7 +1883,7 @@ export default function InvoiceEditor() {
                       <motion.div key={line.id}
                         initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}
                         className={`grid items-center gap-2 px-2 py-1.5 rounded-xl ${isDark ? 'bg-white/[0.03] hover:bg-white/[0.05]' : 'bg-gray-50 hover:bg-gray-100'} transition-colors`}
-                        style={{ gridTemplateColumns: '1fr 70px 100px 70px 70px 90px 36px' }}>
+                        style={{ gridTemplateColumns: '1fr 70px 110px 80px 100px 36px' }}>
                         <input value={line.description} onChange={e => updateLine(line.id, 'description', e.target.value)}
                           placeholder="Description de la prestation" className={`${input} py-1`} />
                         <input type="number" min={0} value={line.quantity} onChange={e => updateLine(line.id, 'quantity', parseFloat(e.target.value) || 0)}
@@ -1919,8 +1891,6 @@ export default function InvoiceEditor() {
                         <input type="number" min={0} step={0.01} value={line.unitPrice} onChange={e => updateLine(line.id, 'unitPrice', parseFloat(e.target.value) || 0)}
                           className={`${input} py-1 text-right`} />
                         <input type="number" min={0} max={100} value={line.discount} onChange={e => updateLine(line.id, 'discount', parseFloat(e.target.value) || 0)}
-                          className={`${input} py-1 text-right`} />
-                        <input type="number" min={0} max={100} value={line.vatRate} onChange={e => updateLine(line.id, 'vatRate', parseFloat(e.target.value) || 0)}
                           className={`${input} py-1 text-right`} />
                         <div className={`text-right text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
                           {fmt(c.ttc)} €
@@ -2076,11 +2046,9 @@ export default function InvoiceEditor() {
                       <tr className="border-b" style={{ borderColor: editing.accentColor }}>
                         <th className="text-left pb-1 font-bold">Description</th>
                         <th className="text-right pb-1 font-bold">Qté</th>
-                        <th className="text-right pb-1 font-bold">P.U. HT</th>
+                        <th className="text-right pb-1 font-bold">P.U.</th>
                         <th className="text-right pb-1 font-bold">Rem.</th>
-                        <th className="text-right pb-1 font-bold">HT</th>
-                        <th className="text-right pb-1 font-bold">TVA%</th>
-                        <th className="text-right pb-1 font-bold">TTC</th>
+                        <th className="text-right pb-1 font-bold">Total</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2092,8 +2060,6 @@ export default function InvoiceEditor() {
                             <td className="text-right py-1">{line.quantity}</td>
                             <td className="text-right py-1">{fmt(line.unitPrice)} €</td>
                             <td className="text-right py-1">{line.discount}%</td>
-                            <td className="text-right py-1">{fmt(c.ht)} €</td>
-                            <td className="text-right py-1">{line.vatRate}%</td>
                             <td className="text-right py-1 font-bold">{fmt(c.ttc)} €</td>
                           </tr>
                         );
@@ -2103,16 +2069,16 @@ export default function InvoiceEditor() {
                   {/* Totals */}
                   <div className="flex justify-end">
                     <div className="w-44 space-y-1">
-                      <div className="flex justify-between"><span className="text-gray-500">HT</span><span>{fmt(totals.ht)} €</span></div>
-                      <div className="flex justify-between"><span className="text-gray-500">TVA</span><span>{fmt(totals.vat)} €</span></div>
-                      {calcVatBreakdown(editing.lines).length > 1 && calcVatBreakdown(editing.lines).map(v => (
-                        <div key={v.rate} className="flex justify-between text-gray-400 pl-2 text-[9px]">
-                          <span>TVA {v.rate}%</span><span>{fmt(v.vat)} €</span>
-                        </div>
-                      ))}
+                      {(editing.globalDiscount ?? 0) > 0 && (
+                        <>
+                          <div className="flex justify-between"><span className="text-gray-500">Sous-total</span><span>{fmt(totals.raw.ttc)} €</span></div>
+                          <div className="flex justify-between text-rose-500"><span>Remise {editing.globalDiscount}%</span><span>− {fmt(totals.discount)} €</span></div>
+                        </>
+                      )}
                       <div className="flex justify-between font-black text-sm pt-1 border-t" style={{ color: editing.accentColor, borderColor: editing.accentColor }}>
-                        <span>TTC</span><span>{fmt(totals.ttc)} €</span>
+                        <span>Total</span><span>{fmt(totals.ttc)} €</span>
                       </div>
+                      <div className="text-right text-gray-400 italic text-[9px]">TVA non applicable, art. 293 B du CGI</div>
                     </div>
                   </div>
                 </div>
@@ -2174,29 +2140,24 @@ export default function InvoiceEditor() {
                   );
                 })()}
                 <div className={`mt-4 pt-4 border-t space-y-2 ${isDark ? 'border-white/[0.06]' : 'border-gray-100'}`}>
-                  <div className={`flex justify-between text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    <span>Total HT</span><span className="font-semibold">{fmt(totals.ht)} €</span>
-                  </div>
-                  <div className={`flex justify-between text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    <span>TVA</span><span className="font-semibold">{fmt(totals.vat)} €</span>
-                  </div>
-                  {/* VAT breakdown by rate */}
-                  {calcVatBreakdown(editing.lines).length > 1 && calcVatBreakdown(editing.lines).map(v => (
-                    <div key={v.rate} className={`flex justify-between text-xs pl-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                      <span>↳ TVA {v.rate}%</span><span>{fmt(v.vat * (1 - (editing.globalDiscount ?? 0)/100))} €</span>
-                    </div>
-                  ))}
-                  {/* Global discount */}
                   {(editing.globalDiscount ?? 0) > 0 && (
-                    <div className="flex justify-between text-sm text-rose-400">
-                      <span>Remise {editing.globalDiscount}%</span>
-                      <span className="font-semibold">− {fmt(totals.discount)} €</span>
-                    </div>
+                    <>
+                      <div className={`flex justify-between text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <span>Sous-total</span><span className="font-semibold">{fmt(totals.raw.ttc)} €</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-rose-400">
+                        <span>Remise {editing.globalDiscount}%</span>
+                        <span className="font-semibold">− {fmt(totals.discount)} €</span>
+                      </div>
+                    </>
                   )}
                   <div className="flex justify-between text-xl font-black pt-2 border-t border-indigo-500/30"
                     style={{ color: editing.accentColor }}>
-                    <span>TTC</span><span>{fmt(totals.ttc)} €</span>
+                    <span>Total</span><span>{fmt(totals.ttc)} €</span>
                   </div>
+                  <p className={`text-right text-[10px] italic ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+                    TVA non applicable, art. 293 B du CGI
+                  </p>
                 </div>
                 <div className="mt-5 space-y-2">
                   <button type="button" onClick={() => setPreview(editing)}
