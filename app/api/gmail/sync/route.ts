@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 📧 API Route — Gmail Sync pour extraction des réservations Airbnb
  *
  * GET  /api/gmail/sync        → Analyse les emails et retourne les réservations trouvées
@@ -10,11 +10,12 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { Role } from '@prisma/client';
 import {
-  parseAirbnbEmail,
+  analyzeAirbnbEmail,
   extractBodyFromPayload,
   ParsedBooking,
   GmailPayload,
 } from '@/lib/gmail-parser';
+import type { TriageItem } from '@/lib/gmail/triage';
 
 const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1/users/me';
 const MAX_RESULTS = 500;       // max autorisé par Gmail API par page
@@ -163,7 +164,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         success: true,
         bookings: [],
-        stats: { found: 0, parsed: 0, errors: 0, skippedPersisted: 0 },
+        analyzed: [],
+        stats: { found: 0, parsed: 0, analyzedCount: 0, errors: 0, skippedPersisted: 0 },
       });
     }
 
@@ -208,9 +210,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         success: true,
         bookings: [],
+        analyzed: [],
         stats: {
           found: 0,
           parsed: 0,
+          analyzedCount: 0,
           errors: 0,
           skippedPersisted,
         },
@@ -219,6 +223,10 @@ export async function GET(req: NextRequest) {
 
     // 4. Récupérer les détails de chaque email (en parallèle, max 10 à la fois)
     const bookings: ParsedBooking[] = [];
+    // Tous les emails analysés — y compris ceux qui ne produiront aucune
+    // réservation. C'est ce qui permet au tri côté client d'expliquer les
+    // absences au lieu de les subir.
+    const analyzed: TriageItem[] = [];
     const errors: string[] = [];
     const batchSize = 10;
 
@@ -247,11 +255,13 @@ export async function GET(req: NextRequest) {
           const receivedAt = new Date(parseInt(detail.internalDate)).toISOString();
 
           const body = extractBodyFromPayload(detail.payload);
-          const parsed = parseAirbnbEmail(detail.id, subject, from, body, receivedAt);
+          const result = analyzeAirbnbEmail(detail.id, subject, from, body, receivedAt);
 
-          if (parsed && parsed.confidence >= 40) {
-            bookings.push(parsed);
-          }
+          // On renvoie TOUT. Le tri (lib/gmail/triage.ts) décide ensuite du bac.
+          // L'ancien filtre `confidence >= 40` supprimait ici des emails que
+          // personne ne pouvait plus retrouver ensuite.
+          analyzed.push(result.triageItem);
+          if (result.booking) bookings.push(result.booking);
         } catch (_e) {
           errors.push(detail.id);
         }
@@ -261,12 +271,16 @@ export async function GET(req: NextRequest) {
     // 5. Trier par date de réception (plus récent en premier)
     bookings.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
 
+    analyzed.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+
     return NextResponse.json({
       success: true,
       bookings,
+      analyzed,
       stats: {
         found: messagesToProcess.length,
         parsed: bookings.length,
+        analyzedCount: analyzed.length,
         errors: errors.length,
         skippedPersisted,
       },

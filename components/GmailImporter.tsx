@@ -79,6 +79,10 @@ import { deriveWizardPropertySuggestions } from '../lib/gmail-property-wizard';
 import { resolveNewBookingDuplicate } from '../lib/gmail-duplicate-resolution';
 import { resolveGuestForImport } from '../lib/gmail-guest-resolution';
 import { resolvePropertyAssignment } from '../lib/gmail-property-resolution';
+import { triage, BUCKET_LABELS, type TriageBucket, type TriageItem, type TriageResult } from '../lib/gmail/triage';
+import { bookingToTriageItem, mergeBookingPayloads } from '../lib/gmail/booking-triage';
+import { isAlreadyHandled } from '../lib/gmail/already-handled';
+import { KIND_META, fromLegacyBookingType, type EmailKind } from '../lib/gmail/taxonomy';
 import NewPropertyWizard, {
   analyzeAirbnbTitle,
   findNewPropertyNames,
@@ -88,60 +92,16 @@ import NewPropertyWizard, {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface ParsedBooking {
-  source: 'gmail';
-  messageId: string;
-  subject: string;
-  receivedAt: string;
-  guestName: string;
-  guestEmail?: string;
-  guestPhone?: string;
-  guests: number;
-  guestAdults?: number;
-  guestChildren?: number;
-  guestInfants?: number;
-  guestPets?: number;
-  guestCountry?: string;
-  guestLanguage?: string;
-  checkIn: string;
-  checkOut: string;
-  nights: number;
-  checkInTime?: string;    // Heure d'arrivée (ex: "15:00")
-  checkOutTime?: string;   // Heure de départ (ex: "11:00")
-  totalPrice: number;
-  currency: string;
-  nightlyRate?: number;    // Prix par nuit
-  cleaningFee?: number;
-  serviceFee?: number;
-  taxAmount?: number;      // Taxes
-  hostPayout?: number;
-  payoutDate?: string;
-  payoutMethod?: string;
-  propertyName?: string;
-  confirmationCode?: string;
-  bookingType: 'new' | 'cancelled' | 'modified' | 'reminder' | 'checkout' | 'review' | 'payout';
-  confidence: number;
-  warnings?: string[];
-  reviewRating?: number;
-  reviewComment?: string;
-  airbnbListingId?: string;
-  modifiedCheckIn?: string;   // Nouvelles dates proposées (modified uniquement)
-  modifiedCheckOut?: string;
-  relatedMessageIds?: string[];
-  timelineEvents?: Array<{
-    messageId: string;
-    bookingType: ParsedBooking['bookingType'];
-    receivedAt: string;
-    confidence: number;
-  }>;
-  parserPatternVersion?: string;
-  classificationSource?: 'subject' | 'body_fallback' | 'unknown';
-  classificationRuleId?: string;
-  classificationRegex?: string;
-}
+// `ParsedBooking` était redéclaré ici, en double du parser — et les deux
+// définitions avaient divergé (`classificationSource` valait 'body_fallback'
+// d'un côté, 'body-fallback' de l'autre). Une seule source fait foi.
+import type { ParsedBooking } from '../lib/gmail-parser';
 
 type SyncStatus = 'idle' | 'checking' | 'syncing' | 'importing' | 'done' | 'error';
-type FilterType = 'all' | 'new' | 'cancelled' | 'modified' | 'review' | 'payout';
+/** Axe 1 — que faire de l'email. */
+type BucketFilter = 'all' | TriageBucket;
+/** Axe 2 — de quoi il parle. */
+type KindFilter = 'all' | ParsedBooking['bookingType'];
 
 interface RejectedBooking {
   booking: ParsedBooking;
@@ -409,7 +369,7 @@ function parseDateRangeFromSubject(subject?: string, receivedAt?: string): { che
   ));
   if (sameMonthCompact) {
     const yr = sameMonthCompact[4] ? Number.parseInt(sameMonthCompact[4], 10) : undefined;
-    let ci = parseIsoDateFromFrenchParts(sameMonthCompact[1], sameMonthCompact[3], sameMonthCompact[4], fallbackYear);
+    const ci = parseIsoDateFromFrenchParts(sameMonthCompact[1], sameMonthCompact[3], sameMonthCompact[4], fallbackYear);
     let co = parseIsoDateFromFrenchParts(sameMonthCompact[2], sameMonthCompact[3], sameMonthCompact[4], fallbackYear);
     if (ci && co) {
       const ciTs = toUtcTimestampFromIso(ci);
@@ -452,7 +412,7 @@ function parseDateRangeFromSubject(subject?: string, receivedAt?: string): { che
   ));
   if (crossMonthCompact) {
     const explicitYear = crossMonthCompact[5];
-    let ci = parseIsoDateFromFrenchParts(crossMonthCompact[1], crossMonthCompact[2], explicitYear, fallbackYear);
+    const ci = parseIsoDateFromFrenchParts(crossMonthCompact[1], crossMonthCompact[2], explicitYear, fallbackYear);
     let co = parseIsoDateFromFrenchParts(crossMonthCompact[3], crossMonthCompact[4], explicitYear, fallbackYear);
     if (ci && co) {
       const ciTs = toUtcTimestampFromIso(ci);
@@ -625,8 +585,8 @@ function enrichBookingDateRange(booking: ParsedBooking): ParsedBooking {
   // donne 2026-12-28 (futur) mais checkOut "2 jan." donne 2026-01-02 → inversés.
   // Correction : si checkIn est dans le futur lointain et checkOut est cohérent, on
   // soustrait 1 an à checkIn.
-  let ci = booking.checkIn;
-  let co = booking.checkOut;
+  const ci = booking.checkIn;
+  const co = booking.checkOut;
   if (isIsoDate(ci) && isIsoDate(co)) {
     const ciTs = toUtcTimestampFromIso(ci);
     const coTs = toUtcTimestampFromIso(co);
@@ -1148,65 +1108,6 @@ function enrichBookingGuestName(booking: ParsedBooking): ParsedBooking {
   };
 }
 
-function evaluateBookingQuality(b: ParsedBooking): { accepted: boolean; reasons: string[] } {
-  const reasons: string[] = [];
-
-  if (!b.messageId) reasons.push('missing_message_id');
-  if (!b.subject?.trim()) reasons.push('missing_subject');
-  if (!b.receivedAt || Number.isNaN(new Date(b.receivedAt).getTime())) reasons.push('invalid_received_at');
-  if (b.receivedAt && !Number.isNaN(new Date(b.receivedAt).getTime()) && new Date(b.receivedAt) < ANALYSIS_START_2026) {
-    reasons.push('outside_2026_window');
-  }
-  if (b.confidence < 40) reasons.push('low_confidence');
-  if (b.bookingType !== 'review' && b.confirmationCode && !/^HM[A-Z0-9]{6,12}$/i.test(b.confirmationCode)) reasons.push('invalid_confirmation_code');
-
-  const effectiveGuestName = isPlaceholderGuestName(b.guestName)
-    ? inferGuestNameFromSubject(b.subject)
-    : b.guestName;
-  const hasGuestName = !!cleanGuestName(effectiveGuestName) && !isPlaceholderGuestName(effectiveGuestName);
-  const hasRealGuestName = hasGuestName;
-
-  switch (b.bookingType) {
-    case 'new':
-      if (!hasRealGuestName) reasons.push('missing_real_guest_name');
-      if (!isValidDateRange(b.checkIn, b.checkOut)) reasons.push('invalid_date_range');
-      if (!(b.totalPrice > 0 || !!b.confirmationCode)) reasons.push('missing_price_or_confirmation_code');
-      break;
-    case 'modified':
-      if (!hasRealGuestName) reasons.push('missing_real_guest_name');
-      // Pour les modifications, on accepte si les dates modifiées sont valides même sans checkIn/checkOut
-      if (!isValidDateRange(b.checkIn, b.checkOut) && !isValidDateRange(b.modifiedCheckIn, b.modifiedCheckOut)) {
-        reasons.push('invalid_date_range');
-      }
-      break;
-    case 'cancelled':
-      if (!hasGuestName) reasons.push('missing_guest_name');
-      if (!isValidDateRange(b.checkIn, b.checkOut)) reasons.push('invalid_date_range');
-      break;
-    case 'checkout':
-    case 'reminder':
-      if (!hasGuestName) reasons.push('missing_guest_name');
-      if (!isValidDateRange(b.checkIn, b.checkOut)) reasons.push('invalid_date_range');
-      break;
-    case 'review':
-      if (!((typeof b.reviewRating === 'number' && b.reviewRating >= 1 && b.reviewRating <= 5) ||
-        (b.reviewComment?.trim().length ?? 0) >= 10)) {
-        reasons.push('review_without_rating_or_comment');
-      }
-      break;
-    case 'payout':
-      if (!((b.hostPayout ?? 0) > 0)) reasons.push('payout_without_amount');
-      break;
-    default:
-      reasons.push('unsupported_booking_type');
-      break;
-  }
-
-  return {
-    accepted: reasons.length === 0,
-    reasons,
-  };
-}
 
 // ─── Matching logement robuste ────────────────────────────────────────────────
 // Retourne le score de similarité entre un nom d'email et un nom de propriété (0-100)
@@ -1663,117 +1564,7 @@ const bookingTypeLabel: Record<ParsedBooking['bookingType'], { label: string; co
   payout:    { label: 'Versement 💶', color: 'bg-emerald-100 text-emerald-700' },
 };
 
-function normalizeEventTimeline(events: ParsedBooking['timelineEvents'] = []): ParsedBooking['timelineEvents'] {
-  const seen = new Set<string>();
-  const deduped = events.filter(e => {
-    if (seen.has(e.messageId)) return false;
-    seen.add(e.messageId);
-    return true;
-  });
-  return deduped.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
-}
 
-function mergeBookingsTimeline(root: ParsedBooking, incoming: ParsedBooking, typePriority: Record<ParsedBooking['bookingType'], number>) {
-  const hasHeuristicDateWarning = (booking: ParsedBooking): boolean =>
-    (booking.warnings || []).some((w) => /date_range_inferred|checkout_defaulted|nights_recomputed_from_dates/i.test(w));
-
-  const rootHasReliableDates = isValidDateRange(root.checkIn, root.checkOut) && !hasHeuristicDateWarning(root);
-  const incomingHasReliableDates = isValidDateRange(incoming.checkIn, incoming.checkOut) && !hasHeuristicDateWarning(incoming);
-
-  // Historique des emails liés
-  root.relatedMessageIds = Array.from(new Set([...(root.relatedMessageIds || [root.messageId]), incoming.messageId]));
-  root.timelineEvents = normalizeEventTimeline([
-    ...(root.timelineEvents || [{ messageId: root.messageId, bookingType: root.bookingType, receivedAt: root.receivedAt, confidence: root.confidence }]),
-    { messageId: incoming.messageId, bookingType: incoming.bookingType, receivedAt: incoming.receivedAt, confidence: incoming.confidence },
-  ]);
-
-  // Warnings cumulés (utile debug import)
-  if (incoming.warnings?.length) {
-    root.warnings = Array.from(new Set([...(root.warnings || []), ...incoming.warnings]));
-  }
-
-  // Email le plus récent pour le contexte principal
-  if (new Date(incoming.receivedAt) > new Date(root.receivedAt)) {
-    root.receivedAt = incoming.receivedAt;
-    root.subject = incoming.subject || root.subject;
-    root.messageId = incoming.messageId;
-  }
-
-  // Promotion du type (new > modified > cancelled > checkout > reminder > review > payout)
-  const incomingTypePriority = typePriority[incoming.bookingType] ?? 0;
-  const rootTypePriority = typePriority[root.bookingType] ?? 0;
-  if (incomingTypePriority > rootTypePriority) {
-    root.bookingType = incoming.bookingType;
-  }
-
-  // Données voyageur / propriété
-  if ((!root.guestName || root.guestName === 'Voyageur Airbnb') && incoming.guestName && incoming.guestName !== 'Voyageur Airbnb') {
-    root.guestName = incoming.guestName;
-  }
-  if (!root.guestEmail && incoming.guestEmail) root.guestEmail = incoming.guestEmail;
-  if (!root.guestPhone && incoming.guestPhone) root.guestPhone = incoming.guestPhone;
-  if (!root.guestLanguage && incoming.guestLanguage) root.guestLanguage = incoming.guestLanguage;
-  if (!root.guestCountry && incoming.guestCountry) root.guestCountry = incoming.guestCountry;
-  if (!root.propertyName && incoming.propertyName) root.propertyName = incoming.propertyName;
-  if (!root.airbnbListingId && incoming.airbnbListingId) root.airbnbListingId = incoming.airbnbListingId;
-
-  // Dates : priorité au type modified si présent, sinon garder la première date fiable
-  const incomingHasValidDates = isValidDateRange(incoming.checkIn, incoming.checkOut);
-  const rootHasValidDates = isValidDateRange(root.checkIn, root.checkOut);
-
-  const shouldReplaceDatesFromIncoming = (() => {
-    if (!incomingHasValidDates) return false;
-    if (incoming.bookingType === 'modified') return true;
-    if (!rootHasValidDates) return true;
-    if (incomingHasReliableDates && !rootHasReliableDates) return true;
-    // Si les deux sont valides, privilégier l'email le plus récent pour refléter l'état courant.
-    return new Date(incoming.receivedAt).getTime() > new Date(root.receivedAt).getTime();
-  })();
-
-  if (shouldReplaceDatesFromIncoming) {
-    root.checkIn = incoming.checkIn;
-    root.checkOut = incoming.checkOut;
-    root.nights = deriveNightsFromIsoRange(incoming.checkIn, incoming.checkOut) || incoming.nights;
-  } else if (!rootHasValidDates && incomingHasValidDates) {
-    // Filet de sécurité: root incomplet/invalide, incoming valide.
-    root.checkIn = incoming.checkIn;
-    root.checkOut = incoming.checkOut;
-    root.nights = deriveNightsFromIsoRange(incoming.checkIn, incoming.checkOut) || incoming.nights;
-  }
-
-  // Horaires
-  if (!root.checkInTime && incoming.checkInTime) root.checkInTime = incoming.checkInTime;
-  if (!root.checkOutTime && incoming.checkOutTime) root.checkOutTime = incoming.checkOutTime;
-
-  // Composition voyageurs
-  if ((!root.guests || root.guests <= 0) && incoming.guests > 0) root.guests = incoming.guests;
-  if (!root.guestAdults && incoming.guestAdults) root.guestAdults = incoming.guestAdults;
-  if (!root.guestChildren && incoming.guestChildren) root.guestChildren = incoming.guestChildren;
-  if (!root.guestInfants && incoming.guestInfants) root.guestInfants = incoming.guestInfants;
-  if (!root.guestPets && incoming.guestPets) root.guestPets = incoming.guestPets;
-
-  // Finance : privilégier les valeurs non nulles + plus complètes
-  if ((!root.totalPrice || root.totalPrice === 0) && incoming.totalPrice && incoming.totalPrice > 0) root.totalPrice = incoming.totalPrice;
-  if (!root.nightlyRate && incoming.nightlyRate) root.nightlyRate = incoming.nightlyRate;
-  if (!root.cleaningFee && incoming.cleaningFee) root.cleaningFee = incoming.cleaningFee;
-  if (!root.serviceFee && incoming.serviceFee) root.serviceFee = incoming.serviceFee;
-  if (!root.taxAmount && incoming.taxAmount) root.taxAmount = incoming.taxAmount;
-  if ((!root.hostPayout || root.hostPayout === 0) && incoming.hostPayout && incoming.hostPayout > 0) root.hostPayout = incoming.hostPayout;
-  if (!root.payoutDate && incoming.payoutDate) root.payoutDate = incoming.payoutDate;
-  if (!root.payoutMethod && incoming.payoutMethod) root.payoutMethod = incoming.payoutMethod;
-  if (!root.currency && incoming.currency) root.currency = incoming.currency;
-
-  // Classification debug metadata (si dispo côté parser)
-  if (!root.parserPatternVersion && incoming.parserPatternVersion) root.parserPatternVersion = incoming.parserPatternVersion;
-  if (!root.classificationSource && incoming.classificationSource) root.classificationSource = incoming.classificationSource;
-  if (!root.classificationRuleId && incoming.classificationRuleId) root.classificationRuleId = incoming.classificationRuleId;
-  if (!root.classificationRegex && incoming.classificationRegex) root.classificationRegex = incoming.classificationRegex;
-
-  // Confiance : garder la meilleure confiance observée dans la timeline
-  if ((incoming.confidence ?? 0) > (root.confidence ?? 0)) {
-    root.confidence = incoming.confidence;
-  }
-}
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 
@@ -1795,7 +1586,8 @@ export default function GmailImporter() {
   const [bookings, setBookings] = useState<ParsedBooking[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [filter, setFilter] = useState<FilterType>('all');
+  const [bucketFilter, setBucketFilter] = useState<BucketFilter>('all');
+  const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [stats, setStats] = useState<{ found: number; parsed: number; errors: number; skippedPersisted: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [imported, setImported] = useState<string[]>([]);
@@ -1807,6 +1599,7 @@ export default function GmailImporter() {
   const [purgeResult, setPurgeResult] = useState<{ bookings: number; guests: number } | null>(null);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [qualityReport, setQualityReport] = useState<QualityReport | null>(null);
+  const [triageStats, setTriageStats] = useState<TriageResult['stats'] | null>(null);
   const [rejectedBookings, setRejectedBookings] = useState<RejectedBooking[]>([]);
   const [activeRejectReason, setActiveRejectReason] = useState<string>('all');
   const [importTrace, setImportTrace] = useState<ImportTraceEntry[]>([]);
@@ -2058,7 +1851,12 @@ export default function GmailImporter() {
         'from:airbnb.com subject:payout after:2026/01/01',
       ];
       const allBookings: ParsedBooking[] = [];
+      // Les emails NON importables (message, litige, marketing…) reviennent
+      // aussi de l'API. On les garde pour que le bilan du tri compte vraiment
+      // tout ce qui a été scanné — c'est ce que l'ancien import ne faisait pas.
+      const informationalItems: TriageItem[] = [];
       const seen = new Set<string>();
+      const seenAnalyzed = new Set<string>();
 
       for (const [queryIndex, q] of queries.entries()) {
         setRuntimeProgress({
@@ -2086,6 +1884,15 @@ export default function GmailImporter() {
               allBookings.push(normalized);
             }
           }
+        }
+        if (Array.isArray(data.analyzed)) {
+          for (const item of data.analyzed as TriageItem[]) {
+            if (seenAnalyzed.has(item.messageId)) continue;
+            seenAnalyzed.add(item.messageId);
+            // Ceux qui ont produit une fiche sont déjà couverts par `allBookings`
+            // (et enrichis) : on ne garde ici que le reste.
+            if (!item.payload) informationalItems.push(item);
+          }
           if (data.stats) setStats(s => s
             ? {
               found: s.found + data.stats.found,
@@ -2110,84 +1917,92 @@ export default function GmailImporter() {
         });
       }
 
-      const qualityEvaluations = allBookings.map((booking) => {
-        const quality = evaluateBookingQuality(booking);
-        return {
-          booking,
-          accepted: quality.accepted,
-          reasons: quality.reasons,
-        };
+      // ── TRI ────────────────────────────────────────────────────────────────
+      // Tout le classement vit maintenant dans lib/gmail/triage.ts : identité de
+      // réservation en cascade, fusion par autorité, bacs motivés.
+      //
+      // Ce qui a disparu d'ici : evaluateBookingQuality (rejet en bloc, sans
+      // nuance), le regroupement limité au code HM (les emails sans code
+      // apparaissaient en doublon) et mergeBookingsTimeline (fusion mutante).
+      const inWindow = allBookings.filter((b) => {
+        const ts = new Date(b.receivedAt).getTime();
+        return Number.isFinite(ts) && ts >= ANALYSIS_START_2026.getTime();
       });
+      const outOfWindow = allBookings.length - inWindow.length;
+      if (outOfWindow > 0) {
+        console.info(`[GmailImporter] ${outOfWindow} email(s) hors fenêtre d'analyse (< 2026)`);
+      }
 
-      const qualityBookings = qualityEvaluations.filter(r => r.accepted).map(r => r.booking);
-      const rejected = qualityEvaluations
-        .filter(r => !r.accepted)
-        .map(r => ({ booking: r.booking, reasons: r.reasons }));
-      const rejectedCount = rejected.length;
+      const triageItems = [...inWindow.map(bookingToTriageItem), ...informationalItems];
+      const triaged = triage(triageItems, { mergePayloads: mergeBookingPayloads });
+
+      // Les groupes importables et ceux à vérifier alimentent la liste ; les
+      // informatifs restent consultables via le rapport, plus jetés en silence.
+      // Un groupe dont la réservation est déjà en base — et dans l'état visé —
+      // n'a plus rien à apporter. Sans ce filtre, les emails du groupe qui
+      // n'ont pas servi d'`externalId` reviennent à chaque scan et reproposent
+      // la même réservation. Voir lib/gmail/already-handled.ts.
+      const alreadyHandled = new Map<string, string>();
+      for (const g of triaged.groups) {
+        const verdict = isAlreadyHandled(
+          {
+            kind: g.kind,
+            confirmationCode: g.consolidated.confirmationCode,
+            checkIn: g.consolidated.checkIn,
+            checkOut: g.consolidated.checkOut,
+          },
+          existingBookings,
+          (b, code) => bookingHasConfirmationCodeInContext(b, code),
+        );
+        if (verdict.handled) alreadyHandled.set(g.key, verdict.reason ?? 'Déjà traité');
+      }
+
+      const finalBookings: ParsedBooking[] = triaged.groups
+        .filter((g) => !alreadyHandled.has(g.key))
+        .filter((g) => g.bucket === 'to_import' || g.bucket === 'needs_review')
+        .map((g): ParsedBooking | undefined => {
+          const booking = g.payload as ParsedBooking | undefined;
+          if (!booking) return undefined;
+          // Le verdict du tri voyage avec la fiche : l'UI peut filtrer dessus
+          // et afficher le motif exact au lieu d'un simple « rejeté ».
+          return {
+            ...booking,
+            triageBucket: g.bucket,
+            triageReasons: g.bucketReasons,
+            triageIdentityBasis: g.identityBasis,
+          };
+        })
+        .filter((b): b is ParsedBooking => Boolean(b));
+
+      const rejected = triaged.byBucket.needs_review
+        .filter((g) => !alreadyHandled.has(g.key))
+        .filter((g) => g.payload)
+        .map((g) => ({ booking: g.payload as ParsedBooking, reasons: g.bucketReasons }));
 
       const reasonBreakdown = rejected.reduce<Record<string, number>>((acc, item) => {
-        for (const reason of item.reasons) {
-          acc[reason] = (acc[reason] || 0) + 1;
-        }
+        for (const reason of item.reasons) acc[reason] = (acc[reason] || 0) + 1;
         return acc;
       }, {});
 
       setRejectedBookings(rejected);
       setQualityReport({
-        scanned: allBookings.length,
-        accepted: qualityBookings.length,
-        rejected: rejectedCount,
-        acceptanceRate: allBookings.length > 0 ? Math.round((qualityBookings.length / allBookings.length) * 100) : 0,
+        scanned: triaged.stats.emails,
+        accepted: triaged.stats.byBucket.to_import,
+        rejected: triaged.stats.byBucket.needs_review,
+        acceptanceRate: triaged.stats.groups > 0
+          ? Math.round((triaged.stats.byBucket.to_import / triaged.stats.groups) * 100)
+          : 0,
         reasonBreakdown,
       });
+      setTriageStats(triaged.stats);
 
-      if (rejectedCount > 0) {
-        console.info(`[GmailImporter] ${rejectedCount} email(s) ignoré(s) (qualité insuffisante)`);
+      if (alreadyHandled.size > 0) {
+        console.info(`[GmailImporter] ${alreadyHandled.size} réservation(s) déjà traitée(s), écartée(s) du tri`);
+      }
+      if (triaged.stats.merged > 0) {
+        console.info(`[GmailImporter] ${triaged.stats.merged} email(s) fusionné(s) dans une réservation existante`);
       }
 
-      qualityBookings.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
-
-      // Regroupement des emails concernant la même réservation (par confirmationCode)
-      // RÈGLE : on groupe uniquement les emails avec un vrai code Airbnb "HM…"
-      // Les payout avec code HM sont gardés SÉPARÉS (type différent, traitement différent)
-      // Priorité de type : new > modified > cancelled > checkout > reminder > review > payout
-      const TYPE_PRIORITY: Record<ParsedBooking['bookingType'], number> = {
-        new: 7, modified: 6, cancelled: 5, checkout: 4, reminder: 3, review: 2, payout: 1,
-      };
-      const groupedMap = new Map<string, ParsedBooking>();
-      const finalBookings: ParsedBooking[] = [];
-
-      for (const b of qualityBookings) {
-        // Sécuriser le regroupement : uniquement si le code commence par "HM" (vrai code Airbnb)
-        const isValidCode = b.confirmationCode && /^HM[A-Z0-9]{6,12}$/i.test(b.confirmationCode);
-        
-        if (!isValidCode) {
-          // Pas de code HM valide → entrée indépendante
-          finalBookings.push(b);
-        } else {
-          const code = b.confirmationCode!.toUpperCase();
-          // Clé unique : code + type pour garder payout séparé
-          const groupKey = b.bookingType === 'payout' ? `${code}_payout` : code;
-
-          if (!groupedMap.has(groupKey)) {
-            const base: ParsedBooking = {
-              ...b,
-              relatedMessageIds: [b.messageId],
-              timelineEvents: [{
-                messageId: b.messageId,
-                bookingType: b.bookingType,
-                receivedAt: b.receivedAt,
-                confidence: b.confidence,
-              }],
-            };
-            groupedMap.set(groupKey, base);
-            finalBookings.push(groupedMap.get(groupKey)!);
-          } else {
-            const root = groupedMap.get(groupKey)!;
-            mergeBookingsTimeline(root, b, TYPE_PRIORITY);
-          }
-        }
-      }
 
   // Pré-fetch des noms depuis la DB pour les payouts avec confirmationCode
   // (BNBContext = localStorage vide en production → on interroge l'API réelle)
@@ -2231,16 +2046,22 @@ export default function GmailImporter() {
 
   setBookings(enrichedFinalBookings);
       // Auto-sélectionner uniquement :
-      // - nouvelles réservations avec confiance ≥ 70%
-      // - annulations et modifications (toujours — impactent les réservations existantes)
-      // - avis (enrichissement de données)
-      // NE PAS auto-sélectionner reminder/checkout — ces types ne créent pas de nouvelle réservation
-      setSelected(new Set(enrichedFinalBookings.filter(b =>
-        (b.bookingType === 'new' && b.confidence >= 70) ||
-        b.bookingType === 'cancelled' ||
-        b.bookingType === 'modified' ||
-        b.bookingType === 'review'
-      ).map(b => b.messageId)));
+      // - uniquement le bac « À importer » : une fiche partie en « À vérifier »
+      //   (classement ambigu, dates manquantes) ne doit JAMAIS être cochée
+      //   d'office, sinon le bac ne sert à rien ;
+      // - annulations et modifications comprises : elles impactent une
+      //   réservation existante ;
+      // - avis : enrichissement de données.
+      // NE PAS auto-sélectionner reminder/checkout — ces types ne créent pas
+      // de nouvelle réservation.
+      const AUTO_SELECTABLE_TYPES: ReadonlySet<ParsedBooking['bookingType']> =
+        new Set(['new', 'cancelled', 'modified', 'review']);
+
+      setSelected(new Set(enrichedFinalBookings
+        .filter((b) => (b.triageBucket ?? 'to_import') === 'to_import')
+        .filter((b) => AUTO_SELECTABLE_TYPES.has(b.bookingType))
+        .filter((b) => b.bookingType !== 'new' || b.confidence >= 70)
+        .map((b) => b.messageId)));
       setStatus('done');
     } catch (e) {
       setError(String(e));
@@ -4227,8 +4048,20 @@ export default function GmailImporter() {
     });
   };
 
-  const filtered = bookings.filter(b => filter === 'all' ? true : b.bookingType === filter);
-  const newCount = bookings.filter(b => b.bookingType === 'new').length;
+  const filtered = bookings.filter((b) => {
+    const bucketOk = bucketFilter === 'all' || (b.triageBucket ?? 'to_import') === bucketFilter;
+    const kindOk = kindFilter === 'all' || b.bookingType === kindFilter;
+    return bucketOk && kindOk;
+  });
+  const bucketCounts = bookings.reduce<Record<string, number>>((acc, b) => {
+    const bucket = b.triageBucket ?? 'to_import';
+    acc[bucket] = (acc[bucket] || 0) + 1;
+    return acc;
+  }, {});
+  const kindCounts = bookings.reduce<Record<string, number>>((acc, b) => {
+    acc[b.bookingType] = (acc[b.bookingType] || 0) + 1;
+    return acc;
+  }, {});
   // Sélectionnable : tout type
   const selectedNew = bookings.filter(b => selected.has(b.messageId)).length;
 
@@ -4585,6 +4418,56 @@ export default function GmailImporter() {
           </div>
         )}
       </div>
+
+      {/* ── Bilan du tri ─────────────────────────────────────────────────────
+          Ce panneau existe parce que l'ancien import « perdait » des emails :
+          tout ce qui n'était pas importable disparaissait sans explication.
+          Ici chaque email scanné est compté quelque part. */}
+      {triageStats && (
+        <div className={`border rounded-xl p-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          <div className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+            🗂️ Tri des emails
+          </div>
+          <div className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            {triageStats.emails} email(s) analysé(s) → {triageStats.groups} entrée(s)
+            {triageStats.merged > 0 && ` · ${triageStats.merged} fusionné(s) dans une réservation existante`}
+          </div>
+
+          <div className="flex flex-wrap gap-2 mt-3">
+            {(Object.keys(BUCKET_LABELS) as TriageBucket[]).map((bucket) => (
+              <div
+                key={bucket}
+                className={`px-2.5 py-1.5 rounded-lg text-xs ${
+                  bucket === 'to_import'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : bucket === 'needs_review'
+                      ? 'bg-amber-100 text-amber-800'
+                      : isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                <span className="font-semibold">{triageStats.byBucket[bucket]}</span> {BUCKET_LABELS[bucket]}
+              </div>
+            ))}
+          </div>
+
+          {/* Détail par genre — y compris les genres jamais importés
+              (messages, litiges, marketing). Ils ne sont plus invisibles. */}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {(Object.entries(triageStats.byKind) as Array<[EmailKind, number]>)
+              .sort((a, b) => b[1] - a[1])
+              .map(([kind, count]) => (
+                <span
+                  key={kind}
+                  className={`px-2 py-0.5 rounded text-[11px] ${
+                    isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {KIND_META[kind].label} · {count}
+                </span>
+              ))}
+          </div>
+        </div>
+      )}
 
       {qualityReport && (
         <div className={`border rounded-xl p-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
@@ -5463,19 +5346,42 @@ export default function GmailImporter() {
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <Filter className={`w-4 h-4 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                  {(['all', 'new', 'cancelled', 'modified', 'payout', 'review'] as FilterType[]).map(f => (
+                  {(['all', 'to_import', 'needs_review'] as BucketFilter[]).map(f => (
                     <button
                       key={f}
-                      onClick={() => setFilter(f)}
+                      onClick={() => setBucketFilter(f)}
+                      title={f === 'needs_review'
+                        ? 'Emails classés, mais dont la décision ou les données méritent une relecture'
+                        : undefined}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        filter === f ? 'bg-violet-600 text-white'
+                        bucketFilter === f ? 'bg-violet-600 text-white'
                         : isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                     >
-                      {f === 'all' ? `Tous (${bookings.length})` : f === 'new' ? `Nouvelles (${newCount})` : f === 'cancelled' ? 'Annulées' : f === 'payout' ? 'Versements' : f === 'review' ? 'Avis' : 'Modifications'}
+                      {f === 'all'
+                        ? `Tous (${bookings.length})`
+                        : `${BUCKET_LABELS[f]} (${bucketCounts[f] ?? 0})`}
                     </button>
                   ))}
+                  <span className={`mx-1 h-4 w-px ${isDark ? 'bg-gray-600' : 'bg-gray-300'}`} />
+                  {(['all', 'new', 'modified', 'cancelled', 'checkout', 'reminder', 'payout', 'review'] as KindFilter[])
+                    .filter(f => f === 'all' || (kindCounts[f] ?? 0) > 0)
+                    .map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setKindFilter(f)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          kindFilter === f ? 'bg-violet-600 text-white'
+                          : isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {f === 'all'
+                          ? 'Tous types'
+                          : `${KIND_META[fromLegacyBookingType(f)].label} (${kindCounts[f] ?? 0})`}
+                      </button>
+                    ))}
                 </div>
                 <button 
                   onClick={selectAll} 
@@ -5624,6 +5530,34 @@ export default function GmailImporter() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{booking.guestName}</span>
                               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>{typeInfo.label}</span>
+                              {/* Verdict du tri : pourquoi cette fiche est là, et ce qui cloche.
+                                  Avant, une fiche « à vérifier » était simplement absente. */}
+                              {booking.triageBucket === 'needs_review' && (
+                                <span
+                                  title={(booking.triageReasons ?? []).join(' · ')}
+                                  className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-800"
+                                >
+                                  ⚠ À vérifier
+                                </span>
+                              )}
+                              {booking.classificationVerdict === 'ambigu' && (
+                                <span
+                                  title={booking.classificationRunnerUp
+                                    ? `Le moteur hésitait avec : ${KIND_META[booking.classificationRunnerUp as EmailKind]?.label ?? booking.classificationRunnerUp}`
+                                    : 'Classement incertain'}
+                                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-orange-900/50 text-orange-200' : 'bg-orange-100 text-orange-700'}`}
+                                >
+                                  ? Classement incertain
+                                </span>
+                              )}
+                              {(booking.relatedMessageIds?.length ?? 0) > 1 && (
+                                <span
+                                  title={`${booking.relatedMessageIds!.length} emails regroupés — identité : ${booking.triageIdentityBasis ?? 'code de confirmation'}`}
+                                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-indigo-900/50 text-indigo-200' : 'bg-indigo-100 text-indigo-700'}`}
+                                >
+                                  ⛓ {booking.relatedMessageIds!.length} emails
+                                </span>
+                              )}
                               {booking.confirmationCode && (
                                 <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
                                   #{booking.confirmationCode}

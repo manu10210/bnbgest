@@ -43,7 +43,9 @@
     "test:performance:ci": "playwright test --config=playwright.performance.config.ts --project=chromium",
     "test:perf": "playwright test --config=playwright.performance.config.ts --project=chromium",
     "test:api": "playwright test tests/api-performance.spec.ts",
-    "test:gmail-parser": "tsx tests/parser/gmail-parser-quality.ts"
+    "test:gmail-parser": "tsx tests/parser/gmail-parser-quality.ts",
+    "test:gmail-detection": "tsx tests/parser/gmail-detection-quality.ts",
+    "test:gmail": "npm run test:gmail-parser && npm run test:gmail-detection"
   },
   "bundlesize": [
     {

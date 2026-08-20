@@ -1,4 +1,9 @@
 ﻿import { extractGuestCountry, detectGuestLanguage, extractGuestPhone, extractGuestEmail, extractGuestComposition, extractGuestName } from './guest-parser';
+import { normalizeEmail } from './gmail/text';
+import { extractSignals } from './gmail/signals';
+import { classifyEmail, type Classification } from './gmail/classify';
+import { isActionableKind, toLegacyBookingType, KIND_META, type EmailKind } from './gmail/taxonomy';
+import type { TriageItem } from './gmail/triage';
 /**
  * 📧 Gmail Parser — Extraction automatique des réservations Airbnb
  *
@@ -6,18 +11,32 @@
  * Supporte : Emails hôte Airbnb en français et en anglais (2024-2026)
  *
  * ════════════════════════════════════════════════════════════════════════════
- * ARCHITECTURE DU PARSER
+ * ARCHITECTURE — où vit quoi
  * ════════════════════════════════════════════════════════════════════════════
  *
- *  parseAirbnbEmail()
- *   ├─ 1. Vérifier expéditeur @airbnb.com
- *   ├─ 2. IGNORED_PATTERNS → null  (maintenance, litige, paiement voyageur…)
- *   ├─ 3. Détecter bookingType via SUBJECT_PATTERNS (sujet)
- *   │      ou fallback via slugs URL dans le corps
- *   ├─ 4. Extraire dates checkIn / checkOut  (sauf payout)
- *   ├─ 5. Extraire prix, frais, versement hôte
- *   ├─ 6. Extraire nom voyageur, logement, code confirmation
- *   └─ 7. Calculer score de confiance (0-100)
+ * Ce fichier N'EST PLUS responsable de la détection. Il extrait des champs.
+ * La chaîne complète :
+ *
+ *   lib/gmail/text.ts      normalisation (quoted-printable, HTML, Unicode)
+ *   lib/gmail/signals.ts   signaux (slug canonique décodé, codes, JSON-LD…)
+ *   lib/gmail/rules.ts     règles pondérées, déclaratives
+ *   lib/gmail/classify.ts  scoring → genre + confiance + preuves
+ *   lib/gmail-parser.ts    ← ICI : extraction des champs d'une fiche
+ *   lib/gmail/triage.ts    regroupement, fusion, bacs
+ *
+ *  analyzeAirbnbEmail()   → tout email, avec son genre et ses preuves
+ *   └─ parseAirbnbEmail() → fiche réservation, si le genre est actionnable
+ *        ├─ 1-2. détection déléguée au moteur ci-dessus
+ *        ├─ 3.   texte normalisé (lib/gmail/text.ts)
+ *        ├─ 4.   dates checkIn / checkOut  (sauf payout / avis)
+ *        ├─ 5.   prix, frais, versement hôte
+ *        ├─ 6.   nom voyageur, logement, code confirmation
+ *        └─ 7.   score de confiance (0-100)
+ *
+ * ⚠️ Les sections « TYPES D'EMAILS RECONNUS » et « EMAILS IGNORÉS » ci-dessous
+ *    décrivent le comportement historique. La liste qui fait foi est
+ *    lib/gmail/taxonomy.ts (18 genres) et lib/gmail/rules.ts (les motifs).
+ *    Plus rien n'est « ignoré » silencieusement : voir taxonomy.ts.
  *
  * ════════════════════════════════════════════════════════════════════════════
  * TYPES D'EMAILS AIRBNB RECONNUS (bookingType)
@@ -189,6 +208,31 @@ export interface ParsedBooking {
   classificationSource?: 'subject' | 'body-fallback';
   classificationRuleId?: string;
   classificationRegex?: string;
+  // ── Détection enrichie (moteur lib/gmail/) ────────────────────────────────
+  /** Genre complet issu de la taxonomie — plus fin que `bookingType`. */
+  kind?: EmailKind;
+  /** Netteté de la décision de classification. */
+  classificationVerdict?: 'certain' | 'probable' | 'ambigu';
+  /** Écart de score avec le genre arrivé second. */
+  classificationMargin?: number;
+  /** Genre concurrent, quand la décision n'était pas nette. */
+  classificationRunnerUp?: string;
+  /** Preuves lisibles ayant mené à la décision (les 5 plus fortes). */
+  classificationEvidence?: Array<{ ruleId: string; why: string; weight: number }>;
+  // ── Consolidation multi-emails (renseignée par le tri) ────────────────────
+  /** Bac attribué par `triage()` : à importer, à vérifier, informatif… */
+  triageBucket?: 'to_import' | 'needs_review' | 'informational' | 'discarded';
+  /** Motifs du bac — affichés tels quels à l'utilisateur. */
+  triageReasons?: string[];
+  /** Comment les emails du groupe ont été reconnus comme une même réservation. */
+  triageIdentityBasis?: string;
+  relatedMessageIds?: string[];
+  timelineEvents?: Array<{
+    messageId: string;
+    bookingType: ParsedBooking['bookingType'];
+    receivedAt: string;
+    confidence: number;
+  }>;
   isInstantBook?: boolean;  // true si réservation instantanée (sans approbation)
   cancellationPolicy?: string; // Politique d'annulation (ex: "Flexible", "Modérée", "Stricte")
   // Modification — nouvelles dates proposées
@@ -203,338 +247,21 @@ export interface ParsedBooking {
   airbnbListingId?: string;
 }
 
-// ─── Expéditeurs connus Airbnb ──────────────────────────────────────────────
-// automated@airbnb.com = notifications hôtes principales
-// express@, no-reply@, reply@, support@ = autres domaines Airbnb
-const AIRBNB_SENDERS = [
-  'automated@airbnb.com',
-  'express@airbnb.com',
-  'no-reply@airbnb.com',
-  'reply@airbnb.com',
-  'support@airbnb.com',
-  'airbnb.com',  // domaine générique → capture toute adresse @*.airbnb.com
-];
-
-// ─── Emails à IGNORER ───────────────────────────────────────────────────────
-// Retourne null immédiatement — pas de réservation à importer.
-// Voir JSDoc en tête de fichier pour la liste complète par catégorie.
-const IGNORED_PATTERNS = [
-  // Maintenance / Actions requises sur les annonces
-  /plusieurs\s+annonces?\s+n[eé]cessitent?\s+votre\s+attention/i,
-  /annonces?\s+n[eé]cessitent?\s+votre\s+attention/i,
-  /votre\s+attention\s+est\s+requise/i,
-  /action\s+requise\s+sur\s+votre\s+annonce/i,
-  /action\s+n[eé]cessaire\s+sur\s+votre\s+annonce/i,
-  /mise\s+[àa]\s+jour\s+de\s+votre\s+annonce/i,
-  /mettez?\s+[àa]\s+jour\s+votre\s+annonce/i,
-  /action\s+required.*listing/i,
-  /listing.*requires?\s+your\s+attention/i,
-  /update\s+your\s+listing/i,
-  // Newsletters / Conseils / Opportunités
-  /conseils?\s+pour\s+les\s+h[oô]tes?/i,
-  /ressources?\s+pour\s+les\s+h[oô]tes?/i,
-  /bonnes?\s+pratiques?\s+airbnb/i,
-  /am[eé]liorez?\s+votre\s+annonce/i,
-  /augmentez?\s+vos\s+revenus/i,
-  /optimisez?\s+vos\s+tarifs/i,
-  /host\s+tips?/i,
-  /host\s+resources?/i,
-  /superh[oô]te/i,
-  /superhost/i,
-  // Notifications de politique / Conditions
-  /politique\s+de\s+r[eé]mun[eé]ration/i,
-  /mise\s+[àa]\s+jour\s+des\s+conditions/i,
-  /modification\s+des\s+conditions\s+d[''']utilisation/i,
-  /nouvelles?\s+conditions\s+g[eé]n[eé]rales/i,
-  /terms\s+of\s+service/i,
-  /policy\s+update/i,
-  // Sécurité / Compte
-  /connexion\s+[àa]\s+votre\s+compte/i,
-  /votre\s+compte\s+airbnb/i,
-  /v[eé]rifiez?\s+votre\s+adresse/i,
-  /r[eé]initialisez?\s+votre\s+mot\s+de\s+passe/i,
-  /sign.?in\s+to\s+your\s+account/i,
-  /verify\s+your\s+email/i,
-  /reset\s+your\s+password/i,
-  // Messagerie sans réservation
-  /a\s+r[eé]pondu\s+[àa]\s+votre\s+message/i,
-  /vous\s+a\s+envoy[eé]\s+un\s+message/i,
-  /vous\s+avez\s+un\s+nouveau\s+message/i,
-  /new\s+message\s+from/i,
-  /replied\s+to\s+your\s+message/i,
-  /sent\s+you\s+a\s+message/i,
-  // Sinistres / Remboursements / AirCover / Réclamations financières
-  /vous\s+avez\s+demand[eé]\s+de\s+l[''']argent/i,
-  /a\s+demand[eé]\s+de\s+l[''']argent/i,
-  /demande\s+de\s+remboursement/i,
-  /remboursement\s+demand[eé]/i,
-  /r[eé]clamation\s+(?:soumise|envoy[eé]e?|en\s+cours)/i,
-  /sinistre\s+(?:signal[eé]|ouvert|soumis)/i,
-  /aircover/i,
-  /protection\s+h[oô]te/i,
-  /dommage[s]?\s+signal[eé][s]?/i,
-  /signaler\s+(?:un\s+)?(?:dommage|probl[eè]me|sinistre)/i,
-  /you\s+requested\s+money\s+from/i,
-  /money\s+request/i,
-  /reimbursement\s+request/i,
-  /damage\s+claim/i,
-  /resolution\s+center/i,
-  /centre\s+de\s+r[eé]solution/i,
-  // Litiges / Offres de remboursement / Négociation montant
-  /vous\s+avez\s+propos[eé]\s+un\s+montant\s+diff[eé]rent/i,
-  /a\s+propos[eé]\s+un\s+montant\s+diff[eé]rent/i,
-  /offre\s+de\s+remboursement/i,
-  /proposition\s+de\s+remboursement/i,
-  /litige\s+(?:ouvert|en\s+cours|soumis)/i,
-  /contestation\s+de\s+(?:r[eé]servation|paiement)/i,
-  /vous\s+avez\s+contest[eé]/i,
-  /a\s+contest[eé]\s+(?:le\s+)?remboursement/i,
-  /offered\s+a\s+different\s+amount/i,
-  /submitted\s+a\s+reimbursement/i,
-  /dispute\s+(?:opened|submitted|filed)/i,
-  // Notifications de paiement voyageur (pas un versement hôte, pas une réservation à importer)
-  /paiement\s+effectu[eé]\s+(?:pour|de)\s+(?:la\s+)?r[eé]servation/i,
-  /paiement\s+re[cç]u\s+(?:pour|de)\s+(?:la\s+)?r[eé]servation/i,
-  /confirmation\s+de\s+paiement/i,
-  /votre\s+paiement\s+(?:a\s+[eé]t[eé]\s+)?(?:effectu[eé]|re[cç]u|valid[eé])/i,
-  /paiement\s+valid[eé]/i,
-  /payment\s+(?:received|confirmed|processed)\s+for/i,
-  /your\s+payment\s+(?:has\s+been\s+)?(?:received|confirmed|processed)/i,
-  // Rappels d'évaluation HÔTE (Airbnb demande à l'hôte de noter son voyageur)
-  // Ces emails n'ont pas de réservation à importer
-  /attendent?\s+votre\s+(?:commentaire|[eé]valuation|avis)/i,
-  /\d+\s+voyageurs?\s+attendent/i,
-  /voyageurs?\s+attendent?\s+votre/i,
-  /n[''']oubliez\s+pas\s+de\s+(?:noter|[eé]valuer)/i,
-  /[eé]valuez\s+(?:votre\s+)?voyageur/i,
-  /notez\s+(?:votre\s+)?voyageur/i,
-  /laissez\s+(?:un\s+)?commentaire\s+(?:pour|[àa])/i,
-  /donnez\s+votre\s+avis\s+(?:sur|pour)/i,
-  /rate\s+your\s+guest/i,
-  /don[''']t\s+forget\s+to\s+review/i,
-  /leave\s+a\s+review\s+for\s+your\s+guest/i,
-  /write\s+a\s+review/i,
-  // Sujets corrompus / URLs de tracking Airbnb encodées (base64, paramètres URL)
-  // Ex: "661?c=.pi80.pkaG9tZV9yZXZpZXdzL2VtcGF0aGV0aWNfaG9zdF9yZXZpZXdfcmVjZWl2ZWQ%3D&eu"
-  /^[\w\d]+\?c=/,           // sujet qui commence par un identifiant puis "?c="
-  /[A-Za-z0-9+/]{20,}={0,2}/, // longue chaîne base64 dans le sujet
-  /\?(?:c|eu|t|s|ref)=[A-Za-z0-9%_+/.-]{10,}/, // paramètre URL encodé
-];
-
-// ─── Patterns de classification par type d'email ────────────────────────────
-// ORDRE DE PRIORITÉ : new > cancelled > modified > checkout > reminder > review > payout
-// (voir JSDoc en tête de fichier pour la liste complète des sujets observés)
-const SUBJECT_PATTERNS = {
-  new_fr: [
-    // "Marie a réservé votre logement" / "Marie a réservé"
-    /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+a\s+r[eé]serv[eé]\s+votre\s+logement/,
-    /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+a\s+r[eé]serv[eé]/,
-    // "Marie a demandé à réserver" (réservation instantanée ou demande)
-    /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+a\s+demand[eé]\s+[àa]\s+r[eé]server/,
-    // "Réservation instantanée"
-    /r[eé]servation\s+instantan[eé]e?/i,
-    // "Nouvelle réservation" / "Confirmation de réservation" / "Réservation confirmée"
-    /nouvelle\s+r[eé]servation/i,
-    /confirmation\s+de\s+r[eé]servation/i,
-    /r[eé]servation\s+confirm[eé]e?/i,
-    /vous\s+avez\s+une\s+nouvelle\s+r[eé]servation/i,
-    /votre\s+r[eé]servation\s+est\s+confirm[eé]e?/i,
-    /r[eé]servation\s+accept[eé]e?/i,
-    // "Demande de réservation de Marie acceptée"
-    /demande\s+de\s+r[eé]servation\s+accept[eé]e?/i,
-    // "Félicitations ! Marie a réservé votre logement."
-    /f[eé]licitations[^a-z]*r[eé]servation/i,
-    // "Réservation pour Mon Logement, 10–13 avr."
-    /r[eé]servation\s+pour\s+.{5,60},?\s+\d{1,2}[–\-]/i,
-  ],
-  new_en: [
-    /[A-Z][a-z]+\s+has\s+booked\s+your\s+place/,
-    /[A-Z][a-z]+\s+has\s+booked/,
-    /reservation\s+confirmed/i,
-    /new\s+reservation/i,
-    /booking\s+confirmation/i,
-    /you\s+have\s+a\s+new\s+reservation/i,
-    /booking\s+confirmed/i,
-    /reservation\s+request\s+accepted/i,
-    /congratulations.*reservation/i,
-    /[A-Z][a-z]+\s+has\s+reserved\s+your\s+place/,
-  ],
-  cancelled: [
-    // "Marie a annulé sa réservation"
-    /a\s+annul[eé]\s+(?:sa\s+)?r[eé]servation/i,
-    /r[eé]servation\s+annul[eé]e?/i,
-    /annulation\s+de\s+r[eé]servation/i,
-    /annul[eé]e?\s*:/i,
-    /cancelled/i, /cancellation/i,
-    /booking\s+cancelled/i,
-  ],
-  modified: [
-    // "Marie a modifié sa réservation"
-    /a\s+modifi[eé]\s+(?:sa\s+)?r[eé]servation/i,
-    // "Marie souhaite changer/modifier sa réservation"  ← observé réel
-    /souhaite\s+changer\s+(?:sa\s+)?r[eé]servation/i,
-    /souhaite\s+modifier\s+(?:sa\s+)?r[eé]servation/i,
-    /a\s+chang[eé]\s+(?:sa\s+)?r[eé]servation/i,
-    /veut\s+(?:changer|modifier)\s+(?:sa\s+)?r[eé]servation/i,
-    /demande\s+de\s+(?:modification|changement)/i,
-    /modification\s+de\s+r[eé]servation/i,
-    /changement\s+de\s+r[eé]servation/i,
-    /modifi[eé]e?\s*:/i,
-    // "modified" ou "updated" uniquement si contexte réservation dans le sujet
-    /r[eé]servation\s+(?:modifi[eé]e?|updated?)/i,
-    /booking\s+(?:modified|updated)/i,
-    /mis\s+[àa]\s+jour\s+[:\-–]/i,
-    /alteration\s+request/i,
-    // "Marie wants to change their booking"
-    /wants?\s+to\s+change\s+(?:their\s+)?(?:reservation|booking)/i,
-  ],
-  checkout: [
-    // "Le séjour de Marie se termine aujourd'hui"
-    /s[eé]jour\s+de\s+.+\s+se\s+termine/i,
-    // "Marie part aujourd'hui"
-    /[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜŸŒÆ][a-zàâäéèêëîïôùûüÿœæ]+\s+part\s+aujourd[''']hui/,
-    /d[eé]part\s+de/i,
-    /voyage\s+termin[eé]/i, /s[eé]jour\s+termin[eé]/i,
-    /check.?out/i, /checkout/i,
-    /trip\s+completed/i, /stay\s+completed/i,
-    /your\s+guest\s+is\s+checking\s+out/i,
-    /checking\s+out\s+today/i,
-  ],
-  reminder: [
-    // Rappels d'arrivée imminente UNIQUEMENT (liés à une réservation existante)
-    // Les rappels d'évaluation hôte sont dans IGNORED_PATTERNS
-    // "Rappel : Marie arrive dans 2 jours" — exclure "Rappel : annulation" etc.
-    /rappel\s*[:\–-]\s*(?!annul|cancel|modif|politique)[^\n]{0,40}(?:arriv|s[eé]jour|check|voyage)/i,
-    /dans\s+\d+\s+jours?/i,
-    /in\s+\d+\s+days?/i,
-    // "Marie arrive demain !"
-    /arrive\s+(?:demain|aujourd[''']hui|dans)/i,
-    /pr[eé]par[eé]z.{0,20}arriv[eé]e?/i,
-    /avez.{0,20}pr[eé]par[eé].{0,20}arriv[eé]e?/i,
-    /prochaine?\s+arriv[eé]e?/i,
-    /prochaine?\s+s[eé]jour/i,
-    /reminder\s*:/i,
-    /arriving\s+(?:tomorrow|today|in\s+\d)/i,
-  ],
-  review: [
-    // Avis REÇU d'un voyageur (≠ rappel hôte d'évaluer → voir IGNORED_PATTERNS)
-    // "Marie a laissé une évaluation 4 étoiles"  ← observé réel
-    /a\s+laiss[eé]\s+une?\s+[eé]valuation/i,
-    // "Un voyageur a récemment laissé une évaluation 1 étoile"  ← observé réel (prénom masqué)
-    /un(?:e)?\s+(?:de\s+vos\s+)?voyageurs?\s+a\s+(?:r[eé]cemment\s+)?laiss[eé]/i,
-    // "Un voyageur a récemment laissé un avis"  ← variante
-    /un(?:e)?\s+(?:de\s+vos\s+)?voyageurs?\s+a\s+(?:r[eé]cemment\s+)?[eé]valu[eé]/i,
-    // "A guest has recently left a review"  ← EN anonymisé
-    /a\s+guest\s+(?:has\s+)?(?:recently\s+)?left\s+(?:a\s+)?(?:review|rating)/i,
-    // "Marie a évalué / noté votre logement"
-    /a\s+[eé]valu[eé]\s+votre\s+(?:logement|s[eé]jour|annonce)/i,
-    /a\s+not[eé]\s+votre\s+(?:logement|s[eé]jour|annonce)/i,
-    // "Marie a laissé un avis"
-    /a\s+laiss[eé]\s+(?:un\s+)?avis/i,
-    // "vous a laissé une évaluation 5 étoiles !"  ← observé réel (prénom masqué par Airbnb)
-    /vous\s+a\s+(?:laiss[eé]\s+un[e]?\s+(?:avis|[eé]valuation)|not[eé])/i,
-    /vous\s+a\s+[eé]valu[eé]/i,
-    /nouvel?\s+avis/i,
-    /nouvelle?\s+[eé]valuation/i,
-    /new\s+review/i,
-    /left\s+you\s+a\s+review/i,
-    /left\s+(?:an?\s+)?evaluation/i,
-    /avis\s+re[cç]u/i,
-    /review\s+received/i,
-    /rated\s+you/i,
-    /rated?\s+your\s+(?:place|listing|home)/i,
-    /vous\s+a\s+not[eé]/i,
-    /a\s+[eé]valu[eé]\s+votre\s+s[eé]jour/i,
-    /reviewed\s+their\s+stay/i,
-    // Note explicite dans le sujet : "... 4 étoiles", "... 5 stars" / "1 étoile"
-    /\d\s*[eé]toiles?\s*[!.]?\s*$/i,
-      /\d\s*[eé]toiles?\s*$/i,
-      /[eé]valuation\s+\d\s*[eé]toiles?/i,
-      /avis\s+\d\s*[eé]toiles?/i,
-      /[eé]valuation\s+de\s+/i,
-      /avis\s+de\s+/i,
-    /\d\s*stars?\s*[!.]?\s*$/i,
-  ],
-  payout: [
-    // Versement hôte — Airbnb envoie de l'argent à l'hôte
-    // "Nous avons envoyé un versement de 63,62 €"  ← format exact Airbnb observé
-    /nous\s+avons\s+envoy[eé]\s+un\s+versement/i,
-    /votre\s+versement\s+de/i,
-    /versement\s+de\s+[\d,.\s]+\s*[€$£]/i,
-    /virement\s+(?:effectu[eé]|envoy[eé])/i,
-    /r[eè]glement\s+effectu[eé]/i,
-    // "Your payout of $X has been sent"
-    /your\s+payout\s+of/i,
-    /payout\s+(?:sent|of)\s+/i,
-    // Mots-clés seuls (moins précis, en dernier recours) — avec contexte montant pour éviter faux positifs
-    /\bversement\s+(?:de|du|pour|pr[eé]vu)\b/i,
-    /\bvirement\s+(?:de|du|bancaire|effectu[eé]|envoy[eé])\b/i,
-    /\bpayout\b/i,
-  ],
-};
+// ─── Détection : déléguée au moteur lib/gmail/ ─────────────────────────────
+//
+// Ce fichier ne classe plus les emails. Il extrait des champs.
+//
+// Auparavant il portait ~330 lignes de listes de regex (IGNORED_PATTERNS,
+// SUBJECT_PATTERNS) appliquées en « premier match gagne » selon un ordre de
+// type figé. Deux défauts structurels :
+//   • une règle trop large dans un groupe prioritaire capturait tout ;
+//   • un email « ignoré » disparaissait sans laisser de trace.
+//
+// La décision vit désormais dans lib/gmail/{signals,rules,classify}.ts :
+// signaux pondérés, arbitrages explicites, décision justifiée.
+// Voir lib/gmail/rules.ts pour le détail des motifs.
 
 const PARSER_PATTERN_VERSION = '2026.2';
-
-type BookingType = ParsedBooking['bookingType'];
-type SubjectPatternGroup = keyof typeof SUBJECT_PATTERNS;
-
-const SUBJECT_CLASSIFICATION_PRIORITY: Array<{ type: BookingType; groups: SubjectPatternGroup[] }> = [
-  { type: 'new', groups: ['new_fr', 'new_en'] },
-  { type: 'cancelled', groups: ['cancelled'] },
-  { type: 'modified', groups: ['modified'] },
-  { type: 'checkout', groups: ['checkout'] },
-  { type: 'reminder', groups: ['reminder'] },
-  { type: 'review', groups: ['review'] },
-  { type: 'payout', groups: ['payout'] },
-];
-
-const BODY_FALLBACK_RULES: Array<{ id: string; type: BookingType; regex: RegExp }> = [
-  { id: 'body.review.1', type: 'review', regex: /home_reviews|review_received|guest.*review|avis.*re[cç]u|[eé]valuation.*[eé]toiles|avis.*[eé]toiles|has left you a review/i },
-  { id: 'body.new.0', type: 'new', regex: /code\s+de\s+confirmation\s*[:\-]?\s*HM[A-Z0-9]{6,12}/i },
-  { id: 'body.new.0b', type: 'new', regex: /arriv[eé]e[\s\S]{0,120}d[eé]part/i },
-  { id: 'body.new.0c', type: 'new', regex: /logement\s+entier[\s\S]{0,140}code\s+de\s+confirmation/i },
-  { id: 'body.new.1', type: 'new', regex: /reservation_confirmation|booking_confirmation|new_reservation/i },
-  { id: 'body.cancelled.1', type: 'cancelled', regex: /cancellation|booking_cancelled|reservation_cancelled/i },
-  { id: 'body.payout.1', type: 'payout', regex: /host_payout|payout_sent|your\s+payout\s+of|nous\s+avons\s+envoy[eé]\s+un\s+versement/i },
-  { id: 'body.payout.2', type: 'payout', regex: /nous\s+avons\s+envoy[eé]\s+un\s+versement|we\s+sent\s+you\s+a\s+payout/i },
-  { id: 'body.checkout.1', type: 'checkout', regex: /checkout|check_out|s[eé]jour.*termin/i },
-  { id: 'body.reminder.1', type: 'reminder', regex: /reminder|rappel.*arriv/i },
-];
-
-function matchSubjectClassification(subject: string): { type: BookingType; ruleId: string; regex: string } | null {
-  const normalizedSubject = normalizeForMatching(subject);
-  for (const rule of SUBJECT_CLASSIFICATION_PRIORITY) {
-    for (const group of rule.groups) {
-      const patterns = SUBJECT_PATTERNS[group];
-      for (let i = 0; i < patterns.length; i++) {
-        const re = patterns[i];
-        if (re.test(subject) || re.test(normalizedSubject)) {
-          return {
-            type: rule.type,
-            ruleId: `subject.${group}.${i + 1}`,
-            regex: re.source,
-          };
-        }
-      }
-    }
-  }
-  return null;
-}
-
-function matchBodyFallbackClassification(body: string): { type: BookingType; ruleId: string; regex: string } | null {
-  const snippet = body.slice(0, 2000).toLowerCase();
-  const normalizedSnippet = normalizeForMatching(snippet).toLowerCase();
-  for (const rule of BODY_FALLBACK_RULES) {
-    if (rule.regex.test(snippet) || rule.regex.test(normalizedSnippet)) {
-      return {
-        type: rule.type,
-        ruleId: rule.id,
-        regex: rule.regex.source,
-      };
-    }
-  }
-  return null;
-}
 
 function normalizeForMatching(input: string): string {
   return input
@@ -1385,117 +1112,57 @@ function stripDateSuffix(s: string): string {
 
 // ─── Parser principal ───────────────────────────────────────────────────────
 
+/**
+ * Analyse préparée par le moteur de détection, réutilisable pour éviter de
+ * normaliser puis classer deux fois le même email.
+ */
+export interface PrecomputedDetection {
+  normalized: ReturnType<typeof normalizeEmail>;
+  signals: ReturnType<typeof extractSignals>;
+  classification: Classification;
+}
+
 export function parseAirbnbEmail(
   messageId: string,
   subject: string,
   from: string,
   body: string,
   receivedAt: string,
+  precomputed?: PrecomputedDetection,
 ): ParsedBooking | null {
   const warnings: string[] = [];
 
-  // --- NOUVEAU: Extraction pro du JSON-LD Schema.org ---
-  const jsonLdMatch = body.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i);
+  // Le JSON-LD Schema.org est extrait par la couche de signaux (lib/gmail/signals.ts).
   let jsonLdParsed: unknown = null;
-  if (jsonLdMatch && jsonLdMatch[1]) {
-    try {
-      jsonLdParsed = JSON.parse(jsonLdMatch[1]);
-      // Parfois c'est un tableau de schemas
-      if (Array.isArray(jsonLdParsed)) {
-        const schemaItem = jsonLdParsed.find((item: unknown) => {
-          if (!item || typeof item !== 'object') return false;
-          const typeValue = (item as { '@type'?: unknown })['@type'];
-          return typeValue === 'LodgingReservation' || typeValue === 'Reservation';
-        });
-        jsonLdParsed = schemaItem || jsonLdParsed[0];
-      }
-    } catch (e) {
-      console.warn("Échec du parsing JSON-LD Airbnb:", e);
-      warnings.push("Données structurées (JSON-LD) illisibles.");
-    }
-  }
 
-  // 1. Vérifier que c'est bien un email Airbnb
-  const isAirbnbSender = AIRBNB_SENDERS.some(s => from.toLowerCase().includes(s));
-  const isAirbnbSubject = /airbnb/i.test(subject) || /r[eé]servation/i.test(subject);
-  if (!isAirbnbSender && !isAirbnbSubject) return null;
 
-  // 1b. Ignorer les emails informatifs/maintenance/marketing — pas de réservation à importer
-  const normalizedSubjectForIgnore = normalizeForMatching(subject);
-  const isLikelyPayoutSubject = SUBJECT_PATTERNS.payout.some((p) => p.test(subject) || p.test(normalizedSubjectForIgnore))
-    || /\b(?:versement|payout|virement)\b/i.test(normalizedSubjectForIgnore);
-  if (!isLikelyPayoutSubject && IGNORED_PATTERNS.some(p => p.test(subject))) return null;
+  // ── 1-2. Détection : un seul appel au moteur ────────────────────────────
+  // normalisation → signaux → classification pondérée.
+  // Voir lib/gmail/ pour le détail. Ce fichier n'arbitre plus rien.
+  const normalized = precomputed?.normalized ?? normalizeEmail(subject, body);
+  const signals = precomputed?.signals ?? extractSignals(from, receivedAt, normalized);
+  const classification = precomputed?.classification ?? classifyEmail(signals);
 
-  // 2. Déterminer le type de mail (moteur versionné + traces)
-  // Hiérarchie explicite :
-  //   1) subject patterns (priorité stricte)
-  //   2) body fallback (slugs/tracking/texte)
-  let bookingType: ParsedBooking['bookingType'] = 'new';
-  let classificationSource: 'subject' | 'body-fallback' = 'subject';
-  let classificationRuleId = '';
-  let classificationRegex = '';
+  const isAirbnbSender = signals.isAirbnbSender;
 
-  const subjectMatch = matchSubjectClassification(subject);
-  if (subjectMatch) {
-    bookingType = subjectMatch.type;
-    classificationSource = 'subject';
-    classificationRuleId = subjectMatch.ruleId;
-    classificationRegex = subjectMatch.regex;
-  } else {
-    const bodyFallbackMatch = matchBodyFallbackClassification(body);
-    if (bodyFallbackMatch) {
-      bookingType = bodyFallbackMatch.type;
-      classificationSource = 'body-fallback';
-      classificationRuleId = bodyFallbackMatch.ruleId;
-      classificationRegex = bodyFallbackMatch.regex;
-    } else {
-      // Hard fallback payout : certains sujets Airbnb payout ont des variations Unicode
-      // ou de ponctuation qui peuvent rater les regex de classification standard.
-      const payoutSignalText = `${normalizeForMatching(subject)} ${normalizeForMatching(body.slice(0, 1200))}`;
-      const hasPayoutKeyword = /\b(?:versement|payout|virement|r[eé]mun[eé]ration)\b/i.test(payoutSignalText);
-      const hasMoneySignal = /(?:[€$£]|\b\d{1,4}[\s\u00a0\u202f]?[,.]\d{2}\b)/i.test(payoutSignalText);
+  // Seuls les genres actionnables produisent une fiche réservation.
+  // Les autres (message, litige, marketing…) ne sont plus « perdus » :
+  // analyzeAirbnbEmail() les restitue avec leur genre et leurs preuves.
+  const bookingType = toLegacyBookingType(classification.kind);
+  if (!bookingType) return null;
 
-      if (hasPayoutKeyword && hasMoneySignal) {
-        bookingType = 'payout';
-        classificationSource = 'body-fallback';
-        classificationRuleId = 'fallback.payout_hard_signal';
-        classificationRegex = '(versement|payout|virement)+(money)';
-      } else {
-        // Aucun type détecté ni depuis le sujet ni depuis le corps → ignorer
-        return null;
-      }
-    }
-  }
+  const classificationSource: 'subject' | 'body-fallback' =
+    classification.evidence.some((e) => e.kind === classification.kind && e.scope === 'subject')
+      ? 'subject'
+      : 'body-fallback';
+  const topEvidence = classification.evidence.find((e) => e.kind === classification.kind);
+  const classificationRuleId = topEvidence?.ruleId ?? 'unclassified';
+  const classificationRegex = topEvidence?.why ?? '';
 
-  // 2b. Garde anti faux-positif "payout" : un email de réservation peut inclure
-  // un bloc "Versement de l'hôte" dans son récap financier.
-  const hasConfirmationCodeSignal = /code\s+de\s+confirmation\s*[:\-]?\s*HM[A-Z0-9]{6,12}/i.test(body);
-  const hasStaySignalsInBody = /arriv[eé]e[\s\S]{0,180}d[eé]part/i.test(body)
-    || /logement\s+entier/i.test(body)
-    || /r[eé]servation\s+pour/i.test(body)
-    || /check.?in[\s\S]{0,120}check.?out/i.test(body);
-  const hasReservationSignalsInBody = hasStaySignalsInBody
-    || (hasConfirmationCodeSignal && /(?:arriv[eé]e|d[eé]part|check.?in|check.?out|s[eé]jour)/i.test(body));
-  if (bookingType === 'payout' && hasReservationSignalsInBody) {
-    bookingType = 'new';
-    classificationSource = 'body-fallback';
-    classificationRuleId = 'override.payout_contains_reservation_signals';
-    classificationRegex = 'code_confirmation|arrivee_depart|logement_entier';
-  }
+  jsonLdParsed = signals.jsonLd;
 
-  // 3. Nettoyer le HTML si présent
-  const text = body
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    // Balises de bloc → saut de ligne pour préserver la structure ligne par ligne
-    .replace(/<\/(?:tr|td|th|div|p|br|h[1-6]|li|section|article|header|footer|table|span)[^>]*>/gi, '\n')
-    .replace(/<(?:br|hr)[^>]*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
-    .replace(/[ \t]{2,}/g, ' ')
-    .replace(/\n[ \t]+/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  // 3. Texte nettoyé — issu de la couche de normalisation commune
+  const text = normalized.text;
 
   // 4. Extraire les dates — PAS pour les versements (dates bancaires ≠ dates séjour)
   let checkIn: string | null = null;
@@ -2051,6 +1718,14 @@ export function parseAirbnbEmail(
   classificationSource,
   classificationRuleId,
   classificationRegex,
+    kind: classification.kind,
+    classificationVerdict: classification.verdict,
+    classificationMargin: classification.margin,
+    classificationRunnerUp: classification.runnerUp?.kind,
+    classificationEvidence: classification.evidence
+      .filter((e) => e.kind === classification.kind)
+      .slice(0, 5)
+      .map((e) => ({ ruleId: e.ruleId, why: e.why, weight: e.weight })),
     isInstantBook,
     cancellationPolicy,
 
@@ -2066,6 +1741,94 @@ export function parseAirbnbEmail(
     // Permet de retrouver le logement pour les avis qui ne contiennent pas le nom
     airbnbListingId,
   };
+}
+
+// ─── Analyse complète — le nouveau point d'entrée ───────────────────────────
+
+/**
+ * Résultat d'analyse d'UN email, quel qu'il soit.
+ *
+ * Différence essentielle avec `parseAirbnbEmail` : cette fonction ne rend
+ * jamais `null`. Un email marketing, un litige, un message voyageur ressortent
+ * avec leur genre, leur confiance et leurs preuves — l'UI peut les afficher,
+ * les compter et expliquer pourquoi ils ne sont pas importés.
+ *
+ * C'est ce qui remplace l'ancien `return null` silencieux : plus rien ne
+ * disparaît entre Gmail et l'écran.
+ */
+export interface AnalyzedEmail {
+  messageId: string;
+  subject: string;
+  from: string;
+  receivedAt: string;
+
+  /** Genre retenu (taxonomie complète, 18 genres). */
+  kind: EmailKind;
+  /** Décision détaillée : score, écart, verdict, preuves. */
+  classification: Classification;
+  /** true si ce genre peut produire une réservation. */
+  actionable: boolean;
+
+  /** Fiche réservation — renseignée uniquement si `actionable`. */
+  booking: ParsedBooking | null;
+  /** Entrée prête à passer à `triage()`. */
+  triageItem: TriageItem;
+}
+
+export function analyzeAirbnbEmail(
+  messageId: string,
+  subject: string,
+  from: string,
+  body: string,
+  receivedAt: string,
+): AnalyzedEmail {
+  const normalized = normalizeEmail(subject, body);
+  const signals = extractSignals(from, receivedAt, normalized);
+  const classification = classifyEmail(signals);
+  const precomputed: PrecomputedDetection = { normalized, signals, classification };
+
+  const actionable = isActionableKind(classification.kind);
+  const booking = actionable
+    ? parseAirbnbEmail(messageId, subject, from, body, receivedAt, precomputed)
+    : null;
+
+  // Les avertissements du parser deviennent des motifs de tri lisibles.
+  const issues = (booking?.warnings ?? []).filter(
+    (w) => !/^Parser incertain/i.test(w),
+  );
+
+  const triageItem: TriageItem = {
+    messageId,
+    receivedAt,
+    subject: normalized.subject.slice(0, 200),
+    kind: classification.kind,
+    classification,
+    confirmationCode: booking?.confirmationCode ?? signals.confirmationCodes[0],
+    airbnbListingId: booking?.airbnbListingId ?? signals.listingIds[0],
+    guestName: booking?.guestName,
+    guestEmail: booking?.guestEmail,
+    checkIn: booking?.checkIn || undefined,
+    checkOut: booking?.checkOut || undefined,
+    issues,
+    payload: booking,
+  };
+
+  return {
+    messageId,
+    subject: normalized.subject.slice(0, 200),
+    from,
+    receivedAt,
+    kind: classification.kind,
+    classification,
+    actionable,
+    booking,
+    triageItem,
+  };
+}
+
+/** Libellé lisible du genre — pratique côté UI sans réimporter la taxonomie. */
+export function kindLabel(kind: EmailKind): string {
+  return KIND_META[kind].label;
 }
 
 // ─── Décodeur base64 Gmail ──────────────────────────────────────────────────
