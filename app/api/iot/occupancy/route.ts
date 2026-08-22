@@ -38,8 +38,15 @@ export async function GET(request: Request) {
       orderBy: { checkIn: 'asc' },
       select: { id: true, guestName: true, checkIn: true, checkOut: true, guests: true },
     });
+    // Dernier séjour terminé : ControlBnB en déduit la fenêtre « ménage »
+    // (porte ouverte dans les 48 h après un départ = passage, pas intrusion).
+    const previous = await prisma.booking.findFirst({
+      where: { propertyId: p.id, status: { in: ['CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'] }, checkOut: { lte: now } },
+      orderBy: { checkOut: 'desc' },
+      select: { id: true, guestName: true, checkIn: true, checkOut: true, guests: true },
+    });
     const fmt = (b: typeof current) => b && { bookingId: b.id, guestName: b.guestName, checkIn: b.checkIn.toISOString(), checkOut: b.checkOut.toISOString(), guests: b.guests };
-    result.push({ propertyId: p.id, name: p.name, current: fmt(current), next: fmt(next) });
+    result.push({ propertyId: p.id, name: p.name, current: fmt(current), next: fmt(next), previous: fmt(previous) });
   }
 
   return NextResponse.json({ generatedAt: now.toISOString(), properties: result });
