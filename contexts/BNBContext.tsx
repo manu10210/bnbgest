@@ -79,6 +79,11 @@ export interface Booking {
   // Horaires check-in/check-out (depuis emails Airbnb)
   checkInTime?: string;      // Heure d'arrivée (ex: "15:00")
   checkOutTime?: string;     // Heure de départ (ex: "11:00")
+  // Remontées de ControlBnB (domotique des appartements) via /api/iot/events
+  domotique?: {
+    arrivedAt?: string;      // première ouverture de la porte pendant le séjour
+    waterLiters?: number;    // eau consommée pendant le séjour
+  };
 }
 
 export interface Guest {
@@ -362,6 +367,7 @@ type ApiPaymentPayload = {
 type ApiBookingPayload = {
   id: number;
   propertyId: number;
+  metadata?: unknown;          // Json libre (ControlBnB y écrit arrived_at / water_liters)
   status?: string;
   totalPrice?: number;
   specialRequests?: string | null;
@@ -614,6 +620,13 @@ export function BNBProvider({ children }: { children: ReactNode }) {
                 : undefined,
               hostPayout: payoutFromNotes,
               payoutConfirmed: !!payoutFromNotes,
+              domotique: (() => {
+                const m = b.metadata && typeof b.metadata === 'object' ? (b.metadata as Record<string, unknown>) : null;
+                if (!m) return undefined;
+                const arrivedAt = typeof m.arrived_at === 'string' ? m.arrived_at : undefined;
+                const waterLiters = Number.isFinite(Number(m.water_liters)) ? Number(m.water_liters) : undefined;
+                return arrivedAt || waterLiters !== undefined ? { arrivedAt, waterLiters } : undefined;
+              })(),
             };
           });
 

@@ -215,6 +215,22 @@ export default function BookingsManager({ onEditBooking, onNewBooking, filteredB
                         {booking.guestInfo.name}
                       </h4>
                       {getStatusBadge(booking.status)}
+                      {booking.domotique?.arrivedAt && (
+                        <span
+                          title={`Porte ouverte le ${new Date(booking.domotique.arrivedAt).toLocaleString('fr-FR')} (ControlBnB)`}
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-50 text-emerald-700'}`}
+                        >
+                          ✓ arrivé
+                        </span>
+                      )}
+                      {booking.domotique?.waterLiters !== undefined && (
+                        <span
+                          title="Eau consommée pendant le séjour (ControlBnB)"
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${isDark ? 'bg-sky-500/20 text-sky-300' : 'bg-sky-50 text-sky-700'}`}
+                        >
+                          💧 {Math.round(booking.domotique.waterLiters)} L
+                        </span>
+                      )}
                     </div>
                     
                     <div className={`flex items-center gap-4 text-sm flex-wrap ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
