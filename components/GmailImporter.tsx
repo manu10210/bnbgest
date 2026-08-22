@@ -1116,31 +1116,35 @@ function enrichBookingGuestName(booking: ParsedBooking): ParsedBooking {
 // Clés en minuscules sans accents (normalizeForMatch est appliqué avant lookup).
 // Valeurs = nom exact tel qu'il apparaît dans BNBGest (accents conservés).
 const PROPERTY_ALIASES: Record<string, string> = {
-  // ── APPARTEMENT BLEU RELAX ────────────────────────────────────────────────
-  'appartement bleu relax':                        'APPARTEMENT BLEU RELAX',
-  'appart bleu relax':                             'APPARTEMENT BLEU RELAX',
-  'appartement bleu':                              'APPARTEMENT BLEU RELAX',
-  'bleu relax':                                    'APPARTEMENT BLEU RELAX',
-  'appartementbleurelax':                          'APPARTEMENT BLEU RELAX',
-  'appartbleurelax':                               'APPARTEMENT BLEU RELAX',
-  'bleurelax':                                     'APPARTEMENT BLEU RELAX',
-  'appartement bleu relaax':                       'APPARTEMENT BLEU RELAX',
-  'appartement bleu rlx':                          'APPARTEMENT BLEU RELAX',
+  // ── APPARTEMENT BLEU RELAX (ancien nom de « Cocon lumineux cosy ») ────────
+  'appartement bleu relax':                        'COCON LUMINEUX COSY (COIN CUISINE + BAIGNOIRE)',
+  'appart bleu relax':                             'COCON LUMINEUX COSY (COIN CUISINE + BAIGNOIRE)',
+  'appartement bleu':                              'COCON LUMINEUX COSY (COIN CUISINE + BAIGNOIRE)',
+  'bleu relax':                                    'COCON LUMINEUX COSY (COIN CUISINE + BAIGNOIRE)',
+  'appartementbleurelax':                          'COCON LUMINEUX COSY (COIN CUISINE + BAIGNOIRE)',
+  'appartbleurelax':                               'COCON LUMINEUX COSY (COIN CUISINE + BAIGNOIRE)',
+  'bleurelax':                                     'COCON LUMINEUX COSY (COIN CUISINE + BAIGNOIRE)',
+  'appartement bleu relaax':                       'COCON LUMINEUX COSY (COIN CUISINE + BAIGNOIRE)',
+  'appartement bleu rlx':                          'COCON LUMINEUX COSY (COIN CUISINE + BAIGNOIRE)',
   // ── APPARTEMENT LES CIGOGNES ──────────────────────────────────────────────
-  'appartement les cigognes':                      'APPARTEMENT LES CIGOGNES',
-  'appart les cigognes':                           'APPARTEMENT LES CIGOGNES',
-  'les cigognes':                                  'APPARTEMENT LES CIGOGNES',
-  'cigognes':                                      'APPARTEMENT LES CIGOGNES',
-  'appartementlescigognes':                        'APPARTEMENT LES CIGOGNES',
-  'appartlescigognes':                             'APPARTEMENT LES CIGOGNES',
-  'lescigognes':                                   'APPARTEMENT LES CIGOGNES',
-  'cigogne':                                       'APPARTEMENT LES CIGOGNES',
-  'appartement les cigogne':                       'APPARTEMENT LES CIGOGNES',
+  'appartement les cigognes':                      'COCON SOUS LES TOITS POUTRES APPARENTES',
+  'appart les cigognes':                           'COCON SOUS LES TOITS POUTRES APPARENTES',
+  'les cigognes':                                  'COCON SOUS LES TOITS POUTRES APPARENTES',
+  'cigognes':                                      'COCON SOUS LES TOITS POUTRES APPARENTES',
+  'appartementlescigognes':                        'COCON SOUS LES TOITS POUTRES APPARENTES',
+  'appartlescigognes':                             'COCON SOUS LES TOITS POUTRES APPARENTES',
+  'lescigognes':                                   'COCON SOUS LES TOITS POUTRES APPARENTES',
+  'cigogne':                                       'COCON SOUS LES TOITS POUTRES APPARENTES',
+  'appartement les cigogne':                       'COCON SOUS LES TOITS POUTRES APPARENTES',
+  // (« les cigognes » = ancien nom de « Cocon sous les toits »)
+  // ── MAISON DE VILLE AVEC PETITE TERRASSE COUVERTE ─────────────────────────
+  // Logement DISTINCT de la Maisonnette T2 (deux annonces Airbnb, réservations
+  // qui se chevauchent) — l'ancien alias vers « Maisonnette T2 » fondait les deux.
+  'maison de ville avec petite terrasse couverte': 'MAISON DE VILLE AVEC PETITE TERRASSE COUVERTE',
+  'maison de ville':                               'MAISON DE VILLE AVEC PETITE TERRASSE COUVERTE',
+  'maison de ville avec terrasse':                 'MAISON DE VILLE AVEC PETITE TERRASSE COUVERTE',
+  'petite terrasse couverte':                      'MAISON DE VILLE AVEC PETITE TERRASSE COUVERTE',
   // ── Maisonnette T2 quartier calme ─────────────────────────────────────────
-  'maison de ville avec petite terrasse couverte': 'Maisonnette T2 quartier calme',
-  'maison de ville':                               'Maisonnette T2 quartier calme',
-  'maison de ville avec terrasse':                 'Maisonnette T2 quartier calme',
-  'petite terrasse couverte':                      'Maisonnette T2 quartier calme',
   'maisonette t2 quartier calme':                  'Maisonnette T2 quartier calme',
   'maisonnette t2 quartier calme':                 'Maisonnette T2 quartier calme',
   'maisonette t2':                                 'Maisonnette T2 quartier calme',
