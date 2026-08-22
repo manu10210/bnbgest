@@ -45,8 +45,22 @@ export async function GET(request: Request) {
       orderBy: { checkOut: 'desc' },
       select: { id: true, guestName: true, checkIn: true, checkOut: true, guests: true },
     });
+    // Codes d'accès utiles maintenant : généraux (sans réservation) ou liés au
+    // séjour en cours / prochain, actifs et dans leur fenêtre de validité.
+    const codes = await prisma.accessCode.findMany({
+      where: {
+        propertyId: p.id, isActive: true,
+        OR: [{ bookingId: null }, ...[current?.id, next?.id].filter((x): x is number => typeof x === 'number').map((id) => ({ bookingId: id }))],
+        AND: [{ OR: [{ validFrom: null }, { validFrom: { lte: new Date(now.getTime() + 7 * 86400000) } }] }, { OR: [{ validUntil: null }, { validUntil: { gte: now } }] }],
+      },
+      orderBy: [{ bookingId: 'asc' }, { type: 'asc' }],
+      select: { id: true, label: true, code: true, type: true, bookingId: true, validFrom: true, validUntil: true },
+    });
     const fmt = (b: typeof current) => b && { bookingId: b.id, guestName: b.guestName, checkIn: b.checkIn.toISOString(), checkOut: b.checkOut.toISOString(), guests: b.guests };
-    result.push({ propertyId: p.id, name: p.name, current: fmt(current), next: fmt(next), previous: fmt(previous) });
+    result.push({
+      propertyId: p.id, name: p.name, current: fmt(current), next: fmt(next), previous: fmt(previous),
+      accessCodes: codes.map((c) => ({ id: c.id, label: c.label, code: c.code, type: c.type, bookingId: c.bookingId, validFrom: c.validFrom?.toISOString() ?? null, validUntil: c.validUntil?.toISOString() ?? null })),
+    });
   }
 
   return NextResponse.json({ generatedAt: now.toISOString(), properties: result });
