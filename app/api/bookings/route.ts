@@ -14,6 +14,7 @@ import {
   normalizeGuestEmail,
   normalizeGuestPhone,
 } from '@/lib/guest-identity';
+import { cleanGuestName, extractConfirmationCode, findByListingId, learnListingId, loadIdentities } from '@/lib/property-identity';
 
 /**
  * GET /api/bookings
@@ -165,13 +166,33 @@ export async function POST(request: Request) {
     
     const sessionUserId = owner.id;
 
-    const normalizedGuestName = validatedData.guestName.trim();
+    const normalizedGuestName = cleanGuestName(validatedData.guestName);
     const normalizedGuestEmail = normalizeGuestEmail(validatedData.guestEmail) || '';
     const normalizedGuestPhone = normalizeGuestPhone(validatedData.guestPhone);
-    const normalizedConfirmationCode = normalizeConfirmationCode(validatedData.confirmationCode);
+    // Code de confirmation : champ dédié, sinon récupéré dans les notes
+    // (les imports de versements le laissaient uniquement dans specialRequests).
+    const normalizedConfirmationCode = normalizeConfirmationCode(validatedData.confirmationCode)
+      || extractConfirmationCode(validatedData.specialRequests, validatedData.notes);
     const normalizedExternalId = typeof validatedData.externalId === 'string' && validatedData.externalId.trim().length > 0
       ? validatedData.externalId.trim()
       : null;
+
+    // Ancre stable : si l'identifiant d'annonce Airbnb est déjà connu sur une
+    // propriété, c'est ELLE qui reçoit la réservation, quel que soit le nom
+    // deviné côté client. Sinon on l'apprend sur la propriété choisie.
+    const listingId = typeof validatedData.airbnbListingId === 'string' ? validatedData.airbnbListingId : null;
+    let listingDecision: string | null = null;
+    if (listingId) {
+      const identities = await loadIdentities(prisma, owner.id);
+      const known = findByListingId(identities, listingId);
+      if (known && known.id !== validatedData.propertyId) {
+        listingDecision = `property_redirected_by_listing_id:${validatedData.propertyId}=>${known.id}`;
+        validatedData.propertyId = known.id;
+      } else if (!known) {
+        const learned = await learnListingId(prisma, owner.id, validatedData.propertyId, listingId);
+        if (learned.learned) listingDecision = `listing_id_learned:${listingId}=>${validatedData.propertyId}`;
+      }
+    }
 
     // Déduplication idempotente primaire via ID externe (message Gmail)
     if (normalizedExternalId) {
@@ -204,11 +225,13 @@ export async function POST(request: Request) {
       }
     }
 
-    // Déduplication primaire via code de confirmation Airbnb
+    // Déduplication primaire via code de confirmation Airbnb — un code Airbnb
+    // est unique : on cherche sur TOUTES les propriétés (un doublon créé sur
+    // une propriété renommée ne doit pas passer).
     if (normalizedConfirmationCode) {
       const duplicateByCode = await prisma.booking.findFirst({
         where: {
-          propertyId: validatedData.propertyId,
+          property: { userId: owner.id },
           OR: [
             { confirmationCode: { equals: normalizedConfirmationCode, mode: 'insensitive' } },
             { specialRequests: { contains: normalizedConfirmationCode, mode: 'insensitive' } },
@@ -231,7 +254,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           success: true,
           duplicate: true,
-          dedupeReason: 'confirmation_code',
+          dedupeReason: duplicateByCode.propertyId === validatedData.propertyId ? 'confirmation_code' : 'confirmation_code_other_property',
           booking: duplicateByCode,
         });
       }
@@ -379,6 +402,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: true,
+        ...(listingDecision ? { listingDecision } : {}),
         booking,
       },
       { status: 201 }

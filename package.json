@@ -45,7 +45,8 @@
     "test:api": "playwright test tests/api-performance.spec.ts",
     "test:gmail-parser": "tsx tests/parser/gmail-parser-quality.ts",
     "test:gmail-detection": "tsx tests/parser/gmail-detection-quality.ts",
-    "test:gmail": "npm run test:gmail-parser && npm run test:gmail-detection"
+    "test:gmail": "npm run test:gmail-parser && npm run test:gmail-detection && npm run test:property-identity",
+    "test:property-identity": "tsx tests/parser/property-identity-quality.ts"
   },
   "bundlesize": [
     {

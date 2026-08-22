@@ -17,6 +17,8 @@ export interface PersistBookingPayload {
   paymentInfo?: {
     transactionId?: string | null;
   } | null;
+  /** Identifiant d'annonce Airbnb : le serveur s'en sert comme ancre stable. */
+  airbnbListingId?: string | null;
 }
 
 export interface PersistBookingUpdatePayload {
@@ -133,6 +135,7 @@ export async function persistBookingToDb(
     specialRequests: specialReqs ? specialReqs.slice(0, 4900) : null,
     confirmationCode: payload.paymentInfo?.transactionId ?? null,
     notes: null,
+    airbnbListingId: payload.airbnbListingId && /^\d{5,20}$/.test(payload.airbnbListingId) ? payload.airbnbListingId : undefined,
   };
 
   const confirmationCode = payload.paymentInfo?.transactionId ?? null;

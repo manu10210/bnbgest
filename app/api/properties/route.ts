@@ -6,6 +6,7 @@ import { PropertyStatus } from '@prisma/client';
 import { requireAuth } from '@/lib/auth-middleware';
 import { rateLimit } from '@/lib/rate-limit';
 import { PropertySchema } from '@/lib/validations';
+import { findByNameOrAlias } from '@/lib/property-identity';
 
 // Enable ISR with 60 seconds revalidation
 export const revalidate = 60;
@@ -183,6 +184,24 @@ export async function POST(request: Request) {
     }
 
     const validatedData = validated.data;
+
+    // Pas de doublon : même nom (ou ancien nom fusionné) → on rend l'existante.
+    // Une annonce Airbnb renommée ne doit pas faire naître une 2e propriété.
+    const existing = await prisma.property.findMany({
+      where: { userId: owner.id },
+      select: { id: true, name: true, status: true, metadata: true },
+    });
+    const duplicate = findByNameOrAlias(existing, validatedData.name);
+    if (duplicate) {
+      const full = await prisma.property.findUnique({
+        where: { id: duplicate.id },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      });
+      return NextResponse.json(
+        { success: true, duplicate: true, dedupeReason: 'name_or_alias', property: full },
+        { status: 200 },
+      );
+    }
 
     const property = await prisma.property.create({
       data: {

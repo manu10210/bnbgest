@@ -132,7 +132,14 @@ export const BookingSchema = z.object({
     .max(191, 'External ID must be less than 191 characters')
     .optional()
     .nullable(),
-  
+
+  // Identifiant d'annonce Airbnb (/rooms/123…) : ancre STABLE du logement,
+  // utilisé côté serveur pour rattacher la réservation à la bonne propriété.
+  airbnbListingId: z.string()
+    .regex(/^\d{5,20}$/, 'Invalid Airbnb listing id')
+    .optional()
+    .nullable(),
+
 }).refine(data => {
   const checkIn = new Date(data.checkIn);
   const checkOut = new Date(data.checkOut);

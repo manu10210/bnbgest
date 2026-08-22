@@ -2193,7 +2193,9 @@ export default function GmailImporter() {
   }, [normalizeCountryCode]);
 
   const fetchDbProperties = useCallback(async (): Promise<Property[]> => {
-    const res = await fetch('/api/properties?limit=300', { credentials: 'include' });
+    // ACTIVE seulement : une propriété fusionnée (INACTIVE) ne doit plus
+    // concourir au rattachement ni rouvrir l'assistant de création.
+    const res = await fetch('/api/properties?limit=300&status=ACTIVE', { credentials: 'include' });
     if (!res.ok) {
       throw new Error(`Impossible de charger les propriétés DB (${res.status})`);
     }
@@ -2478,11 +2480,13 @@ export default function GmailImporter() {
       });
 
       return localBookings.find((candidate) => {
-        if (options?.propertyId && candidate.propertyId !== options.propertyId) return false;
-
+        // Le code de confirmation prime sur la propriété : une annonce renommée
+        // peut avoir rattaché l'annulation/modification à une autre propriété.
         if (normalizedCode && bookingHasConfirmationCode(candidate, normalizedCode)) {
           return true;
         }
+
+        if (options?.propertyId && candidate.propertyId !== options.propertyId) return false;
 
         if (!bookingMatchesGuestIdentity(candidate, identity)) return false;
 
@@ -2634,6 +2638,7 @@ export default function GmailImporter() {
       return persistBookingToDb({
         ...payload,
         sourceMessageId: booking.messageId,
+        airbnbListingId: booking.airbnbListingId ?? null,
       }, bookingType);
     };
 

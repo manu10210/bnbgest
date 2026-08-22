@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-middleware';
+import { mergeIdentity, normalizeLabel, readIdentity } from '@/lib/property-identity';
 
 export async function POST(request: Request) {
   const authResult = await requireAuth(request);
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const { propertyIds, newName } = await request.json();
+    const { propertyIds, newName, mainPropertyId } = await request.json();
 
     const normalizedPropertyIds = Array.isArray(propertyIds)
       ? Array.from(new Set(propertyIds.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0)))
@@ -79,7 +80,8 @@ export async function POST(request: Request) {
       return new Date(property.createdAt).getTime();
     };
 
-    const mainProperty = properties.reduce((best, candidate) => {
+    const requestedMain = Number(mainPropertyId);
+    const mainProperty = properties.find(p => p.id === requestedMain) ?? properties.reduce((best, candidate) => {
       return getReferenceTs(candidate) > getReferenceTs(best) ? candidate : best;
     }, properties[0]);
 
@@ -168,6 +170,27 @@ export async function POST(request: Request) {
       await tx.property.updateMany({
         where: { id: { in: sourcePropertyIds } },
         data: { status: 'INACTIVE' }
+      });
+
+      // 5b. La principale hérite des noms, alias et identifiants d'annonce des
+      // doublons : le prochain mail portant l'ancien nom ira au bon logement.
+      const sources = properties.filter(p => p.id !== mainProperty.id);
+      const inherited = mergeIdentity(mainProperty.metadata, {
+        aliases: sources.flatMap(p => [p.name, ...readIdentity(p.metadata).aliases]),
+        airbnbListingIds: sources.flatMap(p => readIdentity(p.metadata).airbnbListingIds),
+      });
+      await tx.property.update({ where: { id: mainProperty.id }, data: { metadata: inherited } });
+
+      // 5c. Et l'importateur Gmail apprend l'alias (table de décisions).
+      const platform = `gmail_property_decisions:${owner.id}`;
+      const decisions = await tx.integrationSetting.findUnique({ where: { platform } });
+      const cfg = (decisions?.config && typeof decisions.config === 'object' ? decisions.config : {}) as { aliases?: Record<string, string>; rejectedLabels?: string[] };
+      const aliases = { ...(cfg.aliases || {}) };
+      for (const p of sources) aliases[normalizeLabel(p.name)] = newName || mainProperty.name;
+      await tx.integrationSetting.upsert({
+        where: { platform },
+        update: { config: { ...cfg, aliases, updatedAt: new Date().toISOString() } },
+        create: { platform, enabled: true, syncStatus: 'manual', lastSyncAt: new Date(), config: { aliases, rejectedLabels: cfg.rejectedLabels || [], updatedAt: new Date().toISOString() } },
       });
 
       // 6. Update main property name if requested
